@@ -1,0 +1,23 @@
+===========================================
+SERVER ENVIRONMENT VARIABLES SETUP
+===========================================
+
+Create a .env file in the Server folder with the following variables:
+
+PORT=5000
+NODE_ENV=development
+DATABASE_URL=your_neon_database_connection_string_here
+JWT_SECRET=your_jwt_secret_key_here
+JWT_EXPIRE=7d
+CLIENT_URL=http://localhost:3000
+
+===========================================
+INSTRUCTIONS:
+===========================================
+1. Copy this file content
+2. Create a new file named ".env" in the Server folder
+3. Paste the variables above
+4. Replace the placeholder values with your actual values:
+   - DATABASE_URL: Get this from your Neon DB dashboard
+   - JWT_SECRET: Generate a secure random string
+

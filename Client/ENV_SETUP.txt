@@ -1,0 +1,16 @@
+===========================================
+CLIENT ENVIRONMENT VARIABLES SETUP
+===========================================
+
+Create a .env file in the Client folder with the following variables:
+
+VITE_API_URL=http://localhost:5000/api
+
+===========================================
+INSTRUCTIONS:
+===========================================
+1. Copy this file content
+2. Create a new file named ".env" in the Client folder
+3. Paste the variable above
+4. Adjust the API URL if your server runs on a different port
+
