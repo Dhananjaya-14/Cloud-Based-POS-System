@@ -1,10 +1,7 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 import Header from './Header';
 
-const RegisterLayout = ({ children, disableScroll = false }) => {
-  const navigate = useNavigate();
-
+const LoginLayout = ({ children }) => {
   const outerContainer = {
     height: '100vh',
     display: 'flex',
@@ -33,7 +30,18 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
     overflow: 'hidden'
   };
 
-  const leftGradient = {
+  const leftFormCard = {
+    flex: 1.1,
+    backgroundColor: 'white',
+    padding: '50px',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflowY: 'auto'
+  };
+
+  const rightGradient = {
     flex: 0.9,
     background: 'linear-gradient(135deg, #00B4EB 0%, #0056A2 50%, #50B748 100%)',
     display: 'flex',
@@ -45,25 +53,23 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
     position: 'relative',
   };
 
-  const rightFormCard = {
-    flex: 1.1,
-    backgroundColor: 'white',
-    padding: '50px',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    overflowY: disableScroll ? 'hidden' : 'auto'
-  };
-
   return (
     <div style={outerContainer}>
       <Header />
       <div style={mainContentWrapper}>
         <div style={contentInner}>
-          {/* Left Side: Gradient Panel */}
-          <div style={leftGradient}>
-            <h1 style={{ fontSize: '3.2rem', fontWeight: '700', marginBottom: '10px' }}>Welcome</h1>
-            <p style={{ fontSize: '1rem', opacity: 0.9 }}>Enter your details to get started.</p>
+          {/* Left Side: Form */}
+          <div style={leftFormCard}>
+            <div style={{ width: '100%', maxWidth: '420px' }}>
+              {children}
+            </div>
+          </div>
+
+          {/* Right Side: Gradient Panel */}
+          <div style={rightGradient}>
+            <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>Welcome Back.</h1>
+            <p style={{ fontSize: '1rem', opacity: 0.9 }}>To the Management System, </p>
+            <p style={{ fontSize: '1rem', opacity: 0.9 }}>Please log in.</p>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
               <span style={pillStyle}>🔒 Secure Login</span>
@@ -71,28 +77,6 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
               <span style={pillStyle}>🛡️ Easy to Use</span>
             </div>
 
-            <p style={{ marginTop: '40px', fontSize: '13px' }}>
-              Already have an Account?{' '}
-              <span
-                onClick={() => navigate('/')}
-                style={{ textDecoration: 'underline', cursor: 'pointer' }}
-              >
-                Sign In
-              </span>
-            </p>
-
-            <div style={{ position: 'absolute', bottom: '40px', display: 'flex', gap: '15px' }}>
-              <div style={socialCircle}>📧</div>
-              <div style={socialCircle}>f</div>
-              <div style={socialCircle}>💬</div>
-            </div>
-          </div>
-
-          {/* Right Side: Form */}
-          <div style={rightFormCard}>
-            <div style={{ width: '100%', maxWidth: '420px' }}>
-              {children}
-            </div>
           </div>
         </div>
       </div>
@@ -109,25 +93,16 @@ const pillStyle = {
 };
 
 const socialCircle = {
-  width: '38px',
-  height: '38px',
+  width: '35px',
+  height: '35px',
   backgroundColor: 'white',
-  borderRadius: '10px',
+  borderRadius: '8px',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   color: '#0072ff',
   fontSize: '18px',
-  boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-  cursor: 'pointer'
+  boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
 };
 
-export default RegisterLayout;
-
-
-
-
-
-
-
-
+export default LoginLayout;

@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import RegisterLayout from '../components/register/RegisterLayout';
+import LoginLayout from '../components/register/LoginLayout';
 
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
 
   return (
-    <RegisterLayout>
-      <div style={{ textAlign: 'center' }}>
+    <LoginLayout>
+      <div>
         {/* 1. Badge */}
         <div style={badgeStyle}>
           <span style={dotStyle}></span>
@@ -17,35 +17,35 @@ const Login = () => {
         </div>
 
         {/* 2. Heading */}
-        <h2 style={{ fontSize: '28px', color: '#1a1a1a', margin: '10px 0' }}>Login</h2>
-        <p style={{ color: '#888', marginBottom: '30px' }}>
+        <h2 style={{ fontSize: '26px', color: '#1a1a1a', margin: '12px 0 4px' }}>Login</h2>
+        <p style={{ color: '#888', marginBottom: '28px', fontSize: '14px' }}>
           Welcome back! Please login to your account.
         </p>
 
         {/* 3. Form */}
-        <form style={{ textAlign: 'left' }}>
+        <form>
           {/* Username/Email */}
           <div style={inputGroup}>
             <label style={labelStyle}>Username or Email</label>
             <div style={{ position: 'relative' }}>
               <Mail size={18} style={iconStyle} />
-              <input 
-                type="text" 
-                style={inputWithIconStyle} 
-                placeholder="Enter your username or email" 
+              <input
+                type="text"
+                style={inputWithIconStyle}
+                placeholder="Enter your username or email"
               />
             </div>
           </div>
 
           {/* Password */}
-          <div style={{ ...inputGroup, marginTop: '20px' }}>
+          <div style={{ ...inputGroup, marginTop: '18px' }}>
             <label style={labelStyle}>Password</label>
             <div style={{ position: 'relative' }}>
               <Lock size={18} style={iconStyle} />
-              <input 
-                type={showPassword ? "text" : "password"} 
-                style={inputWithIconStyle} 
-                placeholder="Enter your password" 
+              <input
+                type={showPassword ? 'text' : 'password'}
+                style={inputWithIconStyle}
+                placeholder="Enter your password"
               />
               <button
                 type="button"
@@ -59,10 +59,10 @@ const Login = () => {
 
           {/* Remember & Forgot */}
           <div style={rowStyle}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', color: '#555' }}>
               <input type="checkbox" /> Remember Me
             </label>
-            <span style={{ color: '#0056A2', fontSize: '14px', cursor: 'pointer' }}>Forgot Password?</span>
+            <span style={{ color: '#0056A2', fontSize: '13px', cursor: 'pointer', fontWeight: '600' }}>Forgot Password?</span>
           </div>
 
           {/* Login Button */}
@@ -72,30 +72,39 @@ const Login = () => {
         </form>
 
         {/* 4. Sign Up Link */}
-        <p style={{ marginTop: '20px', fontSize: '14px', color: '#666' }}>
-          New Here?{" "}
-          <span 
+        <p style={{ marginTop: '20px', fontSize: '14px', color: '#666', textAlign: 'center' }}>
+          New Here?{' '}
+          <span
             onClick={() => navigate('/register/step-1')}
             style={{ color: '#0056A2', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
           >
             Sign Up
           </span>
         </p>
+
+        {/* 5. Social Icons */}
+        <div style={socialRow}>
+          <div style={socialCircle}>📧</div>
+          <div style={socialCircle}>f</div>
+          <div style={socialCircle}>💬</div>
+        </div>
       </div>
-    </RegisterLayout>
+    </LoginLayout>
   );
 };
 
-// Consistent Internal Styles
-const badgeStyle = { display: 'inline-flex', alignItems: 'center', gap: '8px', backgroundColor: '#0056A2', color: 'white', padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600' };
+// Styles
+const badgeStyle = { display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(90deg, #0056A2 0%, #00B4EB 100%)', color: 'white', padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600' };
 const dotStyle = { height: '8px', width: '8px', backgroundColor: '#4ade80', borderRadius: '50%' };
 const inputGroup = { display: 'flex', flexDirection: 'column', gap: '8px' };
 const labelStyle = { fontSize: '14px', fontWeight: '600', color: '#444' };
-const inputWithIconStyle = { width: '100%', padding: '12px 12px 12px 40px', borderRadius: '10px', border: '1px solid #ddd', boxSizing: 'border-box' };
+const inputWithIconStyle = { width: '100%', padding: '12px 12px 12px 40px', borderRadius: '10px', border: '1px solid #ddd', boxSizing: 'border-box', fontSize: '14px' };
 const iconStyle = { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#999' };
 const eyeButtonStyle = { position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', border: 'none', background: 'none', cursor: 'pointer', color: '#999' };
-const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '15px' };
-const primaryBtn = { width: '100%', padding: '15px', backgroundColor: '#0056A2', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', fontSize: '16px', marginTop: '25px', cursor: 'pointer' };
+const rowStyle = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '14px' };
+const primaryBtn = { width: '100%', padding: '14px', background: 'linear-gradient(90deg, #0056A2 0%, #00B4EB 100%)', color: 'white', border: 'none', borderRadius: '15px', fontWeight: 'bold', fontSize: '16px', marginTop: '24px', cursor: 'pointer', letterSpacing: '0.3px' };
+const socialRow = { display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '16px' };
+const socialCircle = { width: '38px', height: '38px', backgroundColor: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0072ff', fontSize: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1px solid #eee', cursor: 'pointer' };
 
 export default Login;
 
