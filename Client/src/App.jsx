@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
+import BranchManagement from './pages/admin/BranchManagement';
 
 
 function App() {
@@ -17,7 +18,7 @@ function App() {
         <Route path="/register/step-3" element={<RegisterStep3 />} />
         
 
-
+        <Route path="/branches" element={<BranchManagement />} />
 
 
         <Route path="*" element={<Navigate to="/" />} />
