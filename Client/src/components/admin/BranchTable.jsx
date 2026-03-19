@@ -1,6 +1,6 @@
 import React from "react";
 import Button from "./Button";
-import { FaUserCircle } from "react-icons/fa";
+import { FaHotel } from "react-icons/fa";
 
 const BranchTable = ({ branches }) => {
   return (
@@ -25,14 +25,14 @@ const BranchTable = ({ branches }) => {
 
         <tbody>
           {branches.map((b) => (
-            <tr key={b.id} style={{ borderBottom: "1px solid #ddd" }}>
+            <tr key={b.B_id} style={{ borderBottom: "1px solid #ddd" }}>
               <td style={{ padding: "10px", display: "flex", gap: "10px", alignItems: "center" }}>
-                <FaUserCircle size={30} color="#3A4DBF" />
-                {b.name}
+                <FaHotel size={30} color="#3A4DBF" />
+                {b.B_name}
               </td>
-              <td>{b.address}</td>
-              <td>{b.contact}</td>
-              <td>{b.email}</td>
+              <td>{b.B_address}</td>
+              <td>{b.B_conNo}</td>
+              <td>{b.B_email}</td>
               <td>
                 <button
                   style={{
