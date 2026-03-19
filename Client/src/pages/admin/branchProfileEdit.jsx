@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaArrowLeft, FaHotel, FaEdit, FaTrashAlt } from "react-icons/fa";
+import { FaArrowLeft, FaSave, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
@@ -10,8 +10,8 @@ const inputBase = {
   border: "1px solid #d8e0ed",
   borderRadius: "12px",
   padding: "10px 14px",
-  color: "#6d7c96",
-  background: "#f9fbff",
+  color: "#30425f",
+  background: "#ffffff",
   fontSize: "0.95rem",
   outline: "none",
 };
@@ -24,15 +24,25 @@ const labelBase = {
   fontSize: "1rem",
 };
 
-const BranchProfile = () => {
+const BranchProfileEdit = () => {
   const { branchId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
   const [branch, setBranch] = useState(location.state?.branch || null);
-  const [manager, setManager] = useState(null);
+  const [manager, setManager] = useState(location.state?.manager || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [form, setForm] = useState({
+    B_name: "",
+    B_email: "",
+    B_address: "",
+    B_conNo: "",
+    managerName: "",
+    username: "",
+    password: "",
+    status: "Active",
+  });
 
   useEffect(() => {
     let mounted = true;
@@ -43,9 +53,18 @@ const BranchProfile = () => {
         setError("");
 
         let branchData = location.state?.branch || null;
+        let managerData = location.state?.manager || null;
 
         if (!branchData || String(branchData.B_id) !== String(branchId)) {
           branchData = await getBranchById(branchId);
+        }
+
+        if (branchData?.U_id && !managerData) {
+          try {
+            managerData = await getUserById(branchData.U_id);
+          } catch {
+            managerData = null;
+          }
         }
 
         if (!mounted) {
@@ -53,21 +72,22 @@ const BranchProfile = () => {
         }
 
         setBranch(branchData);
+        setManager(managerData);
 
-        if (branchData?.U_id) {
-          try {
-            const managerData = await getUserById(branchData.U_id);
-            if (mounted) {
-              setManager(managerData);
-            }
-          } catch {
-            if (mounted) {
-              setManager(null);
-            }
-          }
-        } else {
-          setManager(null);
-        }
+        const fullName = [managerData?.u_fname || "", managerData?.u_lname || ""]
+          .join(" ")
+          .trim();
+
+        setForm({
+          B_name: branchData?.B_name || "",
+          B_email: branchData?.B_email || "",
+          B_address: branchData?.B_address || "",
+          B_conNo: branchData?.B_conNo || "",
+          managerName: fullName,
+          username: managerData?.u_email ? managerData.u_email.split("@")[0] : "",
+          password: "",
+          status: "Active",
+        });
       } catch (err) {
         if (mounted) {
           setError(err?.response?.data?.message || "Unable to load branch profile.");
@@ -86,24 +106,27 @@ const BranchProfile = () => {
     };
   }, [branchId, location.state]);
 
-  const managerName = useMemo(() => {
-    const first = manager?.u_fname || "";
-    const last = manager?.u_lname || "";
-    const full = `${first} ${last}`.trim();
-    return full || "Not assigned";
-  }, [manager]);
-
-  const username = useMemo(() => {
-    if (!manager?.u_email) {
-      return "-";
-    }
-    return manager.u_email.split("@")[0];
-  }, [manager]);
-
   const branchInitial = useMemo(() => {
-    const name = branch?.B_name || "B";
+    const name = form.B_name || branch?.B_name || "B";
     return name.charAt(0).toUpperCase();
-  }, [branch]);
+  }, [form.B_name, branch]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const goToProfile = () => {
+    navigate(`/branch_profile/${branchId}`, {
+      state: { branch, manager },
+    });
+  };
+
+  const handleSave = (e) => {
+    e.preventDefault();
+    // UI navigation only: data update API can be added later.
+    goToProfile();
+  };
 
   return (
     <div style={{ display: "flex", background: "#eff1f5", minHeight: "100vh" }}>
@@ -123,7 +146,7 @@ const BranchProfile = () => {
           >
             <button
               type="button"
-              onClick={() => navigate("/branches")}
+              onClick={goToProfile}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -137,7 +160,7 @@ const BranchProfile = () => {
                 marginBottom: "20px",
               }}
             >
-              <FaArrowLeft /> Back to Branches
+              <FaArrowLeft /> Back to Branch Profile
             </button>
 
             <h1
@@ -150,7 +173,7 @@ const BranchProfile = () => {
                 lineHeight: 1,
               }}
             >
-              Branch Profile
+              Edit Branch Profile
             </h1>
 
             <div style={{ marginTop: "22px", borderBottom: "1px solid #e5e9f2" }}>
@@ -164,7 +187,7 @@ const BranchProfile = () => {
                   borderBottom: "3px solid #2f3cff",
                 }}
               >
-                Profile
+                Edit Profile
               </span>
             </div>
 
@@ -173,7 +196,7 @@ const BranchProfile = () => {
             ) : error ? (
               <p style={{ color: "#c0392b", textAlign: "center", marginTop: "32px" }}>{error}</p>
             ) : (
-              <>
+              <form onSubmit={handleSave}>
                 <div
                   style={{
                     display: "grid",
@@ -195,7 +218,7 @@ const BranchProfile = () => {
                       fontSize: "2.2rem",
                       fontWeight: 700,
                       marginTop: "18px",
-                      boxShadow: "0 6px 15px rgba(100, 52, 18, 0.25)",
+                      boxShadow: "0 6px 15px rgba(30, 63, 154, 0.35)",
                     }}
                   >
                     {branchInitial}
@@ -208,14 +231,26 @@ const BranchProfile = () => {
                       gap: "14px 18px",
                     }}
                   >
-                    <Field label="Branch Name" value={branch?.B_name} />
-                    <Field label="Branch Admin Name" value={managerName} />
-                    <Field label="Email" value={branch?.B_email} />
-                    <Field label="Username" value={username} />
-                    <Field label="Address" value={branch?.B_address} />
-                    <Field label="Password" value="**********" />
-                    <Field label="Contact Number" value={branch?.B_conNo} />
-                    <Field label="Status" value="Active" />
+                    <EditableField label="Branch Name" name="B_name" value={form.B_name} onChange={handleChange} />
+                    <EditableField
+                      label="Branch Admin Name"
+                      name="managerName"
+                      value={form.managerName}
+                      onChange={handleChange}
+                    />
+                    <EditableField label="Email" name="B_email" value={form.B_email} onChange={handleChange} />
+                    <EditableField label="Username" name="username" value={form.username} onChange={handleChange} />
+                    <EditableField label="Address" name="B_address" value={form.B_address} onChange={handleChange} />
+                    <EditableField
+                      label="Password"
+                      name="password"
+                      value={form.password}
+                      onChange={handleChange}
+                      type="password"
+                      placeholder="Enter new password"
+                    />
+                    <EditableField label="Contact Number" name="B_conNo" value={form.B_conNo} onChange={handleChange} />
+                    <EditableField label="Status" name="status" value={form.status} onChange={handleChange} />
                   </div>
                 </div>
 
@@ -229,12 +264,7 @@ const BranchProfile = () => {
                   }}
                 >
                   <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/branch_profile/${branchId}/edit`, {
-                        state: { branch, manager },
-                      })
-                    }
+                    type="submit"
                     style={{
                       border: "none",
                       width: "128px",
@@ -251,11 +281,12 @@ const BranchProfile = () => {
                       fontSize: "1.05rem",
                     }}
                   >
-                    <FaEdit /> Edit
+                    <FaSave /> Save
                   </button>
 
                   <button
                     type="button"
+                    onClick={goToProfile}
                     style={{
                       border: "none",
                       width: "128px",
@@ -272,10 +303,10 @@ const BranchProfile = () => {
                       fontSize: "1.05rem",
                     }}
                   >
-                    <FaTrashAlt /> Delete
+                    <FaTimes /> Cancel
                   </button>
                 </div>
-              </>
+              </form>
             )}
           </div>
         </div>
@@ -284,13 +315,20 @@ const BranchProfile = () => {
   );
 };
 
-const Field = ({ label, value }) => {
+const EditableField = ({ label, name, value, onChange, type = "text", placeholder }) => {
   return (
     <div>
       <label style={labelBase}>{label}</label>
-      <input value={value ?? "-"} readOnly style={inputBase} />
+      <input
+        name={name}
+        value={value}
+        onChange={onChange}
+        type={type}
+        placeholder={placeholder}
+        style={inputBase}
+      />
     </div>
   );
 };
 
-export default BranchProfile;
+export default BranchProfileEdit;
