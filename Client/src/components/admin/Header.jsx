@@ -1,7 +1,7 @@
 import React from "react";
 import { FaBell, FaUserCircle } from "react-icons/fa";
 
-const Header = () => {
+const Header = ({ title = "Branch Management" }) => {
   return (
     <div
       style={{
@@ -17,7 +17,7 @@ const Header = () => {
       {/* <h2>Branch Management</h2> */}
 
       <h2 style={{ fontSize: "26px", margin: 0, fontWeight: "500" }}>
-        Branch Management
+        {title}
       </h2>
 
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>

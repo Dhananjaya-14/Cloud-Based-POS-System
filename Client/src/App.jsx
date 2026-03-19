@@ -5,6 +5,9 @@ import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
 import BranchManagement from './pages/admin/BranchManagement';
+import AddUser from './pages/admin/AddUser';
+import EditUser from './pages/admin/EditUser';
+
 
 
 function App() {
@@ -19,6 +22,8 @@ function App() {
         
 
         <Route path="/branches" element={<BranchManagement />} />
+        <Route path="/users" element={<AddUser />} />
+        <Route path="/edit" element={<EditUser/>}/>
 
 
         <Route path="*" element={<Navigate to="/" />} />
