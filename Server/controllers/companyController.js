@@ -1,7 +1,7 @@
 import pool from "../config/database.js";
 
 // GET /api/companies
-// all companies
+// All companies
 export async function getCompanies(req, res, next) {
   try {
     const result = await pool.query(
