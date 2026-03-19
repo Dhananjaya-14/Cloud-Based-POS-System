@@ -7,6 +7,16 @@ export const getBranches = async () => {
   return response.data;
 };
 
+export const getUsers = async () => {
+  const response = await axios.get(`${BASE_URL}/users`);
+  return response.data;
+};
+
+export const getRoles = async () => {
+  const response = await axios.get(`${BASE_URL}/roles`);
+  return response.data;
+};
+
 export const getBranchById = async (branchId) => {
   const response = await axios.get(`${BASE_URL}/branches/${branchId}`);
   return response.data;
@@ -21,6 +31,10 @@ export const getUserById = async (userId) => {
 export const createUser = async (userData) => {
   const res = await axios.post(`${BASE_URL}/users`, userData);
   return res.data; // This returns { u_id, ... }
+};
+
+export const deleteUserById = async (userId) => {
+  await axios.delete(`${BASE_URL}/users/${userId}`);
 };
 
 // 2. Create Branch
