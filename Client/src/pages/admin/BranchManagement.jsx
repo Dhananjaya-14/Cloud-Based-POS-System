@@ -3,10 +3,12 @@ import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import BranchTable from "../../components/admin/BranchTable";
 import Button from "../../components/admin/Button";
+import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches } from "../../services/api";
 
 const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
+  const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
     fetchBranches();
@@ -33,12 +35,18 @@ const BranchManagement = () => {
             }}
           >
             <h1 style={{ fontSize: "22px", margin: 10, fontWeight: "500" }}>Branch Management</h1>
-            <Button label="+ New Branch" />
+            <Button label="+ New Branch" onClick={() => setShowModal(true)} />
           </div>
 
           <BranchTable branches={branches} />
         </div>
       </div>
+      {showModal && (
+        <AddBranchWizard
+          onClose={() => setShowModal(false)}
+          onSuccess={fetchBranches}
+        />
+      )}
     </div>
   );
 };
