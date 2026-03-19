@@ -1,7 +1,10 @@
 import React from "react";
 import { FaHotel, FaMapMarkerAlt, FaPhoneAlt, FaEnvelope, FaExternalLinkAlt } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 
 const BranchTable = ({ branches }) => {
+  const navigate = useNavigate();
+
   return (
     <div
       style={{
@@ -65,6 +68,11 @@ const BranchTable = ({ branches }) => {
               <td style={{ ...cellStyle, textAlign: "right" }}>
                 <button
                   style={buttonStyle}
+                  onClick={() =>
+                    navigate(`/branch_profile/${b.B_id}`, {
+                      state: { branch: b },
+                    })
+                  }
                   onMouseOver={(e) => {
                     e.currentTarget.style.background = "#3A4DBF";
                     e.currentTarget.style.color = "#fff";
