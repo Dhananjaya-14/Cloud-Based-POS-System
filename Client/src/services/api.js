@@ -7,6 +7,16 @@ export const getBranches = async () => {
   return response.data;
 };
 
+export const getBranchById = async (branchId) => {
+  const response = await axios.get(`${BASE_URL}/branches/${branchId}`);
+  return response.data;
+};
+
+export const getUserById = async (userId) => {
+  const response = await axios.get(`${BASE_URL}/users/${userId}`);
+  return response.data;
+};
+
 // 1. Create User
 export const createUser = async (userData) => {
   const res = await axios.post(`${BASE_URL}/users`, userData);
