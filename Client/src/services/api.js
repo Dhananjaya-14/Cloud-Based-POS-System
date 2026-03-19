@@ -22,6 +22,10 @@ export const getBranchById = async (branchId) => {
   return response.data;
 };
 
+export const deleteBranchById = async (branchId) => {
+  await axios.delete(`${BASE_URL}/branches/${branchId}`);
+};
+
 export const getUserById = async (userId) => {
   const response = await axios.get(`${BASE_URL}/users/${userId}`);
   return response.data;

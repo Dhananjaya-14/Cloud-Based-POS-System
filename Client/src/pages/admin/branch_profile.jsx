@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaArrowLeft, FaHotel, FaEdit, FaTrashAlt } from "react-icons/fa";
+import { FaArrowLeft, FaEdit, FaTrashAlt } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import { getBranchById, getUserById } from "../../services/api";
+import { deleteBranchById, getBranchById, getUserById } from "../../services/api";
 
 const inputBase = {
   width: "100%",
@@ -33,6 +33,9 @@ const BranchProfile = () => {
   const [manager, setManager] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -105,22 +108,49 @@ const BranchProfile = () => {
     return name.charAt(0).toUpperCase();
   }, [branch]);
 
+  const handleDeleteClick = () => {
+    setDeleteError("");
+    setShowDeleteModal(true);
+  };
+
+  const handleCancelDelete = () => {
+    if (deleting) {
+      return;
+    }
+    setShowDeleteModal(false);
+    setDeleteError("");
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      setDeleting(true);
+      setDeleteError("");
+      await deleteBranchById(branchId);
+      navigate("/branches");
+    } catch (err) {
+      setDeleteError(err?.response?.data?.message || "Unable to delete branch. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
-    <div style={{ display: "flex", background: "#eff1f5", minHeight: "100vh" }}>
-      <Sidebar />
+    <>
+      <div style={{ display: "flex", background: "#eff1f5", minHeight: "100vh" }}>
+        <Sidebar />
 
-      <div style={{ flex: 1, marginLeft: "240px" }}>
-        <Header />
+        <div style={{ flex: 1, marginLeft: "240px" }}>
+          <Header />
 
-        <div style={{ padding: "0 20px 20px" }}>
-          <div
-            style={{
-              minHeight: "calc(100vh - 90px)",
-              background: "#ffffff",
-              borderRadius: "0 0 10px 10px",
-              padding: "28px 34px",
-            }}
-          >
+          <div style={{ padding: "0 20px 20px" }}>
+            <div
+              style={{
+                minHeight: "calc(100vh - 90px)",
+                background: "#ffffff",
+                borderRadius: "0 0 10px 10px",
+                padding: "28px 34px",
+              }}
+            >
             <button
               type="button"
               onClick={() => navigate("/branches")}
@@ -256,6 +286,7 @@ const BranchProfile = () => {
 
                   <button
                     type="button"
+                    onClick={handleDeleteClick}
                     style={{
                       border: "none",
                       width: "128px",
@@ -280,7 +311,131 @@ const BranchProfile = () => {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+
+      {showDeleteModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.62)",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            zIndex: 1500,
+            padding: "16px",
+          }}
+        >
+          <div style={{ width: "100%", maxWidth: "380px" }}>
+            <p
+              style={{
+                margin: "0 0 10px",
+                color: "#4a4a4a",
+                fontSize: "1.2rem",
+                fontWeight: 500,
+              }}
+            >
+              Delete branch
+            </p>
+
+            <div
+              style={{
+                background: "#ffffff",
+                borderRadius: "10px",
+                padding: "22px 24px 20px",
+                boxShadow: "0 14px 34px rgba(0, 0, 0, 0.3)",
+              }}
+            >
+              <h2
+                style={{
+                  margin: 0,
+                  textAlign: "center",
+                  color: "#101828",
+                  fontSize: "1.85rem",
+                  fontWeight: 700,
+                  lineHeight: 1.1,
+                }}
+              >
+                Delete Confirmation
+              </h2>
+
+              <p
+                style={{
+                  margin: "10px 0 16px",
+                  textAlign: "center",
+                  color: "#4b5563",
+                  fontSize: "1.05rem",
+                  lineHeight: 1.25,
+                }}
+              >
+                Are you sure you want
+                <br />
+                to delete this branch?
+              </p>
+
+              {deleteError ? (
+                <p
+                  style={{
+                    margin: "0 0 12px",
+                    textAlign: "center",
+                    color: "#dc2626",
+                    fontSize: "0.92rem",
+                  }}
+                >
+                  {deleteError}
+                </p>
+              ) : null}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: "12px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  disabled={deleting}
+                  style={{
+                    border: "1px solid #d1d5db",
+                    background: "#f3f4f6",
+                    color: "#dc2626",
+                    borderRadius: "8px",
+                    height: "44px",
+                    fontWeight: 500,
+                    fontSize: "1rem",
+                    cursor: deleting ? "not-allowed" : "pointer",
+                    opacity: deleting ? 0.75 : 1,
+                  }}
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleConfirmDelete}
+                  disabled={deleting}
+                  style={{
+                    border: "none",
+                    background: "#dc2626",
+                    color: "#ffffff",
+                    borderRadius: "8px",
+                    height: "44px",
+                    fontWeight: 600,
+                    fontSize: "1rem",
+                    cursor: deleting ? "not-allowed" : "pointer",
+                    opacity: deleting ? 0.75 : 1,
+                  }}
+                >
+                  {deleting ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
