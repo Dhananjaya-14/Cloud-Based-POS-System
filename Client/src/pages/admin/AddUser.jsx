@@ -10,8 +10,8 @@ import StatusToggle from "../../components/admin/StatusToggle";
 import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { createUser, getBranches, getRoles } from "../../services/api";
-
-const UserManagement = () => {
+import {Link} from 'react-router-dom';
+const AddUser = () => {
 	const [formData, setFormData] = useState({
 		firstName: "",
 		lastName: "",
@@ -140,7 +140,7 @@ const UserManagement = () => {
 				<Header title="User Management" />
 
 				<div style={{ padding: "18px 24px 28px" }}>
-					<div
+				<a href="/users">	<div
 						style={{
 							display: "inline-flex",
 							alignItems: "center",
@@ -152,10 +152,14 @@ const UserManagement = () => {
 							cursor: "pointer",
 						}}
 					>
+						
 						<FaArrowLeft size={14} />
 						<span>Back to User Management</span>
+						
+						
+						
 					</div>
-
+</a>
 					<div style={{ maxWidth: "980px", margin: "0 auto" }}>
 						<h1
 							style={{
@@ -396,4 +400,4 @@ const UserManagement = () => {
 	);
 };
 
-export default UserManagement;
+export default AddUser;

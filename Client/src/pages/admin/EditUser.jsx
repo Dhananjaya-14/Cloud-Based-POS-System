@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { FaArrowLeft, FaCheck } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
@@ -12,8 +12,8 @@ import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { getBranches, getRoles, getUserById, updateUser } from "../../services/api";
 
-const UserManagement = () => {
-    const location = useLocation();
+const EditUser = () => {
+    const { userId } = useParams();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         firstName: "",
@@ -36,15 +36,8 @@ const UserManagement = () => {
     const [showSuccessToast, setShowSuccessToast] = useState(false);
 
     const resolvedUserId = useMemo(() => {
-        const queryUserId = new URLSearchParams(location.search).get("id");
-        const stateUserId =
-            location.state?.userId ??
-            location.state?.u_id ??
-            location.state?.user?.u_id ??
-            location.state?.user?.id;
-
-        return String(queryUserId || stateUserId || "").trim();
-    }, [location.search, location.state]);
+        return String(userId || "").trim();
+    }, [userId]);
 
     const updateField = (field, value) => {
         if (!isEditMode) {
@@ -124,8 +117,7 @@ const UserManagement = () => {
         }));
     }, [branches]);
 
-    const handleSubmit = async (event) => {
-        event.preventDefault();
+    const submitUserUpdate = async () => {
         setErrorMessage("");
 
         if (!isEditMode) {
@@ -180,6 +172,22 @@ const UserManagement = () => {
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const handleSubmit = async (event) => {
+        event.preventDefault();
+        await submitUserUpdate();
+    };
+
+    const handlePrimaryAction = async () => {
+        setErrorMessage("");
+
+        if (!isEditMode) {
+            setIsEditMode(true);
+            return;
+        }
+
+        await submitUserUpdate();
     };
 
     const isFormLocked = isLoadingOptions || isLoadingUser || !isEditMode;
@@ -362,15 +370,9 @@ const UserManagement = () => {
 
                                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "8px" }}>
                                     <Button
-                                        label={
-                                            !isEditMode
-                                                ? "Edit User Details"
-                                                : isSubmitting
-                                                  ? "Saving..."
-                                                  : "Save Changes"
-                                        }
-                                        type={isEditMode ? "submit" : "button"}
-                                        onClick={!isEditMode ? () => setIsEditMode(true) : undefined}
+                                        label={!isEditMode ? "Edit User Details" : isSubmitting ? "Saving..." : "Save Changes"}
+                                        type="button"
+                                        onClick={handlePrimaryAction}
                                         disabled={isSubmitting || isLoadingOptions || isLoadingUser || !resolvedUserId}
                                         style={{
                                             width: "200px",
@@ -445,7 +447,10 @@ const UserManagement = () => {
                         </h2>
 
                         <button
-                            onClick={() => setShowSuccessToast(false)}
+                            onClick={() => {
+                                setShowSuccessToast(false);
+                                navigate("/users");
+                            }}
                             style={{
                                 marginTop: "16px",
                                 width: "100%",
@@ -468,4 +473,4 @@ const UserManagement = () => {
     );
 };
 
-export default UserManagement;
+export default EditUser;

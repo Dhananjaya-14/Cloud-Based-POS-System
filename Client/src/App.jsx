@@ -9,6 +9,10 @@ import AddUser from './pages/admin/AddUser';
 import EditUser from './pages/admin/EditUser';
 
 
+import BranchProfile from './pages/admin/branch_profile';
+import BranchProfileEdit from './pages/admin/branchProfileEdit';
+import UserManagement from './pages/admin/UserManagement';
+
 
 function App() {
   return (
@@ -22,8 +26,11 @@ function App() {
         
 
         <Route path="/branches" element={<BranchManagement />} />
-        <Route path="/users" element={<AddUser />} />
-        <Route path="/edit" element={<EditUser/>}/>
+        <Route path="/users" element={<UserManagement />} />
+        <Route path="/users/add" element={<AddUser />} />
+        <Route path="/users/:userId/edit" element={<EditUser/>}/>
+        <Route path="/branch_profile/:branchId" element={<BranchProfile />} />
+        <Route path="/branch_profile/:branchId/edit" element={<BranchProfileEdit />} />
 
 
         <Route path="*" element={<Navigate to="/" />} />
