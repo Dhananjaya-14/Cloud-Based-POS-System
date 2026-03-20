@@ -16,7 +16,9 @@ const Header = ({ title = "Branch Management" }) => {
     >
       {/* <h2>Branch Management</h2> */}
 
-      <h2 style={{ fontSize: "26px", margin: 0, fontWeight: "500" }}>{title}</h2>
+      <h2 style={{ fontSize: "26px", margin: 0, fontWeight: "500" }}>
+        {title}
+      </h2>
 
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
         <FaBell size={20} />
