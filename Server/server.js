@@ -5,6 +5,7 @@ import userRoutes from "./routes/userRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import branchRoutes from "./routes/branchRoutes.js";
+import tableRoutes from "./routes/tableRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 dotenv.config();
@@ -15,7 +16,7 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "*",
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 
@@ -27,6 +28,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
 app.use("/api/branches", branchRoutes);
+app.use("/api/tables", tableRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -37,4 +39,3 @@ app.listen(PORT, () => {
   // eslint-disable-next-line no-console
   console.log(`Server running on port ${PORT}`);
 });
-
