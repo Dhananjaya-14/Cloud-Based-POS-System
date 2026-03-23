@@ -9,6 +9,10 @@ import {
   deleteTableAssignment,
 } from "../controllers/tableAssignmentController.js";
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 const router = express.Router();
 
 router.get("/", getTableAssignments);
