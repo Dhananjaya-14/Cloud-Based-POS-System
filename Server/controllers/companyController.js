@@ -99,10 +99,10 @@ export async function updateCompany(req, res, next) {
 }
 
 // DELETE /api/companies/:id
-// delete company
 export async function deleteCompany(req, res, next) {
   try {
     const { id } = req.params;
+
     const result = await pool.query(
       'DELETE FROM "Company" WHERE "com_id" = $1 RETURNING "com_id"',
       [id]
@@ -115,6 +115,11 @@ export async function deleteCompany(req, res, next) {
 
     res.status(204).send();
   } catch (err) {
+    // Handle foreign key constraint (e.g., if branches still reference this company)
+    if (err?.code === "23503") {
+      res.status(400);
+      return next(new Error("Cannot delete company because it is in use"));
+    }
     next(err);
   }
 }

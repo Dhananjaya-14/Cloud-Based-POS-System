@@ -1,4 +1,5 @@
 import express from "express";
+import { requireAuth } from "../middleware/authMiddleware.js";
 import {
   getBranches,
   getBranchById,
@@ -8,6 +9,9 @@ import {
 } from "../controllers/branchController.js";
 
 const router = express.Router();
+
+// Protect all branch endpoints
+router.use(requireAuth);
 
 router.get("/", getBranches);
 router.get("/:id", getBranchById);
