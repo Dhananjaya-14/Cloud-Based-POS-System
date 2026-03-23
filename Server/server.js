@@ -16,6 +16,8 @@ import branchRoutes from "./routes/branchRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
+import reservationRoutes from "./routes/reservationRoutes.js";
+
 
 // Import error handling middleware
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
@@ -46,6 +48,7 @@ app.use("/api/branches", branchRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
+app.use("/api/reservations", reservationRoutes);
 
 // Error handling
 app.use(notFound);
