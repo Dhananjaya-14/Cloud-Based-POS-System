@@ -1,4 +1,5 @@
 import express from "express";
+import { requireAuth } from "../middleware/authMiddleware.js";
 import {
   getCompanies,
   getCompanyById,
@@ -8,6 +9,9 @@ import {
 } from "../controllers/companyController.js";
 
 const router = express.Router();
+
+// Protect all company endpoints
+router.use(requireAuth);
 
 router.get("/", getCompanies);
 router.get("/:id", getCompanyById);

@@ -5,6 +5,13 @@ import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
 import BranchManagement from './pages/admin/BranchManagement';
+import AddUser from './pages/admin/AddUser';
+import EditUser from './pages/admin/EditUser';
+
+
+import BranchProfile from './pages/admin/branch_profile';
+import BranchProfileEdit from './pages/admin/branchProfileEdit';
+import UserManagement from './pages/admin/UserManagement';
 
 
 function App() {
@@ -19,6 +26,11 @@ function App() {
         
 
         <Route path="/branches" element={<BranchManagement />} />
+        <Route path="/users" element={<UserManagement />} />
+        <Route path="/users/add" element={<AddUser />} />
+        <Route path="/users/:userId/edit" element={<EditUser/>}/>
+        <Route path="/branch_profile/:branchId" element={<BranchProfile />} />
+        <Route path="/branch_profile/:branchId/edit" element={<BranchProfileEdit />} />
 
 
         <Route path="*" element={<Navigate to="/" />} />
