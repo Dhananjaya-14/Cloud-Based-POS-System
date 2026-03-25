@@ -12,6 +12,8 @@ import EditUser from './pages/admin/EditUser';
 import BranchProfile from './pages/admin/branch_profile';
 import BranchProfileEdit from './pages/admin/branchProfileEdit';
 import UserManagement from './pages/admin/UserManagement';
+import ProductManagement from './pages/branch-admin/ProductManagement';
+import AddProduct from './pages/branch-admin/AddProduct';
 
 
 function App() {
@@ -31,6 +33,8 @@ function App() {
         <Route path="/users/:userId/edit" element={<EditUser/>}/>
         <Route path="/branch_profile/:branchId" element={<BranchProfile />} />
         <Route path="/branch_profile/:branchId/edit" element={<BranchProfileEdit />} />
+        <Route path="/branch-admin/products" element={<ProductManagement />} />
+        <Route path="/branch-admin/products/add" element={<AddProduct />} />
 
 
         <Route path="*" element={<Navigate to="/" />} />
