@@ -17,6 +17,7 @@ import companyRoutes from "./routes/companyRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
+import terminalRoutes from "./routes/terminalRoutes.js";
 
 
 // Import error handling middleware
@@ -49,6 +50,7 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
 app.use("/api/reservations", reservationRoutes);
+app.use("/api/terminals", terminalRoutes);
 
 // Error handling
 app.use(notFound);
