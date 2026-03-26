@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FaCashRegister,
   FaFilter,
@@ -21,6 +22,7 @@ import {
 } from "../../services/api";
 
 const UserManagement = () => {
+  const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -193,7 +195,7 @@ const UserManagement = () => {
             </h1>
             <button
               type="button"
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => navigate("/users/add")}
               style={{
                 border: "none",
                 background: "#0b61b5",
@@ -384,6 +386,7 @@ const UserManagement = () => {
                             <div style={{ display: "inline-flex", gap: "10px", justifyContent: "center" }}>
                               <button
                                 type="button"
+                                onClick={() => navigate(`/users/${user.u_id}/edit`)}
                                 style={{
                                   width: "30px",
                                   height: "30px",
@@ -391,12 +394,12 @@ const UserManagement = () => {
                                   background: "#f5f8fd",
                                   borderRadius: "8px",
                                   color: "#607094",
-                                  cursor: "not-allowed",
+                                  cursor: "pointer",
                                   display: "inline-flex",
                                   alignItems: "center",
                                   justifyContent: "center",
                                 }}
-                                title="Edit user (next step)"
+                                title="Edit user"
                               >
                                 <FaPen size={11} />
                               </button>
