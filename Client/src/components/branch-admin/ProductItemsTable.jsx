@@ -12,6 +12,9 @@ const ProductItemsTable = ({
   onDecreaseStock,
   onIncreaseStock,
   updatingStockId = null,
+  onViewProduct,
+  onEditProduct,
+  onDeleteProduct,
 }) => {
   return (
     <>
@@ -60,7 +63,24 @@ const ProductItemsTable = ({
               <tr key={item.id} style={{ borderTop: "1px solid #EEF2F7" }}>
                 <td style={{ padding: "10px 14px", fontSize: "28px" }}>{item.image}</td>
                 <td style={{ padding: "10px 14px" }}>
-                  <div style={{ fontSize: "15px", fontWeight: "600", color: "#1F2937" }}>{item.name}</div>
+                  <button
+                    type="button"
+                    onClick={() => onViewProduct?.(item.id)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      padding: 0,
+                      margin: 0,
+                      display: "block",
+                      textAlign: "left",
+                      fontSize: "15px",
+                      fontWeight: "600",
+                      color: "#1F2937",
+                      cursor: onViewProduct ? "pointer" : "default",
+                    }}
+                  >
+                    {item.name}
+                  </button>
                   <div style={{ fontSize: "12px", color: "#9CA3AF", marginTop: "3px" }}>{item.sku}</div>
                 </td>
                 <td style={{ padding: "10px 14px", color: "#6B7280", fontSize: "14px" }}>{item.category}</td>
@@ -147,6 +167,7 @@ const ProductItemsTable = ({
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <button
                       type="button"
+                      onClick={() => onEditProduct?.(item.id)}
                       style={{
                         width: "24px",
                         height: "24px",
@@ -163,6 +184,7 @@ const ProductItemsTable = ({
                     </button>
                     <button
                       type="button"
+                      onClick={() => onDeleteProduct?.(item.id)}
                       style={{
                         width: "24px",
                         height: "24px",
@@ -174,6 +196,7 @@ const ProductItemsTable = ({
                         placeItems: "center",
                         padding: 0,
                       }}
+                      title="Delete product"
                     >
                       <FaTrashAlt color="#FF6A6A" size={10} />
                     </button>

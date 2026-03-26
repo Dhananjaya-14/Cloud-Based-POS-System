@@ -174,6 +174,18 @@ const ProductManagement = () => {
 		}
 	};
 
+	const handleViewProduct = (productId) => {
+		navigate(`/branch-admin/products/${productId}`);
+	};
+
+	const handleEditProduct = (productId) => {
+		navigate(`/branch-admin/products/${productId}/edit`);
+	};
+
+	const handleDeleteProduct = (productId) => {
+		navigate(`/branch-admin/products/${productId}/delete`);
+	};
+
 	return (
 		<div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
 			<Sidebar />
@@ -361,6 +373,9 @@ const ProductManagement = () => {
 						products={tableProducts}
 						onDecreaseStock={(id) => handleAdjustStock(id, -1)}
 						onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+						onViewProduct={handleViewProduct}
+						onEditProduct={handleEditProduct}
+						onDeleteProduct={handleDeleteProduct}
 						updatingStockId={updatingStockId}
 					/>
 				</div>

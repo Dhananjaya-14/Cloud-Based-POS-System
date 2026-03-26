@@ -12,6 +12,7 @@ import BranchProfileEdit from './pages/admin/branchProfileEdit';
 import UserManagement from './pages/admin/UserManagement';
 import ProductManagement from './pages/branch-admin/ProductManagement';
 import AddProduct from './pages/branch-admin/AddProduct';
+import ProductDetails from './pages/branch-admin/ProductDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -91,6 +92,33 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
             <AddProduct />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId/delete"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <ProductDetails />
           </ProtectedRoute>
         }
       />
