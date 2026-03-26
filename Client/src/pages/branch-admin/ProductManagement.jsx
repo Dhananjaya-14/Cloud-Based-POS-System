@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
 	FaBell,
@@ -11,53 +11,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-
-const products = [
-	{
-		id: 1,
-		image: "🍔",
-		name: "Classic Cheeseburger",
-		sku: "SKU: CHB-001",
-		category: "Main Course",
-		price: "$12.50",
-		discount: "10%",
-		stock: 42,
-		status: "In stock",
-	},
-	{
-		id: 2,
-		image: "🥗",
-		name: "Garden Salmon Salad",
-		sku: "SKU: SAL-042",
-		category: "Salads",
-		price: "$15.00",
-		discount: "15%",
-		stock: 5,
-		status: "Low stock",
-	},
-	{
-		id: 3,
-		image: "🍩",
-		name: "Choco Donut",
-		sku: "SKU: DNT-009",
-		category: "Desserts",
-		price: "$3.25",
-		discount: "05%",
-		stock: 0,
-		status: "Out of stock",
-	},
-	{
-		id: 4,
-		image: "☕",
-		name: "Iced Coffee",
-		sku: "SKU: BEV-112",
-		category: "Beverages",
-		price: "$5.45",
-		discount: "10%",
-		stock: 128,
-		status: "In stock",
-	},
-];
+import { getProducts, updateProduct } from "../../services/api";
 
 const cardBaseStyle = {
 	flex: "0 1 calc((100% - 60px) / 3)",
@@ -108,8 +62,117 @@ const statValueStyle = {
 	textAlign: "center",
 };
 
+const getStockStatus = (quantity) => {
+	if (quantity <= 0) return "Out of stock";
+	if (quantity <= 10) return "Low stock";
+	return "In stock";
+};
+
+const mapApiProductToTableItem = (product) => {
+	const quantity = Number(product.pro_qty ?? 0);
+	const price = Number(product.pro_price ?? 0);
+
+	return {
+		id: product.pro_id,
+		image: "📦",
+		name: product.pro_name,
+		sku: `SKU: PRD-${String(product.pro_id).padStart(3, "0")}`,
+		category: "General",
+		price: `$${price.toFixed(2)}`,
+		discount: "0%",
+		stock: quantity,
+		status: getStockStatus(quantity),
+	};
+};
+
 const ProductManagement = () => {
 	const navigate = useNavigate();
+	const [searchTerm, setSearchTerm] = useState("");
+	const [products, setProducts] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState("");
+	const [updatingStockId, setUpdatingStockId] = useState(null);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadProducts = async () => {
+			try {
+				setLoading(true);
+				setError("");
+				const response = await getProducts();
+				if (!isMounted) return;
+				setProducts(Array.isArray(response) ? response : []);
+			} catch (err) {
+				if (!isMounted) return;
+				setError(err?.response?.data?.message || "Failed to load products");
+				setProducts([]);
+			} finally {
+				if (isMounted) setLoading(false);
+			}
+		};
+
+		loadProducts();
+
+		return () => {
+			isMounted = false;
+		};
+	}, []);
+
+	const tableProducts = useMemo(() => {
+		const mapped = products.map(mapApiProductToTableItem);
+		const query = searchTerm.trim().toLowerCase();
+
+		if (!query) return mapped;
+
+		return mapped.filter((item) => {
+			return (
+				item.name.toLowerCase().includes(query) ||
+				item.sku.toLowerCase().includes(query) ||
+				item.category.toLowerCase().includes(query)
+			);
+		});
+	}, [products, searchTerm]);
+
+	const totalItems = products.length;
+	const lowStockCount = products.filter((item) => {
+		const quantity = Number(item.pro_qty ?? 0);
+		return quantity > 0 && quantity <= 10;
+	}).length;
+	const outOfStockCount = products.filter((item) => Number(item.pro_qty ?? 0) <= 0).length;
+
+	const handleAdjustStock = async (productId, delta) => {
+		if (updatingStockId !== null) return;
+
+		const existing = products.find((item) => item.pro_id === productId);
+		if (!existing) return;
+
+		const currentQty = Number(existing.pro_qty ?? 0);
+		const nextQty = Math.max(0, currentQty + delta);
+		if (nextQty === currentQty) return;
+
+		try {
+			setUpdatingStockId(productId);
+			setError("");
+			const updated = await updateProduct(productId, { pro_qty: nextQty });
+
+			setProducts((prev) =>
+				prev.map((item) =>
+					item.pro_id === productId
+						? {
+							...item,
+							...updated,
+							pro_qty: Number(updated?.pro_qty ?? nextQty),
+						}
+						: item
+				)
+			);
+		} catch (err) {
+			setError(err?.response?.data?.message || "Failed to update stock quantity");
+		} finally {
+			setUpdatingStockId(null);
+		}
+	};
 
 	return (
 		<div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
@@ -159,8 +222,8 @@ const ProductManagement = () => {
 										width: "100%",
 										fontSize: "14px",
 										color: "#6B7280",
-                                        margintop: "15px"
 									}}
+									onChange={(event) => setSearchTerm(event.target.value)}
 								/>
 							</div>
 							<Button
@@ -188,7 +251,7 @@ const ProductManagement = () => {
 							</div>
 							<div style={statTextWrapStyle}>
 								<div style={statTitleStyle}>Total Items</div>
-								<div style={statValueStyle}>150</div>
+								<div style={statValueStyle}>{totalItems}</div>
 							</div>
 							<div style={statRightSpacerStyle} />
 						</div>
@@ -204,7 +267,7 @@ const ProductManagement = () => {
 							</div>
 							<div style={statTextWrapStyle}>
 								<div style={statTitleStyle}>Low Stock</div>
-								<div style={statValueStyle}>19</div>
+								<div style={statValueStyle}>{lowStockCount}</div>
 							</div>
 							<div style={statRightSpacerStyle} />
 						</div>
@@ -220,11 +283,21 @@ const ProductManagement = () => {
 							</div>
 							<div style={statTextWrapStyle}>
 								<div style={statTitleStyle}>Out Of Stock</div>
-								<div style={statValueStyle}>08</div>
+								<div style={statValueStyle}>{outOfStockCount}</div>
 							</div>
 							<div style={statRightSpacerStyle} />
 						</div>
 					</div>
+
+					{loading && (
+						<div style={{ marginBottom: "14px", color: "#475569", fontSize: "14px" }}>
+							Loading products...
+						</div>
+					)}
+
+					{error && (
+						<div style={{ marginBottom: "14px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>
+					)}
 
 					<div style={{ display: "flex", gap: "14px", marginBottom: "24px" }}>
 						<div
@@ -284,7 +357,12 @@ const ProductManagement = () => {
 						))}
 					</div>
 
-					<ProductItemsTable products={products} />
+					<ProductItemsTable
+						products={tableProducts}
+						onDecreaseStock={(id) => handleAdjustStock(id, -1)}
+						onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+						updatingStockId={updatingStockId}
+					/>
 				</div>
 			</div>
 		</div>

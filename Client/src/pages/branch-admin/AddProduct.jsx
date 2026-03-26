@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaChevronDown, FaUpload } from "react-icons/fa";
+import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
+import { createProduct, getCompanies } from "../../services/api";
 
 const cardStyle = {
   border: "1px solid #C9DDF3",
@@ -40,6 +41,76 @@ const sectionTitleStyle = {
 
 const AddProduct = () => {
   const navigate = useNavigate();
+  const [form, setForm] = useState({
+    pro_name: "",
+    pro_qty: "",
+    pro_price: "",
+    pro_image: "",
+    com_id: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCompany = async () => {
+      try {
+        const companies = await getCompanies();
+        const firstCompanyId = companies?.[0]?.com_id ?? 1;
+        if (!isMounted) return;
+        setForm((prev) => ({ ...prev, com_id: String(firstCompanyId) }));
+      } catch {
+        if (!isMounted) return;
+        setForm((prev) => ({ ...prev, com_id: "1" }));
+      }
+    };
+
+    loadCompany();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleChange = (field) => (event) => {
+    setForm((prev) => ({ ...prev, [field]: event.target.value }));
+  };
+
+  const handleSaveProduct = async () => {
+    try {
+      setSubmitting(true);
+      setError("");
+
+      if (!form.pro_name.trim() || form.pro_qty === "" || form.pro_price === "") {
+        setError("Product Name, Quantity, and Sales Price are required");
+        return;
+      }
+
+      const payload = {
+        pro_name: form.pro_name.trim(),
+        pro_qty: Number(form.pro_qty),
+        pro_price: Number(form.pro_price),
+        pro_image: form.pro_image.trim() || "N/A",
+        com_id: Number(form.com_id || 1),
+      };
+
+      await createProduct(payload);
+      setShowSuccessToast(true);
+      setForm((prev) => ({
+        ...prev,
+        pro_name: "",
+        pro_qty: "",
+        pro_price: "",
+        pro_image: "",
+      }));
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to save product");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
@@ -64,7 +135,7 @@ const AddProduct = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: "12px", marginBottom: "10px" }}>
                   <div>
                     <label style={labelStyle}>Product Name</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} value={form.pro_name} onChange={handleChange("pro_name")} />
                   </div>
                   <div>
                     <label style={labelStyle}>Short Name</label>
@@ -102,7 +173,13 @@ const AddProduct = () => {
                   </div>
                   <div>
                     <label style={labelStyle}>Quantity</label>
-                    <input style={inputStyle} />
+                    <input
+                      type="number"
+                      min="0"
+                      style={inputStyle}
+                      value={form.pro_qty}
+                      onChange={handleChange("pro_qty")}
+                    />
                   </div>
                 </div>
 
@@ -125,6 +202,12 @@ const AddProduct = () => {
                   >
                     <FaUpload color="#273142" />
                   </button>
+                  <input
+                    placeholder="Image URL"
+                    style={{ ...inputStyle, marginTop: "8px" }}
+                    value={form.pro_image}
+                    onChange={handleChange("pro_image")}
+                  />
                 </div>
 
                 <div>
@@ -146,7 +229,14 @@ const AddProduct = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
                   <div>
                     <label style={labelStyle}>Sales Price</label>
-                    <input style={inputStyle} />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      style={inputStyle}
+                      value={form.pro_price}
+                      onChange={handleChange("pro_price")}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>Tax Group</label>
@@ -327,6 +417,8 @@ const AddProduct = () => {
                 </button>
                 <button
                   type="button"
+                  onClick={handleSaveProduct}
+                  disabled={submitting}
                   style={{
                     minWidth: "170px",
                     height: "42px",
@@ -336,16 +428,98 @@ const AddProduct = () => {
                     color: "#fff",
                     fontSize: "16px",
                     fontWeight: "700",
-                    cursor: "pointer",
+                    cursor: submitting ? "not-allowed" : "pointer",
+                    opacity: submitting ? 0.8 : 1,
                   }}
                 >
-                  Save Product
+                  {submitting ? "Saving..." : "Save Product"}
                 </button>
               </div>
+              {error && <div style={{ marginTop: "12px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>}
             </div>
           </div>
         </div>
       </div>
+
+      {showSuccessToast && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              width: "min(92vw, 430px)",
+              height: "min(70vw, 350px)",
+              background: "#EBEBEB",
+              borderRadius: "22px",
+              padding: "14px 20px 14px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "62px",
+                height: "62px",
+                borderRadius: "50%",
+                background: "#0E5BA8",
+                margin: "0 auto 10px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <FaCheck size={30} color="#fff" />
+            </div>
+
+            <h2
+              style={{
+                margin: "0",
+                fontSize: "18px",
+                lineHeight: 1.2,
+                fontWeight: "600",
+                color: "#0E5BA8",
+              }}
+            >
+              New Product has been
+              <br />
+              Added
+              <br />
+              Successfully
+            </h2>
+
+            <button
+              onClick={() => {
+                setShowSuccessToast(false);
+                navigate("/branch-admin/products");
+              }}
+              style={{
+                marginTop: "16px",
+                width: "100%",
+                height: "52px",
+                border: "none",
+                borderRadius: "12px",
+                background: "#0E5BA8",
+                color: "#fff",
+                fontSize: "15px",
+                fontWeight: "500",
+                cursor: "pointer",
+              }}
+            >
+              Countinue
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
