@@ -1,10 +1,21 @@
 import pool from "../config/database.js";
 
+function normalizeComId(body) {
+  // Support both `com_id` (API-friendly) and `Com_id` (exact DB column).
+  return body?.com_id ?? body?.Com_id;
+}
+
+function fieldOrNull(value) {
+  // Convert `undefined` -> null (so COALESCE keeps the existing DB value),
+  // but preserve valid falsy values like 0.
+  return value === undefined ? null : value;
+}
+
 // GET /api/products
 export async function getProducts(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", "pro_image", "Com_id" AS "com_id" FROM "Product" ORDER BY "pro_id"'
+      'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id" FROM "public"."Product" ORDER BY "pro_id"'
     );
     res.json(result.rows);
   } catch (err) {
@@ -18,7 +29,7 @@ export async function getProductById(req, res, next) {
     const { id } = req.params;
 
     const result = await pool.query(
-      'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", "pro_image", "Com_id" AS "com_id" FROM "Product" WHERE "pro_id" = $1',
+      'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id" FROM "public"."Product" WHERE "pro_id" = $1',
       [id]
     );
 
@@ -37,23 +48,24 @@ export async function getProductById(req, res, next) {
 //create product
 export async function createProduct(req, res, next) {
   try {
-    const { pro_name, pro_qty, pro_price, pro_image, com_id } = req.body;
+    const { pro_name, pro_qty, pro_price, pro_image } = req.body;
+    const com_id = normalizeComId(req.body);
 
     if (
       !pro_name ||
       pro_qty === undefined ||
       pro_price === undefined ||
       !pro_image ||
-      !com_id
+      com_id === undefined
     ) {
       res.status(400);
       throw new Error("pro_name, pro_qty, pro_price, pro_image and com_id are required");
     }
 
     const insertQuery = `
-      INSERT INTO "Product" ("pro_name", "pro_qty", "pro_price", "pro_image", "Com_id")
+      INSERT INTO "public"."Product" ("pro_name", "pro_qty", "pro_price", " pro_image", "Com_id")
       VALUES ($1, $2, $3, $4, $5)
-      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", "pro_image", "Com_id" AS "com_id"
+      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id"
     `;
 
     const result = await pool.query(insertQuery, [
@@ -83,32 +95,33 @@ export async function createProduct(req, res, next) {
 export async function updateProduct(req, res, next) {
   try {
     const { id } = req.params;
-    const { pro_name, pro_qty, pro_price, pro_image, com_id } = req.body;
+    const { pro_name, pro_qty, pro_price, pro_image } = req.body;
+    const com_id = normalizeComId(req.body);
 
-    const existing = await pool.query('SELECT "pro_id" FROM "Product" WHERE "pro_id" = $1', [id]);
+    const existing = await pool.query('SELECT "pro_id" FROM "public"."Product" WHERE "pro_id" = $1', [id]);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Product not found");
     }
 
     const updateQuery = `
-      UPDATE "Product"
+      UPDATE "public"."Product"
       SET
         "pro_name" = COALESCE($1, "pro_name"),
         "pro_qty" = COALESCE($2, "pro_qty"),
         "pro_price" = COALESCE($3, "pro_price"),
-        "pro_image" = COALESCE($4, "pro_image"),
+        " pro_image" = COALESCE($4, " pro_image"),
         "Com_id" = COALESCE($5, "Com_id")
       WHERE "pro_id" = $6
-      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", "pro_image", "Com_id" AS "com_id"
+      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id"
     `;
 
     const result = await pool.query(updateQuery, [
-      pro_name ?? null,
-      pro_qty ?? null,
-      pro_price ?? null,
-      pro_image ?? null,
-      com_id ?? null,
+      fieldOrNull(pro_name),
+      fieldOrNull(pro_qty),
+      fieldOrNull(pro_price),
+      fieldOrNull(pro_image),
+      fieldOrNull(com_id),
       id,
     ]);
 
@@ -129,7 +142,7 @@ export async function deleteProduct(req, res, next) {
     const { id } = req.params;
 
     const result = await pool.query(
-      'DELETE FROM "Product" WHERE "pro_id" = $1 RETURNING "pro_id"',
+      'DELETE FROM "public"."Product" WHERE "pro_id" = $1 RETURNING "pro_id"',
       [id]
     );
 

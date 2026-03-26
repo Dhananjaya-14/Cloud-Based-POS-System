@@ -1,5 +1,5 @@
 import React from "react";
-import { FaEdit, FaMinus, FaPlus, FaTrashAlt } from "react-icons/fa";
+import { FaEdit, FaMinus, FaPlus, FaSpinner, FaTrashAlt } from "react-icons/fa";
 
 const statusStyles = {
   "In stock": { background: "#D7F4DF", color: "#2C9B52" },
@@ -7,9 +7,17 @@ const statusStyles = {
   "Out of stock": { background: "#FFD8D8", color: "#D04444" },
 };
 
-const ProductItemsTable = ({ products = [] }) => {
+const ProductItemsTable = ({
+  products = [],
+  onDecreaseStock,
+  onIncreaseStock,
+  updatingStockId = null,
+}) => {
   return (
     <>
+      <style>
+        {`@keyframes stockButtonSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}
+      </style>
       <div
         style={{
           background: "#fff",
@@ -62,6 +70,8 @@ const ProductItemsTable = ({ products = [] }) => {
                   <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#111827" }}>
                     <button
                       type="button"
+                      onClick={() => onDecreaseStock?.(item.id)}
+                      disabled={updatingStockId === item.id}
                       style={{
                         width: "20px",
                         height: "20px",
@@ -74,13 +84,24 @@ const ProductItemsTable = ({ products = [] }) => {
                         justifyContent: "center",
                         padding: 0,
                         lineHeight: 1,
+                        opacity: updatingStockId === item.id ? 0.6 : 1,
                       }}
                     >
-                      <FaMinus size={10} color="#6B7280" style={{ display: "block" }} />
+                      {updatingStockId === item.id ? (
+                        <FaSpinner
+                          size={10}
+                          color="#6B7280"
+                          style={{ display: "block", animation: "stockButtonSpin 0.8s linear infinite" }}
+                        />
+                      ) : (
+                        <FaMinus size={10} color="#6B7280" style={{ display: "block" }} />
+                      )}
                     </button>
                     <span style={{ width: "26px", textAlign: "center", fontSize: "14px" }}>{item.stock}</span>
                     <button
                       type="button"
+                      onClick={() => onIncreaseStock?.(item.id)}
+                      disabled={updatingStockId === item.id}
                       style={{
                         width: "20px",
                         height: "20px",
@@ -93,9 +114,18 @@ const ProductItemsTable = ({ products = [] }) => {
                         justifyContent: "center",
                         padding: 0,
                         lineHeight: 1,
+                        opacity: updatingStockId === item.id ? 0.6 : 1,
                       }}
                     >
-                      <FaPlus size={10} color="#6B7280" style={{ display: "block" }} />
+                      {updatingStockId === item.id ? (
+                        <FaSpinner
+                          size={10}
+                          color="#6B7280"
+                          style={{ display: "block", animation: "stockButtonSpin 0.8s linear infinite" }}
+                        />
+                      ) : (
+                        <FaPlus size={10} color="#6B7280" style={{ display: "block" }} />
+                      )}
                     </button>
                   </div>
                 </td>
