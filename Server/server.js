@@ -22,10 +22,6 @@ import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
 
-
-// Import error handling middleware
-import { notFound, errorHandler } from "./middleware/errorHandler.js";
-
 // Initialize app
 const app = express();
 
