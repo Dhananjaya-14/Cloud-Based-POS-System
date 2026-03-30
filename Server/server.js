@@ -17,11 +17,13 @@ import companyRoutes from "./routes/companyRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import branchProductRoutes from "./routes/branchProductRoutes.js";
-import productRoutes from "./routes/productRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import deliveryRoutes from "./routes/deliveryRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
 
 
 // Initialize app
@@ -55,6 +57,8 @@ app.use("/api/products", productRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/terminals", terminalRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/delivery", deliveryRoutes);
 
 // Error handling
 app.use(notFound);
