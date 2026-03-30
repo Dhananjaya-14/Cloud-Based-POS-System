@@ -1,6 +1,6 @@
 import pool from "../config/database.js";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function parsePositiveInt(value, fieldName) {
   const parsed = Number(value);
@@ -34,7 +34,7 @@ function validateContact(contact) {
   return contactRegex.test(contact);
 }
 
-// ─── GET /api/suppliers ─────────────────────────────────────────────────────
+// ─── GET /api/suppliers ───────────────────────────────────────────────────────
 export async function getSuppliers(req, res, next) {
   try {
     const result = await pool.query(
@@ -48,7 +48,7 @@ export async function getSuppliers(req, res, next) {
   }
 }
 
-// ─── GET /api/suppliers/:id ─────────────────────────────────────────────────
+// ─── GET /api/suppliers/:id ───────────────────────────────────────────────────
 export async function getSupplierById(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "sup_id");
@@ -71,7 +71,7 @@ export async function getSupplierById(req, res, next) {
   }
 }
 
-// ─── POST /api/suppliers ─────────────────────────────────────────────────────
+// ─── POST /api/suppliers ──────────────────────────────────────────────────────
 export async function createSupplier(req, res, next) {
   try {
     const body = sanitizeBody(req.body, [
@@ -90,6 +90,10 @@ export async function createSupplier(req, res, next) {
     }
 
     // ── Name length ──
+    if (sup_name.length < 2) {
+      res.status(400);
+      throw new Error("sup_name must be at least 2 characters");
+    }
     if (sup_name.length > 120) {
       res.status(400);
       throw new Error("sup_name cannot exceed 120 characters");
@@ -113,9 +117,15 @@ export async function createSupplier(req, res, next) {
       );
     }
 
+    // ── Address length if provided ──
+    if (sup_address && sup_address.length > 100) {
+      res.status(400);
+      throw new Error("sup_address cannot exceed 100 characters");
+    }
+
     // ── Duplicate email check ──
     const dupEmail = await pool.query(
-      'SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1)',
+      `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1)`,
       [sup_email],
     );
     if (dupEmail.rows.length > 0) {
@@ -125,7 +135,7 @@ export async function createSupplier(req, res, next) {
 
     // ── Duplicate name check ──
     const dupName = await pool.query(
-      'SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1)',
+      `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1)`,
       [sup_name],
     );
     if (dupName.rows.length > 0) {
@@ -146,7 +156,7 @@ export async function createSupplier(req, res, next) {
   }
 }
 
-// ─── PUT /api/suppliers/:id ──────────────────────────────────────────────────
+// ─── PUT /api/suppliers/:id ───────────────────────────────────────────────────
 export async function updateSupplier(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "sup_id");
@@ -158,11 +168,16 @@ export async function updateSupplier(req, res, next) {
       "sup_address",
     ]);
 
+    if (Object.keys(body).length === 0) {
+      res.status(400);
+      throw new Error("No fields provided to update");
+    }
+
     const { sup_name, sup_email, sup_contact, sup_address } = body;
 
     // ── Existence check ──
     const existing = await pool.query(
-      'SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1',
+      `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`,
       [id],
     );
     if (existing.rows.length === 0) {
@@ -172,16 +187,16 @@ export async function updateSupplier(req, res, next) {
 
     // ── Name validation ──
     if (sup_name !== undefined) {
-      if (sup_name.length === 0) {
+      if (sup_name.length < 2) {
         res.status(400);
-        throw new Error("sup_name cannot be empty");
+        throw new Error("sup_name must be at least 2 characters");
       }
       if (sup_name.length > 120) {
         res.status(400);
         throw new Error("sup_name cannot exceed 120 characters");
       }
       const dupName = await pool.query(
-        'SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1) AND sup_id <> $2',
+        `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1) AND sup_id <> $2`,
         [sup_name, id],
       );
       if (dupName.rows.length > 0) {
@@ -201,7 +216,7 @@ export async function updateSupplier(req, res, next) {
         throw new Error("sup_email cannot exceed 150 characters");
       }
       const dupEmail = await pool.query(
-        'SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1) AND sup_id <> $2',
+        `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1) AND sup_id <> $2`,
         [sup_email, id],
       );
       if (dupEmail.rows.length > 0) {
@@ -218,6 +233,12 @@ export async function updateSupplier(req, res, next) {
       );
     }
 
+    // ── Address validation ──
+    if (sup_address !== undefined && sup_address.length > 100) {
+      res.status(400);
+      throw new Error("sup_address cannot exceed 100 characters");
+    }
+
     const result = await pool.query(
       `UPDATE "SUPPLIER"
        SET
@@ -228,8 +249,8 @@ export async function updateSupplier(req, res, next) {
        WHERE sup_id = $5
        RETURNING sup_id, sup_name, sup_email, sup_contact, sup_address`,
       [
-        sup_name ?? null,
-        sup_email ? sup_email.toLowerCase() : null,
+        sup_name    ?? null,
+        sup_email   ? sup_email.toLowerCase() : null,
         sup_contact ?? null,
         sup_address ?? null,
         id,
@@ -242,14 +263,14 @@ export async function updateSupplier(req, res, next) {
   }
 }
 
-// ─── DELETE /api/suppliers/:id ───────────────────────────────────────────────
+// ─── DELETE /api/suppliers/:id ────────────────────────────────────────────────
 export async function deleteSupplier(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "sup_id");
 
     // ── Cannot delete if supplier has purchase orders ──
     const poCheck = await pool.query(
-      'SELECT po_id FROM "perches_order" WHERE sup_id = $1 LIMIT 1',
+      `SELECT po_id FROM purchase_order WHERE sup_id = $1 LIMIT 1`,
       [id],
     );
     if (poCheck.rows.length > 0) {
@@ -260,7 +281,7 @@ export async function deleteSupplier(req, res, next) {
     }
 
     const result = await pool.query(
-      'DELETE FROM "SUPPLIER" WHERE sup_id = $1 RETURNING sup_id',
+      `DELETE FROM "SUPPLIER" WHERE sup_id = $1 RETURNING sup_id`,
       [id],
     );
 

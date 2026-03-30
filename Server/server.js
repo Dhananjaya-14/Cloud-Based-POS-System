@@ -20,6 +20,8 @@ import reservationRoutes from "./routes/reservationRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
 import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
+import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
+import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
 
 // Import error handling middleware
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
@@ -54,6 +56,8 @@ app.use("/api/reservations", reservationRoutes);
 app.use("/api/terminals", terminalRoutes);
 app.use("/api/raw-materials", rawMaterialRoutes);
 app.use("/api/suppliers", supplierRoutes);
+app.use("/api/purchase-orders", purchaseOrderRoutes);
+app.use("/api/purchase-items", purchaseItemRoutes);
 
 // Error handling
 app.use(notFound);
