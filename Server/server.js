@@ -22,6 +22,7 @@ import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
 import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
 import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
+import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js"; 
 
 // Import error handling middleware
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
@@ -58,6 +59,7 @@ app.use("/api/raw-materials", rawMaterialRoutes);
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/purchase-items", purchaseItemRoutes);
+app.use("/api/supplier-payments", supplierPaymentRoutes);
 
 // Error handling
 app.use(notFound);

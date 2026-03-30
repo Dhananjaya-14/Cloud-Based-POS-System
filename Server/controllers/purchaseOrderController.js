@@ -388,8 +388,8 @@ export async function updatePurchaseOrderStatus(req, res, next) {
     const result = await pool.query(
       `UPDATE purchase_order
        SET
-         status        = $1,
-         received_date = CASE WHEN $1 = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
+         status        = $1::VARCHAR,
+         received_date = CASE WHEN $1::VARCHAR = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
        WHERE po_id = $2
        RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
       [status, id],
