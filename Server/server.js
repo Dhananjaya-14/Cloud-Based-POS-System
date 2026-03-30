@@ -15,6 +15,10 @@ import authRoutes from "./routes/authRoutes.js";
 import branchRoutes from "./routes/branchRoutes.js";
 import companyRoutes from "./routes/companyRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
+import categoryRoutes from "./routes/categoryRoutes.js";
+import branchProductRoutes from "./routes/branchProductRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
+import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
@@ -23,9 +27,6 @@ import supplierRoutes from "./routes/supplierRoutes.js";
 import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
 import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
 import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js"; 
-
-// Import error handling middleware
-import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 // Initialize app
 const app = express();
@@ -52,6 +53,9 @@ app.use("/api/roles", roleRoutes);
 app.use("/api/branches", branchRoutes);
 app.use("/api/companies", companyRoutes);
 app.use("/api/tables", tableRoutes);
+app.use("/api/categories", categoryRoutes);
+app.use("/api/branch_products", branchProductRoutes);
+app.use("/api/products", productRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/terminals", terminalRoutes);
