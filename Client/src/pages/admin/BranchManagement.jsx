@@ -47,7 +47,7 @@ const BranchManagement = () => {
 };
 
   return (
-    <div style={{ display: "flex", background: "#F4F6F9" }}>
+    <div style={{ display: "flex",minHeight: "100vh", background: "#F4F6F9" }}>
       <Sidebar />
 
       <div style={{ flex: 1, marginLeft: "240px" }}>
