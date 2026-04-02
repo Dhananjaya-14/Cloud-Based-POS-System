@@ -198,7 +198,13 @@ const ProductManagement = () => {
 					showAddUserIcon
 				/>
 
-				<div style={{ padding: "22px 20px" }}>
+				<div
+					style={{
+						padding: "22px 20px",
+						marginTop: "20px",
+						minHeight: "calc(100vh - 70px)",
+					}}
+				>
 					<div
 						style={{
 							display: "flex",

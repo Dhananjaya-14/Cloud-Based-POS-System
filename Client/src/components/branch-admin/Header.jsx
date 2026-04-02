@@ -10,11 +10,17 @@ const Header = ({
   return (
     <div
       style={{
+        position: "relative",
+        
+        top: "-10px",
+        left: 0,
+        right: 0,
         height: "70px",
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         padding: "0 20px",
+        boxSizing: "border-box",
         color: "#fff",
         background: "linear-gradient(135deg, #2E3E8F 0%, #00B4EB 59%, #55D24B 100%)",
       }}
