@@ -89,7 +89,14 @@ const Sidebar = () => {
     >
       <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
         {icon}
-        <span style={{ fontSize: "15px" }}>{label}</span>
+        <span
+          style={{
+            fontSize: "15px",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {label}
+        </span>
       </div>
       <FaChevronDown size={12} style={{ transform: open ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s ease" }} />
     </button>
@@ -116,17 +123,22 @@ const Sidebar = () => {
   return (
     <div
       style={{
-        width: "240px",
-        height: "100vh",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        background: "#2E3E8F",
-        padding: "20px 10px",
-        position: "fixed",
-        left: 0,
-        top: 0,
+      width: "240px",
+      minHeight: "100vh",
+      height: "100%",
+      color: "#fff",
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "space-between",
+      background: "#2E3E8F",
+      padding: "20px 12px 28px",
+      position: "fixed",
+      left: 0,
+      top: 0,
+      bottom: 0,
+      overflowY: "auto",
+      boxSizing: "border-box",
+      zIndex: 40,
       }}
     >
       <div>
