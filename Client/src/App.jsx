@@ -14,6 +14,19 @@ import ProductManagement from './pages/branch-admin/ProductManagement';
 import AddProduct from './pages/branch-admin/AddProduct';
 import ProductDetails from './pages/branch-admin/ProductDetails';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
+
+// Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
+// send them to Product Management instead of showing Branch Profile.
+const BranchProfileRouter = () => {
+  const { user } = useAuth();
+
+  if (user?.role_id === 1) {
+    return <Navigate to="/branch-admin/products" replace />;
+  }
+
+  return <BranchProfile />;
+};
 
 function App() {
   return (
@@ -64,7 +77,17 @@ function App() {
         path="/branch_profile/:branchId"
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
-            <BranchProfile />
+            <BranchProfileRouter />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Fallback when branchId is missing (e.g. Login builds /branch_profile/ with empty id) */}
+      <Route
+        path="/branch_profile"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchProfileRouter />
           </ProtectedRoute>
         }
       />
