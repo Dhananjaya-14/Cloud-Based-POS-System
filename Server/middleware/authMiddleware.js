@@ -9,7 +9,8 @@ function extractToken(req) {
 
   // Optional fallback header style
   const headerToken = req.headers["x-access-token"];
-  if (typeof headerToken === "string" && headerToken.length > 0) return headerToken;
+  if (typeof headerToken === "string" && headerToken.length > 0)
+    return headerToken;
 
   // Optional fallback (not recommended for production, but handy for testing)
   if (typeof req.query?.token === "string" && req.query.token.length > 0) {
@@ -39,4 +40,3 @@ export function requireAuth(req, res, next) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 }
-
