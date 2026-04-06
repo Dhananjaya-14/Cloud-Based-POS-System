@@ -54,6 +54,40 @@ export const getRoles = async () => {
   return response.data;
 };
 
+export const getCompanies = async () => {
+  const response = await api.get("/companies");
+  return response.data;
+};
+
+export const getProducts = async () => {
+  const response = await api.get("/products");
+  return response.data;
+};
+
+export const getProductById = async (productId) => {
+  const response = await api.get(`/products/${productId}`);
+  return response.data;
+};
+
+export const getCategories = async () => {
+  const response = await api.get("/categories");
+  return response.data;
+};
+
+export const createProduct = async (productData) => {
+  const response = await api.post("/products", productData);
+  return response.data;
+};
+
+export const updateProduct = async (productId, payload) => {
+  const response = await api.put(`/products/${productId}`, payload);
+  return response.data;
+};
+
+export const deleteProduct = async (productId) => {
+  await api.delete(`/products/${productId}`);
+};
+
 export const getUserById = async (userId) => {
   const response = await api.get(`/users/${userId}`);
   return response.data;

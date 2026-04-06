@@ -10,12 +10,16 @@ import EditUser from './pages/admin/EditUser';
 import BranchProfile from './pages/admin/branch_profile';
 import BranchProfileEdit from './pages/admin/branchProfileEdit';
 import UserManagement from './pages/admin/UserManagement';
+import ProductManagement from './pages/branch-admin/ProductManagement';
+import AddProduct from './pages/branch-admin/AddProduct';
+import ProductDetails from './pages/branch-admin/ProductDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
   return (
     <Routes>
       <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/register/step-1" element={<RegisterStep1 />} />
       <Route path="/register/step-2" element={<RegisterStep2 />} />
       <Route path="/register/step-3" element={<RegisterStep3 />} />
@@ -74,7 +78,53 @@ function App() {
         }
       />
 
+      <Route
+        path="/branch-admin/products"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <ProductManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/add"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <AddProduct />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId/delete"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
       <Route path="*" element={<Navigate to="/" />} />
+      
     </Routes>
   );
 }
