@@ -14,6 +14,7 @@ import ProductManagement from './pages/branch-admin/ProductManagement';
 import AddProduct from './pages/branch-admin/AddProduct';
 import ProductDetails from './pages/branch-admin/ProductDetails';
 import ProtectedRoute from './components/ProtectedRoute';
+import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
 
 function App() {
   return (
@@ -119,6 +120,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
             <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/raw-ingredient"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <AddRawMaterials />
           </ProtectedRoute>
         }
       />
