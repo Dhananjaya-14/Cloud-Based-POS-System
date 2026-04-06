@@ -1,17 +1,15 @@
 // components/branch-admin/AddRawMaterials.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import RawIngredient from "../../components/branch-admin/RawIngredient";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
-import ToastMessage from "../../components/branch-admin/ToastMessage"; // Import the new Toast component
+import ToastMessage from "../../components/branch-admin/ToastMessage"; 
 
 const AddRawMaterials = () => {
   const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
-
-  // Theme Colors matching the image
   const primaryTeal = "#3A4DBF";
   const primaryBlue = "#001F3F";
-  const bgGrey = "#F9FAFB"; // Slightly softer background
+  const bgGrey = "#F9FAFB";
 
   const [supplier, setSupplier] = useState({
     sup_name: "",
@@ -21,11 +19,19 @@ const AddRawMaterials = () => {
   });
 
   const [materials, setMaterials] = useState([
-    { rm_name: "", unit: "", stock_qty: "", record_level: "" }, // Start numbers as empty strings for better placeholder UX
+    { rm_name: "", unit: "", stock_qty: "", record_level: "" },
   ]);
 
-  // Toast State
+  const [existingSuppliers, setExistingSuppliers] = useState([]);
   const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  // --- LOGIC: Load existing suppliers ---
+  useEffect(() => {
+    fetch("/api/suppliers")
+      .then(res => res.json())
+      .then(data => setExistingSuppliers(data))
+      .catch(err => console.error("Error fetching suppliers:", err));
+  }, []);
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -49,54 +55,67 @@ const AddRawMaterials = () => {
     if (materials.length > 1) {
       setMaterials(materials.filter((_, i) => i !== index));
     } else {
-        showToast("At least one ingredient is required.", "error");
+      showToast("At least one ingredient is required.", "error");
     }
   };
 
+  // --- LOGIC: Handle Submit with Duplicate Check ---
   const handleSubmit = async () => {
     try {
-      // Form Validation (Senior check)
-      if (!supplier.sup_name || !supplier.sup_contact || !supplier.sup_email) {
-          throw new Error("Please fill in all required Supplier Details (marked *)");
+      if (!supplier.sup_name || !supplier.sup_email || !supplier.sup_contact) {
+        throw new Error("Please fill in required Supplier Details (Name, Email, Contact)");
       }
-      
-      const supRes = await fetch("/api/suppliers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(supplier),
-      });
-      const supplierData = await supRes.json();
-      if (!supRes.ok) throw new Error(supplierData.message || "Supplier creation failed");
 
-      for (const item of materials) {
-        // Material validation
-        if (!item.rm_name || !item.unit || item.stock_qty === "" || item.record_level === "") {
-             throw new Error("Please fill in all required Raw Material fields.");
-        }
-        await fetch("/api/raw-materials", {
+      let finalSupId;
+      const existing = existingSuppliers.find(
+        (s) => s.sup_email.toLowerCase() === supplier.sup_email.toLowerCase()
+      );
+
+      if (existing) {
+        finalSupId = existing.sup_id;
+      } else {
+        const supRes = await fetch("/api/suppliers", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(item),
+          body: JSON.stringify(supplier),
         });
+        const supplierData = await supRes.json();
+        if (!supRes.ok) throw new Error(supplierData.message || "Supplier creation failed");
+        finalSupId = supplierData.sup_id;
       }
 
-      // 1. Show Pop-up Message (Toast) for the customer/user
-      showToast("Supplier and Materials added successfully!", "success");
+      for (const item of materials) {
+        if (!item.rm_name || !item.unit) continue;
+        
+        const matRes = await fetch("/api/raw-materials", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...item, sup_id: finalSupId }),
+        });
+        if (!matRes.ok) {
+          const matData = await matRes.json();
+          throw new Error(matData.message || `Failed to add ${item.rm_name}`);
+        }
+      }
 
-      // 2. Clear form for next entry (standard POS practice)
+      showToast(existing ? "New materials added to existing supplier!" : "New supplier and materials saved!", "success");
+      
       setSupplier({ sup_name: "", sup_email: "", sup_contact: "", sup_address: "" });
       setMaterials([{ rm_name: "", unit: "", stock_qty: "", record_level: "" }]);
+      
+      const updatedSups = await fetch("/api/suppliers").then(r => r.json());
+      setExistingSuppliers(updatedSups);
 
     } catch (err) {
       showToast(err.message, "error");
     }
   };
 
-  // Reusable Styles for Consistency
-  const containerStyle = { padding: "30px", maxWidth: "1100px", margin: "0 auto", fontFamily: "'Inter', sans-serif" }; // Wider for better row layout
+  // --- STYLING: Reverting to the detailed layout ---
+  const containerStyle = { padding: "30px", maxWidth: "1100px", margin: "0 auto", fontFamily: "'Inter', sans-serif" };
   const sectionStyle = { marginBottom: "30px", padding: "28px", background: "#fff", border: "1px solid #E4E7EC", borderRadius: "16px", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" };
   const gridStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "24px" };
-  const inputStyle = { width: "100%", padding: "12px 16px", marginTop: "8px", borderRadius: "8px", border: "1px solid #D0D5DD", fontSize: "14px", transition: "border-color 0.2s ease", boxSizing: "border-box" };
+  const inputStyle = { width: "100%", padding: "12px 16px", marginTop: "8px", borderRadius: "8px", border: "1px solid #D0D5DD", fontSize: "14px", boxSizing: "border-box", transition: "border-color 0.2s ease" };
   const labelStyle = { display: "block", fontSize: "14px", fontWeight: "500", color: "#344054" };
 
   const secondaryBtnStyle = { background: "#fff", color: "#344054", padding: "12px 20px", border: "1px solid #D0D5DD", borderRadius: "8px", cursor: "pointer", fontWeight: "600", fontSize: "14px", transition: "all 0.2s ease" };
@@ -105,8 +124,6 @@ const AddRawMaterials = () => {
   return (
     <div style={{ display: "flex", background: bgGrey, minHeight: "100vh" }}>
       <Sidebar />
-
-      {/* Render Toast Message if shown */}
       {toast.show && (
         <ToastMessage
           message={toast.message}
@@ -114,25 +131,23 @@ const AddRawMaterials = () => {
           onClose={() => setToast({ ...toast, show: false })}
         />
       )}
-
       <div style={{ flex: 1, marginLeft: "240px" }}>
         <Header title="Raw Ingredients" role="Branch Admin" email="branchadmin@gmail.com" />
-
-        <div style={{ padding: "10px 20px", minHeight: "calc(100vh - 70px)" }}>
+        <div style={{ padding: "10px 20px" , minHeight: "calc(100vh - 70px)" }}>
           <div style={containerStyle}>
             
-            {/* Page Title & Hierarchy */}
-            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px'}}>
+            {/* Page Title Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: "30px" }}>
                 <div>
                     <h2 style={{ color: "#101828", margin: 0, fontWeight: '700', fontSize: '24px' }}>Add Raw Materials</h2>
                     <p style={{ color: "#667085", margin: '5px 0 0 0', fontSize: '16px'}}>Onboard new suppliers and log incoming ingredients</p>
                 </div>
             </div>
 
-            {/* Section 1: Supplier Details */}
+            {/* Section 1: Supplier Details (Reverted to Icons & Specific Placeholders) */}
             <div style={sectionStyle}>
               <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "20px" }}>
-                  <span style={{ fontSize: "20px", color: primaryTeal }}>👤</span> {/* User Icon */}
+                  <span style={{ fontSize: "20px", color: primaryTeal }}>👤</span>
                   <h3 style={{ marginTop: 0, marginBottom: 0, color: primaryBlue, fontSize: '18px', fontWeight: '600' }}>1. Supplier Details</h3>
               </div>
               <div style={gridStyle}>
@@ -183,52 +198,43 @@ const AddRawMaterials = () => {
               </div>
             </div>
 
-            {/* Section 2: Materials List */}
-            <div style={{...sectionStyle, background: 'transparent', border: 'none', boxShadow: 'none', padding: '0 0 30px 0'}}>
+            {/* Section 2: Raw Ingredients (Reverted to Transparent Borderless Container) */}
+            <div style={{ ...sectionStyle, background: 'transparent', border: 'none', boxShadow: 'none', padding: '0 0 30px 0' }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <span style={{ fontSize: "20px", color: primaryTeal }}>📦</span> {/* Box/Package Icon */}
+                    <span style={{ fontSize: "20px", color: primaryTeal }}>📦</span>
                     <h3 style={{ margin: 0, color: primaryBlue, fontSize: '18px', fontWeight: '600' }}>2. Incoming Raw Ingredients</h3>
                 </div>
-                <button
-                  onClick={addMaterialRow}
+                <button 
+                  onClick={addMaterialRow} 
                   style={{ ...secondaryBtnStyle, display: 'flex', alignItems: 'center', gap: '6px', color: primaryTeal, borderColor: primaryTeal }}
-                  onMouseOver={(e) => { e.target.style.background = "#F0FDFB"; e.target.style.borderColor = primaryTeal; }}
-                  onMouseOut={(e) => { e.target.style.background = "#fff"; e.target.style.borderColor = primaryTeal; }}
+                  onMouseOver={(e) => { e.target.style.background = "#F0FDFB"; }}
+                  onMouseOut={(e) => { e.target.style.background = "#fff"; }}
                 >
                   <span style={{fontSize: '16px'}}>+</span> Add Another Ingredient
                 </button>
               </div>
-
               {materials.map((m, idx) => (
-                <RawIngredient
-                  key={idx}
-                  index={idx}
-                  data={m}
-                  validUnits={VALID_UNITS}
-                  onChange={handleMaterialChange}
-                  onRemove={removeMaterialRow}
-                />
+                <RawIngredient key={idx} index={idx} data={m} validUnits={VALID_UNITS} onChange={handleMaterialChange} onRemove={removeMaterialRow} />
               ))}
             </div>
 
-            {/* Action Buttons */}
-            <div style={{ textAlign: "right", marginTop: '20px', padding: '20px 0', borderTop: '1px solid #E4E7EC' }}>
+            {/* Action Buttons (Reverted with Hover Effects) */}
+            <div style={{ textAlign: "right", borderTop: '1px solid #E4E7EC', paddingTop: '20px' }}>
               <button 
-                // style={secondaryBtnStyle}
                 style={{ ...secondaryBtnStyle, marginRight: '12px' }}
                 onMouseOver={(e) => {e.target.style.background = "#FEF3F2"; e.target.style.color = "#b42318"; e.target.style.borderColor = "#FDA29B";}}
                 onMouseOut={(e) => {e.target.style.background = "#fff"; e.target.style.color = "#344054"; e.target.style.borderColor = "#D0D5DD";}}
               >
-                  Cancel
+                Cancel
               </button>
               <button 
                 style={primaryBtnStyle} 
                 onClick={handleSubmit}
-                onMouseOver={(e) => e.target.style.background = "#119a96"} // Darker teal hover
+                onMouseOver={(e) => e.target.style.background = "#2e3da3"}
                 onMouseOut={(e) => e.target.style.background = primaryTeal}
               >
-                  Save All Records <span style={{fontSize: '16px'}}>→</span>
+                Save All Records <span style={{fontSize: '16px'}}>→</span>
               </button>
             </div>
           </div>
@@ -287,159 +293,7 @@ export default AddRawMaterials;
 
 
 
-// import React, { useState } from "react";
-// import RawIngredient from "../../components/branch-admin/RawIngredient";
-// import Sidebar from "../../components/branch-admin/Sidebar";
-// import Header from "../../components/branch-admin/Header";
 
-// const AddRawMaterials = () => {
-//   const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
-
-//   const [supplier, setSupplier] = useState({
-//     sup_name: "",
-//     sup_email: "",
-//     sup_contact: "",
-//     sup_address: "",
-//   });
-
-//   const [materials, setMaterials] = useState([
-//     { rm_name: "", unit: "", stock_qty: 0, record_level: 0 },
-//   ]);
-
-//   const handleSupplierChange = (field, value) => {
-//     setSupplier({ ...supplier, [field]: value });
-//   };
-
-//   const handleMaterialChange = (index, field, value) => {
-//     const updated = [...materials];
-//     updated[index][field] = value;
-//     setMaterials(updated);
-//   };
-
-//   const addMaterialRow = () => {
-//     setMaterials([...materials, { rm_name: "", unit: "", stock_qty: 0, record_level: 0 }]);
-//   };
-
-//   const removeMaterialRow = (index) => {
-//     if (materials.length > 1) {
-//       setMaterials(materials.filter((_, i) => i !== index));
-//     }
-//   };
-
-//   const handleSubmit = async () => {
-//     try {
-//       const supRes = await fetch("/api/suppliers", {
-//         method: "POST",
-//         headers: { "Content-Type": "application/json" },
-//         body: JSON.stringify(supplier),
-//       });
-//       const supplierData = await supRes.json();
-//       if (!supRes.ok) throw new Error(supplierData.message || "Supplier creation failed");
-
-//       for (const item of materials) {
-//         await fetch("/api/raw-materials", {
-//           method: "POST",
-//           headers: { "Content-Type": "application/json" },
-//           body: JSON.stringify(item),
-//         });
-//       }
-
-//       alert("Supplier and Materials added successfully!");
-//     } catch (err) {
-//       alert(err.message);
-//     }
-//   };
-
-//   const containerStyle = { padding: "40px", maxWidth: "900px", margin: "0 auto", fontFamily: "sans-serif" };
-//   const sectionStyle = { marginBottom: "30px", padding: "20px", border: "1px solid #eee", borderRadius: "12px", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" };
-//   const gridStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" };
-//   const inputStyle = { width: "100%", padding: "10px", marginTop: "5px", borderRadius: "6px", border: "1px solid #ddd" };
-//   const primaryBtn = { background: "#28a745", color: "white", padding: "12px 24px", border: "none", borderRadius: "6px", cursor: "pointer", fontWeight: "bold" };
-
-//   return (
-//     <div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
-//       <Sidebar />
-
-//       <div style={{ flex: 1, marginLeft: "240px" }}>
-//         <Header title="Raw Materials" role="Branch Admin" email="branchadmin@gmail.com" />
-
-//         <div style={{ padding: "22px 20px", marginTop: "20px", minHeight: "calc(100vh - 70px)" }}>
-//           <div style={containerStyle}>
-//             <h2 style={{ color: "#333", marginBottom: "20px" }}>Inventory Management</h2>
-
-//             <div style={sectionStyle}>
-//               <h3 style={{ marginTop: 0, color: "#007bff" }}>Step 1: Supplier Details</h3>
-//               <div style={gridStyle}>
-//                 <div>
-//                   <label>Supplier Name *</label>
-//                   <input
-//                     style={inputStyle}
-//                     value={supplier.sup_name}
-//                     onChange={(e) => handleSupplierChange("sup_name", e.target.value)}
-//                   />
-//                 </div>
-//                 <div>
-//                   <label>Contact Number *</label>
-//                   <input
-//                     style={inputStyle}
-//                     value={supplier.sup_contact}
-//                     onChange={(e) => handleSupplierChange("sup_contact", e.target.value)}
-//                   />
-//                 </div>
-//                 <div>
-//                   <label>Email Address *</label>
-//                   <input
-//                     style={inputStyle}
-//                     value={supplier.sup_email}
-//                     onChange={(e) => handleSupplierChange("sup_email", e.target.value)}
-//                   />
-//                 </div>
-//                 <div>
-//                   <label>Address</label>
-//                   <input
-//                     style={inputStyle}
-//                     value={supplier.sup_address}
-//                     onChange={(e) => handleSupplierChange("sup_address", e.target.value)}
-//                   />
-//                 </div>
-//               </div>
-//             </div>
-
-//             <div style={sectionStyle}>
-//               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "15px" }}>
-//                 <h3 style={{ margin: 0, color: "#007bff" }}>Step 2: Raw Materials</h3>
-//                 <button
-//                   onClick={addMaterialRow}
-//                   style={{ background: "#6c757d", color: "white", border: "none", padding: "5px 15px", borderRadius: "4px", cursor: "pointer" }}
-//                 >
-//                   + Add Another Item
-//                 </button>
-//               </div>
-
-//               {materials.map((m, idx) => (
-//                 <RawIngredient
-//                   key={idx}
-//                   index={idx}
-//                   data={m}
-//                   validUnits={VALID_UNITS}
-//                   onChange={handleMaterialChange}
-//                   onRemove={removeMaterialRow}
-//                 />
-//               ))}
-//             </div>
-
-//             <div style={{ textAlign: "right" }}>
-//               <button style={{ ...primaryBtn, background: "#dc3545", marginRight: "10px" }}>Cancel</button>
-//               <button style={primaryBtn} onClick={handleSubmit}>Save All Records</button>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default AddRawMaterials;
 
 
 
