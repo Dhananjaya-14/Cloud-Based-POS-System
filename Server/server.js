@@ -7,6 +7,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
+import { notFound, errorHandler } from "./middleware/errorHandler.js";
+
 // Import routes
 import customerRoutes from "./routes/customerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -18,7 +20,6 @@ import tableRoutes from "./routes/tableRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import branchProductRoutes from "./routes/branchProductRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
-import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
@@ -31,6 +32,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import orderItemRoutes from "./routes/orderItemRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
+import discountRoutes from "./routes/discountRoutes.js";
 
 // Initialize app
 const app = express();
@@ -72,6 +74,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/order-items", orderItemRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/deliveries", deliveryRoutes);
+app.use("/api/discounts", discountRoutes);
 
 // Error handling
 app.use(notFound);
