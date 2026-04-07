@@ -15,6 +15,7 @@ import AddProduct from './pages/branch-admin/AddProduct';
 import ProductDetails from './pages/branch-admin/ProductDetails';
 import ProtectedRoute from './components/ProtectedRoute';
 import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
+import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
 
 function App() {
   return (
@@ -129,6 +130,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
             <AddRawMaterials />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/inventory"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <InventoryDashboard />
           </ProtectedRoute>
         }
       />
