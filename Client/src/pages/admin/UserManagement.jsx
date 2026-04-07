@@ -190,7 +190,7 @@ const UserManagement = () => {
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h1 style={{ fontSize: "43px", margin: 0, fontWeight: 700, color: "#2f3d72", letterSpacing: "0.3px", lineHeight: 1 }}>
+            <h1 style={{ fontSize: "30px", margin: 0, fontWeight: 700, color: "#2f3d72", letterSpacing: "0.3px", lineHeight: 1 }}>
               User Management
             </h1>
             <button
