@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/branch-admin/Sidebar';
 import Header from '../../components/branch-admin/Header';
 import ReorderModal from '../../components/branch-admin/ReorderModal';
@@ -6,8 +7,16 @@ import EditMaterialModal from '../../components/branch-admin/EditMaterialModal';
 import StatCard from '../../components/branch-admin/StatCard';
 
 const InventoryDashboard = () => {
-  const [materials, setMaterials] = useState([]);
-  const [isLoading, setIsLoading] = useState(true); // Added loading state
+  const navigate = useNavigate();
+  
+  // 1. Instant Load Logic: Check if we have cached data first
+  const [materials, setMaterials] = useState(() => {
+    const saved = localStorage.getItem('cached_materials');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  // If we have cached data, start isLoading as false so the list appears immediately
+  const [isLoading, setIsLoading] = useState(materials.length === 0);
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -17,19 +26,21 @@ const InventoryDashboard = () => {
   }, []);
 
   const fetchMaterials = async () => {
-    // We don't set isLoading(true) here during refreshes 
-    // to prevent the screen from "flashing" every time you save an edit.
     try {
       const response = await fetch('/api/raw-materials');
       const data = await response.json();
+      
+      // Update state and Cache for the next visit
       setMaterials(data);
+      localStorage.setItem('cached_materials', JSON.stringify(data));
     } catch (err) {
       console.error("Failed to load inventory", err);
     } finally {
-      setIsLoading(false); // Turn off skeleton
+      setIsLoading(false);
     }
   };
 
+  // ... (stats and getStatus logic remain the same)
   const stats = useMemo(() => {
     return {
       total: materials.length,
@@ -44,21 +55,14 @@ const InventoryDashboard = () => {
     return { label: 'IN STOCK', color: 'bg-green-100 text-green-600' };
   };
 
-  // --- SKELETON COMPONENT ---
   const ItemSkeleton = () => (
     <div className="bg-white p-5 rounded-xl border border-gray-100 flex justify-between items-center animate-pulse">
       <div className="flex-1 space-y-3">
         <div className="h-5 bg-gray-200 rounded w-1/4"></div>
         <div className="h-3 bg-gray-100 rounded w-1/6"></div>
-        <div className="flex gap-12 pt-2">
-          <div className="h-8 bg-gray-50 rounded w-20"></div>
-          <div className="h-8 bg-gray-50 rounded w-20"></div>
-        </div>
+        <div className="flex gap-12 pt-2"><div className="h-8 bg-gray-50 rounded w-20"></div></div>
       </div>
-      <div className="flex gap-4">
-        <div className="h-8 bg-gray-100 rounded-full w-24"></div>
-        <div className="h-10 bg-gray-100 rounded-lg w-28"></div>
-      </div>
+      <div className="h-10 bg-gray-100 rounded-lg w-32"></div>
     </div>
   );
 
@@ -69,8 +73,7 @@ const InventoryDashboard = () => {
         <Header title="Inventory Management" />
         
         <div className="p-8 bg-gray-50 min-h-screen">
-          
-          {/* STAT CARDS SECTION */}
+          {/* STAT CARDS */}
           <div className="flex gap-6 mb-8">
             <StatCard title="Total Raw Materials" value={isLoading ? "..." : stats.total} colorClass="bg-blue-100 text-blue-600" icon="📦" />
             <StatCard title="Low Stock Items" value={isLoading ? "..." : stats.lowStock} colorClass="bg-yellow-100 text-yellow-600" icon="⚠️" />
@@ -79,15 +82,16 @@ const InventoryDashboard = () => {
 
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800">Item List</h1>
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-blue-100">
+            <button 
+              onClick={() => navigate('/raw-materials')}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-blue-100 active:scale-95"
+            >
               <span>+</span> Add New Item
             </button>
           </div>
 
-          {/* ITEM LIST OR SKELETONS */}
           <div className="space-y-4">
             {isLoading ? (
-              // Show 5 skeleton placeholders while loading
               [...Array(5)].map((_, i) => <ItemSkeleton key={i} />)
             ) : (
               materials.map((item) => {
@@ -97,7 +101,6 @@ const InventoryDashboard = () => {
                     <div className="flex-1">
                       <h3 className="font-bold text-lg text-gray-800">{item.rm_name}</h3>
                       <p className="text-sm text-gray-500 mb-3">Unit: {item.unit}</p>
-                      
                       <div className="flex gap-12">
                         <div>
                           <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Current Stock</p>
@@ -114,21 +117,17 @@ const InventoryDashboard = () => {
                       <span className={`px-4 py-1.5 rounded-full text-[11px] font-bold tracking-wide ${status.color}`}>
                         {status.label}
                       </span>
-                      
                       <button
                         onClick={() => { setSelectedMaterial(item); setIsEditModalOpen(true); }}
                         className="p-2.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all"
-                        title="Edit Item"
                       >
                         ✏️
                       </button>
-
                       <button
                         onClick={() => { setSelectedMaterial(item); setIsModalOpen(true); }}
                         className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-blue-600 hover:text-white text-blue-600 font-medium rounded-lg border border-blue-600 transition-all group"
                       >
-                        <span className="group-hover:rotate-12 transition-transform">🛒</span> 
-                        Reorder
+                        <span className="group-hover:rotate-12 transition-transform">🛒</span> Reorder
                       </button>
                     </div>
                   </div>
@@ -161,6 +160,8 @@ const InventoryDashboard = () => {
 };
 
 export default InventoryDashboard;
+
+
 
 
 
