@@ -18,6 +18,7 @@ import BranchAdminAddUser from './pages/branch-admin/AddUser';
 import BranchAdminEditUser from './pages/branch-admin/EditUser';
 import CashierDashboard from './pages/cashier/CashierDashboard';
 import CashierPos from './pages/cashier/CashierPos';
+import InvoicePreview from './pages/cashier/InvoicePreview';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
@@ -196,6 +197,11 @@ function App() {
       <Route
         path="/cashier/pos"
         element={<CashierPos />}
+      />
+
+      <Route
+        path="/cashier/invoice-preview"
+        element={<InvoicePreview />}
       />
 
       <Route path="*" element={<Navigate to="/" />} />

@@ -218,8 +218,29 @@ const CashierPos = () => {
         ),
       );
 
+      const invoiceItems = cart.map((item) => ({
+        Bpro_id: item.Bpro_id,
+        pro_name: item.pro_name,
+        unitPrice: item.unitPrice,
+        qty: item.qty,
+        total: Number((item.unitPrice * item.qty).toFixed(2)),
+      }));
+
       setCart([]);
-      navigate("/cashier/dashboard");
+      navigate("/cashier/invoice-preview", {
+        state: {
+          orderId,
+          cashierName: `${user?.u_fname || "Cashier"} ${user?.u_lname || ""}`.trim(),
+          branchName,
+          branchLabel: `${branchName.split(" ")[0] || branchName}\nBranch`,
+          paymentMethod,
+          items: invoiceItems,
+          subtotal: Number(subtotal.toFixed(2)),
+          discount: 0,
+          tax: Number(tax.toFixed(2)),
+          total: Number(total.toFixed(2)),
+        },
+      });
     } catch (checkoutError) {
       setError(
         checkoutError?.response?.data?.error ||
