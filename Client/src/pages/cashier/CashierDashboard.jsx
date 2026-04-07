@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders } from "../../services/api";
@@ -40,6 +41,7 @@ const statCards = [
 
 const CashierDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({ revenue: 0, transactions: 0 });
   const [activities, setActivities] = useState([]);
 
@@ -105,7 +107,10 @@ const CashierDashboard = () => {
               Ready to start your day? Let&apos;s make it productive.
             </p>
 
-            <button className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-gradient-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow">
+            <button
+              onClick={() => navigate("/cashier/pos")}
+              className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
+            >
               <span>Open POS System</span>
             </button>
           </div>
