@@ -83,7 +83,7 @@ const InventoryDashboard = () => {
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-800">Item List</h1>
             <button 
-              onClick={() => navigate('/raw-materials')}
+              onClick={() => navigate('/branch-admin/raw-ingredient')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-lg shadow-blue-100 active:scale-95"
             >
               <span>+</span> Add New Item
