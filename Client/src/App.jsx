@@ -13,6 +13,7 @@ import UserManagement from './pages/admin/UserManagement';
 import ProductManagement from './pages/branch-admin/ProductManagement';
 import AddProduct from './pages/branch-admin/AddProduct';
 import ProductDetails from './pages/branch-admin/ProductDetails';
+import CashierDashboard from './pages/cashier/CashierDashboard';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 
@@ -153,6 +154,15 @@ function App() {
           <ProtectedRoute allowedRoles={[1, 2]}>
             <AddRawMaterials />
           </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/cashier/dashboard"
+        element={
+          
+            <CashierDashboard />
+         
         }
       />
 

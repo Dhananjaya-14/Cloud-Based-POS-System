@@ -64,6 +64,12 @@ export const getProducts = async () => {
   return response.data;
 };
 
+export const getOrders = async (params = {}) => {
+  const response = await api.get("/orders", { params });
+  // order API wraps rows in { success, count, data }
+  return response.data?.data || [];
+};
+
 export const getProductById = async (productId) => {
   const response = await api.get(`/products/${productId}`);
   return response.data;
