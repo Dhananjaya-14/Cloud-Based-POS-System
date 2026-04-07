@@ -16,7 +16,23 @@ import ProductDetails from './pages/branch-admin/ProductDetails';
 import BranchAdminUserManagement from './pages/branch-admin/UserManagement';
 import BranchAdminAddUser from './pages/branch-admin/AddUser';
 import BranchAdminEditUser from './pages/branch-admin/EditUser';
+import CashierDashboard from './pages/cashier/CashierDashboard';
+import CashierPos from './pages/cashier/CashierPos';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
+
+// Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
+// send them to Product Management instead of showing Branch Profile.
+const BranchProfileRouter = () => {
+  const { user } = useAuth();
+
+  if (user?.role_id === 1) {
+    return <Navigate to="/branch-admin/products" replace />;
+  }
+
+  return <BranchProfile />;
+};
+import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
 
 function App() {
   return (
@@ -94,7 +110,17 @@ function App() {
         path="/branch_profile/:branchId"
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
-            <BranchProfile />
+            <BranchProfileRouter />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Fallback when branchId is missing (e.g. Login builds /branch_profile/ with empty id) */}
+      <Route
+        path="/branch_profile"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchProfileRouter />
           </ProtectedRoute>
         }
       />
@@ -151,6 +177,25 @@ function App() {
             <ProductDetails />
           </ProtectedRoute>
         }
+      />
+
+      <Route
+        path="/branch-admin/raw-ingredient"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <AddRawMaterials />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/cashier/dashboard"
+        element={<CashierDashboard />}
+      />
+
+      <Route
+        path="/cashier/pos"
+        element={<CashierPos />}
       />
 
       <Route path="*" element={<Navigate to="/" />} />
