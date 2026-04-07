@@ -13,6 +13,9 @@ import UserManagement from './pages/admin/UserManagement';
 import ProductManagement from './pages/branch-admin/ProductManagement';
 import AddProduct from './pages/branch-admin/AddProduct';
 import ProductDetails from './pages/branch-admin/ProductDetails';
+import BranchAdminUserManagement from './pages/branch-admin/UserManagement';
+import BranchAdminAddUser from './pages/branch-admin/AddUser';
+import BranchAdminEditUser from './pages/branch-admin/EditUser';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -43,6 +46,15 @@ function App() {
       />
 
       <Route
+        path="/branch-admin/users"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminUserManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/users/add"
         element={
           <ProtectedRoute allowedRoles={[2]}>
@@ -52,10 +64,28 @@ function App() {
       />
 
       <Route
+        path="/branch-admin/users/add"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminAddUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/users/:userId/edit"
         element={
           <ProtectedRoute allowedRoles={[2]}>
             <EditUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/users/:userId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminEditUser />
           </ProtectedRoute>
         }
       />
