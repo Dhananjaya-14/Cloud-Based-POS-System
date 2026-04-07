@@ -6,14 +6,11 @@ function extractToken(req) {
     if (authHeader.startsWith("Bearer ")) return authHeader.slice(7);
     return authHeader;
   }
-
   const headerToken = req.headers["x-access-token"];
   if (typeof headerToken === "string" && headerToken.length > 0)
     return headerToken;
-
   if (typeof req.query?.token === "string" && req.query.token.length > 0)
     return req.query.token;
-
   return null;
 }
 
@@ -21,13 +18,10 @@ export function requireAuth(req, res, next) {
   const token = extractToken(req);
 
   if (!token) {
-    return res.status(401).json({
-      message: "Please log in to continue.",
-    });
+    return res.status(401).json({ message: "Please log in to continue." });
   }
 
   if (!process.env.JWT_SECRET) {
-    // Log internally, never expose config details to the client
     console.error("[AUTH] JWT_SECRET is not set in environment variables");
     return res.status(500).json({
       message: "Something went wrong on our end. Please try again later.",
@@ -50,24 +44,41 @@ export function requireAuth(req, res, next) {
 
 export const ROLES = {
   SUPER_ADMIN: 6,
+  ADMIN: 2,
 };
 
-export function requireSuperAdmin(req, res, next) {
-  const roleId = req.user?.role_id;
+function requireRole(allowedRoles, label) {
+  return (req, res, next) => {
+    const roleId = req.user?.role_id;
 
-  if (roleId === undefined || roleId === null) {
-    return res.status(403).json({
-      message:
-        "Your account doesn't have a role assigned yet. Please contact your administrator.",
-    });
-  }
+    if (roleId === undefined || roleId === null) {
+      return res.status(403).json({
+        message:
+          "Your account doesn't have a role assigned yet. Please contact your administrator.",
+      });
+    }
 
-  if (roleId !== ROLES.SUPER_ADMIN) {
-    return res.status(403).json({
-      message:
-        "You don't have permission to perform this action. Please contact your Super Admin.",
-    });
-  }
+    if (!allowedRoles.includes(roleId)) {
+      return res.status(403).json({
+        message: `You don't have permission to perform this action. ${label} access is required.`,
+      });
+    }
 
-  return next();
+    return next();
+  };
 }
+
+// Super Admin only
+export const requireSuperAdmin = requireRole(
+  [ROLES.SUPER_ADMIN],
+  "Super Admin",
+);
+
+// Admin only  (Super Admin cannot manage branches unless also assigned role 2)
+export const requireAdmin = requireRole([ROLES.ADMIN], "Admin");
+
+// Super Admin OR Admin (use where either role is acceptable)
+export const requireAdminOrAbove = requireRole(
+  [ROLES.ADMIN, ROLES.SUPER_ADMIN],
+  "Admin",
+);
