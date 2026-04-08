@@ -45,6 +45,7 @@ export function requireAuth(req, res, next) {
 export const ROLES = {
   SUPER_ADMIN: 6,
   ADMIN: 2,
+  BRANCH_ADMIN: 1,
 };
 
 function requireRole(allowedRoles, label) {
@@ -82,3 +83,9 @@ export const requireAdminOrAbove = requireRole(
   [ROLES.ADMIN, ROLES.SUPER_ADMIN],
   "Admin",
 );
+
+// Branch Admin OR Admin (role CRUD)
+export const requireBranchAdminOrAdmin = requireRole(
+  [ROLES.BRANCH_ADMIN, ROLES.ADMIN],
+  "Branch Admin or Admin",
+)
