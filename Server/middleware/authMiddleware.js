@@ -75,16 +75,11 @@ export const requireSuperAdmin = requireRole(
   "Super Admin",
 );
 
-// Admin only  (Super Admin cannot manage branches unless also assigned role 2)
+// Company Admin only  
 export const requireAdmin = requireRole([ROLES.ADMIN], "Admin");
 
-// Super Admin OR Admin (use where either role is acceptable)
-export const requireAdminOrAbove = requireRole(
-  [ROLES.ADMIN, ROLES.SUPER_ADMIN],
-  "Admin",
-);
 
-// Branch Admin OR Admin (role CRUD)
+// Branch Admin OR Company Admin 
 export const requireBranchAdminOrAdmin = requireRole(
   [ROLES.BRANCH_ADMIN, ROLES.ADMIN],
   "Branch Admin or Admin",
