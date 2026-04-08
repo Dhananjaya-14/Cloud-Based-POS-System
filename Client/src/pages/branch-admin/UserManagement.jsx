@@ -11,8 +11,8 @@ import {
   FaUserShield,
   FaUsers,
 } from "react-icons/fa";
-import Sidebar from "../../components/admin/Sidebar";
-import Header from "../../components/admin/Header";
+import Sidebar from "../../components/branch-admin/Sidebar";
+import Header from "../../components/branch-admin/Header";
 import {
   createUser,
   deleteUserById,
@@ -33,6 +33,10 @@ const UserManagement = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const accessibleRoles = useMemo(() => {
+    return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
+  }, [roles]);
 
   const [newUser, setNewUser] = useState({
     u_fname: "",
@@ -62,7 +66,10 @@ const UserManagement = () => {
       setRoles(rolesData || []);
       setBranches(branchesData || []);
 
-      const defaultRole = rolesData?.[0]?.role_id ? String(rolesData[0].role_id) : "";
+      const allowedRoles = (rolesData || []).filter(
+        (role) => !String(role.role_name || "").toLowerCase().includes("admin")
+      );
+      const defaultRole = allowedRoles?.[0]?.role_id ? String(allowedRoles[0].role_id) : "";
       setNewUser((prev) => ({ ...prev, role_id: prev.role_id || defaultRole }));
     } catch (err) {
       setError(err?.response?.data?.message || "Unable to load user management data.");
@@ -87,10 +94,18 @@ const UserManagement = () => {
     }, {});
   }, [branches]);
 
+  const accessibleRoleIds = useMemo(() => {
+    return new Set(accessibleRoles.map((role) => String(role.role_id)));
+  }, [accessibleRoles]);
+
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
     return users.filter((user) => {
+      if (!accessibleRoleIds.has(String(user.role_id))) {
+        return false;
+      }
+
       const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim().toLowerCase();
       const email = (user.u_email || "").toLowerCase();
       const roleName = (roleMap[String(user.role_id)] || "Unknown").toLowerCase();
@@ -107,14 +122,14 @@ const UserManagement = () => {
 
       return matchesSearch && matchesRole;
     });
-  }, [users, searchTerm, roleFilter, roleMap, branchMapByUser]);
+  }, [users, searchTerm, roleFilter, roleMap, branchMapByUser, accessibleRoleIds]);
 
   const visibleUsers = useMemo(() => filteredUsers.slice(0, 5), [filteredUsers]);
 
-  const totalUsers = users.length;
-  const branchAdminCount = users.filter((u) => (roleMap[String(u.role_id)] || "").toLowerCase().includes("branch")).length;
-  const cashierCount = users.filter((u) => (roleMap[String(u.role_id)] || "").toLowerCase().includes("cashier")).length;
-  const activeUsers = users.length;
+  const totalUsers = filteredUsers.length;
+  const branchAdminCount = filteredUsers.filter((u) => !String(roleMap[String(u.role_id)] || "").toLowerCase().includes("cashier")).length;
+  const cashierCount = filteredUsers.filter((u) => (roleMap[String(u.role_id)] || "").toLowerCase().includes("cashier")).length;
+  const activeUsers = filteredUsers.length;
 
   const handleNewUserChange = (e) => {
     const { name, value } = e.target;
@@ -123,6 +138,11 @@ const UserManagement = () => {
 
   const handleCreateUser = async (e) => {
     e.preventDefault();
+
+    if (!accessibleRoleIds.has(String(newUser.role_id))) {
+      window.alert("Please select a supported role.");
+      return;
+    }
 
     try {
       await createUser({
@@ -137,7 +157,7 @@ const UserManagement = () => {
         u_email: "",
         u_pw: "",
         u_connumber: "",
-        role_id: roles?.[0]?.role_id ? String(roles[0].role_id) : "",
+        role_id: accessibleRoles?.[0]?.role_id ? String(accessibleRoles[0].role_id) : "",
       });
 
       fetchData();
@@ -195,7 +215,7 @@ const UserManagement = () => {
             </h1>
             <button
               type="button"
-              onClick={() => navigate("/users/add")}
+              onClick={() => navigate("/branch-admin/users/add")}
               style={{
                 border: "none",
                 background: "#0b61b5",
@@ -217,7 +237,7 @@ const UserManagement = () => {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(160px, 1fr))", gap: "12px" }}>
             <StatCard icon={<FaUsers />} title="Total Users" value={totalUsers} bg="#b6e6bf" iconBg="#2bc454" />
-            <StatCard icon={<FaUserShield />} title="Branch Admins" value={branchAdminCount} bg="#f6d2de" iconBg="#ef5a86" />
+            <StatCard icon={<FaUserShield />} title="Assignable Roles" value={branchAdminCount} bg="#f6d2de" iconBg="#ef5a86" />
             <StatCard icon={<FaCashRegister />} title="Cashiers" value={cashierCount} bg="#bae2f4" iconBg="#4a91e2" />
             <StatCard icon={<FaUserCheck />} title="Active Users" value={activeUsers} bg="#f8dea5" iconBg="#ddb94b" />
           </div>
@@ -305,7 +325,7 @@ const UserManagement = () => {
                   }}
                 >
                   <option value="all">All Roles</option>
-                  {roles.map((role) => (
+                  {accessibleRoles.map((role) => (
                     <option key={role.role_id} value={String(role.role_id)}>
                       {role.role_name}
                     </option>
@@ -386,7 +406,7 @@ const UserManagement = () => {
                             <div style={{ display: "inline-flex", gap: "10px", justifyContent: "center" }}>
                               <button
                                 type="button"
-                                onClick={() => navigate(`/users/${user.u_id}/edit`)}
+                                onClick={() => navigate(`/branch-admin/users/${user.u_id}/edit`)}
                                 style={{
                                   width: "30px",
                                   height: "30px",
@@ -445,7 +465,7 @@ const UserManagement = () => {
 
       {isAddModalOpen && (
         <AddUserModal
-          roles={roles}
+          roles={accessibleRoles}
           form={newUser}
           onChange={handleNewUserChange}
           onClose={() => setIsAddModalOpen(false)}
