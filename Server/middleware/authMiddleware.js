@@ -47,6 +47,7 @@ export const ROLES = {
   ADMIN: 2,
   BRANCH_ADMIN: 1,
   CASHIER: 3,
+  WAITER: 8,
 };
 
 function requireRole(allowedRoles, label) {
@@ -76,17 +77,16 @@ export const requireSuperAdmin = requireRole(
   "Super Admin",
 );
 
-// Company Admin only  
+// Admin only
 export const requireAdmin = requireRole([ROLES.ADMIN], "Admin");
 
-
-// Branch Admin OR Company Admin 
+// Branch Admin OR Admin
 export const requireBranchAdminOrAdmin = requireRole(
   [ROLES.BRANCH_ADMIN, ROLES.ADMIN],
   "Branch Admin or Admin",
 );
 
-// Cashier OR Branch Admin OR Company Admin 
+// Cashier OR Branch Admin OR Admin
 export const requireCashierOrAbove = requireRole(
   [ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
   "Cashier, Branch Admin, or Admin",
