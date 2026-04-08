@@ -5,6 +5,7 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
     rm_name: material.rm_name,
     unit: material.unit,
     record_level: material.record_level,
+    stock_qty: material.stock_qty, // Added stock_qty to initial state
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -27,7 +28,12 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
     e.preventDefault();
     setMaterials(prev => prev.map(m => 
       m.rm_id === material.rm_id 
-        ? { ...m, ...formData, low_stock: Number(m.stock_qty) <= Number(formData.record_level) } 
+        ? { 
+            ...m, 
+            ...formData, 
+            // Updated to use the new formData.stock_qty for the low stock check
+            low_stock: Number(formData.stock_qty) <= Number(formData.record_level) 
+          } 
         : m
     ));
     onClose(); 
@@ -103,15 +109,28 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
               </select>
             </div>
             <div>
-              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Reorder Level</label>
+              <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Stock Quantity</label>
               <input 
                 type="number"
-                className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none"
-                value={formData.record_level}
-                onChange={(e) => setFormData({...formData, record_level: e.target.value})}
+                step="0.001"
+                className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+                value={formData.stock_qty}
+                onChange={(e) => setFormData({...formData, stock_qty: e.target.value})}
                 required
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Reorder Level</label>
+            <input 
+              type="number"
+              step="0.001"
+              className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.record_level}
+              onChange={(e) => setFormData({...formData, record_level: e.target.value})}
+              required
+            />
           </div>
 
           <div className="pt-4 flex flex-col gap-3">
@@ -120,7 +139,7 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
             </button>
             <button 
               type="button" 
-              onClick={handleDeleteInitialClick} // Changed to the instant checker
+              onClick={handleDeleteInitialClick}
               className="w-full py-2 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg transition-colors"
             >
               Delete Material
@@ -171,6 +190,7 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
 };
 
 export default EditMaterialModal;
+
 
 
 
