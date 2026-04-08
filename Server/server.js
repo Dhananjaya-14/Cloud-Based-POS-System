@@ -26,7 +26,11 @@ import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
 import supplierRoutes from "./routes/supplierRoutes.js";
 import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
 import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
-import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js"; 
+import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import orderItemRoutes from "./routes/orderItemRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import deliveryRoutes from "./routes/deliveryRoutes.js";
 
 // Initialize app
 const app = express();
@@ -64,6 +68,10 @@ app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/purchase-items", purchaseItemRoutes);
 app.use("/api/supplier-payments", supplierPaymentRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/order-items", orderItemRoutes);
+app.use("/api/payments", paymentRoutes);
+app.use("/api/deliveries", deliveryRoutes);
 
 // Error handling
 app.use(notFound);

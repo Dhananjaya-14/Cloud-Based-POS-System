@@ -10,6 +10,7 @@ import {
   FaExchangeAlt,
   FaCog,
   FaSignOutAlt,
+  FaUsers,
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -156,6 +157,7 @@ const Sidebar = () => {
           )}
           {menuItem(<FaChartBar />, "Overview", "/branch-admin/overview", isExactActive("/branch-admin/overview"))}
           {menuItem(<FaBoxOpen />, "Product", "/branch-admin/products", productActive)}
+          {menuItem(<FaUsers />, "User Management", "/branch-admin/users", isExactActive("/branch-admin/users"))}
 
           {groupLabel(
             <FaClipboardList />,

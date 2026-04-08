@@ -13,7 +13,26 @@ import UserManagement from './pages/admin/UserManagement';
 import ProductManagement from './pages/branch-admin/ProductManagement';
 import AddProduct from './pages/branch-admin/AddProduct';
 import ProductDetails from './pages/branch-admin/ProductDetails';
+import BranchAdminUserManagement from './pages/branch-admin/UserManagement';
+import BranchAdminAddUser from './pages/branch-admin/AddUser';
+import BranchAdminEditUser from './pages/branch-admin/EditUser';
+import CashierDashboard from './pages/cashier/CashierDashboard';
+import CashierPos from './pages/cashier/CashierPos';
+import InvoicePreview from './pages/cashier/InvoicePreview';
 import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
+
+// Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
+// send them to Product Management instead of showing Branch Profile.
+const BranchProfileRouter = () => {
+  const { user } = useAuth();
+
+  if (user?.role_id === 1) {
+    return <Navigate to="/branch-admin/products" replace />;
+  }
+
+  return <BranchProfile />;
+};
 import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
 import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
 
@@ -45,10 +64,28 @@ function App() {
       />
 
       <Route
+        path="/branch-admin/users"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminUserManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/users/add"
         element={
           <ProtectedRoute allowedRoles={[2]}>
             <AddUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/users/add"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminAddUser />
           </ProtectedRoute>
         }
       />
@@ -63,10 +100,29 @@ function App() {
       />
 
       <Route
+        path="/branch-admin/users/:userId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminEditUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/branch_profile/:branchId"
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
-            <BranchProfile />
+            <BranchProfileRouter />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Fallback when branchId is missing (e.g. Login builds /branch_profile/ with empty id) */}
+      <Route
+        path="/branch_profile"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchProfileRouter />
           </ProtectedRoute>
         }
       />
@@ -141,6 +197,22 @@ function App() {
             <InventoryDashboard />
           </ProtectedRoute>
         }
+
+        />
+
+        <Route
+        path="/cashier/dashboard"
+        element={<CashierDashboard />}
+      />
+
+      <Route
+        path="/cashier/pos"
+        element={<CashierPos />}
+      />
+
+      <Route
+        path="/cashier/invoice-preview"
+        element={<InvoicePreview />}
       />
 
       <Route path="*" element={<Navigate to="/" />} />

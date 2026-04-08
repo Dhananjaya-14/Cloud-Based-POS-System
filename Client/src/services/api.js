@@ -64,6 +64,17 @@ export const getProducts = async () => {
   return response.data;
 };
 
+export const getBranchProducts = async () => {
+  const response = await api.get("/branch_products");
+  return response.data;
+};
+
+export const getOrders = async (params = {}) => {
+  const response = await api.get("/orders", { params });
+  // order API wraps rows in { success, count, data }
+  return response.data?.data || [];
+};
+
 export const getProductById = async (productId) => {
   const response = await api.get(`/products/${productId}`);
   return response.data;
@@ -76,6 +87,16 @@ export const getCategories = async () => {
 
 export const createProduct = async (productData) => {
   const response = await api.post("/products", productData);
+  return response.data;
+};
+
+export const createOrder = async (orderData) => {
+  const response = await api.post("/orders", orderData);
+  return response.data;
+};
+
+export const createOrderItem = async (orderItemData) => {
+  const response = await api.post("/order-items", orderItemData);
   return response.data;
 };
 
