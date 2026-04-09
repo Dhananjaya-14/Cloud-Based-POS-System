@@ -1,3 +1,4 @@
+// purchaseOrderRoutes.js
 import express from "express";
 import {
   getPurchaseOrders,
@@ -8,9 +9,16 @@ import {
   updatePurchaseOrderStatus,
   deletePurchaseOrder,
 } from "../controllers/purchaseOrderController.js";
+import {
+  requireAuth,
+  requireBranchAdminOrAdmin,
+} from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
+// All purchase order routes — Admin and Branch Admin only
+// Kitchen staff and cashiers have no business managing supplier orders
+router.use(requireAuth, requireBranchAdminOrAdmin);
 
 router.get("/", getPurchaseOrders);
 router.get("/supplier/:supId", getPurchaseOrdersBySupplier);
