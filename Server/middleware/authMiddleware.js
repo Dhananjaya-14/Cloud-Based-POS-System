@@ -59,16 +59,17 @@ export function requireAuth(req, res, next) {
 // ROLE CONSTANTS
 // ─────────────────────────────────────────────
 export const ROLES = {
-  SUPER_ADMIN: 6,
-  ADMIN: 2,
-  BRANCH_ADMIN: 1,
+  SUPER_ADMIN: 6, //SLT
+  ADMIN: 2, //company owner
+  BRANCH_ADMIN: 1, // branch manager
   CASHIER: 3,
   WAITER: 8,
   KITCHEN_STAFF: 9,
 };
 
 // ─────────────────────────────────────────────
-// ROLE MIDDLEWARE (FIXED EXPORT)
+// ROLE MIDDLEWARE
+// Super Admin (6) bypasses ALL role checks automatically.
 // ─────────────────────────────────────────────
 export function requireRole(allowedRoles, label) {
   return (req, res, next) => {
@@ -79,6 +80,11 @@ export function requireRole(allowedRoles, label) {
         message:
           "Your account doesn't have a role assigned yet. Please contact your administrator.",
       });
+    }
+
+    // Super Admin can access every route — no further checks needed
+    if (roleId === ROLES.SUPER_ADMIN) {
+      return next();
     }
 
     if (!allowedRoles.includes(roleId)) {
