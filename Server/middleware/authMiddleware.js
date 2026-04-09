@@ -1,28 +1,40 @@
 import jwt from "jsonwebtoken";
 
+// ─────────────────────────────────────────────
+// TOKEN EXTRACTION
+// ─────────────────────────────────────────────
 function extractToken(req) {
   const authHeader = req.headers.authorization;
+
   if (authHeader && typeof authHeader === "string") {
     if (authHeader.startsWith("Bearer ")) return authHeader.slice(7);
     return authHeader;
   }
+
   const headerToken = req.headers["x-access-token"];
   if (typeof headerToken === "string" && headerToken.length > 0)
     return headerToken;
+
   if (typeof req.query?.token === "string" && req.query.token.length > 0)
     return req.query.token;
+
   return null;
 }
 
+// ─────────────────────────────────────────────
+// AUTH MIDDLEWARE
+// ─────────────────────────────────────────────
 export function requireAuth(req, res, next) {
   const token = extractToken(req);
 
   if (!token) {
-    return res.status(401).json({ message: "Please log in to continue." });
+    return res.status(401).json({
+      message: "Please log in to continue.",
+    });
   }
 
   if (!process.env.JWT_SECRET) {
-    console.error("[AUTH] JWT_SECRET is not set in environment variables");
+    console.error("[AUTH] JWT_SECRET is not set");
     return res.status(500).json({
       message: "Something went wrong on our end. Please try again later.",
     });
@@ -34,6 +46,7 @@ export function requireAuth(req, res, next) {
     return next();
   } catch (err) {
     const isExpired = err?.name === "TokenExpiredError";
+
     return res.status(401).json({
       message: isExpired
         ? "Your session has expired. Please log in again."
@@ -42,15 +55,22 @@ export function requireAuth(req, res, next) {
   }
 }
 
+// ─────────────────────────────────────────────
+// ROLE CONSTANTS
+// ─────────────────────────────────────────────
 export const ROLES = {
   SUPER_ADMIN: 6,
   ADMIN: 2,
   BRANCH_ADMIN: 1,
   CASHIER: 3,
   WAITER: 8,
+  KITCHEN_STAFF: 9,
 };
 
-function requireRole(allowedRoles, label) {
+// ─────────────────────────────────────────────
+// ROLE MIDDLEWARE (FIXED EXPORT)
+// ─────────────────────────────────────────────
+export function requireRole(allowedRoles, label) {
   return (req, res, next) => {
     const roleId = req.user?.role_id;
 
@@ -71,6 +91,10 @@ function requireRole(allowedRoles, label) {
   };
 }
 
+// ─────────────────────────────────────────────
+// READY-MADE HELPERS
+// ─────────────────────────────────────────────
+
 // Super Admin only
 export const requireSuperAdmin = requireRole(
   [ROLES.SUPER_ADMIN],
@@ -90,4 +114,10 @@ export const requireBranchAdminOrAdmin = requireRole(
 export const requireCashierOrAbove = requireRole(
   [ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
   "Cashier, Branch Admin, or Admin",
+);
+
+// Waiter OR Cashier OR Branch Admin OR Admin
+export const requireWaiterOrAbove = requireRole(
+  [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
+  "Waiter, Cashier, Branch Admin, or Admin",
 );
