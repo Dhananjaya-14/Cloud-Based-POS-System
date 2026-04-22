@@ -1,5 +1,5 @@
 import express from "express";
-import { requireAuth } from "../middleware/authMiddleware.js";
+import { requireAuth, requireAdminOnly } from "../middleware/authMiddleware.js";
 import {
   getProducts,
   getProductById,
@@ -12,6 +12,7 @@ const router = express.Router();
 
 // Protect all product endpoints
 router.use(requireAuth);
+router.use(requireAdminOnly);
 
 router.get("/", getProducts);
 router.get("/:id", getProductById);
