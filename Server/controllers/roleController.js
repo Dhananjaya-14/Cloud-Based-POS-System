@@ -4,7 +4,7 @@ import pool from "../config/database.js";
 export async function getRoles(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT role_id, role_name FROM "Role" ORDER BY role_id'
+      'SELECT role_id, role_name FROM "Role" ORDER BY role_id',
     );
     res.json(result.rows);
   } catch (err) {
@@ -12,19 +12,24 @@ export async function getRoles(req, res, next) {
   }
 }
 
-//single role by id
 // GET /api/roles/:id
 export async function getRoleById(req, res, next) {
   try {
     const { id } = req.params;
+
+    if (isNaN(Number(id))) {
+      res.status(400);
+      return next(new Error("Invalid role ID"));
+    }
+
     const result = await pool.query(
       'SELECT role_id, role_name FROM "Role" WHERE role_id = $1',
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
       res.status(404);
-      throw new Error("Role not found");
+      return next(new Error("Role not found"));
     }
 
     res.json(result.rows[0]);
@@ -32,33 +37,54 @@ export async function getRoleById(req, res, next) {
     next(err);
   }
 }
-//create role
+
 // POST /api/roles
 export async function createRole(req, res, next) {
   try {
     const { role_name } = req.body;
 
-    if (!role_name) {
+    if (!role_name || typeof role_name !== "string") {
       res.status(400);
-      throw new Error("role_name is required");
+      return next(new Error("role_name is required and must be a string"));
     }
 
+    const trimmed = role_name.trim();
+
+    if (trimmed.length === 0) {
+      res.status(400);
+      return next(new Error("role_name cannot be empty or whitespace"));
+    }
+    if (trimmed.length > 50) {
+      res.status(400);
+      return next(new Error("role_name must be 50 characters or fewer"));
+    }
+    if (!/^[a-zA-Z0-9 _-]+$/.test(trimmed)) {
+      res.status(400);
+      return next(new Error("role_name contains invalid characters"));
+    }
+
+    // DB has UNIQUE constraint on role_name — but we check first for a clean error message
     const existing = await pool.query(
-      'SELECT role_id FROM "Role" WHERE role_name = $1',
-      [role_name]
+      'SELECT role_id FROM "Role" WHERE LOWER(role_name) = LOWER($1)',
+      [trimmed],
     );
     if (existing.rows.length > 0) {
-      res.status(400);
-      throw new Error("Role name already exists");
+      res.status(409);
+      return next(new Error("A role with this name already exists"));
     }
 
     const result = await pool.query(
       'INSERT INTO "Role" (role_name) VALUES ($1) RETURNING role_id, role_name',
-      [role_name]
+      [trimmed],
     );
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
+    // Fallback: DB unique constraint violation (race condition)
+    if (err.code === "23505") {
+      res.status(409);
+      return next(new Error("A role with this name already exists"));
+    }
     next(err);
   }
 }
@@ -69,27 +95,62 @@ export async function updateRole(req, res, next) {
     const { id } = req.params;
     const { role_name } = req.body;
 
+    if (isNaN(Number(id))) {
+      res.status(400);
+      return next(new Error("Invalid role ID"));
+    }
+
+    if (!role_name || typeof role_name !== "string") {
+      res.status(400);
+      return next(new Error("role_name is required and must be a string"));
+    }
+
+    const trimmed = role_name.trim();
+
+    if (trimmed.length === 0) {
+      res.status(400);
+      return next(new Error("role_name cannot be empty or whitespace"));
+    }
+    if (trimmed.length > 50) {
+      res.status(400);
+      return next(new Error("role_name must be 50 characters or fewer"));
+    }
+    if (!/^[a-zA-Z0-9 _-]+$/.test(trimmed)) {
+      res.status(400);
+      return next(new Error("role_name contains invalid characters"));
+    }
+
     const existing = await pool.query(
       'SELECT role_id FROM "Role" WHERE role_id = $1',
-      [id]
+      [id],
     );
     if (existing.rows.length === 0) {
       res.status(404);
-      throw new Error("Role not found");
+      return next(new Error("Role not found"));
     }
 
-    if (!role_name) {
-      res.status(400);
-      throw new Error("role_name is required");
+    // Case-insensitive duplicate check, excluding the current role
+    const duplicate = await pool.query(
+      'SELECT role_id FROM "Role" WHERE LOWER(role_name) = LOWER($1) AND role_id != $2',
+      [trimmed, id],
+    );
+    if (duplicate.rows.length > 0) {
+      res.status(409);
+      return next(new Error("A role with this name already exists"));
     }
 
     const result = await pool.query(
       'UPDATE "Role" SET role_name = $1 WHERE role_id = $2 RETURNING role_id, role_name',
-      [role_name, id]
+      [trimmed, id],
     );
 
     res.json(result.rows[0]);
   } catch (err) {
+    // Fallback: DB unique constraint violation (race condition)
+    if (err.code === "23505") {
+      res.status(409);
+      return next(new Error("A role with this name already exists"));
+    }
     next(err);
   }
 }
@@ -99,28 +160,34 @@ export async function deleteRole(req, res, next) {
   try {
     const { id } = req.params;
 
-    try {
-      const result = await pool.query(
-        'DELETE FROM "Role" WHERE role_id = $1 RETURNING role_id',
-        [id]
-      );
+    if (isNaN(Number(id))) {
+      res.status(400);
+      return next(new Error("Invalid role ID"));
+    }
 
-      if (result.rows.length === 0) {
-        res.status(404);
-        throw new Error("Role not found");
-      }
-    } catch (err) {
-      // Handle foreign key constraint (e.g., if users still reference this role)
-      if (err.code === "23503") {
-        res.status(400);
-        return next(new Error("Cannot delete role because it is in use"));
-      }
-      throw err;
+    const result = await pool.query(
+      'DELETE FROM "Role" WHERE role_id = $1 RETURNING role_id',
+      [id],
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404);
+      return next(new Error("Role not found"));
     }
 
     res.status(204).send();
   } catch (err) {
+    // FK violation — role is still assigned to users
+    if (err.code === "23503") {
+      res.status(409);
+      return next(
+        new Error(
+          "Cannot delete this role because it is assigned to one or more users",
+        ),
+      );
+    }
     next(err);
   }
 }
 
+export default { getRoles, getRoleById, createRole, updateRole, deleteRole };

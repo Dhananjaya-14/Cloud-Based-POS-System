@@ -7,6 +7,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
+import { notFound, errorHandler } from "./middleware/errorHandler.js";
+
 // Import routes
 import customerRoutes from "./routes/customerRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -18,15 +20,20 @@ import tableRoutes from "./routes/tableRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import branchProductRoutes from "./routes/branchProductRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
+import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
+import supplierRoutes from "./routes/supplierRoutes.js";
+import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
+import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
+import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js";
+import orderRoutes from "./routes/orderRoutes.js";
+import orderItemRoutes from "./routes/orderItemRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
-
-
-// Import error handling middleware
-import { notFound, errorHandler } from "./middleware/errorHandler.js";
+import discountRoutes from "./routes/discountRoutes.js";
 
 // Initialize app
 const app = express();
@@ -56,11 +63,20 @@ app.use("/api/tables", tableRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/branch_products", branchProductRoutes);
+app.use("/api/products", productRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/terminals", terminalRoutes);
+app.use("/api/raw-materials", rawMaterialRoutes);
+app.use("/api/suppliers", supplierRoutes);
+app.use("/api/purchase-orders", purchaseOrderRoutes);
+app.use("/api/purchase-items", purchaseItemRoutes);
+app.use("/api/supplier-payments", supplierPaymentRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/order-items", orderItemRoutes);
 app.use("/api/payments", paymentRoutes);
-app.use("/api/delivery", deliveryRoutes);
+app.use("/api/deliveries", deliveryRoutes);
+app.use("/api/discounts", discountRoutes);
 
 // Error handling
 app.use(notFound);
