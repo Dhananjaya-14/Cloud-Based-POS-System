@@ -11,6 +11,16 @@ function fieldOrNull(value) {
   return value === undefined ? null : value;
 }
 
+function isPositiveInt(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0;
+}
+
+function isNonNegativeNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0;
+}
+
 // GET /api/products
 export async function getProducts(req, res, next) {
   try {
@@ -27,6 +37,10 @@ export async function getProducts(req, res, next) {
 export async function getProductById(req, res, next) {
   try {
     const { id } = req.params;
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid product id");
+    }
 
     const result = await pool.query(
       'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id" FROM "public"."Product" WHERE "pro_id" = $1',
@@ -60,6 +74,31 @@ export async function createProduct(req, res, next) {
     ) {
       res.status(400);
       throw new Error("pro_name, pro_qty, pro_price, pro_image and com_id are required");
+    }
+
+    if (typeof pro_name !== "string" || pro_name.trim().length === 0) {
+      res.status(400);
+      throw new Error("pro_name must be a non-empty string");
+    }
+
+    if (typeof pro_image !== "string" || pro_image.trim().length === 0) {
+      res.status(400);
+      throw new Error("pro_image must be a non-empty string");
+    }
+
+    if (!isNonNegativeNumber(pro_qty)) {
+      res.status(400);
+      throw new Error("pro_qty must be a non-negative number");
+    }
+
+    if (!isNonNegativeNumber(pro_price)) {
+      res.status(400);
+      throw new Error("pro_price must be a non-negative number");
+    }
+
+    if (!isPositiveInt(com_id)) {
+      res.status(400);
+      throw new Error("com_id must be a positive integer");
     }
 
     const insertQuery = `
@@ -97,6 +136,35 @@ export async function updateProduct(req, res, next) {
     const { id } = req.params;
     const { pro_name, pro_qty, pro_price, pro_image } = req.body;
     const com_id = normalizeComId(req.body);
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid product id");
+    }
+
+    if (pro_name !== undefined && (typeof pro_name !== "string" || pro_name.trim().length === 0)) {
+      res.status(400);
+      throw new Error("pro_name must be a non-empty string");
+    }
+
+    if (pro_image !== undefined && (typeof pro_image !== "string" || pro_image.trim().length === 0)) {
+      res.status(400);
+      throw new Error("pro_image must be a non-empty string");
+    }
+
+    if (pro_qty !== undefined && !isNonNegativeNumber(pro_qty)) {
+      res.status(400);
+      throw new Error("pro_qty must be a non-negative number");
+    }
+
+    if (pro_price !== undefined && !isNonNegativeNumber(pro_price)) {
+      res.status(400);
+      throw new Error("pro_price must be a non-negative number");
+    }
+
+    if (com_id !== undefined && !isPositiveInt(com_id)) {
+      res.status(400);
+      throw new Error("com_id must be a positive integer");
+    }
 
     const existing = await pool.query('SELECT "pro_id" FROM "public"."Product" WHERE "pro_id" = $1', [id]);
     if (existing.rows.length === 0) {
@@ -140,6 +208,10 @@ export async function updateProduct(req, res, next) {
 export async function deleteProduct(req, res, next) {
   try {
     const { id } = req.params;
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid product id");
+    }
 
     const result = await pool.query(
       'DELETE FROM "public"."Product" WHERE "pro_id" = $1 RETURNING "pro_id"',
