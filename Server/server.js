@@ -1,5 +1,3 @@
-// server.js
-
 // Load environment variables
 import "dotenv/config";
 
@@ -7,7 +5,12 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
+<<<<<<< HEAD
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
+=======
+// Import database
+import pool from "./config/database.js";
+>>>>>>> Rahula
 
 // Import routes
 import customerRoutes from "./routes/customerRoutes.js";
@@ -32,7 +35,14 @@ import orderRoutes from "./routes/orderRoutes.js";
 import orderItemRoutes from "./routes/orderItemRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
+<<<<<<< HEAD
 import discountRoutes from "./routes/discountRoutes.js";
+=======
+import wasteRoutes from "./routes/wasteRoutes.js";
+
+// Error handling middleware
+import { notFound, errorHandler } from "./middleware/errorHandler.js";
+>>>>>>> Rahula
 
 // Initialize app
 const app = express();
@@ -42,7 +52,7 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "*",
     credentials: true,
-  }),
+  })
 );
 app.use(express.json());
 
@@ -74,14 +84,34 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/order-items", orderItemRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/deliveries", deliveryRoutes);
+<<<<<<< HEAD
 app.use("/api/discounts", discountRoutes);
+=======
+app.use("/api/waste", wasteRoutes);
+>>>>>>> Rahula
 
 // Error handling
 app.use(notFound);
 app.use(errorHandler);
 
-// Start server
+// Start server WITH DB check
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+const startServer = async () => {
+  try {
+    // ✅ Test DB connection
+    const res = await pool.query("SELECT NOW()");
+    console.log("✅ Database connected:", res.rows[0]);
+
+    // ✅ Start server only if DB is OK
+    app.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+
+  } catch (err) {
+    console.error("❌ Database connection failed:", err.message);
+    process.exit(1); // Stop server if DB fails
+  }
+};
+
+startServer();
