@@ -13,7 +13,8 @@ function extractToken(req) {
   }
 
   const headerToken = req.headers["x-access-token"];
-  if (typeof headerToken === "string" && headerToken.length > 0) return headerToken;
+  if (typeof headerToken === "string" && headerToken.length > 0)
+    return headerToken;
 
   if (typeof req.query?.token === "string" && req.query.token.length > 0)
     return req.query.token;
@@ -55,8 +56,6 @@ export function requireAuth(req, res, next) {
   }
 }
 
-<<<<<<< HEAD
-=======
 // ─────────────────────────────────────────────
 // ROLE CONSTANTS
 // ─────────────────────────────────────────────
@@ -129,4 +128,3 @@ export const requireWaiterOrAbove = requireRole(
   [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
   "Waiter, Cashier, Branch Admin, or Admin",
 );
->>>>>>> Development

@@ -20,9 +20,6 @@ function parseDate(value, fieldName) {
       { status: 400 },
     );
   }
-<<<<<<< HEAD
-  return d;
-=======
   const d = new Date(value.trim());
   if (isNaN(d.getTime())) {
     throw Object.assign(
@@ -49,7 +46,6 @@ function parseTime(value, fieldName) {
     );
   }
   return value.trim();
->>>>>>> Development
 }
 
 function sanitizeBody(body, allowedFields) {
