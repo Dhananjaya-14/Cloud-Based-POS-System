@@ -59,8 +59,6 @@ function sanitizeBody(body, allowedFields) {
   return sanitized;
 }
 
-<<<<<<< HEAD
-=======
 function getTodayStr() {
   return new Date().toISOString().split("T")[0];
 }
@@ -75,14 +73,10 @@ function validatePayDate(payDateStr, reservDateStr) {
   }
 }
 
->>>>>>> Development
 // ─── GET /api/reservations ───────────────────────────────────────────────────
 export async function getReservations(req, res, next) {
   try {
     const result = await pool.query(
-<<<<<<< HEAD
-      'SELECT reserv_id, reserv_date, pay_date, cust_id, table_id, branch_id FROM "RESERVATION" ORDER BY reserv_id',
-=======
       `SELECT
          r.reserv_id,
          r.reserv_date,
@@ -101,7 +95,6 @@ export async function getReservations(req, res, next) {
        LEFT JOIN "TABLES"   t  ON r.table_id  = t.table_id
        LEFT JOIN "Branch"   b  ON r.branch_id = b."B_id"
        ORDER BY r.reserv_date DESC, r.reserv_time ASC`,
->>>>>>> Development
     );
     res.json(result.rows);
   } catch (err) {
@@ -115,9 +108,6 @@ export async function getReservationById(req, res, next) {
     const id = parsePositiveInt(req.params.id, "reserv_id");
 
     const result = await pool.query(
-<<<<<<< HEAD
-      'SELECT reserv_id, reserv_date, pay_date, cust_id, table_id, branch_id FROM "RESERVATION" WHERE reserv_id = $1',
-=======
       `SELECT
          r.reserv_id,
          r.reserv_date,
@@ -136,7 +126,6 @@ export async function getReservationById(req, res, next) {
        LEFT JOIN "TABLES"   t  ON r.table_id  = t.table_id
        LEFT JOIN "Branch"   b  ON r.branch_id = b."B_id"
        WHERE r.reserv_id = $1`,
->>>>>>> Development
       [id],
     );
 
@@ -156,14 +145,9 @@ export async function getReservationsByBranch(req, res, next) {
   try {
     const branchId = parsePositiveInt(req.params.branchId, "branch_id");
 
-<<<<<<< HEAD
-    const result = await pool.query(
-      'SELECT reserv_id, reserv_date, pay_date, cust_id, table_id, branch_id FROM "RESERVATION" WHERE branch_id = $1 ORDER BY reserv_date DESC',
-=======
     // Confirm branch exists
     const branchCheck = await pool.query(
       'SELECT "B_id" FROM "Branch" WHERE "B_id" = $1',
->>>>>>> Development
       [branchId],
     );
     if (branchCheck.rows.length === 0) {
@@ -205,14 +189,9 @@ export async function getReservationsByCustomer(req, res, next) {
   try {
     const custId = parsePositiveInt(req.params.custId, "cust_id");
 
-<<<<<<< HEAD
-    const result = await pool.query(
-      'SELECT reserv_id, reserv_date, pay_date, cust_id, table_id, branch_id FROM "RESERVATION" WHERE cust_id = $1 ORDER BY reserv_date DESC',
-=======
     // Confirm customer exists
     const custCheck = await pool.query(
       'SELECT cust_id FROM "CUSTOMER" WHERE cust_id = $1',
->>>>>>> Development
       [custId],
     );
     if (custCheck.rows.length === 0) {
@@ -254,14 +233,9 @@ export async function getReservationsByTable(req, res, next) {
   try {
     const tableId = parsePositiveInt(req.params.tableId, "table_id");
 
-<<<<<<< HEAD
-    const result = await pool.query(
-      'SELECT reserv_id, reserv_date, pay_date, cust_id, table_id, branch_id FROM "RESERVATION" WHERE table_id = $1 ORDER BY reserv_date DESC',
-=======
     // Confirm table exists
     const tableCheck = await pool.query(
       'SELECT table_id FROM "TABLES" WHERE table_id = $1',
->>>>>>> Development
       [tableId],
     );
     if (tableCheck.rows.length === 0) {
@@ -303,21 +277,24 @@ export async function createReservation(req, res, next) {
   try {
     const body = sanitizeBody(req.body, [
       "reserv_date",
+      "reserv_time",
+      "duration_minutes",
       "pay_date",
       "cust_id",
       "table_id",
       "branch_id",
     ]);
 
-    const { reserv_date, pay_date, cust_id, table_id, branch_id } = body;
+    const {
+      reserv_date,
+      reserv_time,
+      duration_minutes,
+      pay_date,
+      cust_id,
+      table_id,
+      branch_id,
+    } = body;
 
-<<<<<<< HEAD
-    // ── Required fields ──
-    if (!reserv_date || !cust_id || !table_id || !branch_id) {
-      res.status(400);
-      throw new Error(
-        "reserv_date, cust_id, table_id and branch_id are required",
-=======
     // Required fields
     if (!reserv_date || !reserv_time || !cust_id || !table_id || !branch_id) {
       res.status(400);
@@ -325,7 +302,6 @@ export async function createReservation(req, res, next) {
         new Error(
           "reserv_date, reserv_time, cust_id, table_id and branch_id are required",
         ),
->>>>>>> Development
       );
     }
 
@@ -333,14 +309,6 @@ export async function createReservation(req, res, next) {
     const tableIdInt = parsePositiveInt(table_id, "table_id");
     const branchIdInt = parsePositiveInt(branch_id, "branch_id");
 
-<<<<<<< HEAD
-    // ── Date validation ──
-    const reservDate = parseDate(reserv_date, "reserv_date");
-
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (reservDate < today) {
-=======
     // duration_minutes — optional, default 60, max 480 (8 hours)
     let durationInt = 60;
     if (duration_minutes !== undefined) {
@@ -361,48 +329,21 @@ export async function createReservation(req, res, next) {
 
     // No past dates
     if (dateStr < today) {
->>>>>>> Development
       res.status(400);
       return next(new Error("reserv_date cannot be in the past"));
     }
 
-<<<<<<< HEAD
-    let payDateParsed = null;
-    if (pay_date) {
-      payDateParsed = parseDate(pay_date, "pay_date");
-      if (payDateParsed < reservDate) {
-        res.status(400);
-        throw new Error("pay_date cannot be earlier than reserv_date");
-      }
-    }
-
-    // ── Cross-branch validation: table must belong to given branch ──
-    const tableCheck = await pool.query(
-      'SELECT table_id, table_status FROM "TABLES" WHERE table_id = $1 AND branch_id = $2',
-      [tableIdInt, branchIdInt],
-    );
-    if (tableCheck.rows.length === 0) {
-=======
     // Max 90 days in advance — realistic restaurant booking window
     const maxDate = new Date();
     maxDate.setDate(maxDate.getDate() + 90);
     const maxDateStr = maxDate.toISOString().split("T")[0];
     if (dateStr > maxDateStr) {
->>>>>>> Development
       res.status(400);
       return next(
         new Error("reserv_date cannot be more than 90 days in advance"),
       );
     }
 
-<<<<<<< HEAD
-    // ── Table availability check ──
-    const tableStatus = tableCheck.rows[0].table_status;
-    if (tableStatus !== "available") {
-      res.status(409);
-      throw new Error(
-        `Table is currently '${tableStatus}' and cannot be reserved`,
-=======
     // If today — time must not already be past
     if (dateStr === today) {
       const now = new Date();
@@ -497,28 +438,10 @@ export async function createReservation(req, res, next) {
         new Error(
           "This customer already has a reservation that overlaps with the requested time slot",
         ),
->>>>>>> Development
       );
     }
 
-    // ── Double-booking check ──
-    const conflict = await pool.query(
-      `SELECT reserv_id FROM "RESERVATION"
-       WHERE table_id = $1 AND reserv_date::date = $2::date`,
-      [tableIdInt, reservDate],
-    );
-    if (conflict.rows.length > 0) {
-      res.status(409);
-      throw new Error("Table is already reserved for this date");
-    }
-
     const result = await pool.query(
-<<<<<<< HEAD
-      `INSERT INTO "RESERVATION" (reserv_date, pay_date, cust_id, table_id, branch_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING reserv_id, reserv_date, pay_date, cust_id, table_id, branch_id`,
-      [reservDate, payDateParsed, custIdInt, tableIdInt, branchIdInt],
-=======
       `INSERT INTO "RESERVATION"
          (reserv_date, reserv_time, duration_minutes, pay_date, cust_id, table_id, branch_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -534,7 +457,6 @@ export async function createReservation(req, res, next) {
         tableIdInt,
         branchIdInt,
       ],
->>>>>>> Development
     );
 
     res.status(201).json(result.rows[0]);
@@ -558,13 +480,23 @@ export async function updateReservation(req, res, next) {
 
     const body = sanitizeBody(req.body, [
       "reserv_date",
+      "reserv_time",
+      "duration_minutes",
       "pay_date",
       "cust_id",
       "table_id",
       "branch_id",
     ]);
 
-    const { reserv_date, pay_date, cust_id, table_id, branch_id } = body;
+    const {
+      reserv_date,
+      reserv_time,
+      duration_minutes,
+      pay_date,
+      cust_id,
+      table_id,
+      branch_id,
+    } = body;
 
     // Reject empty body
     if (
@@ -582,13 +514,9 @@ export async function updateReservation(req, res, next) {
 
     // Existence check
     const existing = await pool.query(
-<<<<<<< HEAD
-      'SELECT reserv_id, table_id, branch_id, reserv_date FROM "RESERVATION" WHERE reserv_id = $1',
-=======
       `SELECT reserv_id, table_id, branch_id, cust_id,
               reserv_date, reserv_time, duration_minutes
        FROM "RESERVATION" WHERE reserv_id = $1`,
->>>>>>> Development
       [id],
     );
     if (existing.rows.length === 0) {
@@ -622,10 +550,6 @@ export async function updateReservation(req, res, next) {
     if (branch_id !== undefined)
       branchIdInt = parsePositiveInt(branch_id, "branch_id");
 
-<<<<<<< HEAD
-    // ── Date validation ──
-    let reservDateParsed = null;
-=======
     if (duration_minutes !== undefined) {
       durationInt = parsePositiveInt(duration_minutes, "duration_minutes");
       if (durationInt < 15) {
@@ -638,7 +562,6 @@ export async function updateReservation(req, res, next) {
       }
     }
 
->>>>>>> Development
     if (reserv_date !== undefined) {
       dateStr = parseDate(reserv_date, "reserv_date");
       if (dateStr < today) {
@@ -655,16 +578,6 @@ export async function updateReservation(req, res, next) {
       }
     }
 
-<<<<<<< HEAD
-    let payDateParsed = null;
-    if (pay_date !== undefined) {
-      payDateParsed = parseDate(pay_date, "pay_date");
-      const baseReservDate = reservDateParsed ?? new Date(current.reserv_date);
-      if (payDateParsed < baseReservDate) {
-        res.status(400);
-        throw new Error("pay_date cannot be earlier than reserv_date");
-      }
-=======
     if (reserv_time !== undefined) {
       timeStr = parseTime(reserv_time, "reserv_time");
     }
@@ -688,7 +601,6 @@ export async function updateReservation(req, res, next) {
     if (pay_date !== undefined) {
       payDateStr = parseDate(pay_date, "pay_date");
       validatePayDate(payDateStr, resolvedDate);
->>>>>>> Development
     }
 
     // Customer existence check
@@ -720,15 +632,6 @@ export async function updateReservation(req, res, next) {
       }
     }
 
-<<<<<<< HEAD
-    // ── Double-booking check (if date or table is changing) ──
-    if (reservDateParsed !== null || tableIdInt !== null) {
-      const resolvedDate = reservDateParsed ?? new Date(current.reserv_date);
-      const conflict = await pool.query(
-        `SELECT reserv_id FROM "RESERVATION"
-         WHERE table_id = $1 AND reserv_date::date = $2::date AND reserv_id <> $3`,
-        [resolvedTableId, resolvedDate, id],
-=======
     const resolvedDuration = durationInt ?? current.duration_minutes;
     const resolvedCustId = custIdInt ?? current.cust_id;
 
@@ -747,13 +650,9 @@ export async function updateReservation(req, res, next) {
            AND reserv_time < (CAST($4 AS TIME) + ($5 || ' minutes')::INTERVAL)
            AND (reserv_time + (duration_minutes || ' minutes')::INTERVAL) > CAST($4 AS TIME)`,
         [resolvedTableId, resolvedDate, id, resolvedTime, resolvedDuration],
->>>>>>> Development
       );
-      if (conflict.rows.length > 0) {
+      if (overlapCheck.rows.length > 0) {
         res.status(409);
-<<<<<<< HEAD
-        throw new Error("Table is already reserved for this date");
-=======
         return next(
           new Error(
             "This table already has a reservation that overlaps with the requested time slot",
@@ -778,23 +677,12 @@ export async function updateReservation(req, res, next) {
             "This customer already has a reservation that overlaps with the requested time slot",
           ),
         );
->>>>>>> Development
       }
     }
 
     const result = await pool.query(
       `UPDATE "RESERVATION"
        SET
-<<<<<<< HEAD
-         reserv_date = COALESCE($1, reserv_date),
-         pay_date    = COALESCE($2, pay_date),
-         cust_id     = COALESCE($3, cust_id),
-         table_id    = COALESCE($4, table_id),
-         branch_id   = COALESCE($5, branch_id)
-       WHERE reserv_id = $6
-       RETURNING reserv_id, reserv_date, pay_date, cust_id, table_id, branch_id`,
-      [reservDateParsed, payDateParsed, custIdInt, tableIdInt, branchIdInt, id],
-=======
          reserv_date      = COALESCE($1, reserv_date),
          reserv_time      = COALESCE($2, reserv_time),
          duration_minutes = COALESCE($3, duration_minutes),
@@ -816,7 +704,6 @@ export async function updateReservation(req, res, next) {
         branchIdInt,
         id,
       ],
->>>>>>> Development
     );
 
     res.json(result.rows[0]);
