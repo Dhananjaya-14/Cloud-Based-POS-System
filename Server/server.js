@@ -33,6 +33,8 @@ import orderItemRoutes from "./routes/orderItemRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
 import deliveryRoutes from "./routes/deliveryRoutes.js";
 import discountRoutes from "./routes/discountRoutes.js";
+import recipeRoutes from "./routes/recipeRouter.js";
+import wasteRoutes from "./routes/wasteRoutes.js";
 
 // Initialize app
 const app = express();
@@ -75,6 +77,8 @@ app.use("/api/order-items", orderItemRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/discounts", discountRoutes);
+app.use("/api/recipes", recipeRoutes);
+app.use("/api/waste", wasteRoutes);
 
 // Error handling
 app.use(notFound);
