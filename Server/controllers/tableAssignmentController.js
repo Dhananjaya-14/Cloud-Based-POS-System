@@ -5,10 +5,9 @@ import pool from "../config/database.js";
 function parsePositiveInt(value, fieldName) {
   const parsed = Number(value);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw Object.assign(
-      new Error(`${fieldName} must be a positive integer`),
-      { status: 400 }
-    );
+    throw Object.assign(new Error(`${fieldName} must be a positive integer`), {
+      status: 400,
+    });
   }
   return parsed;
 }
@@ -18,7 +17,7 @@ function parseDate(value, fieldName) {
   if (isNaN(d.getTime())) {
     throw Object.assign(
       new Error(`${fieldName} must be a valid date (YYYY-MM-DD)`),
-      { status: 400 }
+      { status: 400 },
     );
   }
   return d;
@@ -39,7 +38,7 @@ function sanitizeBody(body, allowedFields) {
 export async function getTableAssignments(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT assign_id, "table_id", "u_id", assigned_date FROM "TABLE_ASSIGNMENT" ORDER BY assign_id'
+      'SELECT assign_id, "table_id", "u_id", assigned_date FROM "TABLE_ASSIGNMENT" ORDER BY assign_id',
     );
     res.json(result.rows);
   } catch (err) {
@@ -54,7 +53,7 @@ export async function getTableAssignmentById(req, res, next) {
 
     const result = await pool.query(
       'SELECT assign_id, "table_id", "u_id", assigned_date FROM "TABLE_ASSIGNMENT" WHERE assign_id = $1',
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
@@ -75,7 +74,7 @@ export async function getAssignmentsByTable(req, res, next) {
 
     const result = await pool.query(
       'SELECT assign_id, "table_id", "u_id", assigned_date FROM "TABLE_ASSIGNMENT" WHERE "table_id" = $1 ORDER BY assigned_date DESC',
-      [tableId]
+      [tableId],
     );
     res.json(result.rows);
   } catch (err) {
@@ -90,7 +89,7 @@ export async function getAssignmentsByUser(req, res, next) {
 
     const result = await pool.query(
       'SELECT assign_id, "table_id", "u_id", assigned_date FROM "TABLE_ASSIGNMENT" WHERE "u_id" = $1 ORDER BY assigned_date DESC',
-      [userId]
+      [userId],
     );
     res.json(result.rows);
   } catch (err) {
@@ -113,7 +112,7 @@ export async function createTableAssignment(req, res, next) {
 
     // ── Type checks ──
     const tableIdInt = parsePositiveInt(table_id, "table_id");
-    const uIdInt     = parsePositiveInt(u_id, "u_id");
+    const uIdInt = parsePositiveInt(u_id, "u_id");
 
     // ── Date validation ──
     const assignedDateParsed = parseDate(assigned_date, "assigned_date");
@@ -121,7 +120,7 @@ export async function createTableAssignment(req, res, next) {
     // ── Table existence check ──
     const tableExists = await pool.query(
       'SELECT table_id FROM "TABLES" WHERE table_id = $1',
-      [tableIdInt]
+      [tableIdInt],
     );
     if (tableExists.rows.length === 0) {
       res.status(404);
@@ -131,8 +130,8 @@ export async function createTableAssignment(req, res, next) {
     // ── User existence + role check ──
     // Adjust the role column name to match your actual USERS table schema
     const userExists = await pool.query(
-      'SELECT u_id FROM "USERS" WHERE u_id = $1',
-      [uIdInt]
+      'SELECT u_id FROM "User" WHERE u_id = $1',
+      [uIdInt],
     );
     if (userExists.rows.length === 0) {
       res.status(404);
@@ -143,12 +142,12 @@ export async function createTableAssignment(req, res, next) {
     const duplicate = await pool.query(
       `SELECT assign_id FROM "TABLE_ASSIGNMENT"
        WHERE "table_id" = $1 AND assigned_date::date = $2::date`,
-      [tableIdInt, assignedDateParsed]
+      [tableIdInt, assignedDateParsed],
     );
     if (duplicate.rows.length > 0) {
       res.status(409);
       throw new Error(
-        "This table is already assigned to a user on the given date"
+        "This table is already assigned to a user on the given date",
       );
     }
 
@@ -156,7 +155,7 @@ export async function createTableAssignment(req, res, next) {
       `INSERT INTO "TABLE_ASSIGNMENT" ("table_id", "u_id", assigned_date)
        VALUES ($1, $2, $3)
        RETURNING assign_id, "table_id", "u_id", assigned_date`,
-      [tableIdInt, uIdInt, assignedDateParsed]
+      [tableIdInt, uIdInt, assignedDateParsed],
     );
 
     res.status(201).json(result.rows[0]);
@@ -164,7 +163,7 @@ export async function createTableAssignment(req, res, next) {
     if (err?.code === "23503") {
       res.status(400);
       return next(
-        new Error("Invalid foreign key: table_id or u_id does not exist")
+        new Error("Invalid foreign key: table_id or u_id does not exist"),
       );
     }
     next(err);
@@ -183,7 +182,7 @@ export async function updateTableAssignment(req, res, next) {
     // ── Existence check ──
     const existing = await pool.query(
       'SELECT assign_id, "table_id", assigned_date FROM "TABLE_ASSIGNMENT" WHERE assign_id = $1',
-      [id]
+      [id],
     );
     if (existing.rows.length === 0) {
       res.status(404);
@@ -194,10 +193,11 @@ export async function updateTableAssignment(req, res, next) {
 
     // ── Type checks ──
     let tableIdInt = null;
-    let uIdInt     = null;
+    let uIdInt = null;
 
-    if (table_id !== undefined) tableIdInt = parsePositiveInt(table_id, "table_id");
-    if (u_id !== undefined)     uIdInt     = parsePositiveInt(u_id, "u_id");
+    if (table_id !== undefined)
+      tableIdInt = parsePositiveInt(table_id, "table_id");
+    if (u_id !== undefined) uIdInt = parsePositiveInt(u_id, "u_id");
 
     // ── Date validation ──
     let assignedDateParsed = null;
@@ -209,7 +209,7 @@ export async function updateTableAssignment(req, res, next) {
     if (tableIdInt !== null) {
       const tableExists = await pool.query(
         'SELECT table_id FROM "TABLES" WHERE table_id = $1',
-        [tableIdInt]
+        [tableIdInt],
       );
       if (tableExists.rows.length === 0) {
         res.status(404);
@@ -220,8 +220,8 @@ export async function updateTableAssignment(req, res, next) {
     // ── User existence check ──
     if (uIdInt !== null) {
       const userExists = await pool.query(
-        'SELECT u_id FROM "USERS" WHERE u_id = $1',
-        [uIdInt]
+        'SELECT u_id FROM "User" WHERE u_id = $1',
+        [uIdInt],
       );
       if (userExists.rows.length === 0) {
         res.status(404);
@@ -232,17 +232,18 @@ export async function updateTableAssignment(req, res, next) {
     // ── Duplicate assignment check (if table or date is changing) ──
     if (tableIdInt !== null || assignedDateParsed !== null) {
       const resolvedTableId = tableIdInt ?? current.table_id;
-      const resolvedDate    = assignedDateParsed ?? new Date(current.assigned_date);
+      const resolvedDate =
+        assignedDateParsed ?? new Date(current.assigned_date);
 
       const duplicate = await pool.query(
         `SELECT assign_id FROM "TABLE_ASSIGNMENT"
          WHERE "table_id" = $1 AND assigned_date::date = $2::date AND assign_id <> $3`,
-        [resolvedTableId, resolvedDate, id]
+        [resolvedTableId, resolvedDate, id],
       );
       if (duplicate.rows.length > 0) {
         res.status(409);
         throw new Error(
-          "This table is already assigned to a user on the given date"
+          "This table is already assigned to a user on the given date",
         );
       }
     }
@@ -255,7 +256,7 @@ export async function updateTableAssignment(req, res, next) {
          assigned_date = COALESCE($3, assigned_date)
        WHERE assign_id = $4
        RETURNING assign_id, "table_id", "u_id", assigned_date`,
-      [tableIdInt, uIdInt, assignedDateParsed, id]
+      [tableIdInt, uIdInt, assignedDateParsed, id],
     );
 
     res.json(result.rows[0]);
@@ -263,7 +264,7 @@ export async function updateTableAssignment(req, res, next) {
     if (err?.code === "23503") {
       res.status(400);
       return next(
-        new Error("Invalid foreign key: table_id or u_id does not exist")
+        new Error("Invalid foreign key: table_id or u_id does not exist"),
       );
     }
     next(err);
@@ -277,7 +278,7 @@ export async function deleteTableAssignment(req, res, next) {
 
     const result = await pool.query(
       'DELETE FROM "TABLE_ASSIGNMENT" WHERE assign_id = $1 RETURNING assign_id',
-      [id]
+      [id],
     );
 
     if (result.rows.length === 0) {
@@ -290,7 +291,7 @@ export async function deleteTableAssignment(req, res, next) {
     if (err?.code === "23503") {
       res.status(409);
       return next(
-        new Error("Cannot delete assignment because it is currently in use")
+        new Error("Cannot delete assignment because it is currently in use"),
       );
     }
     next(err);

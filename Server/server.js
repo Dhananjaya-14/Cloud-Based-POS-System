@@ -1,12 +1,11 @@
+// server.js
+
 // Load environment variables
 import "dotenv/config";
 
 // Import dependencies
 import express from "express";
 import cors from "cors";
-
-// Import database
-import pool from "./config/database.js";
 
 // Import routes
 import customerRoutes from "./routes/customerRoutes.js";
@@ -18,22 +17,13 @@ import companyRoutes from "./routes/companyRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import branchProductRoutes from "./routes/branchProductRoutes.js";
-import productRoutes from "./routes/productRoutes.js";
+import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
-import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
-import supplierRoutes from "./routes/supplierRoutes.js";
-import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
-import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
-import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js";
-import orderRoutes from "./routes/orderRoutes.js";
-import orderItemRoutes from "./routes/orderItemRoutes.js";
-import paymentRoutes from "./routes/paymentRoutes.js";
-import deliveryRoutes from "./routes/deliveryRoutes.js";
-import wasteRoutes from "./routes/wasteRoutes.js";
 
-// Error handling middleware
+
+// Import error handling middleware
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
 // Initialize app
@@ -44,7 +34,7 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "*",
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 
@@ -63,43 +53,16 @@ app.use("/api/companies", companyRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/branch_products", branchProductRoutes);
-app.use("/api/products", productRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/terminals", terminalRoutes);
-app.use("/api/raw-materials", rawMaterialRoutes);
-app.use("/api/suppliers", supplierRoutes);
-app.use("/api/purchase-orders", purchaseOrderRoutes);
-app.use("/api/purchase-items", purchaseItemRoutes);
-app.use("/api/supplier-payments", supplierPaymentRoutes);
-app.use("/api/orders", orderRoutes);
-app.use("/api/order-items", orderItemRoutes);
-app.use("/api/payments", paymentRoutes);
-app.use("/api/deliveries", deliveryRoutes);
-app.use("/api/waste", wasteRoutes);
 
 // Error handling
 app.use(notFound);
 app.use(errorHandler);
 
-// Start server WITH DB check
+// Start server
 const PORT = process.env.PORT || 5000;
-
-const startServer = async () => {
-  try {
-    // ✅ Test DB connection
-    const res = await pool.query("SELECT NOW()");
-    console.log("✅ Database connected:", res.rows[0]);
-
-    // ✅ Start server only if DB is OK
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-    });
-
-  } catch (err) {
-    console.error("❌ Database connection failed:", err.message);
-    process.exit(1); // Stop server if DB fails
-  }
-};
-
-startServer();
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
