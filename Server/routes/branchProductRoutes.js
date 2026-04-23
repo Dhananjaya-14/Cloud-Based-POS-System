@@ -1,5 +1,8 @@
 import express from "express";
-import { requireAuth, requireAdminOrBranchAdmin } from "../middleware/authMiddleware.js";
+import {
+  requireAuth,
+  requireBranchAdminOrAdmin,
+} from "../middleware/authMiddleware.js";
 import {
   getBranchProducts,
   getBranchProductById,
@@ -10,9 +13,8 @@ import {
 
 const router = express.Router();
 
-// Protect all branch_products endpoints
 router.use(requireAuth);
-router.use(requireAdminOrBranchAdmin);
+router.use(requireBranchAdminOrAdmin); 
 
 router.get("/", getBranchProducts);
 router.get("/:id", getBranchProductById);
@@ -21,4 +23,3 @@ router.put("/:id", updateBranchProduct);
 router.delete("/:id", deleteBranchProduct);
 
 export default router;
-
