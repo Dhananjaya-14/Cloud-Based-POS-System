@@ -6,8 +6,12 @@ import {
   updateUser,
   deleteUser,
 } from "../controllers/userController.js";
+import { requireAuth, requireBranchAdminOrAdmin } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+// All user routes require auth + Branch Admin or Admin
+router.use(requireAuth, requireBranchAdminOrAdmin);
 
 router.get("/", getUsers);
 router.get("/:id", getUserById);
@@ -16,4 +20,3 @@ router.put("/:id", updateUser);
 router.delete("/:id", deleteUser);
 
 export default router;
-
