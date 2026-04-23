@@ -1,56 +1,66 @@
-// server.js
-
-// Load environment variables
 import "dotenv/config";
-
-// Import dependencies
 import express from "express";
 import cors from "cors";
 
-<<<<<<< HEAD
-=======
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 
->>>>>>> Development
-// Import routes
-import customerRoutes from "./routes/customerRoutes.js";
+// ─────────────────────────────────────────────
+// ROUTE IMPORTS
+// ─────────────────────────────────────────────
+
+// Auth
+import authRoutes from "./routes/authRoutes.js";
+
+// User Management
 import userRoutes from "./routes/userRoutes.js";
 import roleRoutes from "./routes/roleRoutes.js";
-import authRoutes from "./routes/authRoutes.js";
-import branchRoutes from "./routes/branchRoutes.js";
+
+// Company & Branch
 import companyRoutes from "./routes/companyRoutes.js";
+import branchRoutes from "./routes/branchRoutes.js";
+
+// Customers
+import customerRoutes from "./routes/customerRoutes.js";
+
+// Tables
 import tableRoutes from "./routes/tableRoutes.js";
-import categoryRoutes from "./routes/categoryRoutes.js";
-import branchProductRoutes from "./routes/branchProductRoutes.js";
-import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
-import terminalRoutes from "./routes/terminalRoutes.js";
-<<<<<<< HEAD
 
+// Products & Categories
+import categoryRoutes from "./routes/categoryRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
+import branchProductRoutes from "./routes/branchProductRoutes.js";
+import recipeRoutes from "./routes/recipeRouter.js";
 
-// Import error handling middleware
-import { notFound, errorHandler } from "./middleware/errorHandler.js";
-
-=======
+// Raw Materials & Inventory
 import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
+import wasteRoutes from "./routes/wasteRoutes.js";
+
+// Suppliers & Purchasing
 import supplierRoutes from "./routes/supplierRoutes.js";
 import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
 import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
 import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js";
+
+// Orders & Payments
 import orderRoutes from "./routes/orderRoutes.js";
 import orderItemRoutes from "./routes/orderItemRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
-import deliveryRoutes from "./routes/deliveryRoutes.js";
 import discountRoutes from "./routes/discountRoutes.js";
-import recipeRoutes from "./routes/recipeRouter.js";
-import wasteRoutes from "./routes/wasteRoutes.js";
 
->>>>>>> Development
-// Initialize app
+// Delivery & Terminals
+import deliveryRoutes from "./routes/deliveryRoutes.js";
+import terminalRoutes from "./routes/terminalRoutes.js";
+
+// ─────────────────────────────────────────────
+// APP INIT
+// ─────────────────────────────────────────────
 const app = express();
 
-// Middleware
+// ─────────────────────────────────────────────
+// GLOBAL MIDDLEWARE
+// ─────────────────────────────────────────────
 app.use(
   cors({
     origin: process.env.CLIENT_URL || "*",
@@ -59,45 +69,71 @@ app.use(
 );
 app.use(express.json());
 
-// Root route
+// ─────────────────────────────────────────────
+// HEALTH CHECK
+// ─────────────────────────────────────────────
 app.get("/", (req, res) => {
   res.json({ message: "Server is running!" });
 });
 
-// API routes
-app.use("/api/customers", customerRoutes);
+// ─────────────────────────────────────────────
+// API ROUTES
+// ─────────────────────────────────────────────
+
+// -- Auth
 app.use("/api/auth", authRoutes);
+
+// -- User Management
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
-app.use("/api/branches", branchRoutes);
+
+// -- Company & Branch
 app.use("/api/companies", companyRoutes);
+app.use("/api/branches", branchRoutes);
+
+// -- Customers
+app.use("/api/customers", customerRoutes);
+
+// -- Tables
 app.use("/api/tables", tableRoutes);
-app.use("/api/categories", categoryRoutes);
-app.use("/api/branch_products", branchProductRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
 app.use("/api/reservations", reservationRoutes);
-app.use("/api/terminals", terminalRoutes);
-<<<<<<< HEAD
-=======
+
+// -- Products & Categories
+app.use("/api/categories", categoryRoutes);
+app.use("/api/products", productRoutes);
+app.use("/api/branch_products", branchProductRoutes);
+app.use("/api/recipes", recipeRoutes);
+
+// -- Raw Materials & Inventory
 app.use("/api/raw-materials", rawMaterialRoutes);
+app.use("/api/waste", wasteRoutes);
+
+// -- Suppliers & Purchasing
 app.use("/api/suppliers", supplierRoutes);
 app.use("/api/purchase-orders", purchaseOrderRoutes);
 app.use("/api/purchase-items", purchaseItemRoutes);
 app.use("/api/supplier-payments", supplierPaymentRoutes);
+
+// -- Orders & Payments
 app.use("/api/orders", orderRoutes);
 app.use("/api/order-items", orderItemRoutes);
 app.use("/api/payments", paymentRoutes);
-app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/discounts", discountRoutes);
-app.use("/api/recipes", recipeRoutes);
-app.use("/api/waste", wasteRoutes);
->>>>>>> Development
 
-// Error handling
+// -- Delivery & Terminals
+app.use("/api/deliveries", deliveryRoutes);
+app.use("/api/terminals", terminalRoutes);
+
+// ─────────────────────────────────────────────
+// ERROR HANDLING (must be last)
+// ─────────────────────────────────────────────
 app.use(notFound);
 app.use(errorHandler);
 
-// Start server
+// ─────────────────────────────────────────────
+// START SERVER
+// ─────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
