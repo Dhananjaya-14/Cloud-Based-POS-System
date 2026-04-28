@@ -15,6 +15,7 @@ const ProductItemsTable = ({
   onViewProduct,
   onEditProduct,
   onDeleteProduct,
+  showActions = true,
   currentPage = 1,
   totalPages = 1,
   totalItems = 0,
@@ -22,6 +23,7 @@ const ProductItemsTable = ({
   pageEnd = 0,
   onPageChange,
 }) => {
+  const shouldShowActions = showActions && (onViewProduct || onEditProduct || onDeleteProduct);
   const showPageNumbers = totalPages <= 4;
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
@@ -50,7 +52,7 @@ const ProductItemsTable = ({
                 "DISCOUNT",
                 "STOCK QUANTITY",
                 "STATUS",
-                "ACTION",
+                ...(shouldShowActions ? ["ACTION"] : []),
               ].map((head) => (
                 <th
                   key={head}
@@ -173,45 +175,47 @@ const ProductItemsTable = ({
                     {item.status}
                   </span>
                 </td>
-                <td style={{ padding: "10px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <button
-                      type="button"
-                      onClick={() => onEditProduct?.(item.id)}
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "7px",
-                        border: "none",
-                        background: "#F1F3F6",
-                        cursor: "pointer",
-                        display: "grid",
-                        placeItems: "center",
-                        padding: 0,
-                      }}
-                    >
-                      <FaEdit color="#8A94A6" size={10} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteProduct?.(item.id)}
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "7px",
-                        border: "none",
-                        background: "#FFE7E7",
-                        cursor: "pointer",
-                        display: "grid",
-                        placeItems: "center",
-                        padding: 0,
-                      }}
-                      title="Delete product"
-                    >
-                      <FaTrashAlt color="#FF6A6A" size={10} />
-                    </button>
-                  </div>
-                </td>
+                {shouldShowActions && (
+                  <td style={{ padding: "10px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => onEditProduct?.(item.id)}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "7px",
+                          border: "none",
+                          background: "#F1F3F6",
+                          cursor: "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          padding: 0,
+                        }}
+                      >
+                        <FaEdit color="#8A94A6" size={10} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteProduct?.(item.id)}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "7px",
+                          border: "none",
+                          background: "#FFE7E7",
+                          cursor: "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          padding: 0,
+                        }}
+                        title="Delete product"
+                      >
+                        <FaTrashAlt color="#FF6A6A" size={10} />
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

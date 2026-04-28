@@ -11,7 +11,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-import { getProducts, updateProduct } from "../../services/api";
+import { getBranchProducts, updateBranchProduct } from "../../services/api";
 
 const cardBaseStyle = {
 	flex: "0 1 calc((100% - 60px) / 3)",
@@ -69,15 +69,15 @@ const getStockStatus = (quantity) => {
 };
 
 const mapApiProductToTableItem = (product) => {
-	const quantity = Number(product.pro_qty ?? 0);
+	const quantity = Number(product.pro_quantity ?? 0);
 	const price = Number(product.pro_price ?? 0);
 
 	return {
-		id: product.pro_id,
-		image: "📦",
+		id: product.Bpro_id,
+		image: product.pro_image ? "🖼️" : "📦",
 		name: product.pro_name,
-		sku: `SKU: PRD-${String(product.pro_id).padStart(3, "0")}`,
-		category: "General",
+		sku: `SKU: BPRD-${String(product.Bpro_id).padStart(3, "0")}`,
+		category: product.cat_id ? `Category ${product.cat_id}` : "General",
 		price: `$${price.toFixed(2)}`,
 		discount: "0%",
 		stock: quantity,
@@ -102,7 +102,7 @@ const ProductManagement = () => {
 			try {
 				setLoading(true);
 				setError("");
-				const response = await getProducts();
+				const response = await getBranchProducts();
 				if (!isMounted) return;
 				setProducts(Array.isArray(response) ? response : []);
 			} catch (err) {
@@ -158,33 +158,33 @@ const ProductManagement = () => {
 
 	const totalItems = products.length;
 	const lowStockCount = products.filter((item) => {
-		const quantity = Number(item.pro_qty ?? 0);
+		const quantity = Number(item.pro_quantity ?? 0);
 		return quantity > 0 && quantity <= 10;
 	}).length;
-	const outOfStockCount = products.filter((item) => Number(item.pro_qty ?? 0) <= 0).length;
+	const outOfStockCount = products.filter((item) => Number(item.pro_quantity ?? 0) <= 0).length;
 
 	const handleAdjustStock = async (productId, delta) => {
 		if (updatingStockId !== null) return;
 
-		const existing = products.find((item) => item.pro_id === productId);
+		const existing = products.find((item) => item.Bpro_id === productId);
 		if (!existing) return;
 
-		const currentQty = Number(existing.pro_qty ?? 0);
+		const currentQty = Number(existing.pro_quantity ?? 0);
 		const nextQty = Math.max(0, currentQty + delta);
 		if (nextQty === currentQty) return;
 
 		try {
 			setUpdatingStockId(productId);
 			setError("");
-			const updated = await updateProduct(productId, { pro_qty: nextQty });
+			const updated = await updateBranchProduct(productId, { pro_quantity: nextQty });
 
 			setProducts((prev) =>
 				prev.map((item) =>
-					item.pro_id === productId
+					item.Bpro_id === productId
 						? {
 							...item,
 							...updated,
-							pro_qty: Number(updated?.pro_qty ?? nextQty),
+							pro_quantity: Number(updated?.pro_quantity ?? nextQty),
 						}
 						: item
 				)
@@ -196,25 +196,13 @@ const ProductManagement = () => {
 		}
 	};
 
-	const handleViewProduct = (productId) => {
-		navigate(`/branch-admin/products/${productId}`);
-	};
-
-	const handleEditProduct = (productId) => {
-		navigate(`/branch-admin/products/${productId}/edit`);
-	};
-
-	const handleDeleteProduct = (productId) => {
-		navigate(`/branch-admin/products/${productId}/delete`);
-	};
-
 	return (
 		<div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
 			<Sidebar />
 
 			<div style={{ flex: 1, marginLeft: "240px" }}>
 				<Header
-					title="Product Management"
+					title="Branch Product Management"
 					role="Branch Admin"
 					email="branchadmin@gmail.com"
 					showAddUserIcon
@@ -236,36 +224,10 @@ const ProductManagement = () => {
 						}}
 					>
 						<h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#0F172A" }}>
-							Product Management
+							Branch Product Management
 						</h1>
 
 						<div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-							<div
-								style={{
-									display: "flex",
-									alignItems: "center",
-									gap: "8px",
-									background: "#E5E7EB",
-									borderRadius: "8px",
-									padding: "8px 12px",
-									width: "340px",
-								}}
-							>
-								<FaSearch color="#9CA3AF" />
-								<input
-									type="text"
-									placeholder="Search Products , SKUs, or Categories"
-									style={{
-										border: "none",
-										outline: "none",
-										background: "transparent",
-										width: "100%",
-										fontSize: "14px",
-										color: "#6B7280",
-									}}
-									onChange={(event) => setSearchTerm(event.target.value)}
-								/>
-							</div>
 							<Button
 								label="+  Add Product"
 								onClick={() => navigate("/branch-admin/products/add")}
@@ -398,19 +360,17 @@ const ProductManagement = () => {
 					</div>
 
 					<ProductItemsTable
-										products={paginatedProducts}
+						products={paginatedProducts}
 						onDecreaseStock={(id) => handleAdjustStock(id, -1)}
 						onIncreaseStock={(id) => handleAdjustStock(id, 1)}
-						onViewProduct={handleViewProduct}
-						onEditProduct={handleEditProduct}
-						onDeleteProduct={handleDeleteProduct}
 						updatingStockId={updatingStockId}
-										currentPage={currentPage}
-										totalPages={totalPages}
-										totalItems={tableProducts.length}
-										pageStart={pageStart}
-										pageEnd={pageEnd}
-										onPageChange={setCurrentPage}
+						showActions={false}
+						currentPage={currentPage}
+						totalPages={totalPages}
+						totalItems={tableProducts.length}
+						pageStart={pageStart}
+						pageEnd={pageEnd}
+						onPageChange={setCurrentPage}
 					/>
 				</div>
 			</div>
