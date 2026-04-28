@@ -10,6 +10,9 @@ import EditUser from './pages/admin/EditUser';
 import BranchProfile from './pages/admin/branch_profile';
 import BranchProfileEdit from './pages/admin/branchProfileEdit';
 import UserManagement from './pages/admin/UserManagement';
+import AdminProductManagement from './pages/admin/ProductManagement';
+import AdminAddProduct from './pages/admin/AddProduct';
+import AdminProductDetails from './pages/admin/ProductDetails';
 import ProductManagement from './pages/branch-admin/ProductManagement';
 import AddProduct from './pages/branch-admin/AddProduct';
 import ProductDetails from './pages/branch-admin/ProductDetails';
@@ -137,9 +140,54 @@ function App() {
       />
 
       <Route
+        path="/admin/products"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/add"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminAddProduct />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/:productId"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/:productId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/:productId/delete"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/branch-admin/products"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1]}>
             <ProductManagement />
           </ProtectedRoute>
         }
@@ -148,7 +196,7 @@ function App() {
       <Route
         path="/branch-admin/products/add"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1]}>
             <AddProduct />
           </ProtectedRoute>
         }
@@ -157,7 +205,7 @@ function App() {
       <Route
         path="/branch-admin/products/:productId"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1]}>
             <ProductDetails />
           </ProtectedRoute>
         }
@@ -166,7 +214,7 @@ function App() {
       <Route
         path="/branch-admin/products/:productId/edit"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1]}>
             <ProductDetails />
           </ProtectedRoute>
         }
@@ -175,7 +223,7 @@ function App() {
       <Route
         path="/branch-admin/products/:productId/delete"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1]}>
             <ProductDetails />
           </ProtectedRoute>
         }
