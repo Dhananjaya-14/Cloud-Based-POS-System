@@ -34,6 +34,7 @@ const BranchProfileRouter = () => {
   return <BranchProfile />;
 };
 import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
+import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
 
 function App() {
   return (
@@ -190,6 +191,16 @@ function App() {
       />
 
       <Route
+        path="/branch-admin/inventory"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <InventoryDashboard />
+          </ProtectedRoute>
+        }
+
+        />
+
+        <Route
         path="/cashier/dashboard"
         element={<CashierDashboard />}
       />

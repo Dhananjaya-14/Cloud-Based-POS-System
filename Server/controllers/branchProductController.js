@@ -36,6 +36,16 @@ function toResponseRow(row) {
   };
 }
 
+function isPositiveInt(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0;
+}
+
+function isNonNegativeNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0;
+}
+
 // GET /api/branch_products
 export async function getBranchProducts(req, res, next) {
   try {
@@ -66,6 +76,10 @@ export async function getBranchProducts(req, res, next) {
 export async function getBranchProductById(req, res, next) {
   try {
     const { id } = req.params;
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid branch product id");
+    }
 
     const result = await pool.query(
       `
@@ -124,6 +138,39 @@ export async function createBranchProduct(req, res, next) {
       );
     }
 
+    if (typeof pro_name !== "string" || pro_name.trim().length === 0) {
+      res.status(400);
+      throw new Error("pro_name must be a non-empty string");
+    }
+    if (typeof pro_shortname !== "string" || pro_shortname.trim().length === 0) {
+      res.status(400);
+      throw new Error("pro_shortname must be a non-empty string");
+    }
+    if (typeof pro_image !== "string" || pro_image.trim().length === 0) {
+      res.status(400);
+      throw new Error("pro_image must be a non-empty string");
+    }
+    if (typeof pro_des !== "string" || pro_des.trim().length === 0) {
+      res.status(400);
+      throw new Error("pro_des must be a non-empty string");
+    }
+    if (!isNonNegativeNumber(pro_quantity)) {
+      res.status(400);
+      throw new Error("pro_quantity must be a non-negative number");
+    }
+    if (!isNonNegativeNumber(pro_price)) {
+      res.status(400);
+      throw new Error("pro_price must be a non-negative number");
+    }
+    if (!isPositiveInt(Cat_id)) {
+      res.status(400);
+      throw new Error("cat_id must be a positive integer");
+    }
+    if (!isPositiveInt(pro_id)) {
+      res.status(400);
+      throw new Error("pro_id must be a positive integer");
+    }
+
     const result = await pool.query(
       `
       INSERT INTO "public"."Branch_Product"
@@ -161,6 +208,10 @@ export async function createBranchProduct(req, res, next) {
 export async function updateBranchProduct(req, res, next) {
   try {
     const { id } = req.params;
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid branch product id");
+    }
 
     const pro_name = req.body?.pro_name;
     const pro_shortname = normalizeSpaced(req.body, "pro_shortname", " pro_shortname");
@@ -170,6 +221,42 @@ export async function updateBranchProduct(req, res, next) {
     const pro_price = normalizeProPrice(req.body);
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
+
+    if (pro_name !== undefined && (typeof pro_name !== "string" || pro_name.trim().length === 0)) {
+      res.status(400);
+      throw new Error("pro_name must be a non-empty string");
+    }
+    if (
+      pro_shortname !== undefined &&
+      (typeof pro_shortname !== "string" || pro_shortname.trim().length === 0)
+    ) {
+      res.status(400);
+      throw new Error("pro_shortname must be a non-empty string");
+    }
+    if (pro_image !== undefined && (typeof pro_image !== "string" || pro_image.trim().length === 0)) {
+      res.status(400);
+      throw new Error("pro_image must be a non-empty string");
+    }
+    if (pro_des !== undefined && (typeof pro_des !== "string" || pro_des.trim().length === 0)) {
+      res.status(400);
+      throw new Error("pro_des must be a non-empty string");
+    }
+    if (pro_quantity !== undefined && !isNonNegativeNumber(pro_quantity)) {
+      res.status(400);
+      throw new Error("pro_quantity must be a non-negative number");
+    }
+    if (pro_price !== undefined && !isNonNegativeNumber(pro_price)) {
+      res.status(400);
+      throw new Error("pro_price must be a non-negative number");
+    }
+    if (Cat_id !== undefined && !isPositiveInt(Cat_id)) {
+      res.status(400);
+      throw new Error("cat_id must be a positive integer");
+    }
+    if (pro_id !== undefined && !isPositiveInt(pro_id)) {
+      res.status(400);
+      throw new Error("pro_id must be a positive integer");
+    }
 
     const existing = await pool.query(
       'SELECT "Bpro_id" FROM "public"."Branch_Product" WHERE "Bpro_id" = $1',
@@ -233,6 +320,10 @@ export async function updateBranchProduct(req, res, next) {
 export async function deleteBranchProduct(req, res, next) {
   try {
     const { id } = req.params;
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid branch product id");
+    }
 
     const result = await pool.query(
       'DELETE FROM "public"."Branch_Product" WHERE "Bpro_id" = $1 RETURNING "Bpro_id"',

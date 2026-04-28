@@ -22,7 +22,7 @@ const Login = () => {
       const roleId = data.user?.role_id;
       // map role ids to routes (adjust role numbers and routes to your app)
       if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
-      else if (roleId === 1) navigate("/branch-admin/users");
+      else if (roleId === 1) navigate("/branch-admin/products");
       else navigate("/"); // fallback
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Login failed");

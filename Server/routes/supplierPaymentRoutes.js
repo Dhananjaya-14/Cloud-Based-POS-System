@@ -1,4 +1,5 @@
 import express from "express";
+
 import {
   getSupplierPayments,
   getSupplierPaymentById,
@@ -11,12 +12,12 @@ import {
 
 const router = express.Router();
 
-router.get("/",                       getSupplierPayments);
-router.get("/supplier/:supId",        getPaymentsBySupplier);
-router.get("/order/:poId",            getPaymentsByOrder);
-router.get("/:id",                    getSupplierPaymentById);
-router.post("/",                      createSupplierPayment);
-router.put("/:id",                    updateSupplierPayment);
-router.delete("/:id",                 deleteSupplierPayment);
+router.get("/", getSupplierPayments);
+router.get("/:id", getSupplierPaymentById);
+router.get("/supplier/:supId", getPaymentsBySupplier);
+router.get("/order/:poId", getPaymentsByOrder);
+router.post("/", createSupplierPayment);
+router.put("/:id", updateSupplierPayment);
+router.delete("/:id", deleteSupplierPayment);
 
 export default router;
