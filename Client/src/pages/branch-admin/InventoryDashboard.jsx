@@ -10,10 +10,17 @@ const InventoryDashboard = () => {
   const navigate = useNavigate();
   
   // 1. Instant Load Logic: Check if we have cached data first
+  // const [materials, setMaterials] = useState(() => {
+  //   const saved = localStorage.getItem('cached_materials');
+  //   return saved ? JSON.parse(saved) : [];
+  // });
+
+
   const [materials, setMaterials] = useState(() => {
-    const saved = localStorage.getItem('cached_materials');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const saved = localStorage.getItem('cached_materials');
+  const parsed = saved ? JSON.parse(saved) : [];
+  return Array.isArray(parsed) ? parsed : (Array.isArray(parsed?.data) ? parsed.data : (Array.isArray(parsed?.materials) ? parsed.materials : []));
+});
 
   // If we have cached data, start isLoading as false so the list appears immediately
   const [isLoading, setIsLoading] = useState(materials.length === 0);
