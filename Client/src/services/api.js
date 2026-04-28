@@ -69,6 +69,20 @@ export const getBranchProducts = async () => {
   return response.data;
 };
 
+export const createBranchProduct = async (branchProductData) => {
+  const response = await api.post("/branch_products", branchProductData);
+  return response.data;
+};
+
+export const updateBranchProduct = async (branchProductId, payload) => {
+  const response = await api.put(`/branch_products/${branchProductId}`, payload);
+  return response.data;
+};
+
+export const deleteBranchProduct = async (branchProductId) => {
+  await api.delete(`/branch_products/${branchProductId}`);
+};
+
 export const getOrders = async (params = {}) => {
   const response = await api.get("/orders", { params });
   // order API wraps rows in { success, count, data }
