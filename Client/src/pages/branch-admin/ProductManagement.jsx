@@ -92,6 +92,8 @@ const ProductManagement = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [updatingStockId, setUpdatingStockId] = useState(null);
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 4;
 
 	useEffect(() => {
 		let isMounted = true;
@@ -133,6 +135,26 @@ const ProductManagement = () => {
 			);
 		});
 	}, [products, searchTerm]);
+
+	const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [searchTerm]);
+
+	useEffect(() => {
+		if (currentPage > totalPages) {
+			setCurrentPage(totalPages);
+		}
+	}, [currentPage, totalPages]);
+
+	const paginatedProducts = useMemo(() => {
+		const startIndex = (currentPage - 1) * itemsPerPage;
+		return tableProducts.slice(startIndex, startIndex + itemsPerPage);
+	}, [tableProducts, currentPage]);
+
+	const pageStart = tableProducts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+	const pageEnd = Math.min(currentPage * itemsPerPage, tableProducts.length);
 
 	const totalItems = products.length;
 	const lowStockCount = products.filter((item) => {
@@ -376,13 +398,19 @@ const ProductManagement = () => {
 					</div>
 
 					<ProductItemsTable
-						products={tableProducts}
+										products={paginatedProducts}
 						onDecreaseStock={(id) => handleAdjustStock(id, -1)}
 						onIncreaseStock={(id) => handleAdjustStock(id, 1)}
 						onViewProduct={handleViewProduct}
 						onEditProduct={handleEditProduct}
 						onDeleteProduct={handleDeleteProduct}
 						updatingStockId={updatingStockId}
+										currentPage={currentPage}
+										totalPages={totalPages}
+										totalItems={tableProducts.length}
+										pageStart={pageStart}
+										pageEnd={pageEnd}
+										onPageChange={setCurrentPage}
 					/>
 				</div>
 			</div>
