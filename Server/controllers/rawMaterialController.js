@@ -5,21 +5,20 @@ import pool from "../config/database.js";
 const MAX_NAME_LENGTH = 120;
 const MAX_UNIT_LENGTH = 20;
 
-// Valid units for a restaurant kitchen
 const VALID_UNITS = [
   "kg",
   "g",
-  "mg", // weight
+  "mg",
   "l",
-  "ml", // volume
+  "ml",
   "pcs",
-  "units", // countable
-  "dozen", // eggs etc.
+  "units",
+  "dozen",
   "box",
   "pack",
-  "bag", // packaged
+  "bag",
   "bottle",
-  "can", // beverages / sauces
+  "can",
 ];
 
 function parsePositiveInt(value, fieldName) {
@@ -40,7 +39,6 @@ function parseNonNegativeDecimal(value, fieldName) {
       { status: 400 },
     );
   }
-  // Cap at 10 digits total, 3 decimal places (matches NUMERIC(10,3))
   return parseFloat(parsed.toFixed(3));
 }
 
@@ -55,7 +53,29 @@ function sanitizeBody(body, allowedFields) {
   return sanitized;
 }
 
-// ─── GET /api/raw-materials ─────────────────────────────────────────────────
+// ─── NEW: shared name validator ───────────────────────────────────────────────
+function validateName(rm_name) {
+  if (typeof rm_name !== "string") {
+    throw Object.assign(new Error("rm_name must be a string"), { status: 400 });
+  }
+  if (rm_name.length === 0) {
+    throw Object.assign(new Error("rm_name cannot be empty"), { status: 400 });
+  }
+  if (rm_name.length > MAX_NAME_LENGTH) {
+    throw Object.assign(
+      new Error(`rm_name cannot exceed ${MAX_NAME_LENGTH} characters`),
+      { status: 400 },
+    );
+  }
+  // ── NEW: block special characters — name should be alphanumeric + spaces/hyphens only
+  if (!/^[\w\s\-().&/]+$/.test(rm_name)) {
+    throw Object.assign(new Error("rm_name contains invalid characters"), {
+      status: 400,
+    });
+  }
+}
+
+// ─── GET /api/raw-materials ──────────────────────────────────────────────────
 export async function getRawMaterials(req, res, next) {
   try {
     const result = await pool.query(
@@ -70,8 +90,7 @@ export async function getRawMaterials(req, res, next) {
   }
 }
 
-// ─── GET /api/raw-materials/low-stock ───────────────────────────────────────
-// Returns only items at or below reorder level — useful for kitchen manager dashboard
+// ─── GET /api/raw-materials/low-stock ────────────────────────────────────────
 export async function getLowStockMaterials(req, res, next) {
   try {
     const result = await pool.query(
@@ -87,7 +106,7 @@ export async function getLowStockMaterials(req, res, next) {
   }
 }
 
-// ─── GET /api/raw-materials/:id ─────────────────────────────────────────────
+// ─── GET /api/raw-materials/:id ──────────────────────────────────────────────
 export async function getRawMaterialById(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "rm_id");
@@ -111,9 +130,15 @@ export async function getRawMaterialById(req, res, next) {
   }
 }
 
-// ─── POST /api/raw-materials ─────────────────────────────────────────────────
+// ─── POST /api/raw-materials ──────────────────────────────────────────────────
 export async function createRawMaterial(req, res, next) {
   try {
+    // ── NEW: body must be an object, not an array or null ──
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      res.status(400);
+      throw new Error("Request body must be a JSON object");
+    }
+
     const body = sanitizeBody(req.body, [
       "rm_name",
       "unit",
@@ -129,17 +154,14 @@ export async function createRawMaterial(req, res, next) {
       throw new Error("rm_name and unit are required");
     }
 
-    // ── Name validation ──
-    if (rm_name.length === 0) {
-      res.status(400);
-      throw new Error("rm_name cannot be empty");
-    }
-    if (rm_name.length > MAX_NAME_LENGTH) {
-      res.status(400);
-      throw new Error(`rm_name cannot exceed ${MAX_NAME_LENGTH} characters`);
-    }
+    // ── Name validation (shared helper) ──
+    validateName(rm_name);
 
     // ── Unit validation ──
+    if (typeof unit !== "string") {
+      res.status(400);
+      throw new Error("unit must be a string");
+    }
     const unitLower = unit.toLowerCase();
     if (!VALID_UNITS.includes(unitLower)) {
       res.status(400);
@@ -156,10 +178,32 @@ export async function createRawMaterial(req, res, next) {
         ? parseNonNegativeDecimal(record_level, "record_level")
         : 0;
 
-    // ── Business rule: reorder level should be less than a reasonable max stock ──
+    // ── NEW: stock_qty and record_level must be numbers, not strings ──
+    if (stock_qty !== undefined && typeof stock_qty === "boolean") {
+      res.status(400);
+      throw new Error("stock_qty must be a number");
+    }
+    if (record_level !== undefined && typeof record_level === "boolean") {
+      res.status(400);
+      throw new Error("record_level must be a number");
+    }
+
+    // ── NEW: cap at DB column max NUMERIC(10,3) ──
+    if (stockQty > 9999999.999) {
+      res.status(400);
+      throw new Error("stock_qty value is unrealistically high");
+    }
     if (recordLevel > 99999.999) {
       res.status(400);
       throw new Error("record_level value is unrealistically high");
+    }
+
+    // ── NEW: reorder level sanity — should not exceed stock ──
+    if (recordLevel > stockQty && stockQty > 0) {
+      res.status(400);
+      throw new Error(
+        "record_level (reorder point) should not exceed the initial stock_qty",
+      );
     }
 
     // ── Duplicate name check ──
@@ -185,10 +229,16 @@ export async function createRawMaterial(req, res, next) {
   }
 }
 
-// ─── PUT /api/raw-materials/:id ──────────────────────────────────────────────
+// ─── PUT /api/raw-materials/:id ───────────────────────────────────────────────
 export async function updateRawMaterial(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "rm_id");
+
+    // ── NEW: reject empty body ──
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      res.status(400);
+      throw new Error("Request body must be a JSON object");
+    }
 
     const body = sanitizeBody(req.body, [
       "rm_name",
@@ -196,6 +246,12 @@ export async function updateRawMaterial(req, res, next) {
       "stock_qty",
       "record_level",
     ]);
+
+    // ── NEW: at least one field required ──
+    if (Object.keys(body).length === 0) {
+      res.status(400);
+      throw new Error("No valid fields provided to update");
+    }
 
     const { rm_name, unit, stock_qty, record_level } = body;
 
@@ -211,16 +267,8 @@ export async function updateRawMaterial(req, res, next) {
 
     // ── Name validation ──
     if (rm_name !== undefined) {
-      if (rm_name.length === 0) {
-        res.status(400);
-        throw new Error("rm_name cannot be empty");
-      }
-      if (rm_name.length > MAX_NAME_LENGTH) {
-        res.status(400);
-        throw new Error(`rm_name cannot exceed ${MAX_NAME_LENGTH} characters`);
-      }
+      validateName(rm_name);
 
-      // Duplicate name check (exclude current record)
       const dupCheck = await pool.query(
         'SELECT rm_id FROM "Raw_Material" WHERE LOWER(rm_name) = LOWER($1) AND rm_id <> $2',
         [rm_name, id],
@@ -234,6 +282,10 @@ export async function updateRawMaterial(req, res, next) {
     // ── Unit validation ──
     let unitLower = null;
     if (unit !== undefined) {
+      if (typeof unit !== "string") {
+        res.status(400);
+        throw new Error("unit must be a string");
+      }
       unitLower = unit.toLowerCase();
       if (!VALID_UNITS.includes(unitLower)) {
         res.status(400);
@@ -245,10 +297,42 @@ export async function updateRawMaterial(req, res, next) {
     let stockQty = null;
     let recordLevel = null;
 
-    if (stock_qty !== undefined)
+    if (stock_qty !== undefined) {
+      if (typeof stock_qty === "boolean") {
+        res.status(400);
+        throw new Error("stock_qty must be a number");
+      }
       stockQty = parseNonNegativeDecimal(stock_qty, "stock_qty");
-    if (record_level !== undefined)
+      if (stockQty > 9999999.999) {
+        res.status(400);
+        throw new Error("stock_qty value is unrealistically high");
+      }
+    }
+
+    if (record_level !== undefined) {
+      if (typeof record_level === "boolean") {
+        res.status(400);
+        throw new Error("record_level must be a number");
+      }
       recordLevel = parseNonNegativeDecimal(record_level, "record_level");
+      if (recordLevel > 99999.999) {
+        res.status(400);
+        throw new Error("record_level value is unrealistically high");
+      }
+    }
+
+    // ── NEW: if both are provided, reorder level should not exceed stock ──
+    if (
+      stockQty !== null &&
+      recordLevel !== null &&
+      recordLevel > stockQty &&
+      stockQty > 0
+    ) {
+      res.status(400);
+      throw new Error(
+        "record_level (reorder point) should not exceed stock_qty",
+      );
+    }
 
     const result = await pool.query(
       `UPDATE "Raw_Material"
@@ -269,16 +353,20 @@ export async function updateRawMaterial(req, res, next) {
   }
 }
 
-// ─── PATCH /api/raw-materials/:id/stock ──────────────────────────────────────
-// Adjust stock quantity — add or subtract (e.g. after delivery or kitchen usage)
+// ─── PATCH /api/raw-materials/:id/stock ───────────────────────────────────────
 export async function adjustStock(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "rm_id");
 
+    // ── NEW: body guard ──
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      res.status(400);
+      throw new Error("Request body must be a JSON object");
+    }
+
     const body = sanitizeBody(req.body, ["adjustment", "operation"]);
     const { adjustment, operation } = body;
 
-    // ── Required ──
     if (adjustment === undefined || !operation) {
       res.status(400);
       throw new Error(
@@ -286,21 +374,36 @@ export async function adjustStock(req, res, next) {
       );
     }
 
-    // ── Operation must be add or subtract ──
-    if (!["add", "subtract"].includes(operation)) {
+    // ── NEW: operation type guard ──
+    if (typeof operation !== "string") {
+      res.status(400);
+      throw new Error("operation must be a string: 'add' or 'subtract'");
+    }
+    if (!["add", "subtract"].includes(operation.toLowerCase())) {
       res.status(400);
       throw new Error("operation must be 'add' or 'subtract'");
     }
 
-    // ── Adjustment must be a positive decimal ──
+    // ── NEW: boolean guard — parseFloat(true) = 1, which is misleading ──
+    if (typeof adjustment === "boolean") {
+      res.status(400);
+      throw new Error("adjustment must be a number");
+    }
+
     const adjValue = parseFloat(adjustment);
     if (isNaN(adjValue) || adjValue <= 0) {
       res.status(400);
       throw new Error("adjustment must be a positive number");
     }
+
+    // ── NEW: cap unrealistically large adjustments ──
+    if (adjValue > 9999999.999) {
+      res.status(400);
+      throw new Error("adjustment value is unrealistically high");
+    }
+
     const adjRounded = parseFloat(adjValue.toFixed(3));
 
-    // ── Existence check ──
     const existing = await pool.query(
       'SELECT rm_id, rm_name, stock_qty, record_level, unit FROM "Raw_Material" WHERE rm_id = $1',
       [id],
@@ -312,7 +415,6 @@ export async function adjustStock(req, res, next) {
 
     const current = existing.rows[0];
 
-    // ── Cannot subtract more than available stock ──
     if (operation === "subtract") {
       const currentQty = parseFloat(current.stock_qty);
       if (adjRounded > currentQty) {
@@ -340,12 +442,11 @@ export async function adjustStock(req, res, next) {
   }
 }
 
-// ─── DELETE /api/raw-materials/:id ───────────────────────────────────────────
+// ─── DELETE /api/raw-materials/:id ────────────────────────────────────────────
 export async function deleteRawMaterial(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "rm_id");
 
-    // ── Cannot delete if stock still exists ──
     const stockCheck = await pool.query(
       'SELECT stock_qty FROM "Raw_Material" WHERE rm_id = $1',
       [id],
@@ -361,7 +462,7 @@ export async function deleteRawMaterial(req, res, next) {
       );
     }
 
-    const result = await pool.query(
+    await pool.query(
       'DELETE FROM "Raw_Material" WHERE rm_id = $1 RETURNING rm_id',
       [id],
     );

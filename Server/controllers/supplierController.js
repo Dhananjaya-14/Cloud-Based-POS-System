@@ -29,9 +29,33 @@ function validateEmail(email) {
 }
 
 function validateContact(contact) {
-  // Allow digits, spaces, +, -, (, ) — typical phone formats
   const contactRegex = /^[0-9+\-\s()]{7,30}$/;
   return contactRegex.test(contact);
+}
+
+// ─── NEW: shared name validator ───────────────────────────────────────────────
+function validateSupplierName(sup_name) {
+  if (typeof sup_name !== "string") {
+    throw Object.assign(new Error("sup_name must be a string"), {
+      status: 400,
+    });
+  }
+  if (sup_name.length < 2) {
+    throw Object.assign(new Error("sup_name must be at least 2 characters"), {
+      status: 400,
+    });
+  }
+  if (sup_name.length > 120) {
+    throw Object.assign(new Error("sup_name cannot exceed 120 characters"), {
+      status: 400,
+    });
+  }
+  // ── NEW: block special characters ──
+  if (!/^[\w\s\-().&/,]+$/.test(sup_name)) {
+    throw Object.assign(new Error("sup_name contains invalid characters"), {
+      status: 400,
+    });
+  }
 }
 
 // ─── GET /api/suppliers ───────────────────────────────────────────────────────
@@ -74,6 +98,12 @@ export async function getSupplierById(req, res, next) {
 // ─── POST /api/suppliers ──────────────────────────────────────────────────────
 export async function createSupplier(req, res, next) {
   try {
+    // ── NEW: body guard ──
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      res.status(400);
+      throw new Error("Request body must be a JSON object");
+    }
+
     const body = sanitizeBody(req.body, [
       "sup_name",
       "sup_email",
@@ -89,17 +119,14 @@ export async function createSupplier(req, res, next) {
       throw new Error("sup_name, sup_email and sup_contact are required");
     }
 
-    // ── Name length ──
-    if (sup_name.length < 2) {
-      res.status(400);
-      throw new Error("sup_name must be at least 2 characters");
-    }
-    if (sup_name.length > 120) {
-      res.status(400);
-      throw new Error("sup_name cannot exceed 120 characters");
-    }
+    // ── Name validation (shared helper) ──
+    validateSupplierName(sup_name);
 
-    // ── Email format ──
+    // ── Email type guard ──
+    if (typeof sup_email !== "string") {
+      res.status(400);
+      throw new Error("sup_email must be a string");
+    }
     if (!validateEmail(sup_email)) {
       res.status(400);
       throw new Error("sup_email is not a valid email address");
@@ -109,7 +136,11 @@ export async function createSupplier(req, res, next) {
       throw new Error("sup_email cannot exceed 150 characters");
     }
 
-    // ── Contact format ──
+    // ── Contact type guard ──
+    if (typeof sup_contact !== "string") {
+      res.status(400);
+      throw new Error("sup_contact must be a string");
+    }
     if (!validateContact(sup_contact)) {
       res.status(400);
       throw new Error(
@@ -117,10 +148,16 @@ export async function createSupplier(req, res, next) {
       );
     }
 
-    // ── Address length if provided ──
-    if (sup_address && sup_address.length > 100) {
-      res.status(400);
-      throw new Error("sup_address cannot exceed 100 characters");
+    // ── Address validation ──
+    if (sup_address !== undefined) {
+      if (typeof sup_address !== "string") {
+        res.status(400);
+        throw new Error("sup_address must be a string");
+      }
+      if (sup_address.length > 100) {
+        res.status(400);
+        throw new Error("sup_address cannot exceed 100 characters");
+      }
     }
 
     // ── Duplicate email check ──
@@ -143,6 +180,16 @@ export async function createSupplier(req, res, next) {
       throw new Error(`A supplier named "${sup_name}" already exists`);
     }
 
+    // ── NEW: duplicate contact check ──
+    const dupContact = await pool.query(
+      `SELECT sup_id FROM "SUPPLIER" WHERE sup_contact = $1`,
+      [sup_contact],
+    );
+    if (dupContact.rows.length > 0) {
+      res.status(409);
+      throw new Error("A supplier with this contact number already exists");
+    }
+
     const result = await pool.query(
       `INSERT INTO "SUPPLIER" (sup_name, sup_email, sup_contact, sup_address)
        VALUES ($1, $2, $3, $4)
@@ -160,6 +207,12 @@ export async function createSupplier(req, res, next) {
 export async function updateSupplier(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "sup_id");
+
+    // ── NEW: body guard ──
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      res.status(400);
+      throw new Error("Request body must be a JSON object");
+    }
 
     const body = sanitizeBody(req.body, [
       "sup_name",
@@ -187,14 +240,8 @@ export async function updateSupplier(req, res, next) {
 
     // ── Name validation ──
     if (sup_name !== undefined) {
-      if (sup_name.length < 2) {
-        res.status(400);
-        throw new Error("sup_name must be at least 2 characters");
-      }
-      if (sup_name.length > 120) {
-        res.status(400);
-        throw new Error("sup_name cannot exceed 120 characters");
-      }
+      validateSupplierName(sup_name);
+
       const dupName = await pool.query(
         `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1) AND sup_id <> $2`,
         [sup_name, id],
@@ -207,6 +254,10 @@ export async function updateSupplier(req, res, next) {
 
     // ── Email validation ──
     if (sup_email !== undefined) {
+      if (typeof sup_email !== "string") {
+        res.status(400);
+        throw new Error("sup_email must be a string");
+      }
       if (!validateEmail(sup_email)) {
         res.status(400);
         throw new Error("sup_email is not a valid email address");
@@ -226,17 +277,38 @@ export async function updateSupplier(req, res, next) {
     }
 
     // ── Contact validation ──
-    if (sup_contact !== undefined && !validateContact(sup_contact)) {
-      res.status(400);
-      throw new Error(
-        "sup_contact must be a valid phone number (7–30 characters)",
+    if (sup_contact !== undefined) {
+      if (typeof sup_contact !== "string") {
+        res.status(400);
+        throw new Error("sup_contact must be a string");
+      }
+      if (!validateContact(sup_contact)) {
+        res.status(400);
+        throw new Error(
+          "sup_contact must be a valid phone number (7–30 characters)",
+        );
+      }
+      // ── NEW: duplicate contact check (exclude current record) ──
+      const dupContact = await pool.query(
+        `SELECT sup_id FROM "SUPPLIER" WHERE sup_contact = $1 AND sup_id <> $2`,
+        [sup_contact, id],
       );
+      if (dupContact.rows.length > 0) {
+        res.status(409);
+        throw new Error("A supplier with this contact number already exists");
+      }
     }
 
     // ── Address validation ──
-    if (sup_address !== undefined && sup_address.length > 100) {
-      res.status(400);
-      throw new Error("sup_address cannot exceed 100 characters");
+    if (sup_address !== undefined) {
+      if (typeof sup_address !== "string") {
+        res.status(400);
+        throw new Error("sup_address must be a string");
+      }
+      if (sup_address.length > 100) {
+        res.status(400);
+        throw new Error("sup_address cannot exceed 100 characters");
+      }
     }
 
     const result = await pool.query(
@@ -249,8 +321,8 @@ export async function updateSupplier(req, res, next) {
        WHERE sup_id = $5
        RETURNING sup_id, sup_name, sup_email, sup_contact, sup_address`,
       [
-        sup_name    ?? null,
-        sup_email   ? sup_email.toLowerCase() : null,
+        sup_name ?? null,
+        sup_email ? sup_email.toLowerCase() : null,
         sup_contact ?? null,
         sup_address ?? null,
         id,
@@ -268,7 +340,6 @@ export async function deleteSupplier(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "sup_id");
 
-    // ── Cannot delete if supplier has purchase orders ──
     const poCheck = await pool.query(
       `SELECT po_id FROM purchase_order WHERE sup_id = $1 LIMIT 1`,
       [id],
