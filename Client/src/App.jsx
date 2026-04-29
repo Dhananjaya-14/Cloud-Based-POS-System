@@ -249,19 +249,31 @@ function App() {
         />
 
         <Route
-        path="/cashier/dashboard"
-        element={<CashierDashboard />}
-      />
+          path="/cashier/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={[3]}>
+              <CashierDashboard />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/cashier/pos"
-        element={<CashierPos />}
-      />
+        <Route
+          path="/cashier/pos"
+          element={
+            <ProtectedRoute allowedRoles={[3]}>
+              <CashierPos />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/cashier/invoice-preview"
-        element={<InvoicePreview />}
-      />
+        <Route
+          path="/cashier/invoice-preview"
+          element={
+            <ProtectedRoute allowedRoles={[3]}>
+              <InvoicePreview />
+            </ProtectedRoute>
+          }
+        />
 
       <Route path="*" element={<Navigate to="/" />} />
       
