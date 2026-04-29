@@ -134,7 +134,8 @@ const CashierPos = () => {
     () => cart.reduce((sum, item) => sum + Number(item.unitPrice) * item.qty, 0),
     [cart],
   );
-  const tax = subtotal * 0.1;
+  const taxRate = 10;
+  const tax = subtotal * (taxRate / 100);
   const total = subtotal + tax;
 
   const addToCart = (product) => {
@@ -191,7 +192,7 @@ const CashierPos = () => {
       setError("");
 
       const orderResponse = await createOrder({
-        or_tax: Number(tax.toFixed(2)),
+        or_tax: taxRate,
         or_totalcost: Number(subtotal.toFixed(2)),
         or_totalCostWtax: Number(total.toFixed(2)),
         or_status: "pending",
