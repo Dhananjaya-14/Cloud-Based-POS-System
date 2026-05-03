@@ -170,6 +170,7 @@ const Sidebar = () => {
             <>
               {subItem("Inventory", "/branch-admin/inventory")}
               {subItem("Add Raw Ingredient", "/branch-admin/raw-ingredient")}
+              {subItem("Supplier Directory", "/branch-admin/suppliers")}
               {subItem("Recipe Mapper", "/branch-admin/recipe-mapper")}
             </>
           )}

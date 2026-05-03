@@ -38,6 +38,7 @@ const BranchProfileRouter = () => {
 };
 import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
 import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
+import SupplierManagement from './pages/branch-admin/SupplierManagement';
 
 function App() {
   return (
@@ -243,6 +244,17 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
             <InventoryDashboard />
+          </ProtectedRoute>
+        }
+
+        />
+
+
+      <Route
+        path="/branch-admin/suppliers"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <SupplierManagement />
           </ProtectedRoute>
         }
 
