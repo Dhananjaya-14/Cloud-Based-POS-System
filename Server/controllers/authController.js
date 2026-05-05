@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 function signToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET, {
@@ -61,24 +62,39 @@ export async function login(req, res, next) {
       res.status(500);
       throw new Error("JWT_SECRET is not configured");
     }
+    let b_id = null;
+    if (user.role_id === ROLES.BRANCH_ADMIN) {
+      const branchRes = await pool.query(
+        'SELECT "B_id" AS b_id FROM "Branch" WHERE "U_id" = $1 LIMIT 1',
+        [user.u_id],
+      );
+      b_id = branchRes.rows[0]?.b_id ?? null;
+    }
+
     //token creation
     const token = signToken({
       u_id: user.u_id,
       role_id: user.role_id,
       u_email: user.u_email,
+      ...(b_id != null ? { b_id } : {}),
     });
-    
+
+    const userPayload = {
+      u_id: user.u_id,
+      u_fname: user.u_fname,
+      u_lname: user.u_lname,
+      u_email: user.u_email,
+      u_connumber: user.u_connumber,
+      role_id: user.role_id,
+    };
+    if (user.role_id === ROLES.BRANCH_ADMIN) {
+      userPayload.b_id = b_id;
+    }
+
     //frntend res
     res.json({
       token,
-      user: {
-        u_id: user.u_id,
-        u_fname: user.u_fname,
-        u_lname: user.u_lname,
-        u_email: user.u_email,
-        u_connumber: user.u_connumber,
-        role_id: user.role_id,
-      },
+      user: userPayload,
     });
   } catch (err) {
     next(err);
