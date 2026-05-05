@@ -29,7 +29,11 @@ function sanitizeBody(body, allowedFields) {
 export async function getTables(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT table_id, table_number, table_capacity, table_status, branch_id FROM "TABLES" ORDER BY table_id',
+      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status,
+              t.branch_id, b."B_name" AS branch_name
+       FROM "TABLES" t
+       LEFT JOIN "Branch" b ON t.branch_id = b."B_id"
+       ORDER BY t.table_id`,
     );
     res.json(result.rows);
   } catch (err) {
@@ -43,13 +47,17 @@ export async function getTableById(req, res, next) {
     const id = parsePositiveInt(req.params.id, "table_id");
 
     const result = await pool.query(
-      'SELECT table_id, table_number, table_capacity, table_status, branch_id FROM "TABLES" WHERE table_id = $1',
+      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status,
+              t.branch_id, b."B_name" AS branch_name
+       FROM "TABLES" t
+       LEFT JOIN "Branch" b ON t.branch_id = b."B_id"
+       WHERE t.table_id = $1`,
       [id],
     );
 
     if (result.rows.length === 0) {
       res.status(404);
-      throw new Error("Table not found");
+      return next(new Error("Table not found"));
     }
 
     res.json(result.rows[0]);
@@ -63,10 +71,26 @@ export async function getTablesByBranch(req, res, next) {
   try {
     const branchId = parsePositiveInt(req.params.branchId, "branch_id");
 
-    const result = await pool.query(
-      'SELECT table_id, table_number, table_capacity, table_status, branch_id FROM "TABLES" WHERE branch_id = $1 ORDER BY table_number',
+    // Confirm branch exists
+    const branchCheck = await pool.query(
+      'SELECT "B_id" FROM "Branch" WHERE "B_id" = $1',
       [branchId],
     );
+    if (branchCheck.rows.length === 0) {
+      res.status(404);
+      return next(new Error("Branch not found"));
+    }
+
+    const result = await pool.query(
+      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status,
+              t.branch_id, b."B_name" AS branch_name
+       FROM "TABLES" t
+       LEFT JOIN "Branch" b ON t.branch_id = b."B_id"
+       WHERE t.branch_id = $1
+       ORDER BY t.table_number`,
+      [branchId],
+    );
+
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -85,41 +109,55 @@ export async function createTable(req, res, next) {
 
     const { table_number, table_capacity, table_status, branch_id } = body;
 
-    // ── Required fields ──
+    // Required fields
     if (!table_number || table_capacity === undefined || !branch_id) {
       res.status(400);
-      throw new Error(
-        "table_number, table_capacity and branch_id are required",
+      return next(
+        new Error("table_number, table_capacity and branch_id are required"),
       );
     }
 
-    // ── Type checks ──
+    // table_number format: non-empty string or positive integer
+    if (typeof table_number === "string" && table_number.length > 20) {
+      res.status(400);
+      return next(new Error("table_number must be 20 characters or fewer"));
+    }
+
     const capacityInt = parsePositiveInt(table_capacity, "table_capacity");
     if (capacityInt > 50) {
       res.status(400);
-      throw new Error("table_capacity cannot exceed 50");
+      return next(new Error("table_capacity cannot exceed 50"));
     }
 
     const branchIdInt = parsePositiveInt(branch_id, "branch_id");
 
-    // ── Status check ──
     const status = table_status || "available";
     if (!VALID_STATUSES.includes(status)) {
       res.status(400);
-      throw new Error(
-        `table_status must be one of: ${VALID_STATUSES.join(", ")}`,
+      return next(
+        new Error(`table_status must be one of: ${VALID_STATUSES.join(", ")}`),
       );
     }
 
-    // ── Duplicate table_number within branch ──
+    // Confirm branch exists
+    const branchCheck = await pool.query(
+      'SELECT "B_id" FROM "Branch" WHERE "B_id" = $1',
+      [branchIdInt],
+    );
+    if (branchCheck.rows.length === 0) {
+      res.status(400);
+      return next(new Error("The specified branch does not exist"));
+    }
+
+    // Duplicate table_number within branch
     const duplicate = await pool.query(
       'SELECT table_id FROM "TABLES" WHERE table_number = $1 AND branch_id = $2',
       [table_number, branchIdInt],
     );
     if (duplicate.rows.length > 0) {
       res.status(409);
-      throw new Error(
-        `Table number ${table_number} already exists in this branch`,
+      return next(
+        new Error(`Table number ${table_number} already exists in this branch`),
       );
     }
 
@@ -134,7 +172,7 @@ export async function createTable(req, res, next) {
   } catch (err) {
     if (err?.code === "23503") {
       res.status(400);
-      return next(new Error("Invalid foreign key: branch_id does not exist"));
+      return next(new Error("The specified branch does not exist"));
     }
     if (err?.code === "23514") {
       res.status(400);
@@ -160,41 +198,65 @@ export async function updateTable(req, res, next) {
 
     const { table_number, table_capacity, table_status, branch_id } = body;
 
-    // ── Existence check ──
+    // Reject empty body
+    if (
+      table_number === undefined &&
+      table_capacity === undefined &&
+      table_status === undefined &&
+      branch_id === undefined
+    ) {
+      res.status(400);
+      return next(new Error("No fields provided to update"));
+    }
+
+    // Existence check
     const existing = await pool.query(
       'SELECT table_id, branch_id FROM "TABLES" WHERE table_id = $1',
       [id],
     );
     if (existing.rows.length === 0) {
       res.status(404);
-      throw new Error("Table not found");
+      return next(new Error("Table not found"));
     }
 
-    // ── Type checks ──
+    // Capacity validation
     let capacityInt = null;
     if (table_capacity !== undefined) {
       capacityInt = parsePositiveInt(table_capacity, "table_capacity");
       if (capacityInt > 50) {
         res.status(400);
-        throw new Error("table_capacity cannot exceed 50");
+        return next(new Error("table_capacity cannot exceed 50"));
       }
     }
 
+    // Branch validation
     let branchIdInt = null;
     if (branch_id !== undefined) {
       branchIdInt = parsePositiveInt(branch_id, "branch_id");
+      const branchCheck = await pool.query(
+        'SELECT "B_id" FROM "Branch" WHERE "B_id" = $1',
+        [branchIdInt],
+      );
+      if (branchCheck.rows.length === 0) {
+        res.status(400);
+        return next(new Error("The specified branch does not exist"));
+      }
     }
 
-    // ── Status check ──
-    if (table_status && !VALID_STATUSES.includes(table_status)) {
+    // Status validation
+    if (table_status !== undefined && !VALID_STATUSES.includes(table_status)) {
       res.status(400);
-      throw new Error(
-        `table_status must be one of: ${VALID_STATUSES.join(", ")}`,
+      return next(
+        new Error(`table_status must be one of: ${VALID_STATUSES.join(", ")}`),
       );
     }
 
-    // ── Duplicate table_number check (within the resolved branch) ──
+    // Duplicate table_number within resolved branch, excluding self
     if (table_number !== undefined) {
+      if (typeof table_number === "string" && table_number.length > 20) {
+        res.status(400);
+        return next(new Error("table_number must be 20 characters or fewer"));
+      }
       const targetBranch = branchIdInt ?? existing.rows[0].branch_id;
       const duplicate = await pool.query(
         'SELECT table_id FROM "TABLES" WHERE table_number = $1 AND branch_id = $2 AND table_id <> $3',
@@ -202,8 +264,10 @@ export async function updateTable(req, res, next) {
       );
       if (duplicate.rows.length > 0) {
         res.status(409);
-        throw new Error(
-          `Table number ${table_number} already exists in this branch`,
+        return next(
+          new Error(
+            `Table number ${table_number} already exists in this branch`,
+          ),
         );
       }
     }
@@ -230,7 +294,7 @@ export async function updateTable(req, res, next) {
   } catch (err) {
     if (err?.code === "23503") {
       res.status(400);
-      return next(new Error("Invalid foreign key: branch_id does not exist"));
+      return next(new Error("The specified branch does not exist"));
     }
     if (err?.code === "23514") {
       res.status(400);
@@ -248,25 +312,32 @@ export async function updateTableStatus(req, res, next) {
     const id = parsePositiveInt(req.params.id, "table_id");
     const { table_status } = req.body;
 
-    if (!table_status || !VALID_STATUSES.includes(table_status)) {
+    if (!table_status) {
       res.status(400);
-      throw new Error(
-        `table_status must be one of: ${VALID_STATUSES.join(", ")}`,
+      return next(new Error("table_status is required"));
+    }
+
+    if (!VALID_STATUSES.includes(table_status)) {
+      res.status(400);
+      return next(
+        new Error(`table_status must be one of: ${VALID_STATUSES.join(", ")}`),
       );
     }
 
-    // ── Guard: don't mark as available if active reservation exists ──
+    // Guard: don't mark as available if active reservation exists
     if (table_status === "available") {
       const activeReservation = await pool.query(
         `SELECT reserv_id FROM "RESERVATION"
-         WHERE table_id = $1 AND reserv_date >= CURRENT_DATE
+         WHERE table_id = $1 AND reserv_date >= CURRENT_TIMESTAMP
          LIMIT 1`,
         [id],
       );
       if (activeReservation.rows.length > 0) {
         res.status(409);
-        throw new Error(
-          "Cannot mark table as available: it has upcoming reservations",
+        return next(
+          new Error(
+            "Cannot mark table as available: it has upcoming reservations",
+          ),
         );
       }
     }
@@ -279,7 +350,7 @@ export async function updateTableStatus(req, res, next) {
 
     if (result.rows.length === 0) {
       res.status(404);
-      throw new Error("Table not found");
+      return next(new Error("Table not found"));
     }
 
     res.json(result.rows[0]);
@@ -293,17 +364,19 @@ export async function deleteTable(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "table_id");
 
-    // ── Proactive check: active reservations ──
+    // Proactive check: block delete if upcoming reservations exist
     const activeReservation = await pool.query(
       `SELECT reserv_id FROM "RESERVATION"
-       WHERE table_id = $1 AND reserv_date >= CURRENT_DATE
+       WHERE table_id = $1 AND reserv_date >= CURRENT_TIMESTAMP
        LIMIT 1`,
       [id],
     );
     if (activeReservation.rows.length > 0) {
       res.status(409);
-      throw new Error(
-        "Cannot delete table: it has upcoming reservations. Cancel them first.",
+      return next(
+        new Error(
+          "Cannot delete table: it has upcoming reservations. Cancel them first.",
+        ),
       );
     }
 
@@ -314,7 +387,7 @@ export async function deleteTable(req, res, next) {
 
     if (result.rows.length === 0) {
       res.status(404);
-      throw new Error("Table not found");
+      return next(new Error("Table not found"));
     }
 
     res.status(204).send();
@@ -328,3 +401,13 @@ export async function deleteTable(req, res, next) {
     next(err);
   }
 }
+
+export default {
+  getTables,
+  getTableById,
+  getTablesByBranch,
+  createTable,
+  updateTable,
+  updateTableStatus,
+  deleteTable,
+};

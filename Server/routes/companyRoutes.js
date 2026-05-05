@@ -1,5 +1,8 @@
 import express from "express";
-import { requireAuth } from "../middleware/authMiddleware.js";
+import {
+  requireAuth,
+  requireSuperAdmin,
+} from "../middleware/authMiddleware.js";
 import {
   getCompanies,
   getCompanyById,
@@ -10,8 +13,10 @@ import {
 
 const router = express.Router();
 
-// Protect all company endpoints
+// 1. Verify identity
 router.use(requireAuth);
+// 2. Verify Super Admin role
+router.use(requireSuperAdmin);
 
 router.get("/", getCompanies);
 router.get("/:id", getCompanyById);
@@ -20,4 +25,3 @@ router.put("/:id", updateCompany);
 router.delete("/:id", deleteCompany);
 
 export default router;
-

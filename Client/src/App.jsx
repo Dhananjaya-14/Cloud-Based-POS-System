@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
@@ -7,39 +7,360 @@ import RegisterStep3 from './pages/RegisterStep3';
 import BranchManagement from './pages/admin/BranchManagement';
 import AddUser from './pages/admin/AddUser';
 import EditUser from './pages/admin/EditUser';
-
-
 import BranchProfile from './pages/admin/branch_profile';
 import BranchProfileEdit from './pages/admin/branchProfileEdit';
 import UserManagement from './pages/admin/UserManagement';
+import AdminProductManagement from './pages/admin/ProductManagement';
+import AdminAddProduct from './pages/admin/AddProduct';
+import AdminProductDetails from './pages/admin/ProductDetails';
+import ProductManagement from './pages/branch-admin/ProductManagement';
+import AddProduct from './pages/branch-admin/AddProduct';
+import ProductDetails from './pages/branch-admin/ProductDetails';
+import BranchAdminUserManagement from './pages/branch-admin/UserManagement';
+import BranchAdminAddUser from './pages/branch-admin/AddUser';
+import BranchAdminEditUser from './pages/branch-admin/EditUser';
+import CashierDashboard from './pages/cashier/CashierDashboard';
+import CashierPos from './pages/cashier/CashierPos';
+import InvoicePreview from './pages/cashier/InvoicePreview';
+import ProtectedRoute from './components/ProtectedRoute';
+import { useAuth } from './context/AuthContext';
 
+// Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
+// send them to Product Management instead of showing Branch Profile.
+const BranchProfileRouter = () => {
+  const { user } = useAuth();
+
+  if (user?.role_id === 1) {
+    return <Navigate to="/branch-admin/products" replace />;
+  }
+
+  return <BranchProfile />;
+};
+import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
+import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
+import SupplierManagement from './pages/branch-admin/SupplierManagement';
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Login />} />
-        {/* <Route path="/" element={<Navigate to="/register/step-1" />} /> */}
-        <Route path="/register/step-1" element={<RegisterStep1 />} />
-        <Route path="/register/step-2" element={<RegisterStep2 />} />
-        <Route path="/register/step-3" element={<RegisterStep3 />} />
-        
+    <Routes>
+      <Route path="/" element={<Login />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register/step-1" element={<RegisterStep1 />} />
+      <Route path="/register/step-2" element={<RegisterStep2 />} />
+      <Route path="/register/step-3" element={<RegisterStep3 />} />
 
-        <Route path="/branches" element={<BranchManagement />} />
-        <Route path="/users" element={<UserManagement />} />
-        <Route path="/users/add" element={<AddUser />} />
-        <Route path="/users/:userId/edit" element={<EditUser/>}/>
-        <Route path="/branch_profile/:branchId" element={<BranchProfile />} />
-        <Route path="/branch_profile/:branchId/edit" element={<BranchProfileEdit />} />
+      <Route
+        path="/branches"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <BranchManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/users"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <UserManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/users"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminUserManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/users/add"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AddUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/users/add"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminAddUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/users/:userId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <EditUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/users/:userId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminEditUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch_profile/:branchId"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchProfileRouter />
+          </ProtectedRoute>
+        }
+      />
+
+      {/* Fallback when branchId is missing (e.g. Login builds /branch_profile/ with empty id) */}
+      <Route
+        path="/branch_profile"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchProfileRouter />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch_profile/:branchId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <BranchProfileEdit />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/add"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminAddProduct />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/:productId"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/:productId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/products/:productId/delete"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <AdminProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <ProductManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/add"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <AddProduct />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId/edit"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/products/:productId/delete"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/raw-ingredient"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <AddRawMaterials />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/inventory"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <InventoryDashboard />
+          </ProtectedRoute>
+        }
+
+        />
 
 
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Router>
+      <Route
+        path="/branch-admin/suppliers"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <SupplierManagement />
+          </ProtectedRoute>
+        }
+
+        />
+
+        <Route
+          path="/cashier/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={[3]}>
+              <CashierDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/cashier/pos"
+          element={
+            <ProtectedRoute allowedRoles={[3]}>
+              <CashierPos />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/cashier/invoice-preview"
+          element={
+            <ProtectedRoute allowedRoles={[3]}>
+              <InvoicePreview />
+            </ProtectedRoute>
+          }
+        />
+
+      <Route path="*" element={<Navigate to="/" />} />
+      
+    </Routes>
   );
 }
 
 export default App;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// import React from 'react';
+// import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+// import Login from './pages/Login';
+// import RegisterStep1 from './pages/RegisterStep1';
+// import RegisterStep2 from './pages/RegisterStep2';
+// import RegisterStep3 from './pages/RegisterStep3';
+// import BranchManagement from './pages/admin/BranchManagement';
+// import AddUser from './pages/admin/AddUser';
+// import EditUser from './pages/admin/EditUser';
+
+
+// import BranchProfile from './pages/admin/branch_profile';
+// import BranchProfileEdit from './pages/admin/branchProfileEdit';
+// import UserManagement from './pages/admin/UserManagement';
+
+
+// function App() {
+//   return (
+//     <Router>
+//       <Routes>
+//         <Route path="/" element={<Login />} />
+//         {/* <Route path="/" element={<Navigate to="/register/step-1" />} /> */}
+//         <Route path="/register/step-1" element={<RegisterStep1 />} />
+//         <Route path="/register/step-2" element={<RegisterStep2 />} />
+//         <Route path="/register/step-3" element={<RegisterStep3 />} />
+        
+
+//         <Route path="/branches" element={<BranchManagement />} />
+//         <Route path="/users" element={<UserManagement />} />
+//         <Route path="/users/add" element={<AddUser />} />
+//         <Route path="/users/:userId/edit" element={<EditUser/>}/>
+//         <Route path="/branch_profile/:branchId" element={<BranchProfile />} />
+//         <Route path="/branch_profile/:branchId/edit" element={<BranchProfileEdit />} />
+
+
+//         <Route path="*" element={<Navigate to="/" />} />
+//       </Routes>
+//     </Router>
+//   );
+// }
+
+// export default App;
 
 
 
