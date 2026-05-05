@@ -45,6 +45,7 @@ const CashierPos = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [orderType, setOrderType] = useState("takeaway");
 
   useEffect(() => {
     const loadPosData = async () => {
@@ -186,6 +187,10 @@ const CashierPos = () => {
       setError("No branch is assigned to this user.");
       return;
     }
+    if (orderType === "dine-in") {
+      setError("Dine-in orders require table selection. Please use takeaway for now.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -196,7 +201,7 @@ const CashierPos = () => {
         or_totalcost: Number(subtotal.toFixed(2)),
         or_totalCostWtax: Number(total.toFixed(2)),
         or_status: "pending",
-        or_type: "dine-in",
+        or_type: orderType,
         cust_id: null,
         u_id: user.u_id,
         b_id: branchId,
@@ -525,6 +530,34 @@ const CashierPos = () => {
                 <div className="flex items-center justify-between text-base font-semibold text-slate-900">
                   <span>Total</span>
                   <span className="text-2xl tracking-tight">${total.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <h3 className="text-sm font-semibold text-slate-900">Order Type</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderType("takeaway")}
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
+                      orderType === "takeaway"
+                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                    }`}
+                  >
+                    Takeaway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOrderType("dine-in")}
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
+                      orderType === "dine-in"
+                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                    }`}
+                  >
+                    Dine-in
+                  </button>
                 </div>
               </div>
 
