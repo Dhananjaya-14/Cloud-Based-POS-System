@@ -559,29 +559,6 @@ const CashierPos = () => {
                     placeholder="Notes (special requests)"
                     className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
                   />
-
-                  <div className="flex gap-2">
-                    <input
-                      aria-label="discount"
-                      type="number"
-                      min="0"
-                      max="100"
-                      value={discountPct}
-                      onChange={(e) => setDiscountPct(Number(e.target.value))}
-                      placeholder="Discount %"
-                      className="h-9 w-1/2 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
-                    />
-                    <input
-                      aria-label="service-fee"
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={serviceFee}
-                      onChange={(e) => setServiceFee(Number(e.target.value))}
-                      placeholder="Service Fee"
-                      className="h-9 w-1/2 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
-                    />
-                  </div>
                 </div>
               </div>
 
