@@ -67,7 +67,7 @@ const Sidebar = () => {
         </h2>
 
         <div style={{ marginTop: 30 }}>
-          {menuItem(<FaTachometerAlt />, "Dashboard", "/dashboard")}
+          {menuItem(<FaTachometerAlt />, "Dashboard", "/admin/dashboard")}
           {menuItem(<FaStore />, "Branches", "/branches")}
           {menuItem(<FaBox />, "Products", "/admin/products")}
           {menuItem(<FaUsers />, "User Management", "/users")}
