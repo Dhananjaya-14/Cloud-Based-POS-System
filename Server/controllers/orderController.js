@@ -59,6 +59,9 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
  * Returns an error string or null if valid.
  */
 function validateTypeConstraints(or_type, cust_id, table_id) {
+  if (or_type === "dine-in" && !table_id) {
+    return "table_id is required for dine-in orders";
+  }
   if (or_type === "delivery" && !cust_id) {
     return "cust_id is required for delivery orders";
   }
