@@ -13,6 +13,7 @@ import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getBranchProducts, updateBranchProduct } from "../../services/api";
 
+
 const cardBaseStyle = {
 	flex: "0 1 calc((100% - 60px) / 3)",
 	borderRadius: "18px",
