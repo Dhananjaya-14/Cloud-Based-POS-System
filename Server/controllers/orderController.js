@@ -55,7 +55,6 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
 
 /**
  * Validates order type business rules:
- * - dine-in  → table_id required
  * - delivery → cust_id required
  * Returns an error string or null if valid.
  */

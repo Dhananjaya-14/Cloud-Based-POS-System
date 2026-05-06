@@ -1,5 +1,9 @@
 import express from "express";
-import { requireAuth, requireAdmin } from "../middleware/authMiddleware.js";
+import {
+  requireAuth,
+  requireAdmin,
+  requireCashierOrAbove,
+} from "../middleware/authMiddleware.js";
 import {
   getBranches,
   getBranchById,
@@ -11,12 +15,10 @@ import {
 const router = express.Router();
 
 router.use(requireAuth);
-router.use(requireAdmin);
-
-router.get("/", getBranches);
-router.get("/:id", getBranchById);
-router.post("/", createBranch);
-router.put("/:id", updateBranch);
-router.delete("/:id", deleteBranch);
+router.get("/", requireCashierOrAbove, getBranches);
+router.get("/:id", requireCashierOrAbove, getBranchById);
+router.post("/", requireAdmin, createBranch);
+router.put("/:id", requireAdmin, updateBranch);
+router.delete("/:id", requireAdmin, deleteBranch);
 
 export default router;

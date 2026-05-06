@@ -53,15 +53,15 @@ async function fetchOrder(order_id) {
 /**
  * Verifies that the referenced branch product exists in the DB.
  * Returns the branch product row or null.
- * TODO: confirm exact table name + schema from Supabase and update the query.
  */
 async function fetchBranchProduct(Bpro_id) {
-  // const { rows } = await pool.query(
-  //   `SELECT "Bpro_id" FROM public."BRANCH_PRODUCT" WHERE "Bpro_id" = $1`,
-  //   [Bpro_id]
-  // );
-  // return rows[0] ?? null;
-  return { Bpro_id }; // temporary pass-through until table name is confirmed
+  const { rows } = await pool.query(
+    `SELECT "Bpro_id", pro_name, "Pro_Price"
+     FROM public."Branch_Product"
+     WHERE "Bpro_id" = $1`,
+    [Bpro_id],
+  );
+  return rows[0] ?? null;
 }
 
 /**
@@ -108,7 +108,20 @@ export const getOrderItemsByOrderId = async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT * FROM public."ORDER_ITEM" WHERE order_id = $1 ORDER BY "orderItem_id" ASC`,
+      `SELECT
+         oi."orderItem_id",
+         oi."Bpro_id",
+         oi.pro_quantity,
+         oi.unit_price,
+         oi.total_price,
+         oi.order_id,
+         bp.pro_name,
+         bp."Pro_Price" AS branch_price
+       FROM public."ORDER_ITEM" oi
+       LEFT JOIN public."Branch_Product" bp
+         ON bp."Bpro_id" = oi."Bpro_id"
+       WHERE oi.order_id = $1
+       ORDER BY oi."orderItem_id" ASC`,
       [order_id],
     );
 

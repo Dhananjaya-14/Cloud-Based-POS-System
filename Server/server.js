@@ -2,7 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
-import { notFound, errorHandler } from "./middleware/errorHandler.js";
+
 
 // ─────────────────────────────────────────────
 // ROUTE IMPORTS
@@ -24,12 +24,12 @@ import customerRoutes from "./routes/customerRoutes.js";
 
 // Tables
 import tableRoutes from "./routes/tableRoutes.js";
+import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 
 // Products & Categories
 import categoryRoutes from "./routes/categoryRoutes.js";
-import productRoutes from "./routes/productRoutes.js";
 import branchProductRoutes from "./routes/branchProductRoutes.js";
 import recipeRoutes from "./routes/recipeRouter.js";
 
@@ -52,6 +52,7 @@ import discountRoutes from "./routes/discountRoutes.js";
 // Delivery & Terminals
 import deliveryRoutes from "./routes/deliveryRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
+import productRoutes from "./routes/productRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
