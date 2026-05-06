@@ -94,6 +94,16 @@ export const getOrderItems = async () => {
   return response.data?.data || [];
 };
 
+export const getOrderItemsByOrderId = async (orderId) => {
+  const response = await api.get(`/order-items/order/${orderId}`);
+  return response.data?.data || [];
+};
+
+export const updateOrderStatus = async (orderId, status) => {
+  const response = await api.patch(`/orders/${orderId}/status`, { status });
+  return response.data?.data;
+};
+
 export const getProductById = async (productId) => {
   const response = await api.get(`/products/${productId}`);
   return response.data;

@@ -42,6 +42,7 @@ import SupplierManagement from './pages/branch-admin/SupplierManagement';
 import BranchAdminDashboard from './pages/branch-admin/Dashboard';
 import SalesRevenue from './pages/branch-admin/SalesRevenue';
 import CashierPerformance from './pages/branch-admin/CashierPerformance';
+import KitchenManagement from './pages/kitchen/KitchenManagement';
 
 function App() {
   return (
@@ -238,6 +239,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[1]}>
             <ProductDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/kitchen/orders"
+        element={
+          <ProtectedRoute allowedRoles={[9, 1, 2, 3]}>
+            <KitchenManagement />
           </ProtectedRoute>
         }
       />
