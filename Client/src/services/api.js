@@ -254,6 +254,16 @@ export const setupBranchWithManager = async (combinedData) => {
   }
 };
 
+export const getStatsOverview = async () => {
+  const res = await api.get("/stats/overview");
+  return res.data;
+};
+
+export const getBranchStats = async () => {
+  const res = await api.get("/stats/branches");
+  return res.data;
+};
+
 
 
 

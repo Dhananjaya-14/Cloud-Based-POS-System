@@ -29,6 +29,7 @@ import CashierPos from './pages/cashier/CashierPos';
 import InvoicePreview from './pages/cashier/InvoicePreview';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
+import AdminDashboard from './pages/admin/AdminDashboard';
 
 // Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
 // send them to Product Management instead of showing Branch Profile.
@@ -376,6 +377,15 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={[2]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+        }
+      />
 
       <Route path="*" element={<Navigate to="/" />} />
       
