@@ -12,12 +12,12 @@ function normalizeCatId(body) {
 }
 
 function normalizeProPrice(body) {
-  // API: `pro_price` ; DB: ` Pro_Price` (note leading space)
+  // API: `pro_price` ; DB may use a leading-space column name
   return body?.pro_price ?? body?.Pro_Price ?? body?.[" Pro_Price"];
 }
 
 function normalizeSpaced(body, apiKey, dbKey) {
-  // For DB columns with leading spaces like `" pro_image"`.
+  // Support either API keys or DB-shaped payload keys.
   return body?.[apiKey] ?? body?.[dbKey];
 }
 
@@ -54,11 +54,11 @@ export async function getBranchProducts(req, res, next) {
       SELECT
         "Bpro_id",
         "pro_name",
-        "pro_shortname" AS "pro_shortname",
-        "pro_image" AS "pro_image",
-        "pro_des" AS "pro_des",
+        " pro_shortname" AS "pro_shortname",
+        " pro_image" AS "pro_image",
+        " pro_des" AS "pro_des",
         "pro_quantity",
-        "Pro_Price" AS "pro_price",
+        " Pro_Price" AS "pro_price",
         "Cat_id" AS "cat_id",
         "pro_id"
       FROM "public"."Branch_Product"
