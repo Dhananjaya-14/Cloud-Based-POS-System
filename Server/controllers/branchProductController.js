@@ -54,11 +54,11 @@ export async function getBranchProducts(req, res, next) {
       SELECT
         "Bpro_id",
         "pro_name",
-        " pro_shortname" AS "pro_shortname",
-        " pro_image" AS "pro_image",
-        " pro_des" AS "pro_des",
+        "pro_shortname" AS "pro_shortname",
+        "pro_image" AS "pro_image",
+        "pro_des" AS "pro_des",
         "pro_quantity",
-        " Pro_Price" AS "pro_price",
+        "Pro_Price" AS "pro_price",
         "Cat_id" AS "cat_id",
         "pro_id"
       FROM "public"."Branch_Product"
