@@ -33,8 +33,8 @@ const canReadOrders = requireRole(
 
 // Create Orders
 const canCreateOrder = requireRole(
-  [ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-  "Cashier, Branch Admin, or Admin",
+  [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
+  "Waiter, Cashier, Branch Admin, or Admin",
 );
 
 // Update Order Status

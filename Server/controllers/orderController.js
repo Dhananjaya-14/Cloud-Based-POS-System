@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -245,6 +246,53 @@ export const createOrder = async (req, res) => {
     const typeError = validateTypeConstraints(or_type, cust_id, table_id);
     if (typeError) {
       return res.status(400).json({ success: false, error: typeError });
+    }
+
+    if (req.user?.role_id === ROLES.WAITER) {
+      if (Number(u_id) !== Number(req.user.u_id)) {
+        return res.status(403).json({
+          success: false,
+          error: "Waiters can only create orders under their own user account",
+        });
+      }
+      if (or_type !== "dine-in") {
+        return res.status(403).json({
+          success: false,
+          error: "Waiters can only create dine-in orders",
+        });
+      }
+
+      const table = await pool.query(
+        `SELECT branch_id FROM "TABLES" WHERE table_id = $1`,
+        [table_id],
+      );
+      if (!table.rows.length) {
+        return res.status(404).json({
+          success: false,
+          error: "Table not found",
+        });
+      }
+      if (Number(table.rows[0].branch_id) !== Number(b_id)) {
+        return res.status(403).json({
+          success: false,
+          error: "Order branch must match the selected table branch",
+        });
+      }
+
+      const today = new Date().toISOString().split("T")[0];
+      const assigned = await pool.query(
+        `SELECT assign_id
+         FROM "TABLE_ASSIGNMENT"
+         WHERE u_id = $1 AND table_id = $2 AND assigned_date = $3
+         LIMIT 1`,
+        [req.user.u_id, table_id, today],
+      );
+      if (!assigned.rows.length) {
+        return res.status(403).json({
+          success: false,
+          error: "Waiters can only create orders for tables assigned to them today",
+        });
+      }
     }
 
     const { rows } = await pool.query(
@@ -656,7 +704,7 @@ export const deleteOrder = async (req, res) => {
 
     // ── Fetch current order to check status ──
     const existing = await pool.query(
-      `SELECT or_status FROM "ORDER" WHERE or_id = $1`,
+      `SELECT or_status, u_id FROM "ORDER" WHERE or_id = $1`,
       [id],
     );
     if (!existing.rows.length) {
@@ -664,6 +712,16 @@ export const deleteOrder = async (req, res) => {
     }
 
     const { or_status } = existing.rows[0];
+
+    if (
+      req.user?.role_id === ROLES.WAITER &&
+      Number(existing.rows[0].u_id) !== Number(req.user.u_id)
+    ) {
+      return res.status(403).json({
+        success: false,
+        error: "Waiters can only delete orders created by themselves",
+      });
+    }
 
     // ── Business rule: cannot hard-delete active or completed orders ──
     if (or_status === "preparing" || or_status === "completed") {
@@ -673,10 +731,26 @@ export const deleteOrder = async (req, res) => {
       });
     }
 
-    const { rows } = await pool.query(
-      `DELETE FROM "ORDER" WHERE or_id = $1 RETURNING *`,
-      [id],
-    );
+    const client = await pool.connect();
+    let rows;
+    try {
+      await client.query("BEGIN");
+      await client.query(`DELETE FROM public."ORDER_ITEM" WHERE order_id = $1`, [
+        id,
+      ]);
+
+      const deleted = await client.query(
+        `DELETE FROM "ORDER" WHERE or_id = $1 RETURNING *`,
+        [id],
+      );
+      rows = deleted.rows;
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
 
     res
       .status(200)

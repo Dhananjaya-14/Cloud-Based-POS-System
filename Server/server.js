@@ -27,6 +27,7 @@ import tableRoutes from "./routes/tableRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
+import waiterRoutes from "./routes/waiterRoutes.js";
 
 // Products & Categories
 import categoryRoutes from "./routes/categoryRoutes.js";
@@ -99,6 +100,7 @@ app.use("/api/customers", customerRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/api/table-assignments", tableAssignmentRoutes);
 app.use("/api/reservations", reservationRoutes);
+app.use("/api/waiter", waiterRoutes);
 
 // -- Products & Categories
 app.use("/api/categories", categoryRoutes);
