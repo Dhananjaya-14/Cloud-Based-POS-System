@@ -45,6 +45,12 @@ const CashierPos = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("Cash");
+  const [orderType, setOrderType] = useState("takeaway");
+  const [allergies, setAllergies] = useState("");
+  const [addons, setAddons] = useState("");
+  const [notes, setNotes] = useState("");
+  const [discountPct, setDiscountPct] = useState(0);
+  const [serviceFee, setServiceFee] = useState(0);
 
   useEffect(() => {
     const loadPosData = async () => {
@@ -135,8 +141,10 @@ const CashierPos = () => {
     [cart],
   );
   const taxRate = 10;
-  const tax = subtotal * (taxRate / 100);
-  const total = subtotal + tax;
+  const discountAmount = subtotal * (Number(discountPct || 0) / 100);
+  const taxableBase = subtotal - discountAmount + Number(serviceFee || 0);
+  const tax = taxableBase * (taxRate / 100);
+  const total = taxableBase + tax;
 
   const addToCart = (product) => {
     const unitPrice = Number(product.pro_price ?? 0);
@@ -186,6 +194,10 @@ const CashierPos = () => {
       setError("No branch is assigned to this user.");
       return;
     }
+    if (orderType === "dine-in") {
+      setError("Dine-in orders require table selection. Please use takeaway for now.");
+      return;
+    }
 
     try {
       setSubmitting(true);
@@ -193,14 +205,17 @@ const CashierPos = () => {
 
       const orderResponse = await createOrder({
         or_tax: taxRate,
-        or_totalcost: Number(subtotal.toFixed(2)),
+        or_totalcost: Number(taxableBase.toFixed(2)),
         or_totalCostWtax: Number(total.toFixed(2)),
         or_status: "pending",
-        or_type: "dine-in",
+        or_type: orderType,
         cust_id: null,
         u_id: user.u_id,
         b_id: branchId,
         table_id: null,
+        or_discount_pct: Number(discountPct || 0),
+        or_service_fee: Number(serviceFee || 0),
+        or_notes: notes || undefined,
       });
 
       const orderId = orderResponse?.data?.or_id;
@@ -237,7 +252,11 @@ const CashierPos = () => {
           paymentMethod,
           items: invoiceItems,
           subtotal: Number(subtotal.toFixed(2)),
-          discount: 0,
+          discount: Number(discountPct || 0),
+          serviceFee: Number(serviceFee || 0),
+          allergies,
+          addons,
+          notes,
           tax: Number(tax.toFixed(2)),
           total: Number(total.toFixed(2)),
         },
@@ -292,10 +311,10 @@ const CashierPos = () => {
           </nav>
 
           <div className="flex items-center gap-3">
-            <div className="hidden rounded-xl bg-white/15 px-3 py-2 text-left sm:block">
+            {/* <div className="hidden rounded-xl bg-white/15 px-3 py-2 text-left sm:block">
               <div className="text-[11px] font-semibold leading-none">Samantha</div>
               <div className="mt-0.5 text-[11px] text-white/80">Cashier · Kandy</div>
-            </div>
+            </div> */}
 
             <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/15 px-3 py-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#0A5BAE]">
@@ -488,7 +507,7 @@ const CashierPos = () => {
                       </button>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between gap-3">
+                    <div className="mt-4 flex items-center justify-between gap-1">
                       <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
                         <button
                           onClick={() => updateQuantity(item.Bpro_id, -1)}
@@ -512,6 +531,37 @@ const CashierPos = () => {
                 ))
               )}
 
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="grid gap-2">
+                  <input
+                    aria-label="allergies"
+                    type="text"
+                    value={allergies}
+                    onChange={(e) => setAllergies(e.target.value)}
+                    placeholder="Allergies / Dietary (e.g., Nuts, Gluten)"
+                    className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
+                  />
+
+                  <input
+                    aria-label="addons"
+                    type="text"
+                    value={addons}
+                    onChange={(e) => setAddons(e.target.value)}
+                    placeholder="Add Ons (e.g., Extra cheese)"
+                    className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
+                  />
+
+                  <input
+                    aria-label="notes"
+                    type="text"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Notes (special requests)"
+                    className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
+                  />
+                </div>
+              </div>
+
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between text-sm text-slate-500">
                   <span>Subtotal</span>
@@ -528,7 +578,35 @@ const CashierPos = () => {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <h3 className="text-sm font-semibold text-slate-900">Order Type</h3>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderType("takeaway")}
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
+                      orderType === "takeaway"
+                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                    }`}
+                  >
+                    Takeaway
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOrderType("dine-in")}
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
+                      orderType === "dine-in"
+                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                    }`}
+                  >
+                    Dine-in
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <h3 className="text-sm font-semibold text-slate-900">Payment Method</h3>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button

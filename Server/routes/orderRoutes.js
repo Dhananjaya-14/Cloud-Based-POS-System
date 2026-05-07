@@ -50,7 +50,10 @@ const canEditOrder = requireRole(
 );
 
 // Delete Orders
-const canDeleteOrder = requireRole([ROLES.ADMIN], "Admin");
+const canDeleteOrder = requireRole(
+  [ROLES.WAITER, ROLES.CASHIER, ROLES.ADMIN],
+  "Waiter, Cashier, or Admin",
+);
 
 // ─────────────────────────────────────────────
 // ROUTES

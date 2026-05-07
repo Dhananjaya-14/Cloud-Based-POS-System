@@ -89,6 +89,21 @@ export const getOrders = async (params = {}) => {
   return response.data?.data || [];
 };
 
+export const getOrderItems = async () => {
+  const response = await api.get("/order-items");
+  return response.data?.data || [];
+};
+
+export const getOrderItemsByOrderId = async (orderId) => {
+  const response = await api.get(`/order-items/order/${orderId}`);
+  return response.data?.data || [];
+};
+
+export const updateOrderStatus = async (orderId, status) => {
+  const response = await api.patch(`/orders/${orderId}/status`, { status });
+  return response.data?.data;
+};
+
 export const getProductById = async (productId) => {
   const response = await api.get(`/products/${productId}`);
   return response.data;
@@ -99,6 +114,16 @@ export const getProductById = async (productId) => {
 
 export const getCategories = async () => {
   const response = await api.get("/categories");
+  return response.data;
+};
+
+export const getRawMaterials = async () => {
+  const response = await api.get("/raw-materials");
+  return response.data;
+};
+
+export const getLowStockMaterials = async () => {
+  const response = await api.get("/raw-materials/low-stock");
   return response.data;
 };
 
