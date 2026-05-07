@@ -2,8 +2,11 @@ import React from "react";
 import { FaBell, FaUserCircle, FaSignOutAlt } from "react-icons/fa";
 import icon1 from "../../assets/images/DashboardIcon.png";
 import posIcon from "../../assets/images/PosIcon.png";
+import { useAuth } from "../../context/AuthContext";
 
 const CashierHeader = () => {
+  const { logout } = useAuth();
+
   return (
     <header className="w-full bg-gradient-to-r from-[#0052A8] via-[#00B4EB] to-[#40D463] text-white shadow-sm">
       <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-3">
@@ -54,7 +57,10 @@ const CashierHeader = () => {
             </div>
           </div>
 
-          <button className="ml-1 px-5 py-2 text-xs font-medium rounded-lg bg-black hover:bg-black/40 border border-white/20 transition-colors flex items-center gap-2">
+          <button
+            onClick={logout}
+            className="ml-1 px-5 py-2 text-xs font-medium rounded-lg bg-black hover:bg-black/40 border border-white/20 transition-colors flex items-center gap-2"
+          >
             <FaSignOutAlt className="w-3 h-8" />
             <span>Logout</span>
           </button>

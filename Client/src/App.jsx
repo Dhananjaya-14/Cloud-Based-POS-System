@@ -39,6 +39,10 @@ const BranchProfileRouter = () => {
 import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
 import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
 import SupplierManagement from './pages/branch-admin/SupplierManagement';
+import BranchAdminDashboard from './pages/branch-admin/Dashboard';
+import SalesRevenue from './pages/branch-admin/SalesRevenue';
+import CashierPerformance from './pages/branch-admin/CashierPerformance';
+import KitchenManagement from './pages/kitchen/KitchenManagement';
 
 function App() {
   return (
@@ -195,6 +199,15 @@ function App() {
       />
 
       <Route
+        path="/branch-admin/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <BranchAdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/branch-admin/products/add"
         element={
           <ProtectedRoute allowedRoles={[1]}>
@@ -231,6 +244,15 @@ function App() {
       />
 
       <Route
+        path="/kitchen/orders"
+        element={
+          <ProtectedRoute allowedRoles={[9, 1, 2, 3]}>
+            <KitchenManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/branch-admin/raw-ingredient"
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
@@ -248,6 +270,24 @@ function App() {
         }
 
         />
+
+      <Route
+        path="/branch-admin/sales-revenue"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <SalesRevenue />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/cashier-performance"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <CashierPerformance />
+          </ProtectedRoute>
+        }
+      />
 
 
       <Route
