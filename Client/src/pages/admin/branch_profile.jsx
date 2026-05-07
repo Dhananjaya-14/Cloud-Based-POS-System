@@ -24,6 +24,23 @@ const labelBase = {
   fontSize: "1rem",
 };
 
+const normalizeStatus = (value) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "active" || normalized === "true" || normalized === "1";
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  return true;
+};
+
 const BranchProfile = () => {
   const { branchId } = useParams();
   const location = useLocation();
@@ -106,6 +123,11 @@ const BranchProfile = () => {
   const branchInitial = useMemo(() => {
     const name = branch?.B_name || "B";
     return name.charAt(0).toUpperCase();
+  }, [branch]);
+
+  const branchStatusLabel = useMemo(() => {
+    const isActive = normalizeStatus(branch?.status ?? branch?.B_status ?? branch?.branch_status);
+    return isActive ? "Active" : "Inactive";
   }, [branch]);
 
   const handleDeleteClick = () => {
@@ -245,7 +267,7 @@ const BranchProfile = () => {
                     <Field label="Address" value={branch?.B_address} />
                     <Field label="Password" value="**********" />
                     <Field label="Contact Number" value={branch?.B_conNo} />
-                    <Field label="Status" value="Active" />
+                    <Field label="Status" value={branchStatusLabel} />
                   </div>
                 </div>
 
