@@ -64,8 +64,9 @@ export const getProducts = async () => {
   return response.data;
 };
 
-export const getBranchProducts = async () => {
-  const response = await api.get("/branch_products");
+export const getBranchProducts = async (branchId) => {
+  const url = branchId ? `/branch_products?B_id=${branchId}` : `/branch_products`;
+  const response = await api.get(url);
   return response.data;
 };
 
