@@ -52,6 +52,9 @@ const CashierPos = () => {
   const [discountPct, setDiscountPct] = useState(0);
   const [serviceFee, setServiceFee] = useState(0);
 
+  const [heldOrders, setHeldOrders] = useState([]);
+  const [showHeldOrdersModal, setShowHeldOrdersModal] = useState(false);
+
   useEffect(() => {
     const loadPosData = async () => {
       try {
@@ -275,6 +278,60 @@ const CashierPos = () => {
     }
   };
 
+  const handleHoldOrder = () => {
+    if (cart.length === 0) return;
+    const newHeldOrder = {
+      id: Date.now(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      cart: [...cart],
+      paymentMethod,
+      orderType,
+      allergies,
+      addons,
+      notes,
+      discountPct,
+      serviceFee
+    };
+    setHeldOrders((prev) => [...prev, newHeldOrder]);
+    
+    // Reset form
+    setCart([]);
+    setPaymentMethod("Cash");
+    setOrderType("takeaway");
+    setAllergies("");
+    setAddons("");
+    setNotes("");
+    setDiscountPct(0);
+    setServiceFee(0);
+  };
+
+  const handleResumeOrder = (holdId) => {
+    const orderToResume = heldOrders.find((ho) => ho.id === holdId);
+    if (!orderToResume) return;
+
+    if (cart.length > 0) {
+      // Prompt user or hold current order?
+      // Pushing current to hold array to avoid losing it.
+      handleHoldOrder();
+    }
+
+    setCart(orderToResume.cart);
+    setPaymentMethod(orderToResume.paymentMethod);
+    setOrderType(orderToResume.orderType);
+    setAllergies(orderToResume.allergies || "");
+    setAddons(orderToResume.addons || "");
+    setNotes(orderToResume.notes || "");
+    setDiscountPct(orderToResume.discountPct || 0);
+    setServiceFee(orderToResume.serviceFee || 0);
+
+    setHeldOrders((prev) => prev.filter((ho) => ho.id !== holdId));
+    setShowHeldOrdersModal(false);
+  };
+
+  const handleRemoveHeldOrder = (holdId) => {
+    setHeldOrders((prev) => prev.filter((ho) => ho.id !== holdId));
+  };
+
   const logoutAndNavigate = () => {
     logout();
   };
@@ -296,6 +353,12 @@ const CashierPos = () => {
           </div>
 
           <nav className="hidden items-center gap-2 md:flex">
+            <button
+              onClick={() => setShowHeldOrdersModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+            >
+              <span>Held Orders ({heldOrders.length})</span>
+            </button>
             <button
               onClick={() => navigate("/cashier/pos")}
               className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:-translate-y-px"
@@ -642,18 +705,77 @@ const CashierPos = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleCheckout}
-                disabled={submitting || cart.length === 0 || !branchId}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-              >
-                <FaShoppingCart className="h-4 w-4" />
-                {submitting ? "Processing..." : "Proceed to Checkout"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleHoldOrder}
+                  disabled={submitting || cart.length === 0}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#0A5BAE] bg-white px-5 py-4 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:bg-[#0A5BAE] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                >
+                  Hold Order
+                </button>
+
+                <button
+                  onClick={handleCheckout}
+                  disabled={submitting || cart.length === 0 || !branchId}
+                  className="inline-flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                >
+                  <FaShoppingCart className="h-4 w-4" />
+                  {submitting ? "Processing..." : "Checkout"}
+                </button>
+              </div>
             </div>
           </aside>
         </div>
       </main>
+
+      {/* Held Orders Modal */}
+      {showHeldOrdersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h2 className="text-xl font-bold text-slate-800">Held Orders ({heldOrders.length})</h2>
+              <button 
+                onClick={() => setShowHeldOrdersModal(false)}
+                className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-4">
+              {heldOrders.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">No held orders available.</div>
+              ) : (
+                heldOrders.map((ho) => (
+                  <div key={ho.id} className="flex justify-between items-center rounded-xl border p-4 hover:shadow-md transition">
+                    <div>
+                      <div className="font-semibold text-slate-800">Order at {ho.timestamp}</div>
+                      <div className="text-sm text-slate-500">
+                        {ho.cart.length} items • {ho.orderType} • {ho.paymentMethod}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleRemoveHeldOrder(ho.id)}
+                        className="rounded-lg bg-red-50 text-red-500 px-3 py-2 text-sm font-medium hover:bg-red-100"
+                      >
+                        Remove
+                      </button>
+                      <button
+                        onClick={() => handleResumeOrder(ho.id)}
+                        className="rounded-lg bg-[#0A5BAE] text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+                      >
+                        Resume
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
