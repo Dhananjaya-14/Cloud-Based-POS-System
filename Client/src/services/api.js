@@ -134,6 +134,31 @@ export const createOrder = async (orderData) => {
   return response.data;
 };
 
+export const getWaiterProfile = async () => {
+  const response = await api.get("/waiter/profile");
+  return response.data;
+};
+
+export const getWaiterTables = async (params = {}) => {
+  const response = await api.get("/waiter/my-tables", { params });
+  return response.data;
+};
+
+export const getWaiterOrders = async (params = {}) => {
+  const response = await api.get("/waiter/my-orders", { params });
+  return response.data;
+};
+
+export const createWaiterOrder = async (orderData) => {
+  const response = await api.post("/waiter/orders", orderData);
+  return response.data;
+};
+
+export const deleteWaiterOrder = async (orderId) => {
+  const response = await api.delete(`/waiter/orders/${orderId}`);
+  return response.data;
+};
+
 export const createOrderItem = async (orderItemData) => {
   const response = await api.post("/order-items", orderItemData);
   return response.data;
