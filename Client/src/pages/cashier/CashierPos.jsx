@@ -58,17 +58,19 @@ const CashierPos = () => {
         setLoading(true);
         setError("");
 
-        const [branchList, branchProductList] = await Promise.all([
-          getBranches(),
-          getBranchProducts(),
-        ]);
-
+        const branchList = await getBranches();
         const matchedBranch =
           branchList.find((branch) => String(branch.U_id) === String(user?.u_id)) ??
           branchList[0];
 
-        setBranchId(matchedBranch?.B_id ?? null);
+        const matchedBranchId = matchedBranch?.B_id ?? null;
+        setBranchId(matchedBranchId);
         setBranchName(matchedBranch?.B_name ?? "Selected branch");
+
+        const branchProductList = matchedBranchId 
+          ? await getBranchProducts(matchedBranchId)
+          : [];
+
         setProducts(branchProductList);
       } catch (loadError) {
         setError(

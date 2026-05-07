@@ -56,20 +56,14 @@ function isNonNegativeNumber(value) {
 export async function getBranchProducts(req, res, next) {
   try {
     const branchId = req.query?.b_id ?? req.query?.B_id;
+
     if (branchId !== undefined && !isPositiveInt(branchId)) {
       res.status(400);
       throw new Error("b_id must be a positive integer");
     }
 
     const values = [];
-    let whereClause = "";
-    if (branchId !== undefined) {
-      values.push(Number(branchId));
-      whereClause = `WHERE "B_id" = $1`;
-    }
-
-    const result = await pool.query(
-      `
+    let queryText = `
       SELECT
         "Bpro_id",
         "pro_name",
@@ -82,11 +76,30 @@ export async function getBranchProducts(req, res, next) {
         "pro_id",
         "B_id"
       FROM "public"."Branch_Product"
-      ${whereClause}
-      ORDER BY "Bpro_id"
-      `,
-      values,
-    );
+    `;
+
+    if (branchId !== undefined) {
+      queryText += ` WHERE "B_id" = $1 `;
+      values.push(Number(branchId));
+    }
+
+    queryText += ` ORDER BY "Bpro_id" `;
+
+    const result = await pool.query(queryText, values);
+=======
+    `;
+
+    const queryParams = [];
+
+    if (B_id) {
+      queryText += ` WHERE "B_id" = $1 `;
+      queryParams.push(B_id);
+    }
+
+    queryText += ` ORDER BY "Bpro_id" `;
+
+    const result = await pool.query(queryText, queryParams);
+>>>>>>> f9b31b8 (Update Some files)
 
     res.json(result.rows.map(toResponseRow));
   } catch (err) {
