@@ -3,7 +3,8 @@ import { FaArrowLeft, FaSave, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import { getBranchById, getUserById } from "../../services/api";
+import StatusToggle from "../../components/admin/StatusToggle";
+import { getBranchById, getUserById, updateBranch, updateUser } from "../../services/api";
 
 const inputBase = {
   width: "100%",
@@ -24,6 +25,55 @@ const labelBase = {
   fontSize: "1rem",
 };
 
+const normalizeStatus = (value) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "active" || normalized === "true" || normalized === "1";
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  return true;
+};
+
+const splitFullName = (fullName, fallbackFirst = "", fallbackLast = "") => {
+  const trimmed = fullName.trim();
+
+  if (!trimmed) {
+    return {
+      firstName: fallbackFirst,
+      lastName: fallbackLast,
+    };
+  }
+
+  const parts = trimmed.split(/\s+/);
+  const firstName = parts.shift() || fallbackFirst;
+  const lastName = parts.join(" ") || fallbackLast;
+
+  return { firstName, lastName };
+};
+
+const buildEmailFromUsername = (username, fallbackEmail) => {
+  const trimmedUsername = username.trim();
+
+  if (!trimmedUsername) {
+    return fallbackEmail;
+  }
+
+  const fallbackDomain = fallbackEmail.includes("@") ? fallbackEmail.split("@").slice(1).join("@") : "";
+  if (!fallbackDomain) {
+    return fallbackEmail;
+  }
+
+  return `${trimmedUsername}@${fallbackDomain}`;
+};
+
 const BranchProfileEdit = () => {
   const { branchId } = useParams();
   const location = useLocation();
@@ -33,6 +83,7 @@ const BranchProfileEdit = () => {
   const [manager, setManager] = useState(location.state?.manager || null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     B_name: "",
     B_email: "",
@@ -41,7 +92,7 @@ const BranchProfileEdit = () => {
     managerName: "",
     username: "",
     password: "",
-    status: "Active",
+    status: true,
   });
 
   useEffect(() => {
@@ -86,7 +137,7 @@ const BranchProfileEdit = () => {
           managerName: fullName,
           username: managerData?.u_email ? managerData.u_email.split("@")[0] : "",
           password: "",
-          status: "Active",
+          status: normalizeStatus(branchData?.status ?? branchData?.B_status ?? branchData?.branch_status),
         });
       } catch (err) {
         if (mounted) {
@@ -116,16 +167,93 @@ const BranchProfileEdit = () => {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleStatusToggle = (e) => {
+    setForm((prev) => ({ ...prev, status: e.target.checked }));
+  };
+
+  const updateLocalState = (branchData, managerData) => {
+    setBranch(branchData);
+    setManager(managerData);
+
+    const fullName = [managerData?.u_fname || "", managerData?.u_lname || ""].join(" ").trim();
+
+    setForm({
+      B_name: branchData?.B_name || "",
+      B_email: branchData?.B_email || "",
+      B_address: branchData?.B_address || "",
+      B_conNo: branchData?.B_conNo || "",
+      managerName: fullName,
+      username: managerData?.u_email ? managerData.u_email.split("@")[0] : "",
+      password: "",
+      status: normalizeStatus(branchData?.status ?? branchData?.B_status ?? branchData?.branch_status),
+    });
+  };
+
   const goToProfile = () => {
     navigate(`/branch_profile/${branchId}`, {
       state: { branch, manager },
     });
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    // UI navigation only: data update API can be added later.
-    goToProfile();
+
+    if (!branchId) {
+      setError("Branch id is missing.");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+
+      const branchPayload = {
+        B_name: form.B_name.trim(),
+        B_email: form.B_email.trim(),
+        B_address: form.B_address.trim(),
+        B_conNo: form.B_conNo.trim(),
+        status: form.status,
+      };
+
+      const updatedBranch = await updateBranch(branchId, branchPayload);
+
+      let updatedManager = manager;
+      if (manager?.u_id) {
+        const { firstName, lastName } = splitFullName(
+          form.managerName,
+          manager?.u_fname || "",
+          manager?.u_lname || "",
+        );
+
+        const managerPayload = {
+          u_fname: firstName,
+          u_lname: lastName,
+          u_email: buildEmailFromUsername(form.username, manager?.u_email || ""),
+        };
+
+        if (form.password.trim()) {
+          managerPayload.u_pw = form.password;
+        }
+
+        updatedManager = await updateUser(manager.u_id, managerPayload);
+      }
+
+      const nextBranch = {
+        ...(branch || {}),
+        ...updatedBranch,
+        status: form.status,
+      };
+
+      updateLocalState(nextBranch, updatedManager);
+
+      navigate(`/branch_profile/${branchId}`, {
+        state: { branch: nextBranch, manager: updatedManager },
+      });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Unable to save branch profile.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -249,8 +377,23 @@ const BranchProfileEdit = () => {
                       type="password"
                       placeholder="Enter new password"
                     />
-                    <EditableField label="Contact Number" name="B_conNo" value={form.B_conNo} onChange={handleChange} />
-                    <EditableField label="Status" name="status" value={form.status} onChange={handleChange} />
+                    <div
+                      style={{
+                        display: "grid",
+                        gridColumn: "1 / -2",
+                        gridTemplateColumns: "minmax(26px, 1fr) auto",
+                        gap: "18px",
+                        alignItems: "end",
+                      }}
+                    >
+                      <EditableField
+                        label="Contact Number"
+                        name="B_conNo"
+                        value={form.B_conNo}
+                        onChange={handleChange}
+                      />
+                      <StatusToggle checked={form.status} onChange={handleStatusToggle} />
+                    </div>
                   </div>
                 </div>
 
@@ -265,23 +408,24 @@ const BranchProfileEdit = () => {
                 >
                   <button
                     type="submit"
+                    disabled={saving}
                     style={{
                       border: "none",
                       width: "128px",
                       height: "44px",
                       borderRadius: "10px",
                       color: "white",
-                      cursor: "pointer",
+                      cursor: saving ? "not-allowed" : "pointer",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: "8px",
-                      background: "#22ba3f",
+                      background: saving ? "#8bc99a" : "#22ba3f",
                       fontWeight: 600,
                       fontSize: "1.05rem",
                     }}
                   >
-                    <FaSave /> Save
+                    <FaSave /> {saving ? "Saving..." : "Save"}
                   </button>
 
                   <button

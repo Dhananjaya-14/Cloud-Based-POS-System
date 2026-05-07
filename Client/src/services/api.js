@@ -124,6 +124,11 @@ export const getBranchById = async (branchId) => {
   return response.data;
 };
 
+export const updateBranch = async (branchId, payload) => {
+  const response = await api.put(`/branches/${branchId}`, payload);
+  return response.data;
+};
+
 export const deleteBranchById = async (branchId) => {
   await api.delete(`/branches/${branchId}`);
 };
