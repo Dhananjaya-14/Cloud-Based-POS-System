@@ -15,7 +15,19 @@ const ProductItemsTable = ({
   onViewProduct,
   onEditProduct,
   onDeleteProduct,
+  showActions = true,
+  currentPage = 1,
+  totalPages = 1,
+  totalItems = 0,
+  pageStart = 0,
+  pageEnd = 0,
+  onPageChange,
 }) => {
+  const shouldShowActions = showActions && (onViewProduct || onEditProduct || onDeleteProduct);
+  const showPageNumbers = totalPages <= 4;
+  const canGoPrevious = currentPage > 1;
+  const canGoNext = currentPage < totalPages;
+
   return (
     <>
       <style>
@@ -40,7 +52,7 @@ const ProductItemsTable = ({
                 "DISCOUNT",
                 "STOCK QUANTITY",
                 "STATUS",
-                "ACTION",
+                ...(shouldShowActions ? ["ACTION"] : []),
               ].map((head) => (
                 <th
                   key={head}
@@ -163,45 +175,47 @@ const ProductItemsTable = ({
                     {item.status}
                   </span>
                 </td>
-                <td style={{ padding: "10px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <button
-                      type="button"
-                      onClick={() => onEditProduct?.(item.id)}
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "7px",
-                        border: "none",
-                        background: "#F1F3F6",
-                        cursor: "pointer",
-                        display: "grid",
-                        placeItems: "center",
-                        padding: 0,
-                      }}
-                    >
-                      <FaEdit color="#8A94A6" size={10} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onDeleteProduct?.(item.id)}
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "7px",
-                        border: "none",
-                        background: "#FFE7E7",
-                        cursor: "pointer",
-                        display: "grid",
-                        placeItems: "center",
-                        padding: 0,
-                      }}
-                      title="Delete product"
-                    >
-                      <FaTrashAlt color="#FF6A6A" size={10} />
-                    </button>
-                  </div>
-                </td>
+                {shouldShowActions && (
+                  <td style={{ padding: "10px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => onEditProduct?.(item.id)}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "7px",
+                          border: "none",
+                          background: "#F1F3F6",
+                          cursor: "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          padding: 0,
+                        }}
+                      >
+                        <FaEdit color="#8A94A6" size={10} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onDeleteProduct?.(item.id)}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "7px",
+                          border: "none",
+                          background: "#FFE7E7",
+                          cursor: "pointer",
+                          display: "grid",
+                          placeItems: "center",
+                          padding: 0,
+                        }}
+                        title="Delete product"
+                      >
+                        <FaTrashAlt color="#FF6A6A" size={10} />
+                      </button>
+                    </div>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
@@ -218,57 +232,73 @@ const ProductItemsTable = ({
           fontSize: "14px",
         }}
       >
-        <div>Showing 1 to 4 of 42 products</div>
+        <div>
+          Showing {pageStart} to {pageEnd} of {totalItems} products
+        </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <button
-            type="button"
-            style={{
-              border: "none",
-              background: "#fff",
-              borderRadius: "10px",
-              padding: "8px 16px",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-              cursor: "pointer",
-              color: "#374151",
-            }}
-          >
-            Previous
-          </button>
-          {[1, 2, 3].map((page) => (
+        {totalPages > 1 && (
+          <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
             <button
-              key={page}
               type="button"
+              onClick={() => onPageChange?.(currentPage - 1)}
+              disabled={!canGoPrevious}
               style={{
-                width: "34px",
-                height: "34px",
-                borderRadius: "10px",
                 border: "none",
-                cursor: "pointer",
-                color: page === 1 ? "#fff" : "#374151",
-                background: page === 1 ? "#0E6DCF" : "#fff",
+                background: "#fff",
+                borderRadius: "10px",
+                padding: "8px 16px",
                 boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-                fontWeight: "600",
+                cursor: canGoPrevious ? "pointer" : "not-allowed",
+                color: "#374151",
+                opacity: canGoPrevious ? 1 : 0.5,
               }}
             >
-              {page}
+              Previous
             </button>
-          ))}
-          <button
-            type="button"
-            style={{
-              border: "none",
-              background: "#fff",
-              borderRadius: "10px",
-              padding: "8px 16px",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-              cursor: "pointer",
-              color: "#374151",
-            }}
-          >
-            Next
-          </button>
-        </div>
+            {showPageNumbers &&
+              Array.from({ length: totalPages }, (_, index) => {
+                const page = index + 1;
+                const isActive = page === currentPage;
+                return (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => onPageChange?.(page)}
+                    style={{
+                      width: "34px",
+                      height: "34px",
+                      borderRadius: "10px",
+                      border: "none",
+                      cursor: "pointer",
+                      color: isActive ? "#fff" : "#374151",
+                      background: isActive ? "#0E6DCF" : "#fff",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                      fontWeight: "600",
+                    }}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            <button
+              type="button"
+              onClick={() => onPageChange?.(currentPage + 1)}
+              disabled={!canGoNext}
+              style={{
+                border: "none",
+                background: "#fff",
+                borderRadius: "10px",
+                padding: "8px 16px",
+                boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
+                cursor: canGoNext ? "pointer" : "not-allowed",
+                color: "#374151",
+                opacity: canGoNext ? 1 : 0.5,
+              }}
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
