@@ -55,21 +55,9 @@ function isNonNegativeNumber(value) {
 // GET /api/branch_products
 export async function getBranchProducts(req, res, next) {
   try {
-    const branchId = req.query?.b_id ?? req.query?.B_id;
-    if (branchId !== undefined && !isPositiveInt(branchId)) {
-      res.status(400);
-      throw new Error("b_id must be a positive integer");
-    }
+    const { B_id } = req.query;
 
-    const values = [];
-    let whereClause = "";
-    if (branchId !== undefined) {
-      values.push(Number(branchId));
-      whereClause = `WHERE "B_id" = $1`;
-    }
-
-    const result = await pool.query(
-      `
+    let queryText = `
       SELECT
         "Bpro_id",
         "pro_name",
@@ -82,11 +70,18 @@ export async function getBranchProducts(req, res, next) {
         "pro_id",
         "B_id"
       FROM "public"."Branch_Product"
-      ${whereClause}
-      ORDER BY "Bpro_id"
-      `,
-      values,
-    );
+    `;
+
+    const queryParams = [];
+
+    if (B_id) {
+      queryText += ` WHERE "B_id" = $1 `;
+      queryParams.push(B_id);
+    }
+
+    queryText += ` ORDER BY "Bpro_id" `;
+
+    const result = await pool.query(queryText, queryParams);
 
     res.json(result.rows.map(toResponseRow));
   } catch (err) {
@@ -144,7 +139,7 @@ export async function createBranchProduct(req, res, next) {
     const pro_price = normalizeProPrice(req.body);
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
-    const B_id = normalizeBranchId(req.body);
+    const B_id = req.body?.B_id;
 
     if (
       !pro_name ||
@@ -251,7 +246,7 @@ export async function updateBranchProduct(req, res, next) {
     const pro_price = normalizeProPrice(req.body);
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
-    const B_id = normalizeBranchId(req.body);
+    const B_id = req.body?.B_id;
 
     if (pro_name !== undefined && (typeof pro_name !== "string" || pro_name.trim().length === 0)) {
       res.status(400);
