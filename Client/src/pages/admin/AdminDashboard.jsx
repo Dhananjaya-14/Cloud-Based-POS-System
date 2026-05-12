@@ -1,66 +1,195 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../components/admin/Header";
 import Sidebar from "../../components/admin/Sidebar";
 import OverviewCards from "../../components/admin/OverviewCards";
 import TodayActivitiesChart from "../../components/admin/TodayActivitiesChart";
-import QuickActions from "../../components/admin/QuickActions";
-import { getStatsOverview, getBranchStats } from "../../services/api";
+import { getStatsOverview, getBranchStats, getOrders } from "../../services/api";
+import { Doughnut } from "react-chartjs-2";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
+import { FiPlus, FiBarChart2 } from "react-icons/fi";
 
-export default function AdminDashboardPage() {
-  const [overview, setOverview] = useState(null);
-  const [branchStats, setBranchStats] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+ChartJS.register(ArcElement, Tooltip, Legend);
 
-  useEffect(() => {
+function OrderSummaryChart() {
+  const [counts, setCounts] = React.useState({ completed: 0, pending: 0, other: 0 });
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const [o, bs] = await Promise.all([getStatsOverview(), getBranchStats()]);
-        setOverview(o);
-        setBranchStats(bs || []);
+        const orders = await getOrders();
+        if (!mounted) return;
+        const completed = orders.filter((o) => o.or_status === "completed").length;
+        const pending = orders.filter((o) => o.or_status === "pending").length;
+        const other = orders.length - completed - pending;
+        setCounts({ completed, pending, other });
       } catch (err) {
-        setError("Failed to load dashboard data.");
+        setCounts({ completed: 0, pending: 0, other: 0 });
       } finally {
         setLoading(false);
       }
     })();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  if (loading) return <div style={{ padding: 20 }}>Loading Dashboard...</div>;
-  if (error) return <div style={{ padding: 20, color: "red" }}>{error}</div>;
+  if (loading)
+    return <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center" }}>Loading...</div>;
+
+  const data = {
+    labels: ["Completed", "Pending", "Other"],
+    datasets: [
+      {
+        data: [counts.completed, counts.pending, counts.other],
+        backgroundColor: ["#16A34A", "#0D5EA8", "#EF4444"],
+      },
+    ],
+  };
+
+  return (
+    <div style={{ width: 240, height: 180, display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <Doughnut data={data} options={{ plugins: { legend: { position: "bottom" } }, maintainAspectRatio: false }} />
+    </div>
+  );
+}
+
+function QuickActionsCompact() {
+  const navigate = useNavigate();
+
+  const handleAddBranch = () => {
+    navigate("/branches");
+  };
+
+  const handleBranchStats = () => {
+    navigate("/branches"); // adjust route if you have a dedicated branch-stats page
+  };
+
+  const cardStyle = {
+    display: "flex",
+    gap: 12,
+    alignItems: "center",
+    padding: 12,
+    borderRadius: 12,
+    background: "#fff",
+    border: "1px solid #EEF2F7",
+    cursor: "pointer",
+  };
+
+  const iconWrap = (bg) => ({
+    background: bg,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  });
+
+  return (
+    <div style={{ background: "#F8FAFC", padding: 12, borderRadius: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div role="button" onClick={handleAddBranch} style={cardStyle}>
+          <div style={iconWrap("#FFFBEB")}>
+            <FiPlus size={20} color="#F59E0B" />
+          </div>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>Add New Branch</div>
+            <div style={{ fontSize: 12, color: "#64748B" }}>Instantly add new branch</div>
+          </div>
+        </div>
+
+        <div role="button" onClick={handleBranchStats} style={cardStyle}>
+          <div style={iconWrap("#EFF6FF")}>
+            <FiBarChart2 size={20} color="#0D5EA8" />
+          </div>
+          <div style={{ textAlign: "left" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0F172A" }}>Branch Statistics</div>
+            <div style={{ fontSize: 12, color: "#64748B" }}>View branch performance</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function AdminDashboardPage() {
+  const [overview, setOverview] = useState(null);
+  const [branchStats, setBranchStats] = useState([]);
+  const [loading, setLoading] = useState(true); // kept for non-blocking indicators
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      setLoading(true);
+      try {
+        const [o, bs] = await Promise.all([getStatsOverview(), getBranchStats()]);
+        if (!mounted) return;
+        setOverview(o);
+        setBranchStats(bs || []);
+        setError(null);
+      } catch (err) {
+        // keep the page visible; show a small inline error banner instead
+        setError("Failed to load dashboard data.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
     <div style={{ display: "flex", backgroundColor: "#F5F7FA", minHeight: "100vh" }}>
       <Sidebar />
-      {/* Assuming Sidebar is ~240px wide */}
       <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
         <Header title="Admin DashBoard" />
-        
-        {/* Main Content Area */}
         <main style={{ padding: 40, flex: 1 }}>
+          {/* Inline error banner (non-blocking) */}
+          {error && (
+            <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: "#FEF3C7", color: "#92400E" }}>
+              {error}
+            </div>
+          )}
+
+          {/* Overview cards render immediately even while data loads */}
           <OverviewCards overview={overview || {}} />
 
-          {/* New Grid Layout: Three columns, center is wider */}
-          <div style={{ display: "grid", gridTemplateColumns: "220px 1fr 340px", gap: 20, marginTop: 20, alignItems: "start" }}>
-            
-            {/* Column 1: Order Summary Placeholder */}
-            <div style={{ background: "#fff", padding: 24, borderRadius: 20, boxShadow: "0 4px 15px rgba(0,0,0,0.03)" }}>
-               <h3 style={{ margin: 0, marginBottom: 15, fontSize: 18, fontWeight: 700, color: "#313D4F" }}>Order Summary</h3>
-               <div style={{ height: 180, display: "flex", alignItems: "center", justifyContent: "center", color: "#94A3B8" }}>
-                  <span className="material-icons" style={{ fontSize: 40 }}>analytics</span>
-                  <p style={{ margin: 0, marginLeft: 10 }}>Placeholder</p>
-               </div>
+          {/* Layout: wide main chart on left, right column shows Order Summary and compact quick actions below */}
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 360px",
+              gridTemplateRows: "auto auto",
+              gap: 20,
+              marginTop: 20,
+              alignItems: "start",
+            }}
+          >
+            {/* Left: Today's Activities (spans both rows) */}
+            <div style={{ gridColumn: "1 / 2", gridRow: "1 / 3" }}>
+              <TodayActivitiesChart data={branchStats} />
             </div>
 
-            {/* Column 2: Chart (Wider Column) */}
-            <TodayActivitiesChart data={branchStats} />
+            {/* Right (row 1): Order Summary */}
+            <div style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}>
+              <div style={{ background: "#fff", padding: 16, borderRadius: 12, boxShadow: "0 4px 15px rgba(0,0,0,0.03)" }}>
+                <h3 style={{ margin: 0, marginBottom: 12, fontSize: 16, fontWeight: 700, color: "#313D4F" }}>Order Summary</h3>
+                <OrderSummaryChart />
+              </div>
+            </div>
 
-            {/* Column 3: Quick Actions */}
-            <QuickActions />
+            {/* Right (row 2): Compact quick actions with two friendly cards */}
+            <div style={{ gridColumn: "2 / 3", gridRow: "2 / 3" }}>
+              <QuickActionsCompact />
+            </div>
           </div>
-
-          {/* **NOTE: BranchTables (the long table) was removed from this page** to clean up the view and match the dashboard image. **/}
         </main>
       </div>
     </div>
@@ -95,55 +224,23 @@ export default function AdminDashboardPage() {
 
 
 
-// import React, { useEffect, useState } from "react";
-// import Header from "../../components/admin/Header";
-// import Sidebar from "../../components/admin/Sidebar";
-// import OverviewCards from "../../components/admin/OverviewCards";
-// import BranchChart from "../../components/admin/TodayActivitiesChart";
-// import BranchTables from "../../components/admin/BranchTables";
-// import { getStatsOverview, getBranchStats, getBranches } from "../../services/api";
 
-// export default function AdminDashboard() {
-//   const [overview, setOverview] = useState(null);
-//   const [branchStats, setBranchStats] = useState([]);
-//   const [branches, setBranches] = useState([]);
 
-//   useEffect(() => {
-//     (async () => {
-//       try {
-//         const o = await getStatsOverview();
-//         setOverview(o);
-//       } catch (err) {}
-//       try {
-//         const bs = await getBranchStats();
-//         setBranchStats(bs || []);
-//       } catch (err) {}
-//       try {
-//         const br = await getBranches();
-//         setBranches(br || []);
-//       } catch (err) {}
-//     })();
-//   }, []);
 
-//   return (
-//     <div style={{ display: "flex" }}>
-//       <Sidebar />
-//       <div style={{ flex: 1, marginLeft: 240 }}>
-//         <Header title="Admin DashBoard" />
-//         <main style={{ padding: 20 }}>
-//           <OverviewCards overview={overview || {}} />
-//           <div style={{ display: "grid", gridTemplateColumns: "1fr 420px", gap: 18, marginTop: 18 }}>
-//             <BranchChart data={branchStats} />
-//             <div style={{ background: "#fff", padding: 16, borderRadius: 12 }}>
-//               <h3>Quick Actions</h3>
-//               {/* Buttons: Add Branch, Edit Branch, View Reports */}
-//             </div>
-//           </div>
-//           <div style={{ marginTop: 18 }}>
-//             <BranchTables branches={branches} branchStats={branchStats} />
-//           </div>
-//         </main>
-//       </div>
-//     </div>
-//   );
-// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

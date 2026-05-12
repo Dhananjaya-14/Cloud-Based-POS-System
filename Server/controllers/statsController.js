@@ -19,19 +19,34 @@ export async function getOverview(req, res, next) {
   }
 }
 
+
+
 export async function getBranchStats(req, res, next) {
   try {
     const result = await pool.query(
       `SELECT b."B_id", b."B_name",
-              COALESCE(SUM(o."or_totalCostWtax"),0)::numeric(12,2) AS revenue,
-              COALESCE(COUNT(o.or_id),0) AS orders
+              COALESCE((
+                SELECT SUM(o."or_totalCostWtax")::numeric(12,2)
+                FROM "ORDER" o
+                WHERE o.b_id = b."B_id" AND o.or_status = 'completed'
+              ),0) AS income,
+              COALESCE((
+                SELECT COUNT(o2.or_id)
+                FROM "ORDER" o2
+                WHERE o2.b_id = b."B_id" AND o2.or_status = 'completed'
+              ),0) AS orders,
+              COALESCE((
+                SELECT SUM(pi.price)::numeric(12,2)
+                FROM purchase_order po
+                JOIN purchase_item pi ON pi.po_id = po.po_id
+                WHERE po.b_id = b."B_id" AND po.status = 'received'
+              ),0) AS expenses
        FROM "Branch" b
-       LEFT JOIN "ORDER" o ON o.b_id = b."B_id" AND o.or_status = 'completed'
-       GROUP BY b."B_id", b."B_name"
-       ORDER BY revenue DESC`
+       ORDER BY income DESC`
     );
     res.json(result.rows);
   } catch (err) {
     next(err);
   }
 }
+

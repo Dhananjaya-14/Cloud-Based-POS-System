@@ -111,22 +111,3 @@ export default function OverviewCards({ overview = {} }) {
 
 
 
-// import React from "react";
-
-// export default function OverviewCards({ overview = {} }) {
-//   const { totalBranches = 0, totalRevenue = 0, totalOrders = 0 } = overview;
-//   const card = (title, value, bg = "#fff") => (
-//     <div style={{ background: bg, padding: 18, borderRadius: 12, minWidth: 200 }}>
-//       <div style={{ fontSize: 12, color: "#475569", fontWeight: 700 }}>{title}</div>
-//       <div style={{ marginTop: 8, fontSize: 20, fontWeight: 800, color: "#0B1220" }}>{value}</div>
-//     </div>
-//   );
-
-//   return (
-//     <div style={{ display: "flex", gap: 12 }}>
-//       {card("Total Branches", totalBranches, "#FEE2E2")}
-//       {card("Total Revenue", `$${Number(totalRevenue).toFixed(2)}`, "#DCFCE7")}
-//       {card("Total Orders", totalOrders, "#FEF3C7")}
-//     </div>
-//   );
-// }
