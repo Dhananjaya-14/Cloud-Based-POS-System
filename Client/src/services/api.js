@@ -44,6 +44,18 @@ export const getBranches = async () => {
   return response.data;
 };
 
+
+
+export const updateBranch = async (id, branchData) => {
+  const response = await api.put(`/branches/${id}`, branchData);
+  return response.data;
+};
+
+export const deleteBranch = async (id) => {
+  const response = await api.delete(`/branches/${id}`);
+  return response.data;
+};
+
 export const getUsers = async () => {
   const response = await api.get("/users");
   return response.data;
@@ -56,6 +68,21 @@ export const getRoles = async () => {
 
 export const getCompanies = async () => {
   const response = await api.get("/companies");
+  return response.data;
+};
+
+export const createCompany = async (companyData) => {
+  const response = await api.post("/companies", companyData);
+  return response.data;
+};
+
+export const updateCompany = async (id, companyData) => {
+  const response = await api.put(`/companies/${id}`, companyData);
+  return response.data;
+};
+
+export const deleteCompany = async (id) => {
+  const response = await api.delete(`/companies/${id}`);
   return response.data;
 };
 
