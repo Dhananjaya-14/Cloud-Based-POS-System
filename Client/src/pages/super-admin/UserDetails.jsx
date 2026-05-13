@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaPlus, FaEye, FaEyeSlash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
@@ -11,6 +11,8 @@ const UserDetails = () => {
   const [loading, setLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const fileInputRef = useRef(null);
+  const [profileImage, setProfileImage] = useState(null);
 
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -80,6 +82,21 @@ const UserDetails = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleImageClick = () => {
+    fileInputRef.current.click();
+  };
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileImage(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleStatusToggle = () => {
@@ -160,22 +177,38 @@ const UserDetails = () => {
                 {/* Profile Picture & Names */}
                 <div style={{ display: "flex", gap: 40, alignItems: "center" }}>
                   <div style={{ position: "relative" }}>
-                    <div style={{
-                      width: 100, height: 100, borderRadius: "50%", border: "2px solid #111827",
-                      display: "flex", alignItems: "center", justifyContent: "center", background: "#F3F4F6"
-                    }}>
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="#6B7280" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" />
-                      </svg>
+                    <div
+                      onClick={handleImageClick}
+                      style={{
+                        width: 100, height: 100, borderRadius: "50%", border: "2px solid #111827",
+                        display: "flex", alignItems: "center", justifyContent: "center", background: "#F3F4F6",
+                        cursor: "pointer", overflow: "hidden"
+                      }}>
+                      {profileImage ? (
+                        <img src={profileImage} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      ) : (
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="#6B7280" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" />
+                        </svg>
+                      )}
                     </div>
-                    <button style={{
-                      position: "absolute", bottom: 0, right: 0, width: 28, height: 28,
-                      borderRadius: "50%", background: "#fff", border: "2px solid #111827",
-                      display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-                      color: "#111827"
-                    }}>
+                    <button
+                      onClick={handleImageClick}
+                      style={{
+                        position: "absolute", bottom: 0, right: 0, width: 28, height: 28,
+                        borderRadius: "50%", background: "#fff", border: "2px solid #111827",
+                        display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                        color: "#111827"
+                      }}>
                       <FaPlus size={12} />
                     </button>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleImageChange}
+                      style={{ display: "none" }}
+                      accept="image/*"
+                    />
                   </div>
 
                   <div style={{ flex: 1, display: "flex", gap: 20 }}>
@@ -218,7 +251,9 @@ const UserDetails = () => {
                     <select name="assignedBranch" value={formData.assignedBranch} onChange={handleChange} style={selectStyle}>
                       <option value="">Select Branch</option>
                       {branches.map(b => (
-                        <option key={b.B_id} value={b.B_id}>{b.B_name}</option>
+                        <option key={b.B_id} value={b.B_id}>
+                          {b.B_name} {b.com_name ? `(${b.com_name})` : ""}
+                        </option>
                       ))}
                     </select>
                   </div>
