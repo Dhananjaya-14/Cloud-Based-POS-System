@@ -61,11 +61,11 @@ function QuickActionsCompact() {
   const navigate = useNavigate();
 
   const handleAddBranch = () => {
-    navigate("/branches");
+    navigate("/admin/branches");
   };
 
   const handleBranchStats = () => {
-    navigate("/branches"); // adjust route if you have a dedicated branch-stats page
+    navigate("/admin/statistics"); // adjust route if you have a dedicated branch-stats page
   };
 
   const cardStyle = {
