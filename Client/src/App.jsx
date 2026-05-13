@@ -30,6 +30,7 @@ import InvoicePreview from './pages/cashier/InvoicePreview';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminStatistics from './pages/admin/AdminStatistics';
 
 // Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
 // send them to Product Management instead of showing Branch Profile.
@@ -60,52 +61,7 @@ function App() {
       <Route path="/register/step-3" element={<RegisterStep3 />} />
 
       <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <AdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/hotels"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminHotelManagement />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/users"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminUserManagement />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/users/add"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminAddUser />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/super-admin/users/:id/edit"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminUserDetails />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/branches"
+        path="/admin/branches"
         element={
           <ProtectedRoute allowedRoles={[2, 6]}>
             <BranchManagement />
@@ -385,6 +341,15 @@ function App() {
               <AdminDashboard />
             </ProtectedRoute>
         }
+      />
+
+        <Route
+          path="/admin/statistics"
+          element={
+            <ProtectedRoute allowedRoles={[2]}>
+              <AdminStatistics />
+            </ProtectedRoute>
+       }
       />
 
       <Route path="*" element={<Navigate to="/" />} />
