@@ -110,6 +110,9 @@ export const getProductById = async (productId) => {
   return response.data;
 };
 
+
+
+
 export const getCategories = async () => {
   const response = await api.get("/categories");
   return response.data;
@@ -225,7 +228,41 @@ export const setupBranchWithManager = async (combinedData) => {
   }
 };
 
+export const getStatsOverview = async () => {
+  const res = await api.get("/stats/overview");
+  return res.data;
+};
 
+export const getBranchStats = async () => {
+  const res = await api.get("/stats/branches");
+  return res.data;
+};
+
+// Stats API helpers
+export const getStatsSalesOverTime = async (params = {}) => {
+  const res = await api.get("/stats/sales-over-time", { params });
+  return res.data;
+};
+
+export const getStatsTypeBreakdown = async (params = {}) => {
+  const res = await api.get("/stats/type-breakdown", { params });
+  return res.data;
+};
+
+export const getStatsPeakHours = async (params = {}) => {
+  const res = await api.get("/stats/peak-hours", { params });
+  return res.data;
+};
+
+export const getStatsBusyDays = async (params = {}) => {
+  const res = await api.get("/stats/busy-days", { params });
+  return res.data;
+};
+
+export const getBranchComparison = async () => {
+  const res = await api.get("/stats/branches/compare");
+  return res.data;
+};
 
 
 
