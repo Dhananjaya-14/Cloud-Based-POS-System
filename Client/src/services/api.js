@@ -44,6 +44,18 @@ export const getBranches = async () => {
   return response.data;
 };
 
+
+
+export const updateBranch = async (id, branchData) => {
+  const response = await api.put(`/branches/${id}`, branchData);
+  return response.data;
+};
+
+export const deleteBranch = async (id) => {
+  const response = await api.delete(`/branches/${id}`);
+  return response.data;
+};
+
 export const getUsers = async () => {
   const response = await api.get("/users");
   return response.data;
@@ -56,6 +68,21 @@ export const getRoles = async () => {
 
 export const getCompanies = async () => {
   const response = await api.get("/companies");
+  return response.data;
+};
+
+export const createCompany = async (companyData) => {
+  const response = await api.post("/companies", companyData);
+  return response.data;
+};
+
+export const updateCompany = async (id, companyData) => {
+  const response = await api.put(`/companies/${id}`, companyData);
+  return response.data;
+};
+
+export const deleteCompany = async (id) => {
+  const response = await api.delete(`/companies/${id}`);
   return response.data;
 };
 
@@ -120,6 +147,45 @@ export const getCategories = async () => {
 
 export const getRawMaterials = async () => {
   const response = await api.get("/raw-materials");
+  return response.data;
+};
+
+export const getRecipes = async () => {
+  const response = await api.get("/recipes");
+  return response.data;
+};
+
+export const getRecipeById = async (recipeId) => {
+  const response = await api.get(`/recipes/${recipeId}`);
+  return response.data;
+};
+
+export const getRecipesByProduct = async (productId) => {
+  const response = await api.get(`/recipes/product/${productId}`);
+  return response.data;
+};
+
+export const createRecipe = async (payload) => {
+  const response = await api.post("/recipes", payload);
+  return response.data;
+};
+
+export const createRecipeBulk = async (payload) => {
+  const response = await api.post("/recipes/bulk", payload);
+  return response.data;
+};
+
+export const updateRecipe = async (recipeId, payload) => {
+  const response = await api.put(`/recipes/${recipeId}`, payload);
+  return response.data;
+};
+
+export const deleteRecipe = async (recipeId) => {
+  await api.delete(`/recipes/${recipeId}`);
+};
+
+export const deleteRecipeByProduct = async (productId) => {
+  const response = await api.delete(`/recipes/product/${productId}`);
   return response.data;
 };
 

@@ -4,6 +4,11 @@ import Login from './pages/Login';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
+import SuperAdminDashboard from './pages/super-admin/Dashboard';
+import SuperAdminHotelManagement from './pages/super-admin/HotelManagement';
+import SuperAdminUserManagement from './pages/super-admin/UserManagement';
+import SuperAdminUserDetails from './pages/super-admin/UserDetails';
+import SuperAdminAddUser from './pages/super-admin/AddUser';
 import BranchManagement from './pages/admin/BranchManagement';
 import AddUser from './pages/admin/AddUser';
 import EditUser from './pages/admin/EditUser';
@@ -45,6 +50,8 @@ import BranchAdminDashboard from './pages/branch-admin/Dashboard';
 import SalesRevenue from './pages/branch-admin/SalesRevenue';
 import CashierPerformance from './pages/branch-admin/CashierPerformance';
 import KitchenManagement from './pages/kitchen/KitchenManagement';
+import RecipeMapper from './pages/branch-admin/RecipeMapper';
+import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
 
 function App() {
   return (
@@ -56,9 +63,54 @@ function App() {
       <Route path="/register/step-3" element={<RegisterStep3 />} />
 
       <Route
-        path="/admin/branches"
+        path="/dashboard"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/hotels"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminHotelManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/users"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminUserManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/users/add"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminAddUser />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/users/:id/edit"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminUserDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branches"
+        element={
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <BranchManagement />
           </ProtectedRoute>
         }
@@ -67,7 +119,7 @@ function App() {
       <Route
         path="/users"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <UserManagement />
           </ProtectedRoute>
         }
@@ -85,7 +137,7 @@ function App() {
       <Route
         path="/users/add"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AddUser />
           </ProtectedRoute>
         }
@@ -103,7 +155,7 @@ function App() {
       <Route
         path="/users/:userId/edit"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <EditUser />
           </ProtectedRoute>
         }
@@ -121,7 +173,7 @@ function App() {
       <Route
         path="/branch_profile/:branchId"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1, 2, 6]}>
             <BranchProfileRouter />
           </ProtectedRoute>
         }
@@ -131,7 +183,7 @@ function App() {
       <Route
         path="/branch_profile"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1, 2, 6]}>
             <BranchProfileRouter />
           </ProtectedRoute>
         }
@@ -140,7 +192,7 @@ function App() {
       <Route
         path="/branch_profile/:branchId/edit"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <BranchProfileEdit />
           </ProtectedRoute>
         }
@@ -287,6 +339,24 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[1]}>
             <CashierPerformance />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/recipe-mapper"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <RecipeMapper />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/recipe-mapper/:productId"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <RecipeMapperDetail />
           </ProtectedRoute>
         }
       />

@@ -23,6 +23,11 @@ const Login = () => {
       // map role ids to routes (adjust role numbers and routes to your app)
       if (roleId === 2) navigate("/admin/dashboard"); // admin -> BranchManagement
       else if (roleId === 1) navigate("/branch-admin/dashboard");
+      
+      // map role ids to routes
+      if (roleId === 6) navigate("/dashboard"); // super admin -> Dashboard overview
+      else if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
+      else if (roleId === 1) navigate("/branch-admin/products");
       else if (roleId === 3) navigate("/cashier/dashboard");
       else navigate("/"); // fallback
     } catch (err) {
