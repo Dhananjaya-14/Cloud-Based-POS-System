@@ -11,13 +11,18 @@ function normalizeCatId(body) {
   return body?.cat_id ?? body?.Cat_id;
 }
 
+function normalizeBranchId(body) {
+  // API/DB: `B_id`
+  return body?.B_id ?? body?.b_id;
+}
+
 function normalizeProPrice(body) {
-  // API: `pro_price` ; DB: ` Pro_Price` (note leading space)
+  // API: `pro_price` ; DB may use a leading-space column name
   return body?.pro_price ?? body?.Pro_Price ?? body?.[" Pro_Price"];
 }
 
 function normalizeSpaced(body, apiKey, dbKey) {
-  // For DB columns with leading spaces like `" pro_image"`.
+  // Support either API keys or DB-shaped payload keys.
   return body?.[apiKey] ?? body?.[dbKey];
 }
 
@@ -50,9 +55,21 @@ function isNonNegativeNumber(value) {
 // GET /api/branch_products
 export async function getBranchProducts(req, res, next) {
   try {
-    const { B_id } = req.query;
+    const branchId = req.query?.b_id ?? req.query?.B_id;
+    if (branchId !== undefined && !isPositiveInt(branchId)) {
+      res.status(400);
+      throw new Error("b_id must be a positive integer");
+    }
 
-    let queryText = `
+    const values = [];
+    let whereClause = "";
+    if (branchId !== undefined) {
+      values.push(Number(branchId));
+      whereClause = `WHERE "B_id" = $1`;
+    }
+
+    const result = await pool.query(
+      `
       SELECT
         "Bpro_id",
         "pro_name",
@@ -65,18 +82,11 @@ export async function getBranchProducts(req, res, next) {
         "pro_id",
         "B_id"
       FROM "public"."Branch_Product"
-    `;
-
-    const queryParams = [];
-
-    if (B_id) {
-      queryText += ` WHERE "B_id" = $1 `;
-      queryParams.push(B_id);
-    }
-
-    queryText += ` ORDER BY "Bpro_id" `;
-
-    const result = await pool.query(queryText, queryParams);
+      ${whereClause}
+      ORDER BY "Bpro_id"
+      `,
+      values,
+    );
 
     res.json(result.rows.map(toResponseRow));
   } catch (err) {
@@ -134,7 +144,7 @@ export async function createBranchProduct(req, res, next) {
     const pro_price = normalizeProPrice(req.body);
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
-    const B_id = req.body?.B_id;
+    const B_id = normalizeBranchId(req.body);
 
     if (
       !pro_name ||
@@ -217,7 +227,7 @@ export async function createBranchProduct(req, res, next) {
     if (err?.code === "23503") {
       res.status(400);
       return next(
-        new Error("Invalid foreign key: cat_id or pro_id does not exist")
+        new Error("Invalid foreign key: cat_id, pro_id or B_id does not exist")
       );
     }
     next(err);
@@ -241,7 +251,7 @@ export async function updateBranchProduct(req, res, next) {
     const pro_price = normalizeProPrice(req.body);
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
-    const B_id = req.body?.B_id;
+    const B_id = normalizeBranchId(req.body);
 
     if (pro_name !== undefined && (typeof pro_name !== "string" || pro_name.trim().length === 0)) {
       res.status(400);
@@ -337,7 +347,7 @@ export async function updateBranchProduct(req, res, next) {
     if (err?.code === "23503") {
       res.status(400);
       return next(
-        new Error("Invalid foreign key: cat_id or pro_id does not exist")
+        new Error("Invalid foreign key: cat_id, pro_id or B_id does not exist")
       );
     }
     next(err);
@@ -368,4 +378,3 @@ export async function deleteBranchProduct(req, res, next) {
     next(err);
   }
 }
-
