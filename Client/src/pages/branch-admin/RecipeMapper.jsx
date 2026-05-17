@@ -390,7 +390,7 @@ const RecipeMapper = () => {
             </div>
           )}
 
-          {totalPages > 1 && (
+          {!loading && filteredProducts.length > 0 && (
             <div
               style={{
                 marginTop: "26px",
@@ -404,8 +404,10 @@ const RecipeMapper = () => {
               <button
                 type="button"
                 onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-                style={paginationButton(false)}
+                disabled={currentPage === 1}
+                style={paginationButton(false, currentPage === 1)}
               >
+                <span style={{ marginRight: "4px" }}>&lt;</span>
                 Previous
               </button>
               {Array.from({ length: totalPages }).map((_, idx) => {
@@ -425,9 +427,11 @@ const RecipeMapper = () => {
               <button
                 type="button"
                 onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-                style={paginationButton(false)}
+                disabled={currentPage === totalPages}
+                style={paginationButton(false, currentPage === totalPages)}
               >
                 Next
+                <span style={{ marginLeft: "4px" }}>&gt;</span>
               </button>
             </div>
           )}
@@ -438,7 +442,7 @@ const RecipeMapper = () => {
   );
 };
 
-const paginationButton = (active) => ({
+const paginationButton = (active, disabled = false) => ({
   padding: "6px 12px",
   borderRadius: "8px",
   border: "1px solid #D0D5DD",
@@ -446,7 +450,8 @@ const paginationButton = (active) => ({
   color: active ? "#fff" : "#1D4ED8",
   fontSize: "12px",
   fontWeight: 600,
-  cursor: "pointer",
+  cursor: disabled ? "not-allowed" : "pointer",
+  opacity: disabled ? 0.5 : 1,
 });
 
 export default RecipeMapper;
