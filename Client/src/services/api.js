@@ -44,6 +44,18 @@ export const getBranches = async () => {
   return response.data;
 };
 
+
+
+export const updateBranch = async (id, branchData) => {
+  const response = await api.put(`/branches/${id}`, branchData);
+  return response.data;
+};
+
+export const deleteBranch = async (id) => {
+  const response = await api.delete(`/branches/${id}`);
+  return response.data;
+};
+
 export const getUsers = async () => {
   const response = await api.get("/users");
   return response.data;
@@ -56,6 +68,21 @@ export const getRoles = async () => {
 
 export const getCompanies = async () => {
   const response = await api.get("/companies");
+  return response.data;
+};
+
+export const createCompany = async (companyData) => {
+  const response = await api.post("/companies", companyData);
+  return response.data;
+};
+
+export const updateCompany = async (id, companyData) => {
+  const response = await api.put(`/companies/${id}`, companyData);
+  return response.data;
+};
+
+export const deleteCompany = async (id) => {
+  const response = await api.delete(`/companies/${id}`);
   return response.data;
 };
 
@@ -90,6 +117,21 @@ export const getOrders = async (params = {}) => {
   return response.data?.data || [];
 };
 
+export const getOrderItems = async () => {
+  const response = await api.get("/order-items");
+  return response.data?.data || [];
+};
+
+export const getOrderItemsByOrderId = async (orderId) => {
+  const response = await api.get(`/order-items/order/${orderId}`);
+  return response.data?.data || [];
+};
+
+export const updateOrderStatus = async (orderId, status) => {
+  const response = await api.patch(`/orders/${orderId}/status`, { status });
+  return response.data?.data;
+};
+
 export const getProductById = async (productId) => {
   const response = await api.get(`/products/${productId}`);
   return response.data;
@@ -100,6 +142,16 @@ export const getCategories = async () => {
   return response.data;
 };
 
+export const getRawMaterials = async () => {
+  const response = await api.get("/raw-materials");
+  return response.data;
+};
+
+export const getLowStockMaterials = async () => {
+  const response = await api.get("/raw-materials/low-stock");
+  return response.data;
+};
+
 export const createProduct = async (productData) => {
   const response = await api.post("/products", productData);
   return response.data;
@@ -107,6 +159,31 @@ export const createProduct = async (productData) => {
 
 export const createOrder = async (orderData) => {
   const response = await api.post("/orders", orderData);
+  return response.data;
+};
+
+export const getWaiterProfile = async () => {
+  const response = await api.get("/waiter/profile");
+  return response.data;
+};
+
+export const getWaiterTables = async (params = {}) => {
+  const response = await api.get("/waiter/my-tables", { params });
+  return response.data;
+};
+
+export const getWaiterOrders = async (params = {}) => {
+  const response = await api.get("/waiter/my-orders", { params });
+  return response.data;
+};
+
+export const createWaiterOrder = async (orderData) => {
+  const response = await api.post("/waiter/orders", orderData);
+  return response.data;
+};
+
+export const deleteWaiterOrder = async (orderId) => {
+  const response = await api.delete(`/waiter/orders/${orderId}`);
   return response.data;
 };
 

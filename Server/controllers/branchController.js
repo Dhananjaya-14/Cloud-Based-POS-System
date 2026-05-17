@@ -41,7 +41,10 @@ const BRANCH_COLS = `"B_id", "B_name", "B_email", "B_conNo", "B_address", "com_i
 export async function getBranches(req, res, next) {
   try {
     const result = await pool.query(
-      `SELECT ${BRANCH_COLS} FROM "Branch" ORDER BY "B_id"`,
+      `SELECT b.*, c."com_name" 
+       FROM "Branch" b
+       LEFT JOIN "Company" c ON b."com_id" = c."com_id"
+       ORDER BY b."B_id"`,
     );
     res.json(result.rows);
   } catch (err) {
@@ -60,7 +63,10 @@ export async function getBranchById(req, res, next) {
     }
 
     const result = await pool.query(
-      `SELECT ${BRANCH_COLS} FROM "Branch" WHERE "B_id" = $1`,
+      `SELECT b.*, c."com_name" 
+       FROM "Branch" b
+       LEFT JOIN "Company" c ON b."com_id" = c."com_id"
+       WHERE b."B_id" = $1`,
       [id],
     );
 

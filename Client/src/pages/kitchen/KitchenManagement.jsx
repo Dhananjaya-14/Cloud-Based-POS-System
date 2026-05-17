@@ -1,0 +1,411 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { FaList, FaSearch, FaThLarge, FaClock } from "react-icons/fa";
+import CashierHeader from "../../components/cashier/Header";
+import { useAuth } from "../../context/AuthContext";
+import {
+	getBranchProducts,
+	getOrderItems,
+	getOrders,
+	updateOrderStatus,
+} from "../../services/api";
+
+const statCards = [
+	{
+		key: "pending",
+		title: "Pending",
+		subtitle: "Items waiting",
+		tone: "from-amber-100 to-yellow-200",
+		accent: "text-amber-600",
+		border: "border-amber-300",
+	},
+	{
+		key: "preparing",
+		title: "Preparing",
+		subtitle: "In progress",
+		tone: "from-orange-100 to-orange-200",
+		accent: "text-orange-600",
+		border: "border-orange-300",
+	},
+	{
+		key: "ready",
+		title: "Ready",
+		subtitle: "Ready to serve",
+		tone: "from-emerald-100 to-emerald-200",
+		accent: "text-emerald-600",
+		border: "border-emerald-300",
+	},
+	{
+		key: "active",
+		title: "Active Orders",
+		subtitle: "Total orders",
+		tone: "from-sky-100 to-indigo-100",
+		accent: "text-indigo-600",
+		border: "border-indigo-300",
+	},
+];
+
+const statusPalette = {
+	Pending: "bg-slate-100 text-slate-700 border-slate-200",
+	Preparing: "bg-orange-100 text-orange-700 border-orange-200",
+	Completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
+	Declined: "bg-rose-100 text-rose-700 border-rose-200",
+};
+
+
+const KitchenManagement = () => {
+	const { user } = useAuth();
+	const [orders, setOrders] = useState([]);
+	const [orderItems, setOrderItems] = useState([]);
+	const [branchProducts, setBranchProducts] = useState([]);
+	const [viewMode, setViewMode] = useState("grid");
+	const [searchTerm, setSearchTerm] = useState("");
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState("");
+	const [updatingOrderId, setUpdatingOrderId] = useState(null);
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadData = async () => {
+			setLoading(true);
+			setError("");
+
+			try {
+				const params = {};
+				if (user?.b_id) params.b_id = user.b_id;
+
+				const [ordersData, itemsResult, productsResult] =
+					await Promise.allSettled([
+						getOrders(params),
+						getOrderItems(),
+						getBranchProducts(),
+					]);
+
+				if (!isMounted) return;
+
+				if (ordersData.status === "fulfilled") {
+					setOrders(Array.isArray(ordersData.value) ? ordersData.value : []);
+				} else {
+					setOrders([]);
+					setError("Failed to load orders.");
+				}
+
+				if (itemsResult.status === "fulfilled") {
+					setOrderItems(Array.isArray(itemsResult.value) ? itemsResult.value : []);
+				} else {
+					setOrderItems([]);
+				}
+
+				if (productsResult.status === "fulfilled") {
+					setBranchProducts(
+						Array.isArray(productsResult.value) ? productsResult.value : [],
+					);
+				} else {
+					setBranchProducts([]);
+				}
+			} catch (err) {
+				if (!isMounted) return;
+				setOrders([]);
+				setOrderItems([]);
+				setBranchProducts([]);
+				setError("Failed to load kitchen data.");
+			} finally {
+				if (isMounted) setLoading(false);
+			}
+		};
+
+		loadData();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user]);
+
+	const branchProductMap = useMemo(() => {
+		return branchProducts.reduce((acc, product) => {
+			acc[product.Bpro_id] = product;
+			return acc;
+		}, {});
+	}, [branchProducts]);
+
+	const itemsByOrderId = useMemo(() => {
+		return orderItems.reduce((acc, item) => {
+			const orderId = item.order_id;
+			if (!acc[orderId]) acc[orderId] = [];
+			acc[orderId].push(item);
+			return acc;
+		}, {});
+	}, [orderItems]);
+
+	const filteredOrders = useMemo(() => {
+		const query = searchTerm.trim().toLowerCase();
+		if (!query) return orders;
+
+		return orders.filter((order) => {
+			if (String(order.or_id ?? "").includes(query)) return true;
+
+			const items = itemsByOrderId[order.or_id] || [];
+			return items.some((item) => {
+				const product = branchProductMap[item.Bpro_id] || {};
+				return String(product.pro_name || "")
+					.toLowerCase()
+					.includes(query);
+			});
+		});
+	}, [orders, searchTerm, itemsByOrderId, branchProductMap]);
+
+	const statusCounts = useMemo(() => {
+		const counts = { pending: 0, preparing: 0, ready: 0 };
+
+		orders.forEach((order) => {
+			if (order.or_status === "pending") counts.pending += 1;
+			if (order.or_status === "preparing") counts.preparing += 1;
+			if (order.or_status === "completed") counts.ready += 1;
+		});
+
+		return {
+			pending: counts.pending,
+			preparing: counts.preparing,
+			ready: counts.ready,
+			active: counts.pending + counts.preparing,
+		};
+	}, [orders]);
+
+	const updateStatus = async (orderId, nextStatus) => {
+		if (!orderId || updatingOrderId) return;
+		setUpdatingOrderId(orderId);
+
+		try {
+			const updated = await updateOrderStatus(orderId, nextStatus);
+			setOrders((prev) =>
+				prev.map((order) =>
+					order.or_id === orderId
+						? { ...order, or_status: updated?.or_status || nextStatus }
+						: order,
+				),
+			);
+		} catch (err) {
+			setError(
+				err?.response?.data?.error ||
+					err?.response?.data?.message ||
+					"Failed to update order status.",
+			);
+		} finally {
+			setUpdatingOrderId(null);
+		}
+	};
+
+	const getStatusLabel = (order) => {
+		if (order.or_status === "preparing") return "Preparing";
+		if (order.or_status === "completed") return "Completed";
+		if (order.or_status === "cancelled") return "Declined";
+		return "Pending";
+	};
+
+
+	const renderOrderItems = (orderId) => {
+		const items = itemsByOrderId[orderId] || [];
+		if (!items.length) {
+			return (
+				<div className="text-xs text-slate-400 italic">
+					Items not available
+				</div>
+			);
+		}
+
+		return items.map((item) => {
+			const product = branchProductMap[item.Bpro_id] || {};
+			const name = product.pro_name || `Item ${item.Bpro_id}`;
+			const quantity = item.pro_quantity ?? "-";
+			const image = product.pro_image || "";
+
+			return (
+				<div
+					key={item.orderItem_id}
+					className="flex gap-3 items-center rounded-xl border border-slate-100 bg-white px-3 py-2"
+				>
+					<div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">
+						{image ? (
+							<img src={image} alt={name} className="w-full h-full object-cover" />
+						) : (
+							<span className="text-xs text-slate-500">IMG</span>
+						)}
+					</div>
+					<div className="flex-1">
+						<div className="text-sm font-semibold text-slate-900">{name}</div>
+						<div className="text-[11px] text-slate-500">Qty: {quantity}</div>
+					</div>
+					<div className="text-[10px] text-slate-400 flex items-center gap-1">
+						<FaClock />
+						<span>-- min</span>
+					</div>
+				</div>
+			);
+		});
+	};
+
+	return (
+		<div className="min-h-screen bg-[#F4F7FB] flex flex-col">
+			<CashierHeader />
+
+			<main className="flex-1">
+				<div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+						<div>
+							<h1 className="text-xl sm:text-2xl font-semibold text-slate-900">
+								Kitchen Order Management
+							</h1>
+							<p className="text-xs sm:text-sm text-slate-500 mt-1">
+								Manage and track all incoming orders
+							</p>
+						</div>
+
+						<div className="flex items-center gap-2">
+							<button
+								onClick={() => setViewMode("grid")}
+								className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-2 ${
+									viewMode === "grid"
+										? "bg-white border-slate-200 text-slate-900"
+										: "border-slate-200 text-slate-500 bg-slate-50"
+								}`}
+							>
+								<FaThLarge /> Grid
+							</button>
+							
+						</div>
+					</div>
+
+					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+						{statCards.map((card) => (
+							<div
+								key={card.key}
+								className={`rounded-2xl border ${card.border} bg-gradient-to-br ${card.tone} p-4 shadow-sm`}
+							>
+								<div className="text-[11px] uppercase tracking-wide text-slate-500">
+									{card.title}
+								</div>
+								<div className={`text-2xl font-semibold ${card.accent} mt-2`}>
+									{statusCounts[card.key]}
+								</div>
+								<div className="text-[11px] text-slate-500 mt-1">
+									{card.subtitle}
+								</div>
+							</div>
+						))}
+					</div>
+
+					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+						<div className="relative w-full sm:w-72">
+							<FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+							<input
+								value={searchTerm}
+								onChange={(event) => setSearchTerm(event.target.value)}
+								placeholder="Search items..."
+								className="w-full rounded-xl border border-slate-200 bg-white px-9 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200"
+							/>
+						</div>
+					</div>
+
+					{error && (
+						<div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+							{error}
+						</div>
+					)}
+
+					{loading ? (
+						<div className="text-sm text-slate-500">Loading orders...</div>
+					) : (
+						<div
+							className={
+								viewMode === "grid"
+									? "grid grid-cols-1 lg:grid-cols-2 gap-4"
+									: "flex flex-col gap-4"
+							}
+						>
+							{filteredOrders.map((order) => {
+								const statusLabel = getStatusLabel(order);
+								const tagStyle = statusPalette[statusLabel] || statusPalette.Pending;
+								const isPending = order.or_status === "pending";
+								const isPreparing = order.or_status === "preparing";
+
+								return (
+									<div
+										key={order.or_id}
+										className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4"
+									>
+										<div className="flex flex-col gap-3">
+											<div className="flex flex-wrap items-center justify-between gap-3">
+												<div>
+													<div className="text-sm font-semibold text-slate-900">
+														ORD{String(order.or_id).padStart(5, "0")}
+													</div>
+													<div className="text-[11px] text-slate-500">
+														{order.or_type || "Dine in"} | {order.or_time || "--:--"}
+													</div>
+												</div>
+
+												<div className="flex items-center gap-2">
+													<span
+														className={`px-2 py-1 rounded-full text-[10px] font-semibold border ${tagStyle}`}
+													>
+														{statusLabel}
+													</span>
+													<span className="text-[10px] text-slate-400 flex items-center gap-1">
+														<FaClock />
+														<span>{order.or_time || "--:--"}</span>
+													</span>
+												</div>
+											</div>
+
+											<div className="flex flex-col gap-2">
+												{renderOrderItems(order.or_id)}
+											</div>
+
+											<div className="flex flex-wrap items-center gap-2">
+												{isPending && (
+													<>
+														<button
+															onClick={() => updateStatus(order.or_id, "preparing")}
+															disabled={updatingOrderId === order.or_id}
+															className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold cursor-pointer"
+														>
+															Accept
+														</button>
+														<button
+															onClick={() => updateStatus(order.or_id, "cancelled")}
+															disabled={updatingOrderId === order.or_id}
+															className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold cursor-pointer"
+														>
+															Decline
+														</button>
+													</>
+												)}
+
+												{isPreparing && (
+													<button
+														onClick={() => updateStatus(order.or_id, "completed")}
+														disabled={updatingOrderId === order.or_id}
+														className="px-4 py-1.5 rounded-lg border border-emerald-200 bg-emerald-500 text-white text-xs font-semibold cursor-pointer"
+													>
+														Ready
+													</button>
+												)}
+
+											</div>
+										</div>
+									</div>
+								);
+							})}
+
+							{!filteredOrders.length && (
+								<div className="text-sm text-slate-500">No orders found.</div>
+							)}
+						</div>
+					)}
+				</div>
+			</main>
+		</div>
+	);
+};
+
+export default KitchenManagement;

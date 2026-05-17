@@ -19,9 +19,10 @@ const Login = () => {
     setLoading(true);
     try {
       const data = await login({ u_email, u_pw }); // { token, user }
-      const roleId = data.user?.role_id;
-      // map role ids to routes (adjust role numbers and routes to your app)
-      if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
+      const roleId = Number(data.user?.role_id);
+      // map role ids to routes
+      if (roleId === 6) navigate("/dashboard"); // super admin -> Dashboard overview
+      else if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
       else if (roleId === 1) navigate("/branch-admin/products");
       else if (roleId === 3) navigate("/cashier/dashboard");
       else navigate("/"); // fallback

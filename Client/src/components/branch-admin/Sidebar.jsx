@@ -151,11 +151,11 @@ const Sidebar = () => {
         <div style={{ marginTop: "26px" }}>
           {menuItem(
             <FaTachometerAlt />,
-            "Dashboard",
+            "Dashboard Overview",
             "/branch-admin/dashboard",
             isExactActive("/branch-admin/dashboard")
           )}
-          {menuItem(<FaChartBar />, "Overview", "/branch-admin/overview", isExactActive("/branch-admin/overview"))}
+          
           {menuItem(<FaBoxOpen />, "Product", "/branch-admin/products", productActive)}
           {menuItem(<FaUsers />, "User Management", "/branch-admin/users", isExactActive("/branch-admin/users"))}
 
@@ -186,7 +186,6 @@ const Sidebar = () => {
             <>
               {subItem("Sales&Revenue", "/branch-admin/sales-revenue")}
               {subItem("Cashier Performance", "/branch-admin/cashier-performance")}
-              {subItem("Inventory", "/branch-admin/inventory-stats")}
             </>
           )}
 
