@@ -50,6 +50,7 @@ import BranchAdminDashboard from './pages/branch-admin/Dashboard';
 import SalesRevenue from './pages/branch-admin/SalesRevenue';
 import CashierPerformance from './pages/branch-admin/CashierPerformance';
 import KitchenManagement from './pages/kitchen/KitchenManagement';
+import WaiterPos from './pages/waiter/WaiterPos';
 
 function App() {
   return (
@@ -330,6 +331,15 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[3]}>
               <InvoicePreview />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/waiter/pos"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}>
+              <WaiterPos />
             </ProtectedRoute>
           }
         />
