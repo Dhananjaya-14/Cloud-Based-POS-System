@@ -86,20 +86,6 @@ export async function getBranchProducts(req, res, next) {
     queryText += ` ORDER BY "Bpro_id" `;
 
     const result = await pool.query(queryText, values);
-=======
-    `;
-
-    const queryParams = [];
-
-    if (B_id) {
-      queryText += ` WHERE "B_id" = $1 `;
-      queryParams.push(B_id);
-    }
-
-    queryText += ` ORDER BY "Bpro_id" `;
-
-    const result = await pool.query(queryText, queryParams);
->>>>>>> f9b31b8 (Update Some files)
 
     res.json(result.rows.map(toResponseRow));
   } catch (err) {
@@ -391,4 +377,3 @@ export async function deleteBranchProduct(req, res, next) {
     next(err);
   }
 }
-
