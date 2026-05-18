@@ -14,6 +14,7 @@ import {
   FaUserCircle,
   FaWineGlassAlt,
   FaClipboardList,
+  FaCoffee,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -38,6 +39,7 @@ const WaiterPos = () => {
   
   const [branchName, setBranchName] = useState("Loading...");
   const [branchId, setBranchId] = useState(null);
+  const [roleName, setRoleName] = useState("Waiter");
   const [products, setProducts] = useState([]);
   const [tables, setTables] = useState([]);
   const [selectedTableId, setSelectedTableId] = useState("");
@@ -62,11 +64,12 @@ const WaiterPos = () => {
       if (profile && profile.data) {
         setBranchName(profile.data.b_name || "Assigned Branch");
         setBranchId(profile.data.branch_id);
-        
-        if (profile.data.branch_id) {
-            const branchProductList = await getBranchProducts(profile.data.branch_id);
-            setProducts(branchProductList || []);
+        if (profile.data.role_name) {
+          setRoleName(profile.data.role_name);
         }
+        
+        const branchProductList = await getBranchProducts(profile.data.branch_id || "");
+        setProducts(branchProductList || []);
       }
 
       const tablesRes = await getWaiterTables();
@@ -87,13 +90,54 @@ const WaiterPos = () => {
   }, [user]);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((p) => {
-      const matchSearch = p.pro_name
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
-      const matchCat =
-        selectedCategory === "All Items" || p.Cat_name === selectedCategory;
-      return matchSearch && matchCat;
+    const term = searchTerm.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const name = String(product.pro_name ?? "").toLowerCase();
+      const description = String(product.pro_des ?? "").toLowerCase();
+      const shortName = String(product.pro_shortname ?? "").toLowerCase();
+
+      const matchesSearch =
+        !term || [name, description, shortName].some((value) => value.includes(term));
+
+      const categoryName = (() => {
+        const source = `${name} ${description}`;
+        if (
+          source.includes("bar") ||
+          source.includes("beer") ||
+          source.includes("wine") ||
+          source.includes("whiskey") ||
+          source.includes("cocktail")
+        ) {
+          return "Bar";
+        }
+        if (
+          source.includes("room") ||
+          source.includes("suite") ||
+          source.includes("laundry") ||
+          source.includes("checkout") ||
+          source.includes("parking")
+        ) {
+          return "Room Service";
+        }
+        if (
+          source.includes("coffee") ||
+          source.includes("steak") ||
+          source.includes("salad") ||
+          source.includes("pasta") ||
+          source.includes("sandwich") ||
+          source.includes("breakfast") ||
+          source.includes("seafood")
+        ) {
+          return "Restaurant";
+        }
+        return "Front Desk";
+      })();
+
+      const matchesCategory =
+        selectedCategory === "All Items" || categoryName === selectedCategory;
+
+      return matchesSearch && matchesCategory;
     });
   }, [products, searchTerm, selectedCategory]);
 
@@ -231,9 +275,9 @@ const WaiterPos = () => {
                 </div>
                 <div className="hidden sm:block">
                   <div className="text-[11px] font-semibold leading-none text-left">
-                    {user?.f_name || "Waiter"} {user?.l_name || ""}
+                    {user?.u_fname || "Waiter"} {user?.u_lname || ""}
                   </div>
-                  <div className="mt-0.5 text-[11px] text-left text-white/80">Waiter • {branchName}</div>
+                  <div className="mt-0.5 text-[11px] text-left text-white/80">{roleName} • {branchName}</div>
                 </div>
               </div>
 

@@ -3,6 +3,7 @@ import {
   requireAuth,
   requireBranchAdminOrAdmin,
   requireCashierOrAbove,
+  requireWaiterOrAbove,
 } from "../middleware/authMiddleware.js";
 import {
   getBranchProducts,
@@ -15,8 +16,8 @@ import {
 const router = express.Router();
 
 router.use(requireAuth);
-router.get("/", requireCashierOrAbove, getBranchProducts);
-router.get("/:id", requireCashierOrAbove, getBranchProductById);
+router.get("/", requireWaiterOrAbove, getBranchProducts);
+router.get("/:id", requireWaiterOrAbove, getBranchProductById);
 router.post("/", requireBranchAdminOrAdmin, createBranchProduct);
 router.put("/:id", requireBranchAdminOrAdmin, updateBranchProduct);
 router.delete("/:id", requireBranchAdminOrAdmin, deleteBranchProduct);
