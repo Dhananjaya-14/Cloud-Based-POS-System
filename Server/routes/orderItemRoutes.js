@@ -85,11 +85,14 @@ router.put(
 
 // ─────────────────────────────────────────────
 // DELETE /order-items/:id
-// Who: Branch Admin, Admin  (+Super Admin via bypass)
+// Who: Cashier, Branch Admin, Admin  (+Super Admin via bypass)
 // ─────────────────────────────────────────────
 router.delete(
   "/:id",
-  requireRole([ROLES.BRANCH_ADMIN, ROLES.ADMIN], "Branch Admin or Admin"),
+  requireRole(
+    [ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
+    "Cashier, Branch Admin, or Admin"
+  ),
   deleteOrderItem,
 );
 
