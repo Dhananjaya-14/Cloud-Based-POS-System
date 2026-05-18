@@ -231,9 +231,9 @@ const WaiterPos = () => {
             </div>
             <div className="flex items-center gap-3">
               <button className="bg-[#FFB703] hover:bg-[#F2A900] text-black font-semibold px-4 py-2 rounded-lg text-sm flex items-center gap-2 shadow-sm transition">
-                ⚡ Quick Add
+                {/* ⚡ Quick Add
               </button>
-              <button className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-2 rounded-lg text-sm transition">
+              <button className="bg-slate-200 hover:bg-slate-300 text-slate-700 font-semibold px-4 py-2 rounded-lg text-sm transition"> */}
                 Repeat
               </button>
               <div className="relative cursor-pointer bg-red-500 w-10 h-10 rounded-full flex items-center justify-center text-white shadow-md hover:bg-red-600 transition">
@@ -482,7 +482,7 @@ const WaiterPos = () => {
                 disabled={submitting || cart.length===0}
                 className="bg-[#00A651] hover:bg-[#008A43] text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 shadow-sm transition disabled:opacity-50"
               >
-                🍸 Send to Bar
+                🍸 Send to Cashier
               </button>
             </div>
 
