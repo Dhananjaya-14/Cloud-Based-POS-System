@@ -52,6 +52,7 @@ import CashierPerformance from './pages/branch-admin/CashierPerformance';
 import KitchenManagement from './pages/kitchen/KitchenManagement';
 import RecipeMapper from './pages/branch-admin/RecipeMapper';
 import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
+import WaiterPos from './pages/waiter/WaiterPos';
 
 function App() {
   return (
@@ -416,6 +417,14 @@ function App() {
             </ProtectedRoute>
        }
       />
+          <Route
+           path="/waiter/pos"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}>
+              <WaiterPos />
+            </ProtectedRoute>
+          }
+        />
 
       <Route path="*" element={<Navigate to="/" />} />
       

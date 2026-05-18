@@ -204,6 +204,16 @@ export const createOrder = async (orderData) => {
   return response.data;
 };
 
+export const updateOrder = async (orderId, orderData) => {
+  const response = await api.put(`/orders/${orderId}`, orderData);
+  return response.data;
+};
+
+export const deleteOrderItem = async (orderItemId) => {
+  const response = await api.delete(`/order-items/${orderItemId}`);
+  return response.data;
+};
+
 export const getWaiterProfile = async () => {
   const response = await api.get("/waiter/profile");
   return response.data;
