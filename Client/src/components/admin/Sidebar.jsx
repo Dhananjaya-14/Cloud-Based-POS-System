@@ -68,7 +68,7 @@ const Sidebar = () => {
 
         <div style={{ marginTop: 30 }}>
           {menuItem(<FaTachometerAlt />, "Dashboard", "/admin/dashboard")}
-          {menuItem(<FaStore />, "Branches", "/admin/branches")}
+          {menuItem(<FaStore />, "Branches", "/branches")}
           {menuItem(<FaBox />, "Products", "/admin/products")}
           {menuItem(<FaUsers />, "User Management", "/users")}
           {menuItem(<FaChartBar />, "Statistics", "/admin/statistics")}

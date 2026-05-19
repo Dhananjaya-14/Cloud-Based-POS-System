@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
-import AdminDashboard from './pages/super-admin/Dashboard';
+import SuperAdminDashboard from './pages/super-admin/Dashboard';
 import SuperAdminHotelManagement from './pages/super-admin/HotelManagement';
 import SuperAdminUserManagement from './pages/super-admin/UserManagement';
 import SuperAdminUserDetails from './pages/super-admin/UserDetails';
@@ -67,7 +67,7 @@ function App() {
         path="/dashboard"
         element={
           <ProtectedRoute allowedRoles={[6]}>
-            <AdminDashboard />
+            <SuperAdminDashboard />
           </ProtectedRoute>
         }
       />
