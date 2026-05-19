@@ -23,15 +23,25 @@ import {
   getBranchProducts,
   createWaiterOrder,
   createOrderItem,
+  getCategories,
 } from "../../services/api";
 
-const categories = [
-  { label: "All Items", icon: FaStore, active: true },
-  { label: "Bar", icon: FaWineGlassAlt },
-  { label: "Restaurant", icon: FaUtensils },
-  { label: "Room Service", icon: FaBed },
-  { label: "Front Desk", icon: FaDesktop },
-];
+const getCategoryIcon = (name) => {
+  const lower = String(name).toLowerCase();
+  if (lower.includes("bev") || lower.includes("drink") || lower.includes("bar") || lower.includes("wine")) {
+    return FaWineGlassAlt;
+  }
+  if (lower.includes("dessert") || lower.includes("sweet") || lower.includes("cake") || lower.includes("coffee")) {
+    return FaCoffee;
+  }
+  if (lower.includes("room")) {
+    return FaBed;
+  }
+  if (lower.includes("desk")) {
+    return FaDesktop;
+  }
+  return FaUtensils;
+};
 
 const WaiterPos = () => {
   const navigate = useNavigate();
@@ -46,7 +56,10 @@ const WaiterPos = () => {
   
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("All Items");
+  const [categories, setCategories] = useState([
+    { cat_id: "all", cat_name: "All Items" }
+  ]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -77,6 +90,14 @@ const WaiterPos = () => {
         setTables(tablesRes.data);
       }
 
+      const catsRes = await getCategories();
+      if (catsRes) {
+        setCategories([
+          { cat_id: "all", cat_name: "All Items" },
+          ...catsRes
+        ]);
+      }
+
     } catch (err) {
       console.error("Error loading POS data:", err);
       setError("Failed to load data. Please refresh or contact admin.");
@@ -100,46 +121,12 @@ const WaiterPos = () => {
       const matchesSearch =
         !term || [name, description, shortName].some((value) => value.includes(term));
 
-      const categoryName = (() => {
-        const source = `${name} ${description}`;
-        if (
-          source.includes("bar") ||
-          source.includes("beer") ||
-          source.includes("wine") ||
-          source.includes("whiskey") ||
-          source.includes("cocktail")
-        ) {
-          return "Bar";
-        }
-        if (
-          source.includes("room") ||
-          source.includes("suite") ||
-          source.includes("laundry") ||
-          source.includes("checkout") ||
-          source.includes("parking")
-        ) {
-          return "Room Service";
-        }
-        if (
-          source.includes("coffee") ||
-          source.includes("steak") ||
-          source.includes("salad") ||
-          source.includes("pasta") ||
-          source.includes("sandwich") ||
-          source.includes("breakfast") ||
-          source.includes("seafood")
-        ) {
-          return "Restaurant";
-        }
-        return "Front Desk";
-      })();
-
       const matchesCategory =
-        selectedCategory === "All Items" || categoryName === selectedCategory;
+        selectedCategoryId === "all" || Number(product.cat_id) === Number(selectedCategoryId);
 
       return matchesSearch && matchesCategory;
     });
-  }, [products, searchTerm, selectedCategory]);
+  }, [products, searchTerm, selectedCategoryId]);
 
   const taxableBase = useMemo(() => {
     return cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
@@ -301,20 +288,24 @@ const WaiterPos = () => {
         <header className="flex h-[80px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8 shadow-sm">
           {/* Categories */}
           <div className="no-scrollbar flex w-full max-w-[60%] flex-nowrap items-center gap-2 overflow-x-auto lg:max-w-[70%]">
-            {categories.map((cat) => (
-              <button
-                key={cat.label}
-                onClick={() => setSelectedCategory(cat.label)}
-                className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
-                  selectedCategory === cat.label
-                    ? "bg-[#0A5BAE] text-white shadow-md"
-                    : "bg-slate-50 text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                <cat.icon className="h-4 w-4" />
-                {cat.label}
-              </button>
-            ))}
+            {categories.map((cat) => {
+              const IconComponent = cat.cat_id === "all" ? FaStore : getCategoryIcon(cat.cat_name);
+              const isActive = String(selectedCategoryId) === String(cat.cat_id);
+              return (
+                <button
+                  key={cat.cat_id}
+                  onClick={() => setSelectedCategoryId(cat.cat_id)}
+                  className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+                    isActive
+                      ? "bg-[#0A5BAE] text-white shadow-md"
+                      : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  <IconComponent className="h-4 w-4" />
+                  {cat.cat_name}
+                </button>
+              );
+            })}
           </div>
 
           {/* Search */}
@@ -334,7 +325,7 @@ const WaiterPos = () => {
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           <div className="mb-8 flex items-center justify-between">
             <h1 className="text-2xl font-black tracking-tight text-slate-800">
-              {selectedCategory === "All Items" ? "All Products" : selectedCategory}
+              {categories.find(c => String(c.cat_id) === String(selectedCategoryId))?.cat_name || "All Products"}
               <span className="ml-3 rounded-full bg-[#0A5BAE]/10 px-3 py-1 text-sm font-bold text-[#0A5BAE]">
                 {filteredProducts.length} Items
               </span>
