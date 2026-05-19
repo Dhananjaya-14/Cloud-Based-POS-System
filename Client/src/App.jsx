@@ -31,6 +31,8 @@ import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminStatistics from './pages/admin/AdminStatistics';
+import AdminTransactions from './pages/admin/Transactions';
+import BranchAdminTransactions from './pages/branch-admin/Transactions';
 
 // Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
 // send them to Product Management instead of showing Branch Profile.
@@ -422,6 +424,24 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}>
               <WaiterPos />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+           path="/admin/transactions"
+          element={
+            <ProtectedRoute allowedRoles={[2]}>
+              <AdminTransactions  />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+           path="/branch-admin/transactions"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2]}>
+              <BranchAdminTransactions  />
             </ProtectedRoute>
           }
         />
