@@ -60,48 +60,11 @@ function App() {
       <Route path="/register/step-1" element={<RegisterStep1 />} />
       <Route path="/register/step-2" element={<RegisterStep2 />} />
       <Route path="/register/step-3" element={<RegisterStep3 />} />
-
-      <Route
-        path="/dashboard"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminDashboard />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/super-admin/hotels"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminHotelManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/super-admin/users"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminUserManagement />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/super-admin/users/add"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminAddUser />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/super-admin/users/:id/edit"
-        element={
-          <ProtectedRoute allowedRoles={[6]}>
-            <SuperAdminUserDetails />
-          </ProtectedRoute>
-        }
-      />
-
+      <Route path="/dashboard" element={<ProtectedRoute allowedRoles={[6]}><SuperAdminDashboard /></ProtectedRoute>} />
+      <Route path="/super-admin/hotels" element={<ProtectedRoute allowedRoles={[6]}><SuperAdminHotelManagement /></ProtectedRoute>} />
+      <Route path="/super-admin/users" element={<ProtectedRoute allowedRoles={[6]}><SuperAdminUserManagement /></ProtectedRoute>} />
+      <Route path="/super-admin/users/add" element={<ProtectedRoute allowedRoles={[6]}><SuperAdminAddUser /></ProtectedRoute>} />
+      <Route path="/super-admin/users/:id/edit" element={<ProtectedRoute allowedRoles={[6]}><SuperAdminUserDetails /></ProtectedRoute>} />
       <Route path="/admin/branches" element={<ProtectedRoute allowedRoles={[2, 6]}><BranchManagement /></ProtectedRoute>} />
       <Route path="/branches" element={<ProtectedRoute allowedRoles={[2, 6]}><BranchManagement /></ProtectedRoute>} />
       <Route path="/users" element={<ProtectedRoute allowedRoles={[2, 6]}><UserManagement /></ProtectedRoute>} />
@@ -113,13 +76,11 @@ function App() {
       <Route path="/branch_profile/:branchId" element={<ProtectedRoute allowedRoles={[1, 2, 6]}><BranchProfileRouter /></ProtectedRoute>} />
       <Route path="/branch_profile" element={<ProtectedRoute allowedRoles={[1, 2, 6]}><BranchProfileRouter /></ProtectedRoute>} />
       <Route path="/branch_profile/:branchId/edit" element={<ProtectedRoute allowedRoles={[2, 6]}><BranchProfileEdit /></ProtectedRoute>} />
-
       <Route path="/admin/products" element={<ProtectedRoute allowedRoles={[2]}><AdminProductManagement /></ProtectedRoute>} />
       <Route path="/admin/products/add" element={<ProtectedRoute allowedRoles={[2]}><AdminAddProduct /></ProtectedRoute>} />
       <Route path="/admin/products/:productId" element={<ProtectedRoute allowedRoles={[2]}><AdminProductDetails /></ProtectedRoute>} />
       <Route path="/admin/products/:productId/edit" element={<ProtectedRoute allowedRoles={[2]}><AdminProductDetails /></ProtectedRoute>} />
       <Route path="/admin/products/:productId/delete" element={<ProtectedRoute allowedRoles={[2]}><AdminProductDetails /></ProtectedRoute>} />
-
       <Route path="/branch-admin/products" element={<ProtectedRoute allowedRoles={[1]}><ProductManagement /></ProtectedRoute>} />
       <Route path="/branch-admin/dashboard" element={<ProtectedRoute allowedRoles={[1]}><BranchAdminDashboard /></ProtectedRoute>} />
       <Route path="/branch-admin/products/add" element={<ProtectedRoute allowedRoles={[1]}><AddProduct /></ProtectedRoute>} />
@@ -132,7 +93,6 @@ function App() {
       <Route path="/branch-admin/cashier-performance" element={<ProtectedRoute allowedRoles={[1]}><CashierPerformance /></ProtectedRoute>} />
       <Route path="/branch-admin/suppliers" element={<ProtectedRoute allowedRoles={[1, 2]}><SupplierManagement /></ProtectedRoute>} />
       <Route path="/branch-admin/transactions" element={<ProtectedRoute allowedRoles={[1, 2]}><BranchAdminTransactions /></ProtectedRoute>} />
-
       <Route path="/kitchen/orders" element={<ProtectedRoute allowedRoles={[9, 1, 2, 3]}><KitchenManagement /></ProtectedRoute>} />
       <Route path="/cashier/dashboard" element={<ProtectedRoute allowedRoles={[3]}><CashierDashboard /></ProtectedRoute>} />
       <Route path="/cashier/pos" element={<ProtectedRoute allowedRoles={[3]}><CashierPos /></ProtectedRoute>} />
@@ -141,7 +101,6 @@ function App() {
       <Route path="/admin/statistics" element={<ProtectedRoute allowedRoles={[2]}><AdminStatistics /></ProtectedRoute>} />
       <Route path="/admin/transactions" element={<ProtectedRoute allowedRoles={[2]}><AdminTransactions /></ProtectedRoute>} />
       <Route path="/waiter/pos" element={<ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}><WaiterPos /></ProtectedRoute>} />
-
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
