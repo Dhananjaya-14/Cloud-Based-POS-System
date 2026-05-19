@@ -213,6 +213,7 @@ const Dashboard = () => {
 						<StatCard
 							title="Total Revenue"
 							value={isLoading ? "..." : formatCurrency(totalRevenue)}
+							showAction={false}
 							cardClass=""
 							cardStyle={{ backgroundColor: "#B7F5BC" }}
 							iconClass="bg-white/80 text-emerald-600 ring-1 ring-emerald-200"
@@ -221,6 +222,7 @@ const Dashboard = () => {
 						<StatCard
 							title="Total Sales"
 							value={isLoading ? "..." : String(orders.length)}
+							showAction={false}
 							cardClass=""
 							cardStyle={{ backgroundColor: "#FFC0D4" }}
 							iconClass="bg-white/80 text-pink-500 ring-1 ring-pink-200"
@@ -229,6 +231,7 @@ const Dashboard = () => {
 						<StatCard
 							title="Top Selling Item"
 							value={isLoading ? "..." : topSelling.name}
+							showAction={false}
 							cardClass=""
 							cardStyle={{ backgroundColor: "#A8E6FF" }}
 							iconClass="bg-white/80 text-sky-600 ring-1 ring-sky-200"
@@ -237,6 +240,7 @@ const Dashboard = () => {
 						<StatCard
 							title="Active Staff"
 							value={isLoading ? "..." : String(cashierUsers.length)}
+							showAction={false}
 							cardClass=""
 							cardStyle={{ backgroundColor: "#FFE7B8" }}
 							iconClass="bg-white/80 text-amber-600 ring-1 ring-amber-200"

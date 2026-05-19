@@ -4,7 +4,7 @@ import Login from './pages/Login';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
-import AdminDashboard from './pages/super-admin/Dashboard';
+import SuperAdminDashboard from './pages/super-admin/Dashboard';
 import SuperAdminHotelManagement from './pages/super-admin/HotelManagement';
 import SuperAdminUserManagement from './pages/super-admin/UserManagement';
 import SuperAdminUserDetails from './pages/super-admin/UserDetails';
@@ -29,6 +29,8 @@ import CashierPos from './pages/cashier/CashierPos';
 import InvoicePreview from './pages/cashier/InvoicePreview';
 import ProtectedRoute from './components/ProtectedRoute';
 import { useAuth } from './context/AuthContext';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminStatistics from './pages/admin/AdminStatistics';
 
 // Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
 // send them to Product Management instead of showing Branch Profile.
@@ -48,6 +50,8 @@ import BranchAdminDashboard from './pages/branch-admin/Dashboard';
 import SalesRevenue from './pages/branch-admin/SalesRevenue';
 import CashierPerformance from './pages/branch-admin/CashierPerformance';
 import KitchenManagement from './pages/kitchen/KitchenManagement';
+import RecipeMapper from './pages/branch-admin/RecipeMapper';
+import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
 import WaiterPos from './pages/waiter/WaiterPos';
 
 function App() {
@@ -63,7 +67,7 @@ function App() {
         path="/dashboard"
         element={
           <ProtectedRoute allowedRoles={[6]}>
-            <AdminDashboard />
+            <SuperAdminDashboard />
           </ProtectedRoute>
         }
       />
@@ -340,6 +344,24 @@ function App() {
         }
       />
 
+      <Route
+        path="/branch-admin/recipe-mapper"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <RecipeMapper />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/recipe-mapper/:productId"
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <RecipeMapperDetail />
+          </ProtectedRoute>
+        }
+      />
+
 
       <Route
         path="/branch-admin/suppliers"
@@ -379,6 +401,22 @@ function App() {
         />
 
         <Route
+          path="/admin/dashboard"
+          element={
+            <ProtectedRoute allowedRoles={[2]}>
+              <AdminDashboard />
+            </ProtectedRoute>
+        }
+      />
+
+        <Route
+          path="/admin/statistics"
+          element={
+            <ProtectedRoute allowedRoles={[2]}>
+              <AdminStatistics />
+            </ProtectedRoute>
+       }
+      />
           path="/waiter/pos"
           element={
             <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}>

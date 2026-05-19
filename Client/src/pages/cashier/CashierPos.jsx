@@ -100,6 +100,7 @@ const CashierPos = () => {
         setBranchId(matchedBranchId);
         setBranchName(matchedBranch?.B_name ?? "Selected branch");
 
+        const branchProductList = matchedBranchId 
         const branchProductList = matchedBranchId
           ? await getBranchProducts(matchedBranchId)
           : [];
@@ -370,6 +371,7 @@ const CashierPos = () => {
       serviceFee
     };
     setHeldOrders((prev) => [...prev, newHeldOrder]);
+    
 
     // Reset form
     setCart([]);
@@ -853,6 +855,50 @@ const CashierPos = () => {
             </div>
           </div>
         </div>
+      </main>
+
+      {/* Held Orders Modal */}
+      {showHeldOrdersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h2 className="text-xl font-bold text-slate-800">Held Orders ({heldOrders.length})</h2>
+              <button 
+                onClick={() => setShowHeldOrdersModal(false)}
+                className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-4">
+              {heldOrders.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">No held orders available.</div>
+              ) : (
+                heldOrders.map((ho) => (
+                  <div key={ho.id} className="flex justify-between items-center rounded-xl border p-4 hover:shadow-md transition">
+                    <div>
+                      <div className="font-semibold text-slate-800">Order at {ho.timestamp}</div>
+                      <div className="text-sm text-slate-500">
+                        {ho.cart.length} items • {ho.orderType} • {ho.paymentMethod}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleRemoveHeldOrder(ho.id)}
+                        className="rounded-lg bg-red-50 text-red-500 px-3 py-2 text-sm font-medium hover:bg-red-100"
+                      >
+                        Remove
+                      </button>
+                      <button
+                        onClick={() => handleResumeOrder(ho.id)}
+                        className="rounded-lg bg-[#0A5BAE] text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+                      >
+                        Resume
+                      </button>
+                    </div>
+                  </div>
+                ))
       )}
 
       {/* Waiter Orders Modal */}
