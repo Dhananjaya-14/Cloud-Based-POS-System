@@ -11,11 +11,28 @@ export const getSocket = () => {
   if (!socket) {
     socket = io(SOCKET_URL, {
       autoConnect: false,
-      transports: ["websocket"],
       auth: {
         token: localStorage.getItem("token") || null,
       },
     });
+
+    if (import.meta.env.MODE !== "production") {
+      socket.on("connect", () => {
+        console.debug("socket connected", socket.id);
+      });
+
+      socket.on("disconnect", (reason) => {
+        console.debug("socket disconnected", reason);
+      });
+
+      socket.on("connect_error", (err) => {
+        console.debug("socket connect_error", err.message || err);
+      });
+
+      socket.onAny((event, ...args) => {
+        console.debug("socket event received", event, args);
+      });
+    }
   }
 
   return socket;

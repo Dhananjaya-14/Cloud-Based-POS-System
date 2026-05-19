@@ -6,6 +6,7 @@ import BranchTable from "../../components/admin/BranchTable";
 import Button from "../../components/admin/Button";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, setAuthToken, logout } from "../../services/api";
+import { connectSocket } from "../../services/socket";
 
 const SIDEBAR_WIDTH = 240;
 const HEADER_HEIGHT = 64;
@@ -24,6 +25,35 @@ const BranchManagement = () => {
     setAuthToken(token);
     fetchBranches();
   }, [navigate]);
+
+  // Realtime branch updates (created / updated / deleted)
+  useEffect(() => {
+    const socket = connectSocket();
+
+    const handleCreated = (branch) => {
+      setBranches((prev) => [branch, ...prev]);
+    };
+
+    const handleUpdated = (branch) => {
+      setBranches((prev) => prev.map((b) => (b.B_id === branch.B_id ? branch : b)));
+    };
+
+    const handleDeleted = (payload) => {
+      const id = payload?.B_id ?? payload?.b_id ?? payload?.id ?? null;
+      if (id == null) return;
+      setBranches((prev) => prev.filter((b) => Number(b.B_id) !== Number(id)));
+    };
+
+    socket.on("branch:created", handleCreated);
+    socket.on("branch:updated", handleUpdated);
+    socket.on("branch:deleted", handleDeleted);
+
+    return () => {
+      socket.off("branch:created", handleCreated);
+      socket.off("branch:updated", handleUpdated);
+      socket.off("branch:deleted", handleDeleted);
+    };
+  }, []);
 
   const fetchBranches = async () => {
     try {

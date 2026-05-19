@@ -1,6 +1,8 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import { createServer } from "http";
+import { initializeSocket } from "./utils/socket.js";
 
 
 
@@ -138,6 +140,11 @@ app.use(errorHandler);
 // START SERVER
 // ─────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+
+// Create HTTP server and initialize Socket.IO
+const httpServer = createServer(app);
+initializeSocket(httpServer);
+
+httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
