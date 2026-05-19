@@ -310,7 +310,6 @@ export const getOrderById = async (orderId) => {
   const response = await api.get(`/orders/${orderId}`);
   return response.data?.data || null;
 };
-
 export const getPurchaseOrders = async (params = {}) => {
   const res = await api.get("/purchase-orders", { params });
   return res.data?.data ?? res.data ?? [];
@@ -342,9 +341,6 @@ export const getPayments = async (params = {}) => {
   // payment API returns { success, data, meta } where data is an array
   return res.data?.data ?? [];
 };
-
-
-
 
 
 

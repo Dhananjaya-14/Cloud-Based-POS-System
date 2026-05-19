@@ -32,8 +32,6 @@ export default function Transactions() {
       setLoading(true);
       try {
         const orderParams = { status: "completed" };
-
-        // numeric branch filter (null = no branch filter)
         const branchFilter =
           filters.branch !== "all" && filters.branch !== undefined && filters.branch !== null
             ? Number(filters.branch)
@@ -102,35 +100,33 @@ export default function Transactions() {
           };
         });
 
-let normalizedPayments = (supplierPayments || []).map((p) => {
-  const po = purchaseOrdersById[p.po_id];
+        let normalizedPayments = (supplierPayments || []).map((p) => {
+          const po = purchaseOrdersById[p.po_id];
+          const branchId = po?.b_id ?? po?.B_id ?? p.b_id ?? p.B_id ?? null;
+          const branchName =
+            po?.B_name ??
+            po?.b_name ??
+            branchById[branchId]?.B_name ??
+            p.B_name ??
+            p.b_name ??
+            null;
 
-  const branchId = po?.b_id ?? po?.B_id ?? p.b_id ?? p.B_id ?? null;
-  const branchName =
-    po?.B_name ??
-    po?.b_name ??
-    branchById[branchId]?.B_name ??
-    p.B_name ??
-    p.b_name ??
-    null;
+          return {
+            id: `pay-${p.pay_id}`,
+            type: "purchase",
+            txId: `PAY#${p.pay_id}`,
+            invoiceNo: p.po_id,
+            branchId,
+            branchLabel: branchName,
+            cashierId: p.sup_id,
+            cashierLabel: p.sup_name,
+            date: p.payment_date,
+            paymentMethod: p.method,
+            amount: Number(p.amount ?? 0),
+            raw: p,
+          };
+        });
 
-  return {
-    id: `pay-${p.pay_id}`,
-    type: "purchase",
-    txId: `PAY#${p.pay_id}`,
-    invoiceNo: p.po_id,
-    branchId,
-    branchLabel: branchName,
-    cashierId: p.sup_id,
-    cashierLabel: p.sup_name,
-    date: p.payment_date,
-    paymentMethod: p.method,
-    amount: Number(p.amount ?? 0),
-    raw: p,
-  };
-});
-
-        // Apply branch filter to purchases client-side so purchases respect the selected branch
         if (branchFilter) {
           normalizedPayments = normalizedPayments.filter(
             (p) => p.branchId !== null && Number(p.branchId) === branchFilter,
@@ -150,7 +146,7 @@ let normalizedPayments = (supplierPayments || []).map((p) => {
     };
 
     load();
-  }, [filters.branch]); // re-run when branch selection changes
+  }, [filters.branch]);
 
   const filtered = useMemo(() => {
     return transactions.filter((t) => {
@@ -226,22 +222,3 @@ let normalizedPayments = (supplierPayments || []).map((p) => {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

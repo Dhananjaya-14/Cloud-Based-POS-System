@@ -353,8 +353,8 @@ function App() {
             <ProtectedRoute allowedRoles={[2]}>
               <AdminStatistics />
             </ProtectedRoute>
-        }
-      />
+          }
+        />
 
         <Route
           path="/waiter/pos"

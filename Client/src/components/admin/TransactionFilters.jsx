@@ -130,12 +130,3 @@ export default function TransactionFilters({ filters, setFilters }) {
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
