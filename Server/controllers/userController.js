@@ -11,7 +11,10 @@ async function hashPassword(password) {
 export async function getUsers(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT u_id, u_fname, u_lname, u_email, u_connumber, role_id FROM "User" ORDER BY u_id'
+      `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber, u.role_id, r.role_name, u.u_status 
+       FROM "User" u
+       LEFT JOIN "Role" r ON u.role_id = r.role_id
+       ORDER BY u.u_id`
     );
     res.json(result.rows);
   } catch (err) {
@@ -24,7 +27,10 @@ export async function getUserById(req, res, next) {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      'SELECT u_id, u_fname, u_lname, u_email, u_connumber, role_id FROM "User" WHERE u_id = $1',
+      `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber, u.role_id, r.role_name, u.u_status 
+       FROM "User" u
+       LEFT JOIN "Role" r ON u.role_id = r.role_id
+       WHERE u.u_id = $1`,
       [id]
     );
 
@@ -43,7 +49,7 @@ export async function getUserById(req, res, next) {
 // POST /api/users
 export async function createUser(req, res, next) {
   try {
-    const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id } = req.body;
+    const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
 
     if (!u_fname || !u_lname || !u_email || !u_pw) {
       res.status(400);
@@ -63,9 +69,9 @@ export async function createUser(req, res, next) {
     const hashedPassword = await hashPassword(u_pw);
 
     const insertQuery = `
-      INSERT INTO "User" (u_fname, u_lname, u_email, u_pw, u_connumber, role_id)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id
+      INSERT INTO "User" (u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status
     `;
 
     const params = [
@@ -75,6 +81,7 @@ export async function createUser(req, res, next) {
       hashedPassword,
       u_connumber || null,
       role_id || null,
+      u_status ?? true,
     ];
 
     const result = await pool.query(insertQuery, params);
@@ -90,7 +97,7 @@ export async function createUser(req, res, next) {
 export async function updateUser(req, res, next) {
   try {
     const { id } = req.params;
-    const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id } = req.body;
+    const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
 
     // Ensure user exists
     const existingUser = await pool.query(
@@ -115,9 +122,10 @@ export async function updateUser(req, res, next) {
         u_email = COALESCE($3, u_email),
         u_pw = COALESCE($4, u_pw),
         u_connumber = COALESCE($5, u_connumber),
-        role_id = COALESCE($6, role_id)
-      WHERE u_id = $7
-      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id
+        role_id = COALESCE($6, role_id),
+        u_status = COALESCE($7, u_status)
+      WHERE u_id = $8
+      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status
     `;
 
     const params = [
@@ -127,6 +135,7 @@ export async function updateUser(req, res, next) {
       hashedPassword,
       u_connumber ?? null,
       role_id ?? null,
+      u_status ?? null,
       id,
     ];
 
