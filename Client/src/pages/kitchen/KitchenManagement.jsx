@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaList, FaSearch, FaThLarge, FaClock } from "react-icons/fa";
+import { FaSearch, FaClock } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -57,7 +57,6 @@ const KitchenManagement = () => {
 	const [orders, setOrders] = useState([]);
 	const [orderItems, setOrderItems] = useState([]);
 	const [branchProducts, setBranchProducts] = useState([]);
-	const [viewMode, setViewMode] = useState("grid");
 	const [searchTerm, setSearchTerm] = useState("");
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
@@ -171,6 +170,144 @@ const KitchenManagement = () => {
 		};
 	}, [orders]);
 
+	const sortedOrders = useMemo(() => {
+		const toTimestamp = (order) => {
+			const dateValue = order?.or_date || order?.created_at || order?.createdAt || null;
+			const timeValue = order?.or_time || "";
+
+			if (dateValue) {
+				const dateOnly = String(dateValue).split("T")[0];
+				if (timeValue) {
+					const combined = new Date(`${dateOnly}T${timeValue}`);
+					if (!Number.isNaN(combined.getTime())) return combined.getTime();
+				}
+
+				const parsed = new Date(dateValue);
+				if (!Number.isNaN(parsed.getTime())) return parsed.getTime();
+			}
+
+			return 0;
+		};
+
+		return [...filteredOrders].sort((a, b) => {
+			const delta = toTimestamp(b) - toTimestamp(a);
+			if (delta !== 0) return delta;
+			return Number(b?.or_id || 0) - Number(a?.or_id || 0);
+		});
+	}, [filteredOrders]);
+
+	const pendingOrders = useMemo(
+		() => sortedOrders.filter((order) => order.or_status === "pending"),
+		[sortedOrders],
+	);
+
+	const acceptedOrders = useMemo(
+		() =>
+			sortedOrders.filter(
+				(order) => order.or_status === "preparing" || order.or_status === "completed",
+			),
+		[sortedOrders],
+	);
+
+	const rejectedOrders = useMemo(
+		() => sortedOrders.filter((order) => order.or_status === "cancelled"),
+		[sortedOrders],
+	);
+
+	const renderOrderCard = (order) => {
+		const statusLabel = getStatusLabel(order);
+		const tagStyle = statusPalette[statusLabel] || statusPalette.Pending;
+		const isPending = order.or_status === "pending";
+		const isPreparing = order.or_status === "preparing";
+
+		return (
+			<div
+				key={order.or_id}
+				className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4"
+			>
+				<div className="flex flex-col gap-3">
+					<div className="flex flex-wrap items-center justify-between gap-3">
+						<div>
+							<div className="text-sm font-semibold text-slate-900">
+								ORD{String(order.or_id).padStart(5, "0")}
+							</div>
+							<div className="text-[11px] text-slate-500">
+								{order.or_type || "Dine in"} | {order.or_time || "--:--"}
+							</div>
+						</div>
+
+						<div className="flex items-center gap-2">
+							<span
+								className={`px-2 py-1 rounded-full text-[10px] font-semibold border ${tagStyle}`}
+							>
+								{statusLabel}
+							</span>
+							<span className="text-[10px] text-slate-400 flex items-center gap-1">
+								<FaClock />
+								<span>{order.or_time || "--:--"}</span>
+							</span>
+						</div>
+					</div>
+
+					<div className="flex flex-col gap-2">
+						{renderOrderItems(order.or_id)}
+					</div>
+
+					<div className="flex flex-wrap items-center gap-2">
+						{isPending && (
+							<>
+								<button
+									onClick={() => updateStatus(order.or_id, "preparing")}
+									disabled={updatingOrderId === order.or_id}
+									className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold cursor-pointer"
+								>
+									Accept
+								</button>
+								<button
+									onClick={() => updateStatus(order.or_id, "cancelled")}
+									disabled={updatingOrderId === order.or_id}
+									className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold cursor-pointer"
+								>
+									Decline
+								</button>
+							</>
+						)}
+
+						{isPreparing && (
+							<button
+								onClick={() => updateStatus(order.or_id, "completed")}
+								disabled={updatingOrderId === order.or_id}
+								className="px-4 py-1.5 rounded-lg border border-emerald-200 bg-emerald-500 text-white text-xs font-semibold cursor-pointer"
+							>
+								Ready
+							</button>
+						)}
+					</div>
+				</div>
+			</div>
+		);
+	};
+
+	const renderOrderColumn = (title, ordersInColumn) => {
+		return (
+			<div className="flex flex-col gap-3">
+				<div className="flex items-center justify-between">
+					<h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
+						{title}
+					</h2>
+					<span className="text-xs text-slate-400">
+						{ordersInColumn.length}
+					</span>
+				</div>
+				{ordersInColumn.length ? (
+					ordersInColumn.map(renderOrderCard)
+				) : (
+					<div className="text-sm text-slate-500">No orders</div>
+				)}
+			</div>
+		);
+	};
+
 	const updateStatus = async (orderId, nextStatus) => {
 		if (!orderId || updatingOrderId) return;
 		setUpdatingOrderId(orderId);
@@ -249,7 +386,7 @@ const KitchenManagement = () => {
 			<CashierHeader />
 
 			<main className="flex-1">
-				<div className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+				<div className="max-w-none mx-0 px-4 sm:px-6 py-6">
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
 						<div>
 							<h1 className="text-xl sm:text-2xl font-semibold text-slate-900">
@@ -260,19 +397,7 @@ const KitchenManagement = () => {
 							</p>
 						</div>
 
-						<div className="flex items-center gap-2">
-							<button
-								onClick={() => setViewMode("grid")}
-								className={`px-3 py-2 rounded-lg border text-xs font-medium flex items-center gap-2 ${
-									viewMode === "grid"
-										? "bg-white border-slate-200 text-slate-900"
-										: "border-slate-200 text-slate-500 bg-slate-50"
-								}`}
-							>
-								<FaThLarge /> Grid
-							</button>
-							
-						</div>
+						<div className="flex items-center gap-2" />
 					</div>
 
 					<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
@@ -315,91 +440,10 @@ const KitchenManagement = () => {
 					{loading ? (
 						<div className="text-sm text-slate-500">Loading orders...</div>
 					) : (
-						<div
-							className={
-								viewMode === "grid"
-									? "grid grid-cols-1 lg:grid-cols-2 gap-4"
-									: "flex flex-col gap-4"
-							}
-						>
-							{filteredOrders.map((order) => {
-								const statusLabel = getStatusLabel(order);
-								const tagStyle = statusPalette[statusLabel] || statusPalette.Pending;
-								const isPending = order.or_status === "pending";
-								const isPreparing = order.or_status === "preparing";
-
-								return (
-									<div
-										key={order.or_id}
-										className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4"
-									>
-										<div className="flex flex-col gap-3">
-											<div className="flex flex-wrap items-center justify-between gap-3">
-												<div>
-													<div className="text-sm font-semibold text-slate-900">
-														ORD{String(order.or_id).padStart(5, "0")}
-													</div>
-													<div className="text-[11px] text-slate-500">
-														{order.or_type || "Dine in"} | {order.or_time || "--:--"}
-													</div>
-												</div>
-
-												<div className="flex items-center gap-2">
-													<span
-														className={`px-2 py-1 rounded-full text-[10px] font-semibold border ${tagStyle}`}
-													>
-														{statusLabel}
-													</span>
-													<span className="text-[10px] text-slate-400 flex items-center gap-1">
-														<FaClock />
-														<span>{order.or_time || "--:--"}</span>
-													</span>
-												</div>
-											</div>
-
-											<div className="flex flex-col gap-2">
-												{renderOrderItems(order.or_id)}
-											</div>
-
-											<div className="flex flex-wrap items-center gap-2">
-												{isPending && (
-													<>
-														<button
-															onClick={() => updateStatus(order.or_id, "preparing")}
-															disabled={updatingOrderId === order.or_id}
-															className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold cursor-pointer"
-														>
-															Accept
-														</button>
-														<button
-															onClick={() => updateStatus(order.or_id, "cancelled")}
-															disabled={updatingOrderId === order.or_id}
-															className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold cursor-pointer"
-														>
-															Decline
-														</button>
-													</>
-												)}
-
-												{isPreparing && (
-													<button
-														onClick={() => updateStatus(order.or_id, "completed")}
-														disabled={updatingOrderId === order.or_id}
-														className="px-4 py-1.5 rounded-lg border border-emerald-200 bg-emerald-500 text-white text-xs font-semibold cursor-pointer"
-													>
-														Ready
-													</button>
-												)}
-
-											</div>
-										</div>
-									</div>
-								);
-							})}
-
-							{!filteredOrders.length && (
-								<div className="text-sm text-slate-500">No orders found.</div>
-							)}
+						<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+							{renderOrderColumn("Received orders", pendingOrders)}
+							{renderOrderColumn("Accepted orders", acceptedOrders)}
+							{renderOrderColumn("Rejected orders", rejectedOrders)}
 						</div>
 					)}
 				</div>
