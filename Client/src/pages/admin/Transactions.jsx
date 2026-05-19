@@ -4,13 +4,7 @@ import Sidebar from "../../components/admin/Sidebar";
 import TransactionFilters from "../../components/admin/TransactionFilters";
 import TransactionTable from "../../components/admin/TransactionTable";
 import TransactionDetailsModal from "../../components/admin/TransactionDetailsModal";
-import {
-  getOrders,
-  getSupplierPayments,
-  getPayments,
-  getPurchaseOrders,
-  getBranches,
-} from "../../services/api";
+import { getBranches, getOrders, getPayments, getPurchaseOrders, getSupplierPayments } from "../../services/api";
 
 export default function Transactions() {
   const [filters, setFilters] = useState({
@@ -21,7 +15,6 @@ export default function Transactions() {
     dateTo: null,
     tab: "all",
   });
-
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -32,114 +25,103 @@ export default function Transactions() {
       setLoading(true);
       try {
         const orderParams = { status: "completed" };
-        const branchFilter =
-          filters.branch !== "all" && filters.branch !== undefined && filters.branch !== null
-            ? Number(filters.branch)
-            : null;
+        const branchFilter = filters.branch !== "all" && filters.branch != null ? Number(filters.branch) : null;
 
-        if (branchFilter) {
+        if (branchFilter !== null) {
           orderParams.b_id = branchFilter;
         }
 
-        const [sales, paymentsList, supplierPayments, purchaseOrders, branches] =
-          await Promise.all([
-            getOrders(orderParams).catch(() => []),
-            getPayments().catch(() => []),
-            getSupplierPayments().catch(() => []),
-            getPurchaseOrders().catch(() => []),
-            getBranches().catch(() => []),
-          ]);
+        const [sales, paymentsList, supplierPayments, purchaseOrders, branches] = await Promise.all([
+          getOrders(orderParams).catch(() => []),
+          getPayments().catch(() => []),
+          getSupplierPayments().catch(() => []),
+          getPurchaseOrders().catch(() => []),
+          getBranches().catch(() => []),
+        ]);
 
         const paymentsByOrder = {};
-        (paymentsList || []).forEach((p) => {
-          const oid = p.or_id;
-          if (!oid) return;
-          const existing = paymentsByOrder[oid];
-          const curDate = p.pay_date ? new Date(p.pay_date) : new Date();
-          const existingDate =
-            existing && existing.pay_date ? new Date(existing.pay_date) : null;
-          if (!existing || (existingDate && curDate > existingDate) || !existingDate) {
-            paymentsByOrder[oid] = p;
+        (paymentsList || []).forEach((payment) => {
+          const orderId = payment.or_id;
+          if (!orderId) return;
+
+          const existing = paymentsByOrder[orderId];
+          const currentDate = payment.pay_date ? new Date(payment.pay_date) : new Date();
+          const existingDate = existing?.pay_date ? new Date(existing.pay_date) : null;
+
+          if (!existing || !existingDate || currentDate > existingDate) {
+            paymentsByOrder[orderId] = payment;
           }
         });
 
         const purchaseOrdersById = {};
-        (purchaseOrders || []).forEach((po) => {
-          if (po && po.po_id !== undefined && po.po_id !== null) {
-            purchaseOrdersById[po.po_id] = po;
+        (purchaseOrders || []).forEach((purchaseOrder) => {
+          if (purchaseOrder?.po_id != null) {
+            purchaseOrdersById[purchaseOrder.po_id] = purchaseOrder;
           }
         });
 
         const branchById = {};
-        (branches || []).forEach((b) => {
-          if (b && (b.B_id !== undefined && b.B_id !== null)) {
-            branchById[b.B_id] = b;
+        (branches || []).forEach((branch) => {
+          if (branch?.B_id != null) {
+            branchById[branch.B_id] = branch;
           }
         });
 
-        const normalizedSales = (sales || []).map((o) => {
-          const pay = paymentsByOrder[o.or_id];
-          const payMethod = pay?.pay_method ?? pay?.method ?? null;
-          const branchName =
-            branchById[o.b_id]?.B_name ?? o.B_name ?? o.b_name ?? null;
+        const normalizedSales = (sales || []).map((order) => {
+          const payment = paymentsByOrder[order.or_id];
+          const paymentMethod = payment?.pay_method ?? payment?.method ?? order.or_paymentmethod ?? "Cash";
+          const branchName = branchById[order.b_id]?.B_name ?? order.B_name ?? order.b_name ?? null;
 
           return {
-            id: `sale-${o.or_id}`,
+            id: `sale-${order.or_id}`,
             type: "sale",
-            txId: `POS#${o.or_id}`,
-            invoiceNo: o.or_id,
-            branchId: o.b_id,
+            txId: `POS#${order.or_id}`,
+            invoiceNo: order.or_id,
+            branchId: order.b_id,
             branchLabel: branchName,
-            cashierId: o.u_id,
-            cashierLabel: o.u_name ?? null,
-            date: o.or_date ?? o.or_time ?? o.created_at,
-            paymentMethod:
-              payMethod ? String(payMethod) : (o.or_paymentmethod ?? null) ?? "Cash",
-            amount: Number(o.or_totalCostWtax ?? o.or_totalcost ?? 0),
-            raw: o,
+            cashierId: order.u_id,
+            cashierLabel: order.u_name ?? null,
+            date: order.or_date ?? order.or_time ?? order.created_at,
+            paymentMethod: String(paymentMethod),
+            amount: Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0),
+            raw: order,
           };
         });
 
-        let normalizedPayments = (supplierPayments || []).map((p) => {
-          const po = purchaseOrdersById[p.po_id];
-          const branchId = po?.b_id ?? po?.B_id ?? p.b_id ?? p.B_id ?? null;
+        let normalizedPayments = (supplierPayments || []).map((payment) => {
+          const purchaseOrder = purchaseOrdersById[payment.po_id];
+          const branchId = purchaseOrder?.b_id ?? purchaseOrder?.B_id ?? payment.b_id ?? payment.B_id ?? null;
           const branchName =
-            po?.B_name ??
-            po?.b_name ??
+            purchaseOrder?.B_name ??
+            purchaseOrder?.b_name ??
             branchById[branchId]?.B_name ??
-            p.B_name ??
-            p.b_name ??
+            payment.B_name ??
+            payment.b_name ??
             null;
 
           return {
-            id: `pay-${p.pay_id}`,
+            id: `pay-${payment.pay_id}`,
             type: "purchase",
-            txId: `PAY#${p.pay_id}`,
-            invoiceNo: p.po_id,
+            txId: `PAY#${payment.pay_id}`,
+            invoiceNo: payment.po_id,
             branchId,
             branchLabel: branchName,
-            cashierId: p.sup_id,
-            cashierLabel: p.sup_name,
-            date: p.payment_date,
-            paymentMethod: p.method,
-            amount: Number(p.amount ?? 0),
-            raw: p,
+            cashierId: payment.sup_id,
+            cashierLabel: payment.sup_name,
+            date: payment.payment_date,
+            paymentMethod: payment.method,
+            amount: Number(payment.amount ?? 0),
+            raw: payment,
           };
         });
 
-        if (branchFilter) {
-          normalizedPayments = normalizedPayments.filter(
-            (p) => p.branchId !== null && Number(p.branchId) === branchFilter,
-          );
+        if (branchFilter !== null) {
+          normalizedPayments = normalizedPayments.filter((payment) => payment.branchId != null && Number(payment.branchId) === branchFilter);
         }
 
-        setTransactions(
-          [...normalizedSales, ...normalizedPayments].sort(
-            (a, b) => new Date(b.date) - new Date(a.date),
-          ),
-        );
-      } catch (err) {
-        console.error("Ledger engine compilation error:", err);
+        setTransactions([...normalizedSales, ...normalizedPayments].sort((a, b) => new Date(b.date) - new Date(a.date)));
+      } catch (error) {
+        console.error("Ledger engine compilation error:", error);
       } finally {
         setLoading(false);
       }
@@ -149,32 +131,32 @@ export default function Transactions() {
   }, [filters.branch]);
 
   const filtered = useMemo(() => {
-    return transactions.filter((t) => {
-      if (filters.tab === "income" && t.type !== "sale") return false;
-      if (filters.tab === "expense" && t.type !== "purchase") return false;
+    return transactions.filter((transaction) => {
+      if (filters.tab === "income" && transaction.type !== "sale") return false;
+      if (filters.tab === "expense" && transaction.type !== "purchase") return false;
 
       if (filters.method !== "all" && filters.method !== "") {
-        const targetMethod = String(t.paymentMethod || "").toLowerCase();
+        const targetMethod = String(transaction.paymentMethod || "").toLowerCase();
         if (targetMethod !== String(filters.method).toLowerCase()) return false;
       }
 
       if (filters.search.trim()) {
-        const s = filters.search.toLowerCase();
+        const search = filters.search.toLowerCase();
         const matches =
-          String(t.txId || "").toLowerCase().includes(s) ||
-          String(t.invoiceNo || "").toLowerCase().includes(s) ||
-          String(t.branchLabel || "").toLowerCase().includes(s) ||
-          String(t.cashierLabel || "").toLowerCase().includes(s);
+          String(transaction.txId || "").toLowerCase().includes(search) ||
+          String(transaction.invoiceNo || "").toLowerCase().includes(search) ||
+          String(transaction.branchLabel || "").toLowerCase().includes(search) ||
+          String(transaction.cashierLabel || "").toLowerCase().includes(search);
+
         if (!matches) return false;
       }
 
-      if (filters.dateFrom && t.date) {
-        if (new Date(t.date) < new Date(filters.dateFrom)) return false;
-      }
-      if (filters.dateTo && t.date) {
+      if (filters.dateFrom && transaction.date && new Date(transaction.date) < new Date(filters.dateFrom)) return false;
+
+      if (filters.dateTo && transaction.date) {
         const boundaryDate = new Date(filters.dateTo);
         boundaryDate.setHours(23, 59, 59, 999);
-        if (new Date(t.date) > boundaryDate) return false;
+        if (new Date(transaction.date) > boundaryDate) return false;
       }
 
       return true;
@@ -184,10 +166,8 @@ export default function Transactions() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased">
       <Sidebar />
-
       <div className="flex flex-1 flex-col overflow-hidden" style={{ marginLeft: 240 }}>
         <Header title="Transaction Details" />
-
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="mx-auto max-w-7xl space-y-6">
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
@@ -199,19 +179,14 @@ export default function Transactions() {
 
             <TransactionFilters filters={filters} setFilters={setFilters} />
 
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
               {!loading && filtered.length === 0 && filters.branch !== "all" ? (
                 <div className="p-20 text-center">
                   <p className="text-base font-medium text-slate-600">No transaction history in this branch.</p>
-                  <p className="text-xs text-slate-400 mt-1">Try selecting a different date range or clearing the branch filter.</p>
+                  <p className="mt-1 text-xs text-slate-400">Try selecting a different date range or clearing the branch filter.</p>
                 </div>
               ) : (
-                <TransactionTable
-                  data={filtered}
-                  loading={loading}
-                  pageSize={pageSize}
-                  onView={(item) => setSelected(item)}
-                />
+                <TransactionTable data={filtered} loading={loading} pageSize={pageSize} onView={(item) => setSelected(item)} />
               )}
             </div>
           </div>
@@ -222,3 +197,18 @@ export default function Transactions() {
     </div>
   );
 }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
