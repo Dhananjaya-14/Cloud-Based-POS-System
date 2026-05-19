@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import LoginLayout from "../components/register/LoginLayout";
@@ -6,12 +6,24 @@ import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [u_email, setEmail] = useState("");
   const [u_pw, setPw] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (user) {
+      const roleId = Number(user.role_id);
+      if (roleId === 6) navigate("/dashboard");
+      else if (roleId === 2) navigate("/branches");
+      else if (roleId === 1) navigate("/branch-admin/products");
+      else if (roleId === 3) navigate("/cashier/dashboard");
+      else if (roleId === 8) navigate("/waiter/pos");
+      else if (roleId === 9) navigate("/kitchen/orders");
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -25,6 +37,8 @@ const Login = () => {
       else if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
       else if (roleId === 1) navigate("/branch-admin/products");
       else if (roleId === 3) navigate("/cashier/dashboard");
+      else if (roleId === 8) navigate("/waiter/pos"); // waiter -> Waiter POS
+      else if (roleId === 9) navigate("/kitchen/orders"); // kitchen -> KitchenManagement
       else navigate("/"); // fallback
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Login failed");
