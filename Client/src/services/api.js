@@ -92,9 +92,21 @@ export const getProducts = async () => {
 };
 
 export const getBranchProducts = async (branchId) => {
-  const url = branchId ? `/branch_products?B_id=${branchId}` : `/branch_products`;
-  const response = await api.get(url);
-  return response.data;
+  const response = await api.get("/branch_products", {
+    params: {
+      ...(branchId ? { B_id: branchId } : {}),
+      _ts: Date.now(),
+    },
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
 };
 
 export const createBranchProduct = async (branchProductData) => {

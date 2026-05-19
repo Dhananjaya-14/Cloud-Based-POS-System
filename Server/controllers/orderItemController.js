@@ -56,7 +56,7 @@ async function fetchOrder(order_id) {
  */
 async function fetchBranchProduct(Bpro_id) {
   const { rows } = await pool.query(
-    `SELECT "Bpro_id", pro_name, "Pro_Price"
+    `SELECT "Bpro_id", pro_name, " Pro_Price" AS "Pro_Price"
      FROM public."Branch_Product"
      WHERE "Bpro_id" = $1`,
     [Bpro_id],
@@ -116,7 +116,7 @@ export const getOrderItemsByOrderId = async (req, res) => {
          oi.total_price,
          oi.order_id,
          bp.pro_name,
-         bp."Pro_Price" AS branch_price
+         bp." Pro_Price" AS branch_price
        FROM public."ORDER_ITEM" oi
        LEFT JOIN public."Branch_Product" bp
          ON bp."Bpro_id" = oi."Bpro_id"

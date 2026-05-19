@@ -370,6 +370,7 @@ const CashierPos = () => {
       serviceFee
     };
     setHeldOrders((prev) => [...prev, newHeldOrder]);
+    
 
     // Reset form
     setCart([]);
@@ -813,14 +814,14 @@ const CashierPos = () => {
           <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
               <h2 className="text-xl font-bold text-slate-800">Held Orders ({heldOrders.length})</h2>
-              <button
+              <button 
                 onClick={() => setShowHeldOrdersModal(false)}
                 className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
               >
                 ✕
               </button>
             </div>
-
+            
             <div className="flex flex-col gap-4">
               {heldOrders.length === 0 ? (
                 <div className="text-center py-6 text-slate-500">No held orders available.</div>

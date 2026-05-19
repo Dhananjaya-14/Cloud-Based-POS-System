@@ -19,11 +19,7 @@ const Login = () => {
     setLoading(true);
     try {
       const data = await login({ u_email, u_pw }); // { token, user }
-      const roleId = data.user?.role_id;
-      // map role ids to routes (adjust role numbers and routes to your app)
-      if (roleId === 2) navigate("/admin/dashboard"); // admin -> BranchManagement
-      else if (roleId === 1) navigate("/branch-admin/dashboard");
-      
+      const roleId = Number(data.user?.role_id);
       // map role ids to routes
       if (roleId === 6) navigate("/dashboard"); // super admin -> Dashboard overview
       else if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
@@ -421,6 +417,10 @@ export default Login;
 // // const socialCircle = { width: '38px', height: '38px', backgroundColor: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0072ff', fontSize: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1px solid #eee', cursor: 'pointer' };
 
 // // export default Login;
+
+
+
+
 
 
 
