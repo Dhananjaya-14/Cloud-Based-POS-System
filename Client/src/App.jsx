@@ -63,7 +63,6 @@ function App() {
       <Route path="/register/step-3" element={<RegisterStep3 />} />
 
       <Route
-        path="/admin/branches"
         path="/dashboard"
         element={
           <ProtectedRoute allowedRoles={[6]}>
