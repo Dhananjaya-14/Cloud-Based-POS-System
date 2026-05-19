@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login as apiLogin, setAuthToken, getCurrentUser } from "../services/api";
+import { connectSocket, disconnectSocket } from "../services/socket";
 
 const AuthContext = createContext();
 export const useAuth = () => useContext(AuthContext);
@@ -12,6 +13,15 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     if (token) setAuthToken(token);
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) {
+      disconnectSocket();
+      return;
+    }
+
+    connectSocket();
   }, [token]);
 
   const login = async (credentials) => {
@@ -29,6 +39,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     setAuthToken(null);
+    disconnectSocket();
     localStorage.removeItem("user");
     localStorage.removeItem("token");
     navigate("/login");

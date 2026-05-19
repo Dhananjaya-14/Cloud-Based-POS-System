@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { BRANCH_SOCKET_ROOM, emitSocketEvent } from "../utils/socket.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9\s\-().]{7,20}$/;
@@ -111,6 +112,15 @@ export async function createBranch(req, res, next) {
       ],
     );
 
+    // Emit realtime event for other admin clients
+    try {
+      emitSocketEvent("branch:created", result.rows[0], {
+        room: BRANCH_SOCKET_ROOM,
+      });
+    } catch (e) {
+      console.error("Failed to emit branch:created", e);
+    }
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     if (err?.code === "23505") {
@@ -213,6 +223,14 @@ export async function updateBranch(req, res, next) {
       ],
     );
 
+    try {
+      emitSocketEvent("branch:updated", result.rows[0], {
+        room: BRANCH_SOCKET_ROOM,
+      });
+    } catch (e) {
+      console.error("Failed to emit branch:updated", e);
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     if (err?.code === "23505") {
@@ -253,6 +271,15 @@ export async function deleteBranch(req, res, next) {
       throw new Error(
         "Branch not found. It may have been removed or never existed.",
       );
+    }
+
+    // Emit deletion event
+    try {
+      emitSocketEvent("branch:deleted", { B_id: Number(id) }, {
+        room: BRANCH_SOCKET_ROOM,
+      });
+    } catch (e) {
+      console.error("Failed to emit branch:deleted", e);
     }
 
     res.status(204).send();
