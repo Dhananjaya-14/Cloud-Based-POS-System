@@ -45,6 +45,38 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
 
 async function ensureWaiterAssignedToTable(waiterId, tableId) {
   const today = getTodayStr();
+  
+  // Check if waiter has any assignments today
+  const anyAssigns = await pool.query(
+    `SELECT assign_id FROM "TABLE_ASSIGNMENT" WHERE u_id = $1 AND assigned_date = $2 LIMIT 1`,
+    [waiterId, today]
+  );
+
+  // If no assignments are configured for today, authorize table if it belongs to their branch
+  if (anyAssigns.rows.length === 0) {
+    const tableRes = await pool.query(
+      `SELECT branch_id FROM "TABLES" WHERE table_id = $1`,
+      [tableId]
+    );
+    if (tableRes.rows.length === 0) return false;
+    const tableBranchId = tableRes.rows[0].branch_id;
+
+    const branchRes = await pool.query(
+      `SELECT t.branch_id
+       FROM "TABLE_ASSIGNMENT" ta
+       JOIN "TABLES" t ON ta.table_id = t.table_id
+       WHERE ta.u_id = $1
+       LIMIT 1`,
+      [waiterId]
+    );
+    let waiterBranchId = branchRes.rows[0]?.branch_id;
+    if (!waiterBranchId) {
+      const defaultBranch = await pool.query('SELECT "B_id" AS branch_id FROM "Branch" LIMIT 1');
+      waiterBranchId = defaultBranch.rows[0]?.branch_id;
+    }
+    return tableBranchId === waiterBranchId;
+  }
+
   const { rows } = await pool.query(
     `SELECT assign_id
      FROM "TABLE_ASSIGNMENT"
@@ -183,7 +215,48 @@ export async function getMyTables(req, res, next) {
       values,
     );
 
-    res.json({ success: true, count: rows.length, data: rows });
+    if (rows.length > 0) {
+      return res.json({ success: true, count: rows.length, data: rows });
+    }
+
+    // Fallback: If no assignments today, get all tables in their branch
+    const branchRes = await pool.query(
+      `SELECT t.branch_id, b."B_name" AS branch_name
+       FROM "TABLE_ASSIGNMENT" ta
+       JOIN "TABLES" t ON ta.table_id = t.table_id
+       JOIN "Branch" b ON b."B_id" = t.branch_id
+       WHERE ta.u_id = $1
+       LIMIT 1`,
+      [userId],
+    );
+    let branchId = branchRes.rows[0]?.branch_id;
+    if (!branchId) {
+      const defaultBranch = await pool.query(
+        'SELECT "B_id" AS branch_id, "B_name" AS b_name FROM "Branch" LIMIT 1'
+      );
+      branchId = defaultBranch.rows[0]?.branch_id;
+    }
+
+    if (!branchId) {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+
+    const allBranchTables = await pool.query(
+      `SELECT
+         t.table_id,
+         t.table_number,
+         t.table_capacity,
+         t.table_status,
+         t.branch_id,
+         b."B_name" AS branch_name
+       FROM "TABLES" t
+       LEFT JOIN "Branch" b ON b."B_id" = t.branch_id
+       WHERE t.branch_id = $1
+       ORDER BY t.table_number`,
+      [branchId]
+    );
+
+    res.json({ success: true, count: allBranchTables.rows.length, data: allBranchTables.rows });
   } catch (err) {
     next(err);
   }

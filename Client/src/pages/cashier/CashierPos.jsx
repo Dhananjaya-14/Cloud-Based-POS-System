@@ -820,7 +820,7 @@ const CashierPos = () => {
                 ✕
               </button>
             </div>
-
+            
             <div className="flex flex-col gap-4">
               {heldOrders.length === 0 ? (
                 <div className="text-center py-6 text-slate-500">No held orders available.</div>

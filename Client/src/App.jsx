@@ -359,9 +359,17 @@ function App() {
             <ProtectedRoute allowedRoles={[2]}>
               <AdminStatistics />
             </ProtectedRoute>
-       }
+        }
       />
 
+        <Route
+          path="/waiter/pos"
+          element={
+            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}>
+              <WaiterPos />
+            </ProtectedRoute>
+          }
+        />
       <Route path="*" element={<Navigate to="/" />} />
       
     </Routes>
