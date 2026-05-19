@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
-import Header from "../../components/admin/Header";
-import Sidebar from "../../components/admin/Sidebar";
-import TransactionFilters from "../../components/admin/TransactionFilters";
+import Header from "../../components/branch-admin/Header";
+import Sidebar from "../../components/branch-admin/Sidebar";
+import TransactionFilters from "../../components/branch-admin/TransactionFilters";
 import TransactionTable from "../../components/admin/TransactionTable";
 import TransactionDetailsModal from "../../components/admin/TransactionDetailsModal";
 import {
@@ -11,16 +11,18 @@ import {
   getPurchaseOrders,
   getBranches,
 } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 export default function Transactions() {
   const [filters, setFilters] = useState({
     search: "",
-    branch: "all",
     method: "all",
     dateFrom: null,
     dateTo: null,
     tab: "all",
   });
+
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
@@ -33,15 +35,12 @@ export default function Transactions() {
       try {
         const orderParams = { status: "completed" };
 
-        // numeric branch filter (null = no branch filter)
-        const branchFilter =
-          filters.branch !== "all" && filters.branch !== undefined && filters.branch !== null
-            ? Number(filters.branch)
-            : null;
+        // Branch filter: branch-admin must only see their branch.
+        const branchFromUser = user?.b_id ?? user?.B_id ?? user?.branchId ?? null;
+        const isBranchAdmin = user?.role_id === 1;
+        const branchFilter = isBranchAdmin ? branchFromUser : null;
 
-        if (branchFilter) {
-          orderParams.b_id = branchFilter;
-        }
+        if (branchFilter) orderParams.b_id = branchFilter;
 
         const [sales, paymentsList, supplierPayments, purchaseOrders, branches] =
           await Promise.all([
@@ -102,38 +101,39 @@ export default function Transactions() {
           };
         });
 
-let normalizedPayments = (supplierPayments || []).map((p) => {
-  const po = purchaseOrdersById[p.po_id];
+        let normalizedPayments = (supplierPayments || []).map((p) => {
+          const po = purchaseOrdersById[p.po_id];
 
-  const branchId = po?.b_id ?? po?.B_id ?? p.b_id ?? p.B_id ?? null;
-  const branchName =
-    po?.B_name ??
-    po?.b_name ??
-    branchById[branchId]?.B_name ??
-    p.B_name ??
-    p.b_name ??
-    null;
+          // branchId may be stored as b_id or B_id in different endpoints
+          const branchId = po?.b_id ?? po?.B_id ?? p.b_id ?? p.B_id ?? null;
+          const branchName =
+            po?.B_name ??
+            po?.b_name ??
+            branchById[branchId]?.B_name ??
+            p.B_name ??
+            p.b_name ??
+            null;
 
-  return {
-    id: `pay-${p.pay_id}`,
-    type: "purchase",
-    txId: `PAY#${p.pay_id}`,
-    invoiceNo: p.po_id,
-    branchId,
-    branchLabel: branchName,
-    cashierId: p.sup_id,
-    cashierLabel: p.sup_name,
-    date: p.payment_date,
-    paymentMethod: p.method,
-    amount: Number(p.amount ?? 0),
-    raw: p,
-  };
-});
+          return {
+            id: `pay-${p.pay_id}`,
+            type: "purchase",
+            txId: `PAY#${p.pay_id}`,
+            invoiceNo: p.po_id,
+            branchId,
+            branchLabel: branchName,
+            cashierId: p.sup_id,
+            cashierLabel: p.sup_name,
+            date: p.payment_date,
+            paymentMethod: p.method,
+            amount: Number(p.amount ?? 0),
+            raw: p,
+          };
+        });
 
-        // Apply branch filter to purchases client-side so purchases respect the selected branch
+        // If branch-admin, apply branch filter to purchases too
         if (branchFilter) {
           normalizedPayments = normalizedPayments.filter(
-            (p) => p.branchId !== null && Number(p.branchId) === branchFilter,
+            (p) => p.branchId !== null && Number(p.branchId) === Number(branchFilter),
           );
         }
 
@@ -150,7 +150,7 @@ let normalizedPayments = (supplierPayments || []).map((p) => {
     };
 
     load();
-  }, [filters.branch]); // re-run when branch selection changes
+  }, [filters, user]);
 
   const filtered = useMemo(() => {
     return transactions.filter((t) => {
@@ -197,17 +197,17 @@ let normalizedPayments = (supplierPayments || []).map((p) => {
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
               <div>
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Financial Ledger</h1>
-                <p className="text-sm text-slate-500">Audit, inspect, and trace global multi-branch transactions and payments.</p>
+                <p className="text-sm text-slate-500">Audit, inspect, and trace branch transactions.</p>
               </div>
             </div>
 
             <TransactionFilters filters={filters} setFilters={setFilters} />
 
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              {!loading && filtered.length === 0 && filters.branch !== "all" ? (
+              {!loading && filtered.length === 0 ? (
                 <div className="p-20 text-center">
-                  <p className="text-base font-medium text-slate-600">No transaction history in this branch.</p>
-                  <p className="text-xs text-slate-400 mt-1">Try selecting a different date range or clearing the branch filter.</p>
+                  <p className="text-base font-medium text-slate-600">No transaction history for this branch.</p>
+                  <p className="text-xs text-slate-400 mt-1">Try a different date range or clearing filters.</p>
                 </div>
               ) : (
                 <TransactionTable
@@ -226,6 +226,8 @@ let normalizedPayments = (supplierPayments || []).map((p) => {
     </div>
   );
 }
+
+
 
 
 

@@ -1,28 +1,10 @@
-import React, { useEffect, useState } from "react";
-import { getBranches } from "../../services/api";
+import React from "react";
 
 export default function TransactionFilters({ filters, setFilters }) {
-  const [branches, setBranches] = useState([]);
-
-  useEffect(() => {
-    let isMounted = true;
-    (async () => {
-      try {
-        const b = await getBranches();
-        if (isMounted) setBranches(b || []);
-      } catch {
-        if (isMounted) setBranches([]);
-      }
-    })();
-    return () => { isMounted = false; };
-  }, []);
-
   const update = (patch) => setFilters((prev) => ({ ...prev, ...patch }));
 
   return (
     <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      
-      {/* Top Filter Bar: Global Text Search + Segmented Tab Box */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
         <div className="relative flex-1">
           <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
@@ -34,12 +16,11 @@ export default function TransactionFilters({ filters, setFilters }) {
             type="text"
             value={filters.search}
             onChange={(e) => update({ search: e.target.value })}
-            placeholder="Search by Transaction ID, Invoice No., Branch location, or Personnel..."
+            placeholder="Search by Transaction ID, Invoice No. or Personnel..."
             className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm transition-colors placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
           />
         </div>
 
-        {/* Directional Cash Flow Segment Controls */}
         <div className="inline-flex h-11 items-center rounded-lg bg-slate-100 p-1 self-start lg:self-auto">
           <button
             onClick={() => update({ tab: "all" })}
@@ -68,29 +49,7 @@ export default function TransactionFilters({ filters, setFilters }) {
         </div>
       </div>
 
-      {/* Bottom Filter Bar: Dropdowns & Chronological Pickers */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4 pt-3 border-t border-slate-100">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Branch Node</label>
-          <select
-            value={filters.branch}
-            onChange={(e) => {
-              const v = e.target.value;
-              update({ branch: v === "all" ? "all" : Number(v) });
-            }}
-            className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-          >
-            <option value="all">All Branches</option>
-            {branches.map((b) => {
-              const id = b.b_id ?? b.B_id ?? b.bId;
-              const name = b.B_name ?? b.b_name ?? b.name ?? `Branch #${id}`;
-              return (
-                <option key={id} value={id}>{name}</option>
-              );
-            })}
-          </select>
-        </div>
-
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 pt-3 border-t border-slate-100">
         <div className="flex flex-col gap-1.5">
           <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Payment Channel</label>
           <select
@@ -130,6 +89,12 @@ export default function TransactionFilters({ filters, setFilters }) {
     </div>
   );
 }
+
+
+
+
+
+
 
 
 
