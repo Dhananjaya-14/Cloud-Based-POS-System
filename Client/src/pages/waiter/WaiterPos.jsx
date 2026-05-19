@@ -1,0 +1,542 @@
+import React, { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  FaBed,
+  FaDesktop,
+  FaMinus,
+  FaPlus,
+  FaSearch,
+  FaShoppingCart,
+  FaSignOutAlt,
+  FaStore,
+  FaTrashAlt,
+  FaUtensils,
+  FaUserCircle,
+  FaWineGlassAlt,
+  FaClipboardList,
+  FaCoffee,
+} from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
+import {
+  getWaiterProfile,
+  getWaiterTables,
+  getBranchProducts,
+  createWaiterOrder,
+  createOrderItem,
+} from "../../services/api";
+
+const categories = [
+  { label: "All Items", icon: FaStore, active: true },
+  { label: "Bar", icon: FaWineGlassAlt },
+  { label: "Restaurant", icon: FaUtensils },
+  { label: "Room Service", icon: FaBed },
+  { label: "Front Desk", icon: FaDesktop },
+];
+
+const WaiterPos = () => {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  
+  const [branchName, setBranchName] = useState("Loading...");
+  const [branchId, setBranchId] = useState(null);
+  const [roleName, setRoleName] = useState("Waiter");
+  const [products, setProducts] = useState([]);
+  const [tables, setTables] = useState([]);
+  const [selectedTableId, setSelectedTableId] = useState("");
+  
+  const [cart, setCart] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("All Items");
+  
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  
+  // Tax calculations
+  const [taxRate, setTaxRate] = useState(10); // Example Tax
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const profile = await getWaiterProfile();
+      if (profile && profile.data) {
+        setBranchName(profile.data.b_name || "Assigned Branch");
+        setBranchId(profile.data.branch_id);
+        if (profile.data.role_name) {
+          setRoleName(profile.data.role_name);
+        }
+        
+        const branchProductList = await getBranchProducts(profile.data.branch_id || "");
+        setProducts(branchProductList || []);
+      }
+
+      const tablesRes = await getWaiterTables();
+      if (tablesRes && tablesRes.data) {
+        setTables(tablesRes.data);
+      }
+
+    } catch (err) {
+      console.error("Error loading POS data:", err);
+      setError("Failed to load data. Please refresh or contact admin.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, [user]);
+
+  const filteredProducts = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+
+    return products.filter((product) => {
+      const name = String(product.pro_name ?? "").toLowerCase();
+      const description = String(product.pro_des ?? "").toLowerCase();
+      const shortName = String(product.pro_shortname ?? "").toLowerCase();
+
+      const matchesSearch =
+        !term || [name, description, shortName].some((value) => value.includes(term));
+
+      const categoryName = (() => {
+        const source = `${name} ${description}`;
+        if (
+          source.includes("bar") ||
+          source.includes("beer") ||
+          source.includes("wine") ||
+          source.includes("whiskey") ||
+          source.includes("cocktail")
+        ) {
+          return "Bar";
+        }
+        if (
+          source.includes("room") ||
+          source.includes("suite") ||
+          source.includes("laundry") ||
+          source.includes("checkout") ||
+          source.includes("parking")
+        ) {
+          return "Room Service";
+        }
+        if (
+          source.includes("coffee") ||
+          source.includes("steak") ||
+          source.includes("salad") ||
+          source.includes("pasta") ||
+          source.includes("sandwich") ||
+          source.includes("breakfast") ||
+          source.includes("seafood")
+        ) {
+          return "Restaurant";
+        }
+        return "Front Desk";
+      })();
+
+      const matchesCategory =
+        selectedCategory === "All Items" || categoryName === selectedCategory;
+
+      return matchesSearch && matchesCategory;
+    });
+  }, [products, searchTerm, selectedCategory]);
+
+  const taxableBase = useMemo(() => {
+    return cart.reduce((sum, item) => sum + item.unitPrice * item.qty, 0);
+  }, [cart]);
+
+  const taxAmount = (taxableBase * taxRate) / 100;
+  const total = taxableBase + taxAmount;
+
+  const addToCart = (product) => {
+    setCart((currentCart) => {
+      const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
+      if (existing) {
+        return currentCart.map((item) =>
+          item.Bpro_id === product.Bpro_id
+            ? { ...item, qty: item.qty + 1 }
+            : item
+        );
+      }
+      return [
+        ...currentCart,
+        {
+          Bpro_id: product.Bpro_id,
+          pro_name: product.pro_name,
+          unitPrice: Number(product.pro_price || product[" Pro_Price"] || 0),
+          qty: 1,
+        },
+      ];
+    });
+  };
+
+  const updateQuantity = (Bpro_id, delta) => {
+    setCart((currentCart) =>
+      currentCart
+        .map((item) =>
+          item.Bpro_id === Bpro_id ? { ...item, qty: item.qty + delta } : item
+        )
+        .filter((item) => item.qty > 0)
+    );
+  };
+
+  const removeFromCart = (Bpro_id) => {
+    setCart((currentCart) => currentCart.filter((item) => item.Bpro_id !== Bpro_id));
+  };
+
+  const handlePlaceOrder = async () => {
+    if (!cart.length) return;
+    if (!selectedTableId) {
+      setError("Please select a table to place the order.");
+      return;
+    }
+    
+    try {
+      setSubmitting(true);
+      setError("");
+
+      // Create main waiter order
+      const orderPayload = {
+        table_id: selectedTableId,
+        or_tax: taxRate,
+        or_totalcost: Number(taxableBase.toFixed(2)),
+        or_totalCostWtax: Number(total.toFixed(2)),
+      };
+
+      const orderRes = await createWaiterOrder(orderPayload);
+      if (!orderRes.success) throw new Error(orderRes.error || "Failed to create order");
+      
+      const orderId = orderRes.data.or_id || orderRes.data.order_id || orderRes.data.id; 
+
+      if (!orderId) {
+        throw new Error("Created order ID is missing");
+      }
+
+      // Add order items
+      await Promise.all(
+        cart.map((item) =>
+          createOrderItem({
+            Bpro_id: item.Bpro_id,
+            pro_quantity: item.qty,
+            unit_price: item.unitPrice,
+            order_id: orderId,
+          })
+        )
+      );
+
+      setCart([]);
+      setSelectedTableId("");
+      alert("Order placed successfully!");
+      
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.error || err.message || "Failed to place order.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#55C24A]"></div>
+          <p className="font-medium text-slate-600">Loading Waiter System...</p>
+        </div>
+      </div>
+    );
+  }
+
+  
+    return (
+      <div className="flex h-screen flex-col overflow-hidden bg-slate-50 font-sans text-slate-800">
+        {/* Top Header */}
+        <header className="border-b border-black/5 bg-gradient-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)] flex-none">
+          <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white text-[#0A5BAE] shadow-sm">
+                <FaStore className="h-5 w-5" />
+              </div>
+              <div className="leading-tight">
+                <div className="text-[15px] font-semibold tracking-wide">Hotel POS</div>
+                <div className="text-[11px] text-white/80">Point of Sale System</div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/15 px-3 py-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#0A5BAE]">
+                  <FaUserCircle className="h-5 w-5" />
+                </div>
+                <div className="hidden sm:block">
+                  <div className="text-[11px] font-semibold leading-none text-left">
+                    {user?.u_fname || "Waiter"} {user?.u_lname || ""}
+                  </div>
+                  <div className="mt-0.5 text-[11px] text-left text-white/80">{roleName} • {branchName}</div>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80"
+              >
+                <FaSignOutAlt className="h-3.5 w-3.5" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </header>
+
+        {/* Main Workspace */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Main Content Area */}
+          <main className="flex flex-1 flex-col overflow-hidden">
+
+        {/* Topbar */}
+        <header className="flex h-[80px] shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8 shadow-sm">
+          {/* Categories */}
+          <div className="no-scrollbar flex w-full max-w-[60%] flex-nowrap items-center gap-2 overflow-x-auto lg:max-w-[70%]">
+            {categories.map((cat) => (
+              <button
+                key={cat.label}
+                onClick={() => setSelectedCategory(cat.label)}
+                className={`flex shrink-0 items-center gap-2 rounded-full px-5 py-2.5 text-sm font-semibold transition-all ${
+                  selectedCategory === cat.label
+                    ? "bg-[#0A5BAE] text-white shadow-md"
+                    : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                <cat.icon className="h-4 w-4" />
+                {cat.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Search */}
+          <div className="relative flex w-full max-w-[280px] items-center shrink-0">
+            <FaSearch className="absolute left-4 z-10 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full rounded-full border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm outline-none transition-all focus:border-[#0A5BAE] focus:bg-white focus:ring-4 focus:ring-blue-500/10"
+            />
+          </div>
+        </header>
+
+        {/* Product Grid Area */}
+        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+          <div className="mb-8 flex items-center justify-between">
+            <h1 className="text-2xl font-black tracking-tight text-slate-800">
+              {selectedCategory === "All Items" ? "All Products" : selectedCategory}
+              <span className="ml-3 rounded-full bg-[#0A5BAE]/10 px-3 py-1 text-sm font-bold text-[#0A5BAE]">
+                {filteredProducts.length} Items
+              </span>
+            </h1>
+          </div>
+
+          {filteredProducts.length > 0 ? (
+            <div className="grid grid-cols-2 gap-4 pb-20 sm:grid-cols-3 md:gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+              {filteredProducts.map((p) => {
+                const price = Number(p.pro_price || p[" Pro_Price"] || p.Pro_Price || 0);
+                return (
+                  <div
+                    key={p.Bpro_id}
+                    onClick={() => addToCart(p)}
+                    className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:-translate-y-1 hover:border-[#0A5BAE]/30 hover:shadow-xl md:p-4"
+                  >
+                    <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-xl bg-slate-50">
+                      {p.pro_image ? (
+                        <img
+                          src={`http://localhost:5000/images/${p.pro_image}`}
+                          alt={p.pro_name}
+                          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://via.placeholder.com/150?text=No+Image";
+                          }}
+                        />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center bg-slate-100/50">
+                          <FaCoffee className="h-10 w-10 text-slate-300 transition-transform group-hover:scale-110 group-hover:text-[#0A5BAE]/40" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-auto">
+                      <h3 className="line-clamp-2 text-sm font-bold leading-tight text-slate-700">
+                        {p.pro_name}
+                      </h3>
+                      <div className="mt-2 flex items-center justify-between">
+                        <span className="text-base font-black text-[#55C24A]">
+                          ${price.toFixed(2)}
+                        </span>
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition-colors group-hover:bg-[#0A5BAE] group-hover:text-white">
+                          <FaPlus className="h-3 w-3" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="flex h-[400px] flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-white/50">
+              <div className="mb-4 rounded-full bg-slate-100 p-6 text-slate-300">
+                <FaStore className="h-12 w-12" />
+              </div>
+              <p className="text-lg font-bold text-slate-500">No products found</p>
+              <p className="mt-1 text-sm text-slate-400">
+                Try adjusting your search or category filter.
+              </p>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* Cart Sidebar */}
+      <aside className="flex flex-col border-l border-slate-200 bg-white shrink-0 w-full sm:w-[320px] md:w-[350px] lg:w-[380px]">
+        {/* Header */}
+        <div className="flex flex-col gap-4 border-b border-slate-100 p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-800">Assign Table</h2>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+              <FaClipboardList className="h-4 w-4" />
+            </div>
+          </div>
+          
+          <select
+            value={selectedTableId}
+            onChange={(e) => setSelectedTableId(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-[#0A5BAE] focus:ring-2 focus:ring-[#0A5BAE]/20"
+          >
+            <option value="" disabled>Select a table...</option>
+            {tables.map(t => (
+              <option key={t.table_id} value={t.table_id}>
+                Table {t.table_id} - {t.table_name || t.table_no || "Dine in"}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Cart Listing */}
+        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4">
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          {cart.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center text-center opacity-60">
+              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
+                <FaShoppingCart className="h-8 w-8 text-slate-400" />
+              </div>
+              <p className="text-sm font-bold text-slate-600">Order is empty</p>
+              <p className="mt-1 text-xs text-slate-400">
+                Add products from the menu to get started
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {cart.map((item) => (
+                <div
+                  key={item.Bpro_id}
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <h4 className="line-clamp-2 text-sm font-bold leading-snug text-slate-800">
+                        {item.pro_name}
+                      </h4>
+                      <p className="mt-1 text-sm font-black text-[#0A5BAE]">
+                        ${item.unitPrice.toFixed(2)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeFromCart(item.Bpro_id)}
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-500 hover:text-white"
+                    >
+                      <FaTrashAlt className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t border-slate-50 pt-3">
+                    <p className="text-sm font-bold text-slate-700">
+                      ${(item.unitPrice * item.qty).toFixed(2)}
+                    </p>
+                    <div className="flex items-center gap-3 rounded-full bg-slate-100 p-1">
+                      <button
+                        onClick={() => updateQuantity(item.Bpro_id, -1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition-hover hover:bg-slate-200"
+                      >
+                        <FaMinus className="h-3 w-3" />
+                      </button>
+                      <span className="w-4 text-center text-sm font-bold tabular-nums text-slate-800">
+                        {item.qty}
+                      </span>
+                      <button
+                        onClick={() => updateQuantity(item.Bpro_id, 1)}
+                        className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0A5BAE] text-white shadow-sm transition-hover hover:bg-[#094f96]"
+                      >
+                        <FaPlus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Math & Checkout */}
+        <div className="border-t border-slate-200 bg-white p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-10">
+          <div className="space-y-3 border-b border-slate-100 pb-5 text-sm">
+            <div className="flex justify-between">
+              <span className="font-semibold text-slate-500">Subtotal</span>
+              <span className="font-bold text-slate-800 tabular-nums">
+                ${taxableBase.toFixed(2)}
+              </span>
+            </div>
+            <div className="flex justify-between text-[#0A5BAE]">
+              <span className="font-semibold">Tax ({taxRate}%)</span>
+              <span className="font-bold tabular-nums">${taxAmount.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="font-semibold text-slate-500">Items/Qty</span>
+              <span className="font-bold text-slate-800 tabular-nums">
+                {cart.length} / {cart.reduce((s, i) => s + i.qty, 0)}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-end justify-between py-5">
+            <span className="text-sm font-black uppercase tracking-wider text-slate-400">
+              Total
+            </span>
+            <span className="text-3xl font-black tracking-tight text-slate-800 tabular-nums">
+              ${total.toFixed(2)}
+            </span>
+          </div>
+
+          <button
+            onClick={handlePlaceOrder}
+            disabled={submitting || cart.length === 0 || !selectedTableId}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#55C24A] px-6 py-4 text-base font-bold text-white shadow-[0_8px_24px_rgba(85,194,74,0.25)] transition-all hover:bg-[#49b03f] hover:shadow-[0_12px_32px_rgba(85,194,74,0.35)] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+          >
+            <FaShoppingCart className="h-5 w-5" />
+            {submitting ? "Placing Order..." : "Send to Kitchen"}
+          </button>
+        </div>
+      </aside>
+        </div>
+      </div>
+    );
+};
+
+export default WaiterPos;

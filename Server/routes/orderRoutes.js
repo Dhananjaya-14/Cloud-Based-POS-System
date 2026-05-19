@@ -45,8 +45,8 @@ const canUpdateOrderStatus = requireRole(
 
 // Edit Orders
 const canEditOrder = requireRole(
-  [ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-  "Branch Admin or Admin",
+  [ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
+  "Cashier, Branch Admin or Admin",
 );
 
 // Delete Orders

@@ -373,4 +373,3 @@ export async function deleteBranchProduct(req, res, next) {
     next(err);
   }
 }
-
