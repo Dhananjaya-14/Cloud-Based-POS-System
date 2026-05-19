@@ -301,6 +301,45 @@ export const getBranchComparison = async () => {
 };
 
 
+// --- Transactions / purchases helpers (append these) ---
+export const getOrderById = async (orderId) => {
+  const response = await api.get(`/orders/${orderId}`);
+  return response.data?.data || null;
+};
+
+export const getPurchaseOrders = async (params = {}) => {
+  const res = await api.get("/purchase-orders", { params });
+  return res.data?.data ?? res.data ?? [];
+};
+
+export const getPurchaseOrderById = async (id) => {
+  const res = await api.get(`/purchase-orders/${id}`);
+  return res.data || null;
+};
+
+export const getPurchaseItemsByOrder = async (orderId) => {
+  const res = await api.get(`/purchase-items/order/${orderId}`);
+  return res.data || [];
+};
+
+export const getSupplierPayments = async (params = {}) => {
+  const res = await api.get("/supplier-payments", { params });
+  return res.data || [];
+};
+
+export const getPaymentsByOrder = async (poId) => {
+  const res = await api.get(`/supplier-payments/order/${poId}`);
+  return res.data || [];
+};
+
+// Payments helper
+export const getPayments = async (params = {}) => {
+  const res = await api.get("/payments", { params });
+  // payment API returns { success, data, meta } where data is an array
+  return res.data?.data ?? [];
+};
+
+
 
 
 
