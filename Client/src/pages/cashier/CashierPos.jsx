@@ -70,7 +70,7 @@ const CashierPos = () => {
       setLoadingWaiterOrders(true);
       const allOrders = await getOrders();
       const activeDineIn = allOrders.filter(
-        (o) => o.or_type === "dine-in" && o.or_status !== "completed" && o.or_status !== "cancelled" && o.or_status !== "paid"
+        (o) => o.or_type === "dine-in" && o.or_status !== "cancelled"
       );
       setWaiterOrders(activeDineIn);
     } catch (err) {

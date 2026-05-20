@@ -408,7 +408,12 @@ export const updateOrder = async (req, res) => {
     }
 
     // ── Block editing terminal orders (completed / cancelled) ──
-    if (currentStatus === "completed" || currentStatus === "cancelled") {
+    const isCashier = req.user?.role_id === ROLES.CASHIER;
+    const isStatusUnchanged = or_status === currentStatus;
+    if (
+      currentStatus === "cancelled" ||
+      (currentStatus === "completed" && !(isCashier && isStatusUnchanged))
+    ) {
       return res.status(400).json({
         success: false,
         error: `Cannot edit a "${currentStatus}" order`,
