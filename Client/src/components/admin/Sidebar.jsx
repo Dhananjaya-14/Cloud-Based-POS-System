@@ -72,7 +72,7 @@ const Sidebar = () => {
           {menuItem(<FaBox />, "Products", "/admin/products")}
           {menuItem(<FaUsers />, "User Management", "/users")}
           {menuItem(<FaChartBar />, "Statistics", "/admin/statistics")}
-          {menuItem(<FaMoneyBill />, "Transactions", "/transactions")}
+          {menuItem(<FaMoneyBill />, "Transactions", "/admin/transactions")}
         </div>
       </div>
 

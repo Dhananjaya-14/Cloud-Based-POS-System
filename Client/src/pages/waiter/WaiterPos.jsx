@@ -19,7 +19,6 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import {
   getWaiterProfile,
-  getWaiterTables,
   getBranchProducts,
   createWaiterOrder,
   createOrderItem,
@@ -48,11 +47,8 @@ const WaiterPos = () => {
   const { user, logout } = useAuth();
   
   const [branchName, setBranchName] = useState("Loading...");
-  const [branchId, setBranchId] = useState(null);
   const [roleName, setRoleName] = useState("Waiter");
   const [products, setProducts] = useState([]);
-  const [tables, setTables] = useState([]);
-  const [selectedTableId, setSelectedTableId] = useState("");
   
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -74,30 +70,22 @@ const WaiterPos = () => {
       setError("");
 
       const profile = await getWaiterProfile();
-      if (profile && profile.data) {
-        setBranchName(profile.data.b_name || "Assigned Branch");
-        setBranchId(profile.data.branch_id);
-        if (profile.data.role_name) {
-          setRoleName(profile.data.role_name);
+      const profileData = profile?.data ?? null;
+
+      if (profileData) {
+        setBranchName(profileData.b_name || "Assigned Branch");
+        if (profileData.role_name) {
+          setRoleName(profileData.role_name);
         }
-        
-        const branchProductList = await getBranchProducts(profile.data.branch_id || "");
-        setProducts(branchProductList || []);
       }
 
-      const tablesRes = await getWaiterTables();
-      if (tablesRes && tablesRes.data) {
-        setTables(tablesRes.data);
-      }
+      const branchProductList = await getBranchProducts();
+      setProducts(Array.isArray(branchProductList) ? branchProductList : []);
 
       const catsRes = await getCategories();
       if (catsRes) {
-        setCategories([
-          { cat_id: "all", cat_name: "All Items" },
-          ...catsRes
-        ]);
+        setCategories([{ cat_id: "all", cat_name: "All Items" }, ...catsRes]);
       }
-
     } catch (err) {
       console.error("Error loading POS data:", err);
       setError("Failed to load data. Please refresh or contact admin.");
@@ -173,18 +161,12 @@ const WaiterPos = () => {
 
   const handlePlaceOrder = async () => {
     if (!cart.length) return;
-    if (!selectedTableId) {
-      setError("Please select a table to place the order.");
-      return;
-    }
-    
     try {
       setSubmitting(true);
       setError("");
 
       // Create main waiter order
       const orderPayload = {
-        table_id: selectedTableId,
         or_tax: taxRate,
         or_totalcost: Number(taxableBase.toFixed(2)),
         or_totalCostWtax: Number(total.toFixed(2)),
@@ -212,7 +194,6 @@ const WaiterPos = () => {
       );
 
       setCart([]);
-      setSelectedTableId("");
       alert("Order placed successfully!");
       
     } catch (err) {
@@ -395,24 +376,11 @@ const WaiterPos = () => {
         {/* Header */}
         <div className="flex flex-col gap-4 border-b border-slate-100 p-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-slate-800">Assign Table</h2>
+            <h2 className="text-xl font-black text-slate-800">Order Summary</h2>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500">
               <FaClipboardList className="h-4 w-4" />
             </div>
           </div>
-          
-          <select
-            value={selectedTableId}
-            onChange={(e) => setSelectedTableId(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold outline-none focus:border-[#0A5BAE] focus:ring-2 focus:ring-[#0A5BAE]/20"
-          >
-            <option value="" disabled>Select a table...</option>
-            {tables.map(t => (
-              <option key={t.table_id} value={t.table_id}>
-                Table {t.table_id} - {t.table_name || t.table_no || "Dine in"}
-              </option>
-            ))}
-          </select>
         </div>
 
         {/* Cart Listing */}
@@ -517,7 +485,7 @@ const WaiterPos = () => {
 
           <button
             onClick={handlePlaceOrder}
-            disabled={submitting || cart.length === 0 || !selectedTableId}
+            disabled={submitting || cart.length === 0}
             className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#55C24A] px-6 py-4 text-base font-bold text-white shadow-[0_8px_24px_rgba(85,194,74,0.25)] transition-all hover:bg-[#49b03f] hover:shadow-[0_12px_32px_rgba(85,194,74,0.35)] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
           >
             <FaShoppingCart className="h-5 w-5" />

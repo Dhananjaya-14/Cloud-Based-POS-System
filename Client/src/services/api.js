@@ -92,9 +92,21 @@ export const getProducts = async () => {
 };
 
 export const getBranchProducts = async (branchId) => {
-  const url = branchId ? `/branch_products?B_id=${branchId}` : `/branch_products`;
-  const response = await api.get(url);
-  return response.data;
+  const response = await api.get("/branch_products", {
+    params: {
+      ...(branchId ? { B_id: branchId } : {}),
+      _ts: Date.now(),
+    },
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
 };
 
 export const createBranchProduct = async (branchProductData) => {
@@ -338,6 +350,45 @@ export const getStatsBusyDays = async (params = {}) => {
 export const getBranchComparison = async () => {
   const res = await api.get("/stats/branches/compare");
   return res.data;
+};
+
+
+// --- Transactions / purchases helpers (append these) ---
+export const getOrderById = async (orderId) => {
+  const response = await api.get(`/orders/${orderId}`);
+  return response.data?.data || null;
+};
+
+export const getPurchaseOrders = async (params = {}) => {
+  const res = await api.get("/purchase-orders", { params });
+  return res.data?.data ?? res.data ?? [];
+};
+
+export const getPurchaseOrderById = async (id) => {
+  const res = await api.get(`/purchase-orders/${id}`);
+  return res.data || null;
+};
+
+export const getPurchaseItemsByOrder = async (orderId) => {
+  const res = await api.get(`/purchase-items/order/${orderId}`);
+  return res.data || [];
+};
+
+export const getSupplierPayments = async (params = {}) => {
+  const res = await api.get("/supplier-payments", { params });
+  return res.data || [];
+};
+
+export const getPaymentsByOrder = async (poId) => {
+  const res = await api.get(`/supplier-payments/order/${poId}`);
+  return res.data || [];
+};
+
+// Payments helper
+export const getPayments = async (params = {}) => {
+  const res = await api.get("/payments", { params });
+  // payment API returns { success, data, meta } where data is an array
+  return res.data?.data ?? [];
 };
 
 

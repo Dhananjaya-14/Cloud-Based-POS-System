@@ -43,6 +43,26 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
   return null;
 }
 
+async function resolveWaiterBranchId(waiterId) {
+  const assigned = await pool.query(
+    `SELECT t.branch_id
+     FROM "TABLE_ASSIGNMENT" ta
+     JOIN "TABLES" t ON ta.table_id = t.table_id
+     WHERE ta.u_id = $1
+     ORDER BY ta.assigned_date DESC
+     LIMIT 1`,
+    [waiterId],
+  );
+
+  if (assigned.rows.length > 0) return assigned.rows[0].branch_id;
+
+  const fallback = await pool.query(
+    'SELECT "B_id" AS branch_id FROM "Branch" LIMIT 1',
+  );
+
+  return fallback.rows[0]?.branch_id ?? null;
+}
+
 async function ensureWaiterAssignedToTable(waiterId, tableId) {
   const today = getTodayStr();
   
@@ -317,38 +337,49 @@ export async function createWaiterOrder(req, res, next) {
       or_totalCostWtax,
     } = req.body;
 
-    if (!table_id || or_totalcost === undefined || or_totalCostWtax === undefined) {
+    if (or_totalcost === undefined || or_totalCostWtax === undefined) {
       res.status(400);
       return next(
-        new Error("table_id, or_totalcost and or_totalCostWtax are required"),
+        new Error("or_totalcost and or_totalCostWtax are required"),
       );
     }
 
-    const tableIdInt = parsePositiveInt(table_id, "table_id");
+    const tableIdInt = table_id ? parsePositiveInt(table_id, "table_id") : null;
     const costError = validateCosts(or_tax, or_totalcost, or_totalCostWtax);
     if (costError) {
       res.status(400);
       return next(new Error(costError));
     }
 
-    const table = await pool.query(
-      `SELECT table_id, branch_id, table_status
-       FROM "TABLES"
-       WHERE table_id = $1`,
-      [tableIdInt],
-    );
-    if (!table.rows.length) {
-      res.status(404);
-      return next(new Error("Table not found"));
-    }
+    let branchId = null;
+    if (tableIdInt) {
+      const table = await pool.query(
+        `SELECT table_id, branch_id, table_status
+         FROM "TABLES"
+         WHERE table_id = $1`,
+        [tableIdInt],
+      );
+      if (!table.rows.length) {
+        res.status(404);
+        return next(new Error("Table not found"));
+      }
 
-    if (req.user.role_id === ROLES.WAITER) {
-      const isAssigned = await ensureWaiterAssignedToTable(waiterId, tableIdInt);
-      if (!isAssigned) {
-        res.status(403);
-        return next(
-          new Error("You can only create orders for tables assigned to you today"),
-        );
+      if (req.user.role_id === ROLES.WAITER) {
+        const isAssigned = await ensureWaiterAssignedToTable(waiterId, tableIdInt);
+        if (!isAssigned) {
+          res.status(403);
+          return next(
+            new Error("You can only create orders for tables assigned to you today"),
+          );
+        }
+      }
+
+      branchId = table.rows[0].branch_id;
+    } else {
+      branchId = await resolveWaiterBranchId(waiterId);
+      if (!branchId) {
+        res.status(400);
+        return next(new Error("Unable to resolve branch for waiter"));
       }
     }
 
@@ -368,17 +399,19 @@ export async function createWaiterOrder(req, res, next) {
           parseFloat(or_totalCostWtax),
           cust_id ?? null,
           waiterId,
-          table.rows[0].branch_id,
+          branchId,
           tableIdInt,
         ],
       );
 
-      await client.query(
-        `UPDATE "TABLES"
-         SET table_status = 'occupied'
-         WHERE table_id = $1 AND table_status <> 'occupied'`,
-        [tableIdInt],
-      );
+      if (tableIdInt) {
+        await client.query(
+          `UPDATE "TABLES"
+           SET table_status = 'occupied'
+           WHERE table_id = $1 AND table_status <> 'occupied'`,
+          [tableIdInt],
+        );
+      }
 
       await client.query("COMMIT");
       res.status(201).json({ success: true, data: orderResult.rows[0] });
