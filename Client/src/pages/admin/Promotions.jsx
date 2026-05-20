@@ -1,0 +1,423 @@
+import React, { useState } from 'react';
+import Sidebar from '../../components/admin/Sidebar';
+import Header from '../../components/admin/Header';
+import Button from '../../components/admin/Button';
+
+const menuCategories = [
+  {
+    name: 'Burgers',
+    items: [
+      { id: 1, name: 'Classic Burger', description: 'Juicy beef patty with lettuce, tomato, and special sauce', price: '12.99', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=100' },
+      { id: 2, name: 'Cheese Burger', description: 'Classic burger with melted cheddar cheese', price: '14.89', image: 'https://images.unsplash.com/photo-1550317138-10000687a72b?w=100' },
+      { id: 3, name: 'Chicken Burger', description: 'Grilled chicken fillet with mayo and lettuce', price: '13.99', image: 'https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=100' },
+    ],
+  },
+  {
+    name: 'Salads',
+    items: [
+      { id: 4, name: 'Caesar Salad', description: 'Romaine lettuce, parmesan, croutons, and Caesar dressing', price: '9.99', image: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?w=100' },
+      { id: 5, name: 'Greek Salad', description: 'Fresh vegetables with feta cheese and olives', price: '10.99', image: 'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?w=100' },
+    ],
+  },
+  {
+    name: 'Sides',
+    items: [
+      { id: 6, name: 'French Fries', description: 'Crispy golden fries', price: '4.99', image: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=100' },
+      { id: 7, name: 'Onion Rings', description: 'Crispy battered onion rings', price: '5.99', image: 'https://images.unsplash.com/photo-1639024471283-03518883512d?w=100' },
+    ],
+  },
+  {
+    name: 'Drinks',
+    items: [
+      { id: 8, name: 'Coca Cola', description: 'Classic refreshing cola', price: '2.99', image: 'https://images.unsplash.com/photo-1554866585-cd94860890b7?w=100' },
+      { id: 9, name: 'Iced Tea', description: 'Fresh brewed iced tea with lemon', price: '3.49', image: 'https://images.unsplash.com/photo-1499638673689-79a0b5115d87?w=100' },
+    ],
+  },
+];
+
+const Promotions = () => {
+  const [view, setView] = useState('list');
+  const [promotions, setPromotions] = useState([]);
+
+  return (
+    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f5f6fa' }}>
+      <Sidebar />
+      <div style={{ marginLeft: '240px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Header title="Promotions" />
+        <div style={{ padding: '30px' }}>
+          {view === 'list' ? (
+            <PromotionsList
+              promotions={promotions}
+              onAddClick={() => setView('create')}
+            />
+          ) : (
+            <CreatePromotion
+              onBack={() => setView('list')}
+              onSubmit={(data) => {
+                setPromotions([...promotions, { ...data, id: Date.now() }]);
+                setView('list');
+              }}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Screen 1 & 2 — Promotions List ───────────────────────────────────────────
+const PromotionsList = ({ promotions, onAddClick }) => (
+  <div>
+    {/* Page title row */}
+    <div style={{
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '24px'
+    }}>
+      <div>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#1a1a2e', margin: 0 }}>
+          Promotional Offers
+        </h2>
+        <p style={{ color: '#888', margin: '4px 0 0', fontSize: '14px' }}>
+          Manage your restaurant's promotions
+        </p>
+      </div>
+
+      {/* ✅ Using existing Button component */}
+      <Button
+        label="+ Add promotion"
+        onClick={onAddClick}
+      />
+    </div>
+
+    {/* Empty state — Screen 1 */}
+    {promotions.length === 0 ? (
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '80px 20px',
+        textAlign: 'center',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+      }}>
+        <div style={{ fontSize: '40px', color: '#ccc', marginBottom: '16px' }}>+</div>
+        <h3 style={{ color: '#333', fontSize: '20px', marginBottom: '8px' }}>
+          No promotions yet
+        </h3>
+        <p style={{ color: '#999', fontSize: '14px', marginBottom: '24px' }}>
+          Create your first promotion to get started
+        </p>
+
+        {/* ✅ Using existing Button component */}
+        <Button
+          label="+ Create promotion"
+          onClick={onAddClick}
+        />
+      </div>
+
+    ) : (
+      // Promotions cards — Screen 2
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gap: '20px'
+      }}>
+        {promotions.map((promo) => (
+          <div key={promo.id} style={{
+            backgroundColor: 'white',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            border: '2px solid #3A4DBF'
+          }}>
+            {promo.imageUrl && (
+              <img
+                src={promo.imageUrl}
+                alt={promo.title}
+                style={{ width: '100%', height: '180px', objectFit: 'cover' }}
+              />
+            )}
+            <div style={{ padding: '16px' }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '8px'
+              }}>
+                <h3 style={{ fontSize: '16px', fontWeight: '700', margin: 0 }}>
+                  {promo.title}
+                </h3>
+                <span style={{ color: '#22c55e', fontWeight: '700' }}>
+                  ${promo.price}
+                </span>
+              </div>
+              <p style={{ fontSize: '13px', color: '#666', margin: '0 0 8px' }}>
+                {promo.description}
+              </p>
+              <p style={{ fontSize: '13px', color: '#999', margin: 0 }}>
+                Valid until: {promo.validUntil}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+);
+
+// ─── Screen 3 — Create Promotion Form ─────────────────────────────────────────
+const CreatePromotion = ({ onBack, onSubmit }) => {
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    price: '',
+    validUntil: '',
+    imageUrl: '',
+    selectedItems: []
+  });
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = () => {
+    if (!form.title || !form.price || !form.validUntil) {
+      alert('Please fill Title, Price and Valid Until fields');
+      return;
+    }
+    onSubmit(form);
+  };
+
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 14px',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    fontSize: '14px',
+    boxSizing: 'border-box',
+    outline: 'none'
+  };
+
+  const labelStyle = {
+    fontSize: '14px',
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: '6px',
+    display: 'block'
+  };
+
+  return (
+    <div>
+      {/* Back button */}
+      <button
+        onClick={onBack}
+        style={{
+          background: 'none',
+          border: 'none',
+          color: '#3A4DBF',
+          cursor: 'pointer',
+          fontSize: '14px',
+          marginBottom: '16px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: 0,
+          fontWeight: '600'
+        }}
+      >
+        ← Back to Promotions
+      </button>
+
+      <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#1a1a2e', margin: '0 0 4px' }}>
+        Create New Promotion
+      </h2>
+      <p style={{ color: '#888', fontSize: '14px', margin: '0 0 24px' }}>
+        Setup a new promotion package
+      </p>
+
+      {/* Form card */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '28px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        border: '2px solid #3A4DBF',
+        marginBottom: '24px'
+      }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 20px', color: '#1a1a2e' }}>
+          Promotion Details
+        </h3>
+
+        {/* Title */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>Title *</label>
+          <input
+            name="title"
+            value={form.title}
+            onChange={handleChange}
+            placeholder="e.g., Restaurant Happy Hour"
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Description */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={labelStyle}>Description *</label>
+          <textarea
+            name="description"
+            value={form.description}
+            onChange={handleChange}
+            placeholder="Describe your promotion package..."
+            rows={3}
+            style={{ ...inputStyle, resize: 'vertical' }}
+          />
+        </div>
+
+        {/* Price and Valid Until */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '16px',
+          marginBottom: '16px'
+        }}>
+          <div>
+            <label style={labelStyle}>Promotion Price ($) *</label>
+            <input
+              name="price"
+              value={form.price}
+              onChange={handleChange}
+              placeholder="0.00"
+              type="number"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Valid Until *</label>
+            <input
+              name="validUntil"
+              value={form.validUntil}
+              onChange={handleChange}
+              type="date"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        {/* Image URL */}
+        <div>
+          <label style={labelStyle}>Image URL *</label>
+          <input
+            name="imageUrl"
+            value={form.imageUrl}
+            onChange={handleChange}
+            placeholder="https://example.com/img.jpg"
+            style={inputStyle}
+          />
+          <p style={{ fontSize: '12px', color: '#999', margin: '6px 0 0' }}>
+            Tip: use unsplash or upload your image to a hosting service
+          </p>
+        </div>
+        
+      </div>
+      {/* Select Menu Items */}
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        padding: '28px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+        border: '2px solid #3A4DBF',
+        marginBottom: '24px'
+      }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 6px', color: '#1a1a2e' }}>
+          Select Menu Items
+        </h3>
+        <p style={{ fontSize: '13px', color: '#888', margin: '0 0 20px' }}>
+          Choose items to include in this promotion package
+        </p>
+
+        {menuCategories.map((category) => (
+          <div key={category.name} style={{ marginBottom: '24px' }}>
+            <h4 style={{ fontSize: '14px', fontWeight: '700', color: '#333', margin: '0 0 12px' }}>
+              {category.name}
+            </h4>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+              {category.items.map((item) => (
+                <div
+                  key={item.id}
+                  onClick={() => {
+                    const exists = form.selectedItems?.includes(item.id);
+                    setForm({
+                      ...form,
+                      selectedItems: exists
+                        ? form.selectedItems.filter((i) => i !== item.id)
+                        : [...(form.selectedItems || []), item.id]
+                    });
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    padding: '10px',
+                    borderRadius: '8px',
+                    border: form.selectedItems?.includes(item.id)
+                      ? '2px solid #3A4DBF'
+                      : '1px solid #eee',
+                    backgroundColor: form.selectedItems?.includes(item.id)
+                      ? '#f0f3ff'
+                      : 'white',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={form.selectedItems?.includes(item.id) || false}
+                    onChange={() => {}}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <img
+                    src={item.image}
+                    alt={item.name}
+                    style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }}
+                  />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a2e' }}>
+                      {item.name}
+                    </div>
+                    <div style={{ fontSize: '12px', color: '#888' }}>
+                      {item.description}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: '700', color: '#3A4DBF' }}>
+                    ${item.price}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Action buttons */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+
+        {/* ✅ Using existing Button component for Cancel */}
+        <Button
+          label="Cancel"
+          onClick={onBack}
+          style={{
+            background: 'white',
+            color: '#333',
+            border: '1px solid #ddd'
+          }}
+        />
+
+        {/* ✅ Using existing Button component for Create */}
+        <Button
+          label="Create Promotion"
+          onClick={handleSubmit}
+        />
+      </div>
+    </div>
+  );
+};
+
+export default Promotions;

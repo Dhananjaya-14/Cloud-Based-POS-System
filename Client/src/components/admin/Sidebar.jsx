@@ -8,6 +8,7 @@ import {
   FaMoneyBill,
   FaCog,
   FaSignOutAlt,
+  FaTag,
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -71,6 +72,7 @@ const Sidebar = () => {
           {menuItem(<FaUsers />, "User Management", "/users")}
           {menuItem(<FaChartBar />, "Statistics", "/statistics")}
           {menuItem(<FaMoneyBill />, "Transactions", "/transactions")}
+          {menuItem(<FaTag />, "Promotions", "/promotions")}
         </div>
       </div>
 
