@@ -65,10 +65,9 @@ const Promotions = () => {
   );
 };
 
-// ─── Screen 1 & 2 — Promotions List ───────────────────────────────────────────
 const PromotionsList = ({ promotions, onAddClick }) => (
   <div>
-    {/* Page title row */}
+    
     <div style={{
       display: 'flex',
       justifyContent: 'space-between',
@@ -84,14 +83,14 @@ const PromotionsList = ({ promotions, onAddClick }) => (
         </p>
       </div>
 
-      {/* ✅ Using existing Button component */}
+      
       <Button
         label="+ Add promotion"
         onClick={onAddClick}
       />
     </div>
 
-    {/* Empty state — Screen 1 */}
+    
     {promotions.length === 0 ? (
       <div style={{
         backgroundColor: 'white',
@@ -108,7 +107,7 @@ const PromotionsList = ({ promotions, onAddClick }) => (
           Create your first promotion to get started
         </p>
 
-        {/* ✅ Using existing Button component */}
+        
         <Button
           label="+ Create promotion"
           onClick={onAddClick}
@@ -116,7 +115,7 @@ const PromotionsList = ({ promotions, onAddClick }) => (
       </div>
 
     ) : (
-      // Promotions cards — Screen 2
+      
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
@@ -164,7 +163,7 @@ const PromotionsList = ({ promotions, onAddClick }) => (
   </div>
 );
 
-// ─── Screen 3 — Create Promotion Form ─────────────────────────────────────────
+
 const CreatePromotion = ({ onBack, onSubmit }) => {
   const [form, setForm] = useState({
     title: '',
@@ -207,7 +206,7 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
 
   return (
     <div>
-      {/* Back button */}
+      
       <button
         onClick={onBack}
         style={{
@@ -234,7 +233,7 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
         Setup a new promotion package
       </p>
 
-      {/* Form card */}
+  
       <div style={{
         backgroundColor: 'white',
         borderRadius: '12px',
@@ -247,7 +246,7 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
           Promotion Details
         </h3>
 
-        {/* Title */}
+      
         <div style={{ marginBottom: '16px' }}>
           <label style={labelStyle}>Title *</label>
           <input
@@ -259,7 +258,7 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
           />
         </div>
 
-        {/* Description */}
+        
         <div style={{ marginBottom: '16px' }}>
           <label style={labelStyle}>Description *</label>
           <textarea
@@ -272,7 +271,7 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
           />
         </div>
 
-        {/* Price and Valid Until */}
+        
         <div style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
@@ -297,12 +296,13 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
               value={form.validUntil}
               onChange={handleChange}
               type="date"
+               min={new Date().toISOString().split('T')[0]}
               style={inputStyle}
             />
           </div>
         </div>
 
-        {/* Image URL */}
+        
         <div>
           <label style={labelStyle}>Image URL *</label>
           <input
@@ -318,7 +318,6 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
         </div>
         
       </div>
-      {/* Select Menu Items */}
       <div style={{
         backgroundColor: 'white',
         borderRadius: '12px',
@@ -396,10 +395,9 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
         ))}
       </div>
 
-      {/* Action buttons */}
+      
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
 
-        {/* ✅ Using existing Button component for Cancel */}
         <Button
           label="Cancel"
           onClick={onBack}
@@ -410,7 +408,7 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
           }}
         />
 
-        {/* ✅ Using existing Button component for Create */}
+        
         <Button
           label="Create Promotion"
           onClick={handleSubmit}
