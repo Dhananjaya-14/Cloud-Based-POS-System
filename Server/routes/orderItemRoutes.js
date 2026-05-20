@@ -20,52 +20,76 @@ router.use(requireAuth);
 
 // ─────────────────────────────────────────────
 // GET /order-items
-// Who: Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
+// Who: Kitchen Staff, Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
 // ─────────────────────────────────────────────
 router.get(
   "/",
   requireRole(
-    [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-    "Waiter, Cashier, Branch Admin, or Admin",
+    [
+      ROLES.KITCHEN_STAFF,
+      ROLES.WAITER,
+      ROLES.CASHIER,
+      ROLES.BRANCH_ADMIN,
+      ROLES.ADMIN,
+    ],
+    "Kitchen Staff, Waiter, Cashier, Branch Admin, or Admin",
   ),
   getAllOrderItems,
 );
 
 // ─────────────────────────────────────────────
 // GET /order-items/order/:order_id
-// Who: Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
+// Who: Kitchen Staff, Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
 // ─────────────────────────────────────────────
 router.get(
   "/order/:order_id",
   requireRole(
-    [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-    "Waiter, Cashier, Branch Admin, or Admin",
+    [
+      ROLES.KITCHEN_STAFF,
+      ROLES.WAITER,
+      ROLES.CASHIER,
+      ROLES.BRANCH_ADMIN,
+      ROLES.ADMIN,
+    ],
+    "Kitchen Staff, Waiter, Cashier, Branch Admin, or Admin",
   ),
   getOrderItemsByOrderId,
 );
 
 // ─────────────────────────────────────────────
 // GET /order-items/:id
-// Who: Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
+// Who: Kitchen Staff, Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
 // ─────────────────────────────────────────────
 router.get(
   "/:id",
   requireRole(
-    [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-    "Waiter, Cashier, Branch Admin, or Admin",
+    [
+      ROLES.KITCHEN_STAFF,
+      ROLES.WAITER,
+      ROLES.CASHIER,
+      ROLES.BRANCH_ADMIN,
+      ROLES.ADMIN,
+    ],
+    "Kitchen Staff, Waiter, Cashier, Branch Admin, or Admin",
   ),
   getOrderItemById,
 );
 
 // ─────────────────────────────────────────────
 // POST /order-items
-// Who: Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
+// Who: Kitchen Staff, Waiter, Cashier, Branch Admin, Admin  (+Super Admin via bypass)
 // ─────────────────────────────────────────────
 router.post(
   "/",
   requireRole(
-    [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-    "Waiter, Cashier, Branch Admin, or Admin",
+    [
+      ROLES.KITCHEN_STAFF,
+      ROLES.WAITER,
+      ROLES.CASHIER,
+      ROLES.BRANCH_ADMIN,
+      ROLES.ADMIN,
+    ],
+    "Kitchen Staff, Waiter, Cashier, Branch Admin, or Admin",
   ),
   createOrderItem,
 );

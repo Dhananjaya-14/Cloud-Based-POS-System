@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -68,8 +69,11 @@ async function fetchBranchProduct(Bpro_id) {
  * Block mutations on orders that are already completed or cancelled.
  * Returns an error string or null if the order is still editable.
  */
-function guardOrderStatus(or_status) {
-  if (or_status === "completed" || or_status === "cancelled") {
+function guardOrderStatus(or_status, roleId) {
+  if (or_status === "cancelled") {
+    return `Cannot modify items on a "${or_status}" order`;
+  }
+  if (or_status === "completed" && roleId !== ROLES.CASHIER) {
     return `Cannot modify items on a "${or_status}" order`;
   }
   return null;
@@ -204,7 +208,7 @@ export const createOrderItem = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, error: "Order not found" });
     }
-    const statusError = guardOrderStatus(order.or_status);
+    const statusError = guardOrderStatus(order.or_status, req.user?.role_id);
     if (statusError)
       return res.status(400).json({ success: false, error: statusError });
 
@@ -302,7 +306,7 @@ export const updateOrderItem = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, error: "Order not found" });
     }
-    const statusError = guardOrderStatus(order.or_status);
+    const statusError = guardOrderStatus(order.or_status, req.user?.role_id);
     if (statusError)
       return res.status(400).json({ success: false, error: statusError });
 
@@ -365,7 +369,7 @@ export const deleteOrderItem = async (req, res) => {
     }
 
     // ── Block deletion if the parent order is terminal ──
-    const statusError = guardOrderStatus(existing.rows[0].or_status);
+    const statusError = guardOrderStatus(existing.rows[0].or_status, req.user?.role_id);
     if (statusError)
       return res.status(400).json({ success: false, error: statusError });
 
