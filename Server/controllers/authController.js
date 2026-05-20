@@ -22,7 +22,7 @@ export async function login(req, res, next) {
     }
     //search user from db
     const result = await pool.query(
-      'SELECT u_id, u_fname, u_lname, u_email, u_pw, u_connumber, role_id FROM "User" WHERE u_email = $1',
+      'SELECT u_id, u_fname, u_lname, u_email, u_pw, u_connumber, role_id, "B_id" FROM "User" WHERE u_email = $1',
       [u_email]
     );
 
@@ -68,7 +68,7 @@ export async function login(req, res, next) {
         'SELECT "B_id" AS b_id FROM "Branch" WHERE "U_id" = $1 LIMIT 1',
         [user.u_id],
       );
-      b_id = branchRes.rows[0]?.b_id ?? null;
+      b_id = branchRes.rows[0]?.b_id ?? user.B_id ?? null;
     }
 
     //token creation
