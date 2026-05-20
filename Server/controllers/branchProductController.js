@@ -88,6 +88,11 @@ export async function getBranchProducts(req, res, next) {
       values,
     );
 
+    res.set({
+      "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      Pragma: "no-cache",
+      Expires: "0",
+    });
     res.json(result.rows.map(toResponseRow));
   } catch (err) {
     next(err);
@@ -144,7 +149,7 @@ export async function createBranchProduct(req, res, next) {
     const pro_price = normalizeProPrice(req.body);
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
-    const B_id = normalizeBranchId(req.body);
+    const B_id = req.body?.B_id;
 
     if (
       !pro_name ||
@@ -378,4 +383,3 @@ export async function deleteBranchProduct(req, res, next) {
     next(err);
   }
 }
-

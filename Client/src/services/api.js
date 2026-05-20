@@ -91,9 +91,22 @@ export const getProducts = async () => {
   return response.data;
 };
 
-export const getBranchProducts = async () => {
-  const response = await api.get("/branch_products");
-  return response.data;
+export const getBranchProducts = async (branchId) => {
+  const response = await api.get("/branch_products", {
+    params: {
+      ...(branchId ? { B_id: branchId } : {}),
+      _ts: Date.now(),
+    },
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
 };
 
 export const createBranchProduct = async (branchProductData) => {
@@ -149,6 +162,45 @@ export const getRawMaterials = async () => {
   return response.data;
 };
 
+export const getRecipes = async () => {
+  const response = await api.get("/recipes");
+  return response.data;
+};
+
+export const getRecipeById = async (recipeId) => {
+  const response = await api.get(`/recipes/${recipeId}`);
+  return response.data;
+};
+
+export const getRecipesByProduct = async (productId) => {
+  const response = await api.get(`/recipes/product/${productId}`);
+  return response.data;
+};
+
+export const createRecipe = async (payload) => {
+  const response = await api.post("/recipes", payload);
+  return response.data;
+};
+
+export const createRecipeBulk = async (payload) => {
+  const response = await api.post("/recipes/bulk", payload);
+  return response.data;
+};
+
+export const updateRecipe = async (recipeId, payload) => {
+  const response = await api.put(`/recipes/${recipeId}`, payload);
+  return response.data;
+};
+
+export const deleteRecipe = async (recipeId) => {
+  await api.delete(`/recipes/${recipeId}`);
+};
+
+export const deleteRecipeByProduct = async (productId) => {
+  const response = await api.delete(`/recipes/product/${productId}`);
+  return response.data;
+};
+
 export const getLowStockMaterials = async () => {
   const response = await api.get("/raw-materials/low-stock");
   return response.data;
@@ -161,6 +213,16 @@ export const createProduct = async (productData) => {
 
 export const createOrder = async (orderData) => {
   const response = await api.post("/orders", orderData);
+  return response.data;
+};
+
+export const updateOrder = async (orderId, orderData) => {
+  const response = await api.put(`/orders/${orderId}`, orderData);
+  return response.data;
+};
+
+export const deleteOrderItem = async (orderItemId) => {
+  const response = await api.delete(`/order-items/${orderItemId}`);
   return response.data;
 };
 
@@ -328,6 +390,12 @@ export const getPayments = async (params = {}) => {
   // payment API returns { success, data, meta } where data is an array
   return res.data?.data ?? [];
 };
+
+
+
+
+
+
 
 
 

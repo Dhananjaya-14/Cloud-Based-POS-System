@@ -12,6 +12,7 @@ const StatCard = ({
   icon,
   onClick,
   actionText = "View",
+  showAction = true,
   colorClass,
   cardClass,
   iconClass,
@@ -46,10 +47,12 @@ const StatCard = ({
 
         {subtitle && <p className={`text-xs opacity-80 ${textColor} leading-relaxed max-w-[85%] mt-1`}>{subtitle}</p>}
 
-        <div className={`mt-4 flex items-center gap-1.5 text-sm font-bold ${textColor} group`}>
-          <span className="border-b-2 border-current">{actionText}</span>
-          <span className="text-lg transition-transform group-hover:translate-x-1">→</span>
-        </div>
+        {showAction && (
+          <div className={`mt-4 flex items-center gap-1.5 text-sm font-bold ${textColor} group`}>
+            <span className="border-b-2 border-current">{actionText}</span>
+            <span className="text-lg transition-transform group-hover:translate-x-1">→</span>
+          </div>
+        )}
       </div>
     </div>
   );

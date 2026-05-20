@@ -56,7 +56,7 @@ async function fetchOrder(order_id) {
  */
 async function fetchBranchProduct(Bpro_id) {
   const { rows } = await pool.query(
-    `SELECT "Bpro_id", pro_name, " Pro_Price"
+    `SELECT "Bpro_id", pro_name, " Pro_Price" AS "Pro_Price"
      FROM public."Branch_Product"
      WHERE "Bpro_id" = $1`,
     [Bpro_id],
