@@ -25,6 +25,7 @@ const Login = () => {
       else if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
       else if (roleId === 1) navigate("/branch-admin/products");
       else if (roleId === 3) navigate("/cashier/dashboard");
+      else if (roleId === 9) navigate("/kitchen/orders");
       else navigate("/"); // fallback
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Login failed");
@@ -417,6 +418,10 @@ export default Login;
 // // const socialCircle = { width: '38px', height: '38px', backgroundColor: 'white', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0072ff', fontSize: '18px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1px solid #eee', cursor: 'pointer' };
 
 // // export default Login;
+
+
+
+
 
 
 

@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -56,7 +57,7 @@ async function fetchOrder(order_id) {
  */
 async function fetchBranchProduct(Bpro_id) {
   const { rows } = await pool.query(
-    `SELECT "Bpro_id", pro_name, "Pro_Price"
+    `SELECT "Bpro_id", pro_name, " Pro_Price" AS "Pro_Price"
      FROM public."Branch_Product"
      WHERE "Bpro_id" = $1`,
     [Bpro_id],
@@ -68,8 +69,11 @@ async function fetchBranchProduct(Bpro_id) {
  * Block mutations on orders that are already completed or cancelled.
  * Returns an error string or null if the order is still editable.
  */
-function guardOrderStatus(or_status) {
-  if (or_status === "completed" || or_status === "cancelled") {
+function guardOrderStatus(or_status, roleId) {
+  if (or_status === "cancelled") {
+    return `Cannot modify items on a "${or_status}" order`;
+  }
+  if (or_status === "completed" && roleId !== ROLES.CASHIER) {
     return `Cannot modify items on a "${or_status}" order`;
   }
   return null;
@@ -116,7 +120,7 @@ export const getOrderItemsByOrderId = async (req, res) => {
          oi.total_price,
          oi.order_id,
          bp.pro_name,
-         bp."Pro_Price" AS branch_price
+         bp." Pro_Price" AS branch_price
        FROM public."ORDER_ITEM" oi
        LEFT JOIN public."Branch_Product" bp
          ON bp."Bpro_id" = oi."Bpro_id"
@@ -203,7 +207,7 @@ export const createOrderItem = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, error: "Order not found" });
     }
-    const statusError = guardOrderStatus(order.or_status);
+    const statusError = guardOrderStatus(order.or_status, req.user?.role_id);
     if (statusError)
       return res.status(400).json({ success: false, error: statusError });
 
@@ -301,7 +305,7 @@ export const updateOrderItem = async (req, res) => {
     if (!order) {
       return res.status(404).json({ success: false, error: "Order not found" });
     }
-    const statusError = guardOrderStatus(order.or_status);
+    const statusError = guardOrderStatus(order.or_status, req.user?.role_id);
     if (statusError)
       return res.status(400).json({ success: false, error: statusError });
 
@@ -364,7 +368,7 @@ export const deleteOrderItem = async (req, res) => {
     }
 
     // ── Block deletion if the parent order is terminal ──
-    const statusError = guardOrderStatus(existing.rows[0].or_status);
+    const statusError = guardOrderStatus(existing.rows[0].or_status, req.user?.role_id);
     if (statusError)
       return res.status(400).json({ success: false, error: statusError });
 

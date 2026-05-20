@@ -16,7 +16,9 @@ import {
   getBranchProducts,
   getCategories,
   getProducts,
+  getBranches,
 } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 const pageStyle = {
   display: "flex",
@@ -163,6 +165,7 @@ const ProductChip = ({ label, value }) => (
 
 const AddProduct = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -173,6 +176,7 @@ const AddProduct = () => {
   const [categories, setCategories] = useState([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedItems, setSelectedItems] = useState({});
+  const [branchId, setBranchId] = useState(null);
 
   useEffect(() => {
     let mounted = true;
@@ -182,9 +186,15 @@ const AddProduct = () => {
         setLoading(true);
         setError("");
 
+        const branches = await getBranches();
+        const myBranch = branches.find(b => String(b.U_id) === String(user?.u_id)) || branches[0];
+        const myBranchId = myBranch?.B_id || null;
+
+        if (mounted) setBranchId(myBranchId);
+
         const [allProducts, currentBranchProducts, categoryList] = await Promise.all([
           getProducts(),
-          getBranchProducts(),
+          myBranchId ? getBranchProducts(myBranchId) : [],
           getCategories().catch(() => []),
         ]);
 
@@ -307,6 +317,12 @@ const AddProduct = () => {
       setError("");
       setSuccess("");
 
+      if (!branchId) {
+        setError("Branch ID could not be determined.");
+        setSaving(false);
+        return;
+      }
+
       for (const item of selectedList) {
         await createBranchProduct({
           pro_name: item.pro_name,
@@ -317,6 +333,7 @@ const AddProduct = () => {
           pro_price: Number(item.pro_price ?? 0),
           cat_id: resolvedCategoryId,
           pro_id: Number(item.pro_id),
+          B_id: branchId,
         });
       }
 
