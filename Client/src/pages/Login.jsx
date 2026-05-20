@@ -25,6 +25,7 @@ const Login = () => {
       else if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
       else if (roleId === 1) navigate("/branch-admin/products");
       else if (roleId === 3) navigate("/cashier/dashboard");
+      else if (roleId === 9) navigate("/kitchen/orders");
       else navigate("/"); // fallback
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Login failed");

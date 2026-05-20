@@ -125,6 +125,6 @@ export const requireCashierOrAbove = requireRole(
 
 // Waiter OR Cashier OR Branch Admin OR Admin
 export const requireWaiterOrAbove = requireRole(
-  [ROLES.WAITER, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-  "Waiter, Cashier, Branch Admin, or Admin",
+  [ROLES.WAITER, ROLES.CASHIER, ROLES.KITCHEN_STAFF, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
+  "Waiter, Cashier, Kitchen Staff, Branch Admin, or Admin",
 );
