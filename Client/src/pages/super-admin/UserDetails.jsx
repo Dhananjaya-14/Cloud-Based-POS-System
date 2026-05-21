@@ -121,6 +121,7 @@ const UserDetails = () => {
         u_email: formData.email,
         u_connumber: formData.contactNumber,
         role_id: parseInt(formData.userRole),
+        b_id: formData.assignedBranch ? parseInt(formData.assignedBranch) : null,
         // Password only if changed
         ...(formData.password && { u_pw: formData.password }),
         u_status: formData.activeStatus

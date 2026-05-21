@@ -41,26 +41,27 @@ function normalizeOptionalPositiveInt(value, fieldName) {
 export async function getUsers(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
-    const scopedBranchId = getScopedBranchId(req);
-    const params = [];
-    let whereClause = "";
+    const { role_id, com_id, b_id } = req.user;
 
-    if (scopedBranchId) {
-      params.push(Number(scopedBranchId));
-      whereClause = `WHERE u."B_id" = $1`;
+    let query = `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber, u.role_id, r.role_name, u.u_status, u."B_id" as b_id,
+                        b."B_name" as branch_name, b."B_id" as branch_id
+                 FROM "User" u
+                 LEFT JOIN "Role" r ON u.role_id = r.role_id
+                 LEFT JOIN "Branch" b ON b."B_id" = u."B_id"`;
+    
+    let params = [];
+
+    if (role_id === ROLES.ADMIN && com_id != null) {
+      query += ` WHERE b."com_id" = $1`;
+      params.push(com_id);
+    } else if (role_id === ROLES.BRANCH_ADMIN && b_id != null) {
+      query += ` WHERE b."B_id" = $1`;
+      params.push(b_id);
     }
 
-    const result = await pool.query(
-      `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber,
-              u.role_id, r.role_name, u.u_status, u."B_id",
-              b."B_name" AS branch_name
-       FROM "User" u
-       LEFT JOIN "Role" r ON u.role_id = r.role_id
-       LEFT JOIN "Branch" b ON u."B_id" = b."B_id"
-       ${whereClause}
-       ORDER BY u.u_id`,
-      params
-    );
+    query += ` ORDER BY u.u_id`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -83,8 +84,8 @@ export async function getUserById(req, res, next) {
 
     const result = await pool.query(
       `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber,
-              u.role_id, r.role_name, u.u_status, u."B_id",
-              b."B_name" AS branch_name
+              u.role_id, r.role_name, u.u_status, u."B_id" as b_id,
+              b."B_name" AS branch_name, b."B_id" as branch_id
        FROM "User" u
        LEFT JOIN "Role" r ON u.role_id = r.role_id
        LEFT JOIN "Branch" b ON u."B_id" = b."B_id"
@@ -135,7 +136,7 @@ export async function createUser(req, res, next) {
     const insertQuery = `
       INSERT INTO "User" (u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status, "B_id")
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id"
+      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id" as b_id
     `;
 
     const params = [
@@ -165,7 +166,8 @@ export async function updateUser(req, res, next) {
     const { id } = req.params;
     const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
     const requestedBranchId = normalizeBranchId(req.body);
-    const scopedBranchId = getScopedBranchId(req);
+    let scopedBranchId = getScopedBranchId(req);
+    // If the req.user is an admin and trying to update a user in their hotel, we don't have a scopedBranchId (which is for Branch Admins)
     const B_id = scopedBranchId
       ? Number(scopedBranchId)
       : normalizeOptionalPositiveInt(requestedBranchId, "B_id");
@@ -204,7 +206,7 @@ export async function updateUser(req, res, next) {
         u_status = COALESCE($7, u_status),
         "B_id" = COALESCE($8, "B_id")
       WHERE u_id = $9
-      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id"
+      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id" as b_id
     `;
 
     const params = [
