@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9\s\-().]{7,20}$/;
@@ -40,12 +41,24 @@ const BRANCH_COLS = `"B_id", "B_name", "B_email", "B_conNo", "B_address", "com_i
 // GET /api/branches
 export async function getBranches(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT b.*, c."com_name" 
-       FROM "Branch" b
-       LEFT JOIN "Company" c ON b."com_id" = c."com_id"
-       ORDER BY b."B_id"`,
-    );
+    const { role_id, com_id, b_id } = req.user;
+
+    let query = `SELECT b.*, c."com_name" 
+                 FROM "Branch" b
+                 LEFT JOIN "Company" c ON b."com_id" = c."com_id"`;
+    let params = [];
+
+    if (role_id === ROLES.ADMIN && com_id != null) {
+      query += ` WHERE b."com_id" = $1`;
+      params.push(com_id);
+    } else if (role_id === ROLES.BRANCH_ADMIN && b_id != null) {
+      query += ` WHERE b."B_id" = $1`;
+      params.push(b_id);
+    }
+
+    query += ` ORDER BY b."B_id"`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
