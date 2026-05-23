@@ -16,7 +16,6 @@ function validateBranchFields({
   B_conNo,
   B_address,
   com_id,
-  U_id,
 }) {
   const errors = [];
 
@@ -30,13 +29,11 @@ function validateBranchFields({
     errors.push("Branch address is required and must be under 255 characters.");
   if (!com_id || isNaN(Number(com_id)))
     errors.push("A valid company (com_id) is required.");
-  if (!U_id || isNaN(Number(U_id)))
-    errors.push("A valid user (U_id) is required.");
 
   return errors;
 }
 
-const BRANCH_COLS = `"B_id", "B_name", "B_email", "B_conNo", "B_address", "com_id", "U_id"`;
+const BRANCH_COLS = `"B_id", "B_name", "B_email", "B_conNo", "B_address", "com_id"`;
 
 // GET /api/branches
 export async function getBranches(req, res, next) {
@@ -99,7 +96,7 @@ export async function getBranchById(req, res, next) {
 // POST /api/branches
 export async function createBranch(req, res, next) {
   try {
-    const { B_name, B_email, B_conNo, B_address, com_id, U_id } = req.body;
+    const { B_name, B_email, B_conNo, B_address, com_id } = req.body;
 
     const errors = validateBranchFields({
       B_name,
@@ -107,7 +104,6 @@ export async function createBranch(req, res, next) {
       B_conNo,
       B_address,
       com_id,
-      U_id,
     });
     if (errors.length > 0) {
       return res.status(400).json({
@@ -117,8 +113,8 @@ export async function createBranch(req, res, next) {
     }
 
     const result = await pool.query(
-      `INSERT INTO "Branch" ("B_name", "B_email", "B_conNo", "B_address", "com_id", "U_id")
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO "Branch" ("B_name", "B_email", "B_conNo", "B_address", "com_id")
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING ${BRANCH_COLS}`,
       [
         sanitizeStr(B_name),
@@ -126,7 +122,6 @@ export async function createBranch(req, res, next) {
         B_conNo.trim(),
         sanitizeStr(B_address),
         Number(com_id),
-        Number(U_id),
       ],
     );
 
@@ -160,7 +155,7 @@ export async function updateBranch(req, res, next) {
       throw new Error("Invalid branch ID.");
     }
 
-    const { B_name, B_email, B_conNo, B_address, com_id, U_id } = req.body;
+    const { B_name, B_email, B_conNo, B_address, com_id } = req.body;
 
     // Must send at least one field
     const hasAnyField = [
@@ -169,7 +164,6 @@ export async function updateBranch(req, res, next) {
       B_conNo,
       B_address,
       com_id,
-      U_id,
     ].some((v) => v !== undefined && v !== null && v !== "");
     if (!hasAnyField) {
       return res.status(400).json({
@@ -189,8 +183,6 @@ export async function updateBranch(req, res, next) {
       fieldErrors.push("Branch address must be between 1 and 255 characters.");
     if (com_id !== undefined && isNaN(Number(com_id)))
       fieldErrors.push("A valid company (com_id) is required.");
-    if (U_id !== undefined && isNaN(Number(U_id)))
-      fieldErrors.push("A valid user (U_id) is required.");
 
     if (fieldErrors.length > 0) {
       return res.status(400).json({
@@ -217,9 +209,8 @@ export async function updateBranch(req, res, next) {
          "B_email"   = COALESCE($2, "B_email"),
          "B_conNo"   = COALESCE($3, "B_conNo"),
          "B_address" = COALESCE($4, "B_address"),
-         "com_id"    = COALESCE($5, "com_id"),
-         "U_id"      = COALESCE($6, "U_id")
-       WHERE "B_id" = $7
+         "com_id"    = COALESCE($5, "com_id")
+       WHERE "B_id" = $6
        RETURNING ${BRANCH_COLS}`,
       [
         B_name ? sanitizeStr(B_name) : null,
@@ -227,7 +218,6 @@ export async function updateBranch(req, res, next) {
         B_conNo ? B_conNo.trim() : null,
         B_address ? sanitizeStr(B_address) : null,
         com_id ? Number(com_id) : null,
-        U_id ? Number(U_id) : null,
         id,
       ],
     );

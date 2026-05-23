@@ -44,15 +44,19 @@ export async function getUsers(req, res, next) {
     const { role_id, com_id, b_id } = req.user;
 
     let query = `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber, u.role_id, r.role_name, u.u_status, u."B_id" as b_id,
-                        b."B_name" as branch_name, b."B_id" as branch_id
+                        b."B_name" as branch_name,
+                        COALESCE(c2.com_name, c1.com_name) as company_name,
+                        COALESCE(u.com_id, b.com_id) as com_id
                  FROM "User" u
                  LEFT JOIN "Role" r ON u.role_id = r.role_id
-                 LEFT JOIN "Branch" b ON b."B_id" = u."B_id"`;
+                 LEFT JOIN "Branch" b ON b."B_id" = u."B_id"
+                 LEFT JOIN "Company" c1 ON b.com_id = c1.com_id
+                 LEFT JOIN "Company" c2 ON u.com_id = c2.com_id`;
     
     let params = [];
 
     if (role_id === ROLES.ADMIN && com_id != null) {
-      query += ` WHERE b."com_id" = $1`;
+      query += ` WHERE COALESCE(u.com_id, b.com_id) = $1`;
       params.push(com_id);
     } else if (role_id === ROLES.BRANCH_ADMIN && b_id != null) {
       query += ` WHERE b."B_id" = $1`;
@@ -85,10 +89,14 @@ export async function getUserById(req, res, next) {
     const result = await pool.query(
       `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber,
               u.role_id, r.role_name, u.u_status, u."B_id" as b_id,
-              b."B_name" AS branch_name, b."B_id" as branch_id
+              b."B_name" AS branch_name,
+              COALESCE(c2.com_name, c1.com_name) AS company_name,
+              COALESCE(u.com_id, b.com_id) AS com_id
        FROM "User" u
        LEFT JOIN "Role" r ON u.role_id = r.role_id
        LEFT JOIN "Branch" b ON u."B_id" = b."B_id"
+       LEFT JOIN "Company" c1 ON b.com_id = c1.com_id
+       LEFT JOIN "Company" c2 ON u.com_id = c2.com_id
        WHERE u.u_id = $1 ${branchFilter}`,
       params
     );
@@ -110,15 +118,44 @@ export async function createUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
     const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
-    const requestedBranchId = normalizeBranchId(req.body);
-    const scopedBranchId = getScopedBranchId(req);
-    const B_id = scopedBranchId
-      ? Number(scopedBranchId)
-      : normalizeOptionalPositiveInt(requestedBranchId, "B_id");
 
     if (!u_fname || !u_lname || !u_email || !u_pw) {
       res.status(400);
       throw new Error("u_fname, u_lname, u_email and u_pw are required");
+    }
+
+    let B_id = null;
+    let com_id = null;
+
+    if (Number(role_id) === ROLES.SUPER_ADMIN) {
+      // Super Admin needs no company or branch
+      B_id = null;
+      com_id = null;
+    } else if (Number(role_id) === ROLES.ADMIN) {
+      const requestedComId = req.body?.com_id ?? req.body?.company_id;
+      com_id = normalizeOptionalPositiveInt(requestedComId, "com_id");
+      if (!com_id) {
+        res.status(400);
+        throw new Error("com_id is required for Admin role");
+      }
+    } else {
+      const requestedBranchId = normalizeBranchId(req.body);
+      const scopedBranchId = getScopedBranchId(req);
+      B_id = scopedBranchId
+        ? Number(scopedBranchId)
+        : normalizeOptionalPositiveInt(requestedBranchId, "B_id");
+      if (!B_id) {
+        res.status(400);
+        throw new Error("B_id is required for branch-level roles");
+      }
+
+      // Automatically look up the branch's company ID (com_id)
+      const branchRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [B_id]);
+      com_id = branchRes.rows[0]?.com_id ?? null;
+      if (!com_id) {
+        res.status(400);
+        throw new Error("The assigned branch does not belong to a valid company");
+      }
     }
 
     // Check for existing email
@@ -134,9 +171,9 @@ export async function createUser(req, res, next) {
     const hashedPassword = await hashPassword(u_pw);
 
     const insertQuery = `
-      INSERT INTO "User" (u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status, "B_id")
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id" as b_id
+      INSERT INTO "User" (u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status, "B_id", "com_id")
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id" as b_id, "com_id" as com_id
     `;
 
     const params = [
@@ -148,6 +185,7 @@ export async function createUser(req, res, next) {
       role_id || null,
       u_status ?? true,
       B_id,
+      com_id,
     ];
 
     const result = await pool.query(insertQuery, params);
@@ -165,12 +203,7 @@ export async function updateUser(req, res, next) {
     ensureBranchAdminHasBranch(req, res);
     const { id } = req.params;
     const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
-    const requestedBranchId = normalizeBranchId(req.body);
     let scopedBranchId = getScopedBranchId(req);
-    // If the req.user is an admin and trying to update a user in their hotel, we don't have a scopedBranchId (which is for Branch Admins)
-    const B_id = scopedBranchId
-      ? Number(scopedBranchId)
-      : normalizeOptionalPositiveInt(requestedBranchId, "B_id");
 
     // Ensure user exists
     const existingParams = [id];
@@ -181,12 +214,57 @@ export async function updateUser(req, res, next) {
     }
 
     const existingUser = await pool.query(
-      `SELECT u_id FROM "User" WHERE u_id = $1 ${branchFilter}`,
+      `SELECT u_id, role_id, "B_id", "com_id" FROM "User" WHERE u_id = $1 ${branchFilter}`,
       existingParams
     );
     if (existingUser.rows.length === 0) {
       res.status(404);
       throw new Error("User not found");
+    }
+
+    // Determine target role (use provided role_id, fallback to existing role_id)
+    const targetRoleId = role_id !== undefined ? Number(role_id) : Number(existingUser.rows[0].role_id);
+
+    let B_id = null;
+    let com_id = null;
+
+    if (targetRoleId === ROLES.SUPER_ADMIN) {
+      // Super Admin needs no company or branch
+      B_id = null;
+      com_id = null;
+    } else if (targetRoleId === ROLES.ADMIN) {
+      const requestedComId = req.body?.com_id ?? req.body?.company_id;
+      if (requestedComId !== undefined) {
+        com_id = normalizeOptionalPositiveInt(requestedComId, "com_id");
+      } else {
+        com_id = existingUser.rows[0].com_id;
+      }
+      B_id = null; // force null for Admin
+      if (!com_id) {
+        res.status(400);
+        throw new Error("com_id is required for Admin role");
+      }
+    } else {
+      const requestedBranchId = normalizeBranchId(req.body);
+      if (requestedBranchId !== undefined) {
+        B_id = scopedBranchId
+          ? Number(scopedBranchId)
+          : normalizeOptionalPositiveInt(requestedBranchId, "B_id");
+      } else {
+        B_id = scopedBranchId ? Number(scopedBranchId) : existingUser.rows[0].B_id;
+      }
+      if (!B_id) {
+        res.status(400);
+        throw new Error("B_id is required for branch-level roles");
+      }
+
+      // Automatically look up the branch's company ID (com_id)
+      const branchRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [B_id]);
+      com_id = branchRes.rows[0]?.com_id ?? null;
+      if (!com_id) {
+        res.status(400);
+        throw new Error("The assigned branch does not belong to a valid company");
+      }
     }
 
     let hashedPassword = null;
@@ -204,9 +282,10 @@ export async function updateUser(req, res, next) {
         u_connumber = COALESCE($5, u_connumber),
         role_id = COALESCE($6, role_id),
         u_status = COALESCE($7, u_status),
-        "B_id" = COALESCE($8, "B_id")
-      WHERE u_id = $9
-      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id" as b_id
+        "B_id" = $8,
+        "com_id" = $9
+      WHERE u_id = $10
+      RETURNING u_id, u_fname, u_lname, u_email, u_connumber, role_id, u_status, "B_id" as b_id, "com_id" as com_id
     `;
 
     const params = [
@@ -218,6 +297,7 @@ export async function updateUser(req, res, next) {
       role_id ?? null,
       u_status ?? null,
       B_id,
+      com_id,
       id,
     ];
 

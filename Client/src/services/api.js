@@ -300,15 +300,19 @@ export const createBranch = async (branchData) => {
 
 export const setupBranchWithManager = async (combinedData) => {
   try {
-    const newUser = await createUser(combinedData.manager);
-
-    const branchPayload = {
+    // 1. Create the Branch first (no longer requires U_id)
+    const newBranch = await createBranch({
       ...combinedData.branch,
-      U_id: newUser.u_id,
       com_id: combinedData.com_id ?? 1,
-    };
+    });
 
-    const newBranch = await createBranch(branchPayload);
+    const branchId = newBranch.B_id ?? newBranch.b_id ?? null;
+
+    // 2. Create the User (Manager), linking them to the Branch using the newly created branchId
+    const newUser = await createUser({
+      ...combinedData.manager,
+      B_id: branchId,
+    });
 
     return { user: newUser, branch: newBranch };
   } catch (error) {
