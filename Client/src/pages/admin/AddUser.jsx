@@ -113,6 +113,7 @@ const AddUser = () => {
 				u_pw: formData.password,
 				u_connumber: formData.contactNumber || null,
 				role_id: Number(formData.role),
+				b_id: formData.branch ? Number(formData.branch) : null,
 			});
 
 			setShowSuccessToast(true);
