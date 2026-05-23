@@ -87,6 +87,7 @@ const UserManagement = () => {
     }, {});
   }, [branches]);
 
+  // Evaluates filters seamlessly across the entire user array
   const filteredUsers = useMemo(() => {
     const normalizedSearch = searchTerm.trim().toLowerCase();
 
@@ -109,7 +110,8 @@ const UserManagement = () => {
     });
   }, [users, searchTerm, roleFilter, roleMap, branchMapByUser]);
 
-  const visibleUsers = useMemo(() => filteredUsers.slice(0, 5), [filteredUsers]);
+  // UX Fix: Removed itemsPerPage limitations so all matching records show at once
+  const visibleUsers = filteredUsers;
 
   const totalUsers = users.length;
   const branchAdminCount = users.filter((u) => (roleMap[String(u.role_id)] || "").toLowerCase().includes("branch")).length;
@@ -251,7 +253,7 @@ const UserManagement = () => {
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by branch"
+                  placeholder="Search by name, email, role or branch"
                   style={{
                     width: "100%",
                     height: "34px",
@@ -319,9 +321,10 @@ const UserManagement = () => {
             ) : error ? (
               <p style={{ textAlign: "center", color: "#cf3e3e", margin: "22px 0" }}>{error}</p>
             ) : (
-              <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+              // UX Fix: Enabled independent clean y-scrolling inside the table element container
+              <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: "4px" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-                  <thead>
+                  <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "#fff" }}>
                     <tr>
                       <Th width="18%">Role</Th>
                       <Th width="38%">Name</Th>
@@ -431,12 +434,19 @@ const UserManagement = () => {
                     {visibleUsers.length === 0 && (
                       <tr>
                         <td colSpan={5} style={{ textAlign: "center", color: "#7183a8", padding: "18px 0" }}>
-                          No users found.
+                          No users found matching the selected criteria.
                         </td>
                       </tr>
                     )}
                   </tbody>
                 </table>
+
+                {/* Simplified Data Metric Counter Footnote */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 6px 4px" }}>
+                  <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 500 }}>
+                    Showing {visibleUsers.length} of {totalUsers} registered users
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -469,6 +479,7 @@ const UserManagement = () => {
   );
 };
 
+// Child presentational layout elements stay the same...
 const StatCard = ({ icon, title, value, bg, iconBg }) => {
   return (
     <div
@@ -738,3 +749,19 @@ const DeleteConfirmModal = ({ userName, onClose, onConfirm, loading }) => {
 };
 
 export default UserManagement;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
