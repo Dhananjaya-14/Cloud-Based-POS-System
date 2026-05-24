@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { DollarSign, ShoppingBag, Users, Truck } from "lucide-react";
-import { getStatsOverview, getBranches, getOrders, getBranchStats } from "../../services/api";
+import { getStatsOverview, getBranches, getOrders, getBranchStats, getCurrentUser } from "../../services/api";
 import Header from "../../components/admin/Header";
 import Sidebar from "../../components/admin/Sidebar";
 import StatCard from "../../components/admin/StatCard";
@@ -21,17 +21,32 @@ export default function AdminStatistics() {
   const [busyDays, setBusyDays] = useState([]);
   const [branchCompare, setBranchCompare] = useState([]);
 
+  const currentUser = getCurrentUser();
+  const currentComId = currentUser?.com_id ?? null;
+
   useEffect(() => {
     (async () => {
       try {
         const [ovRes, brRes] = await Promise.all([getStatsOverview(), getBranches()]);
-        setOverview(ovRes || {});
-        setBranches(brRes?.data || brRes || []);
+        const rawBranches = brRes?.data ?? brRes ?? [];
+
+        // keep only branches belonging to the logged-in user's company (if scoped)
+        const filteredBranches = currentComId
+          ? rawBranches.filter((b) => b?.com_id != null && String(b.com_id) === String(currentComId))
+          : rawBranches;
+
+        setBranches(filteredBranches);
+
+        if (!currentComId) {
+          setOverview(ovRes || {});
+        } else {
+          setOverview((prev) => prev || {});
+        }
       } catch (err) {
         console.error(err);
       }
     })();
-  }, []);
+  }, [currentComId]);
 
   useEffect(() => {
     const toISODate = (d) => d.toISOString().slice(0, 10);
@@ -47,11 +62,17 @@ export default function AdminStatistics() {
 
     (async () => {
       try {
+        // fetch all orders (we'll filter client-side to the company's branches)
         const allOrders = await getOrders();
+
+        // allowed branch ids for the current company (if scoped)
+        const allowedBranchIds = (branches || []).map((b) => String(b.B_id ?? b.b_id ?? b.id));
+
         const cutoff = new Date();
         cutoff.setDate(cutoff.getDate() - (filters.days - 1));
-        
+
         const filtered = allOrders.filter((o) => {
+          if (currentComId && !allowedBranchIds.includes(String(o.b_id))) return false;
           if (filters.b_id !== "all" && String(o.b_id) !== String(filters.b_id)) return false;
           const d = o.or_date ? new Date(o.or_date) : null;
           return d && d >= cutoff;
@@ -90,25 +111,46 @@ export default function AdminStatistics() {
         });
         const busyDaysArr = Object.keys(weekdayMap).map((k) => ({ weekday: k, orders: weekdayMap[k] }));
 
-        const branchStats = await getBranchStats();
+        // fetch branch stats and scope to company using branch IDs (NOT com_id on stats rows)
+        const allBranchStats = await getBranchStats();
+        const rawBranchStats = Array.isArray(allBranchStats) ? allBranchStats : (allBranchStats?.data ?? []);
+
+        let filteredBranchStats;
+        if (currentComId) {
+          const allowed = new Set(allowedBranchIds);
+          filteredBranchStats = rawBranchStats.filter((b) => {
+            const bid = b?.B_id ?? b?.b_id ?? b?.id ?? null;
+            return bid != null && allowed.has(String(bid));
+          });
+        } else {
+          filteredBranchStats = rawBranchStats;
+        }
 
         setSales(salesSeries);
         setTypeBreakdown(typeBreakdownArr);
         setPeakHours(peakHoursArr);
         setBusyDays(busyDaysArr);
-        setBranchCompare(branchStats || []);
+        setBranchCompare(filteredBranchStats || []);
+
+        // compute overview totals from filtered branch stats when scoped
+        if (currentComId) {
+          const totalBranches = (filteredBranchStats || []).length;
+          const totalRevenue = (filteredBranchStats || []).reduce((s, b) => s + Number(b?.income || 0), 0);
+          const totalOrders = (filteredBranchStats || []).reduce((s, b) => s + Number(b?.orders || 0), 0);
+          setOverview({ totalBranches, totalRevenue, totalOrders });
+        }
       } catch (err) {
         console.error("Failed to build stats:", err);
       }
     })();
-  }, [filters]);
+  }, [filters, branches, currentComId]);
 
   return (
     <div style={{ display: "flex", background: "#f8fafc", minHeight: "100vh" }}>
       <Sidebar />
 
       <div style={{ flex: 1, marginLeft: 240, transition: "all 0.3s" }}>
-        <Header title="Super Admin Statistics" />
+        <Header title="Admin Statistics" />
 
         <div style={{ padding: "30px" }}>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "24px" }}>
@@ -117,44 +159,44 @@ export default function AdminStatistics() {
 
           {/* Stat Cards Grid */}
           <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
-            <StatCard 
-              title="Total Revenue" 
-              value={overview.totalRevenue ?? 0} 
-              icon={DollarSign} 
-              color="#10b981" 
-              trend="up" 
-              trendValue="12" 
+            <StatCard
+              title="Total Revenue"
+              value={overview.totalRevenue ?? 0}
+              icon={DollarSign}
+              color="#10b981"
+              trend="up"
+              trendValue="12"
             />
-            <StatCard 
-              title="Total Orders" 
-              value={overview.totalOrders ?? 0} 
-              icon={ShoppingBag} 
-              color="#f43f5e" 
-              trend="down" 
-              trendValue="5" 
+            <StatCard
+              title="Total Orders"
+              value={overview.totalOrders ?? 0}
+              icon={ShoppingBag}
+              color="#f43f5e"
+              trend="down"
+              trendValue="5"
             />
-            <StatCard 
-              title="Dine-In Orders" 
-              value={typeBreakdown.find(t => t.or_type === "dine-in")?.count ?? 0} 
-              icon={Users} 
-              color="#0b76ef" 
-              trend="up" 
-              trendValue="8" 
+            <StatCard
+              title="Dine-In Orders"
+              value={typeBreakdown.find((t) => t.or_type === "dine-in")?.count ?? 0}
+              icon={Users}
+              color="#0b76ef"
+              trend="up"
+              trendValue="8"
             />
-            <StatCard 
-              title="Takeaway Orders" 
-              value={typeBreakdown.find(t => t.or_type === "takeaway")?.count ?? 0} 
-              icon={Truck} 
-              color="#f59e0b" 
-              trend="down" 
-              trendValue="3" 
+            <StatCard
+              title="Takeaway Orders"
+              value={typeBreakdown.find((t) => t.or_type === "takeaway")?.count ?? 0}
+              icon={Truck}
+              color="#f59e0b"
+              trend="down"
+              trendValue="3"
             />
           </div>
 
           {/* Charts Row */}
           <div style={{ display: "flex", gap: "20px", marginTop: "24px" }}>
             <div style={{ flex: 2 }}>
-               <SalesChart data={sales} />
+              <SalesChart data={sales} />
             </div>
             <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: "20px" }}>
               <PeakHoursChart data={peakHours} />
@@ -171,5 +213,34 @@ export default function AdminStatistics() {
     </div>
   );
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
