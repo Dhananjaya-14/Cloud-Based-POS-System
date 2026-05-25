@@ -170,11 +170,7 @@ export async function getMyTables(req, res, next) {
       // For non-waiters (Cashier, Branch Admin, Admin), fetch all tables in their branch
       let branchId = null;
       if (roleId === ROLES.BRANCH_ADMIN) {
-        const branchRes = await pool.query(
-          'SELECT "B_id" AS b_id FROM "Branch" WHERE "U_id" = $1 LIMIT 1',
-          [userId],
-        );
-        branchId = branchRes.rows[0]?.b_id ?? null;
+        branchId = req.user.b_id ?? null;
       }
       
       if (!branchId) {

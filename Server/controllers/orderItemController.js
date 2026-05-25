@@ -131,6 +131,7 @@ export const getOrderItemsByOrderId = async (req, res) => {
 
     res.json({ success: true, count: result.rows.length, data: result.rows });
   } catch (err) {
+    console.error("[getOrderItemsByOrderId] error:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 };

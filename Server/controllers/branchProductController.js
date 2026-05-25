@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 function fieldOrNull(value) {
   // Convert `undefined` -> null (so COALESCE keeps the existing DB value).
@@ -55,38 +56,49 @@ function isNonNegativeNumber(value) {
 // GET /api/branch_products
 export async function getBranchProducts(req, res, next) {
   try {
+    const { role_id, com_id } = req.user;
     const branchId = req.query?.b_id ?? req.query?.B_id;
     if (branchId !== undefined && !isPositiveInt(branchId)) {
       res.status(400);
       throw new Error("b_id must be a positive integer");
     }
 
+    let query = `
+      SELECT
+        bp."Bpro_id",
+        bp."pro_name",
+        bp." pro_shortname" AS "pro_shortname",
+        bp." pro_image" AS "pro_image",
+        bp." pro_des" AS "pro_des",
+        bp."pro_quantity",
+        bp." Pro_Price" AS "pro_price",
+        bp."Cat_id" AS "cat_id",
+        bp."pro_id",
+        bp."B_id"
+      FROM "public"."Branch_Product" bp
+    `;
+
+    const conditions = [];
     const values = [];
-    let whereClause = "";
-    if (branchId !== undefined) {
-      values.push(Number(branchId));
-      whereClause = `WHERE "B_id" = $1`;
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id"`;
+      conditions.push(`b."com_id" = $${conditions.length + 1}`);
+      values.push(com_id);
     }
 
-    const result = await pool.query(
-      `
-      SELECT
-        "Bpro_id",
-        "pro_name",
-        " pro_shortname" AS "pro_shortname",
-        " pro_image" AS "pro_image",
-        " pro_des" AS "pro_des",
-        "pro_quantity",
-        " Pro_Price" AS "pro_price",
-        "Cat_id" AS "cat_id",
-        "pro_id",
-        "B_id"
-      FROM "public"."Branch_Product"
-      ${whereClause}
-      ORDER BY "Bpro_id"
-      `,
-      values,
-    );
+    if (branchId !== undefined) {
+      conditions.push(`bp."B_id" = $${conditions.length + 1}`);
+      values.push(Number(branchId));
+    }
+
+    if (conditions.length > 0) {
+      query += ` WHERE ` + conditions.join(" AND ");
+    }
+
+    query += ` ORDER BY bp."Bpro_id"`;
+
+    const result = await pool.query(query, values);
 
     res.set({
       "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
@@ -103,29 +115,36 @@ export async function getBranchProducts(req, res, next) {
 export async function getBranchProductById(req, res, next) {
   try {
     const { id } = req.params;
+    const { role_id, com_id } = req.user;
     if (!isPositiveInt(id)) {
       res.status(400);
       throw new Error("Invalid branch product id");
     }
 
-    const result = await pool.query(
-      `
+    let query = `
       SELECT
-        "Bpro_id",
-        "pro_name",
-        " pro_shortname" AS "pro_shortname",
-        " pro_image" AS "pro_image",
-        " pro_des" AS "pro_des",
-        "pro_quantity",
-        " Pro_Price" AS "pro_price",
-        "Cat_id" AS "cat_id",
-        "pro_id",
-        "B_id"
-      FROM "public"."Branch_Product"
-      WHERE "Bpro_id" = $1
-      `,
-      [id]
-    );
+        bp."Bpro_id",
+        bp."pro_name",
+        bp." pro_shortname" AS "pro_shortname",
+        bp." pro_image" AS "pro_image",
+        bp." pro_des" AS "pro_des",
+        bp."pro_quantity",
+        bp." Pro_Price" AS "pro_price",
+        bp."Cat_id" AS "cat_id",
+        bp."pro_id",
+        bp."B_id"
+      FROM "public"."Branch_Product" bp
+    `;
+    let params = [id];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2`;
+      params.push(com_id);
+    } else {
+      query += ` WHERE bp."Bpro_id" = $1`;
+    }
+
+    const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       res.status(404);
@@ -203,6 +222,20 @@ export async function createBranchProduct(req, res, next) {
     if (!isPositiveInt(B_id)) {
       res.status(400);
       throw new Error("B_id must be a positive integer");
+    }
+
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      const branchCheck = await pool.query('SELECT "com_id" FROM "public"."Branch" WHERE "B_id" = $1', [B_id]);
+      if (branchCheck.rows.length === 0 || branchCheck.rows[0].com_id !== req.user.com_id) {
+        res.status(403);
+        throw new Error("You do not have permission to add products to this branch.");
+      }
+
+      const productCheck = await pool.query('SELECT "Com_id" FROM "public"."Product" WHERE "pro_id" = $1', [pro_id]);
+      if (productCheck.rows.length === 0 || productCheck.rows[0].Com_id !== req.user.com_id) {
+        res.status(403);
+        throw new Error("You do not have permission to use this base product.");
+      }
     }
 
     const result = await pool.query(
@@ -298,10 +331,18 @@ export async function updateBranchProduct(req, res, next) {
       throw new Error("B_id must be a positive integer");
     }
 
-    const existing = await pool.query(
-      'SELECT "Bpro_id" FROM "public"."Branch_Product" WHERE "Bpro_id" = $1',
-      [id]
-    );
+    let checkQuery = `
+      SELECT bp."Bpro_id" 
+      FROM "public"."Branch_Product" bp
+    `;
+    let checkParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2`;
+      checkParams.push(req.user.com_id);
+    } else {
+      checkQuery += ` WHERE bp."Bpro_id" = $1`;
+    }
+    const existing = await pool.query(checkQuery, checkParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Branch product not found");
@@ -366,6 +407,23 @@ export async function deleteBranchProduct(req, res, next) {
     if (!isPositiveInt(id)) {
       res.status(400);
       throw new Error("Invalid branch product id");
+    }
+
+    let checkQuery = `
+      SELECT bp."Bpro_id" 
+      FROM "public"."Branch_Product" bp
+    `;
+    let checkParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2`;
+      checkParams.push(req.user.com_id);
+    } else {
+      checkQuery += ` WHERE bp."Bpro_id" = $1`;
+    }
+    const existing = await pool.query(checkQuery, checkParams);
+    if (existing.rows.length === 0) {
+      res.status(404);
+      throw new Error("Branch product not found");
     }
 
     const result = await pool.query(

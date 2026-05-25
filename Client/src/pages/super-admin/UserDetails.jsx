@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { FaArrowLeft, FaPlus, FaEye, FaEyeSlash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
-import { getUsers, getRoles, getBranches, updateUser, setAuthToken, logout } from "../../services/api";
+import { getUsers, getRoles, getBranches, getCompanies, updateUser, setAuthToken, logout } from "../../services/api";
 
 const UserDetails = () => {
   const { id } = useParams();
@@ -13,9 +13,12 @@ const UserDetails = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const fileInputRef = useRef(null);
   const [profileImage, setProfileImage] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [companies, setCompanies] = useState([]);
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -24,6 +27,7 @@ const UserDetails = () => {
     contactNumber: "",
     userRole: "",
     assignedBranch: "",
+    assignedCompany: "",
     activeStatus: true,
     password: "",
     confirmPassword: "",
@@ -41,15 +45,17 @@ const UserDetails = () => {
 
   const fetchData = async () => {
     try {
-      // Fetch users to find the specific one, plus roles and branches for the dropdowns
-      const [usersData, rolesData, branchesData] = await Promise.all([
+      // Fetch users to find the specific one, plus roles, branches, and companies
+      const [usersData, rolesData, branchesData, companiesData] = await Promise.all([
         getUsers(),
         getRoles(),
         getBranches(),
+        getCompanies(),
       ]);
 
       setRoles(Array.isArray(rolesData) ? rolesData : []);
       setBranches(Array.isArray(branchesData) ? branchesData : []);
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
 
       const user = (Array.isArray(usersData) ? usersData : []).find(
         (u) => u.u_id.toString() === id
@@ -63,6 +69,7 @@ const UserDetails = () => {
           contactNumber: user.u_connumber || "",
           userRole: user.role_id?.toString() || "",
           assignedBranch: user.b_id?.toString() || "",
+          assignedCompany: user.com_id?.toString() || "",
           activeStatus: user.u_status === true || String(user.u_status).toLowerCase() === "active" || String(user.u_status).toLowerCase() === "true",
           password: "",
           confirmPassword: "",
@@ -104,35 +111,49 @@ const UserDetails = () => {
   };
 
   const handleSaveChanges = async () => {
+    setErrorMessage("");
+    if (!formData.firstName || !formData.lastName || !formData.email) {
+      setErrorMessage("Please fill in all required fields.");
+      return;
+    }
+
+    if (formData.password && formData.password !== formData.confirmPassword) {
+      setErrorMessage("Passwords do not match.");
+      return;
+    }
+
+    if (parseInt(formData.userRole) === 6) {
+      // Super Admin needs no company or branch
+    } else if (parseInt(formData.userRole) === 2 && !formData.assignedCompany) {
+      setErrorMessage("Please select an Assigned Company/Hotel for the Admin role.");
+      return;
+    } else if (parseInt(formData.userRole) !== 2 && !formData.assignedBranch) {
+      setErrorMessage("Please select an Assigned Branch.");
+      return;
+    }
+
+    setIsSaving(true);
     try {
-      if (!formData.firstName || !formData.lastName || !formData.email) {
-        alert("Please fill in all required fields.");
-        return;
-      }
-
-      if (formData.password && formData.password !== formData.confirmPassword) {
-        alert("Passwords do not match.");
-        return;
-      }
-
       const payload = {
         u_fname: formData.firstName,
         u_lname: formData.lastName,
         u_email: formData.email,
         u_connumber: formData.contactNumber,
         role_id: parseInt(formData.userRole),
-        b_id: formData.assignedBranch ? parseInt(formData.assignedBranch) : null,
         // Password only if changed
         ...(formData.password && { u_pw: formData.password }),
-        u_status: formData.activeStatus
+        u_status: formData.activeStatus,
+        com_id: parseInt(formData.userRole) === 2 && formData.assignedCompany ? parseInt(formData.assignedCompany) : null,
+        b_id: parseInt(formData.userRole) !== 2 && parseInt(formData.userRole) !== 6 && formData.assignedBranch ? parseInt(formData.assignedBranch) : null,
       };
 
       await updateUser(id, payload);
-      alert("User details updated successfully!");
-      navigate("/super-admin/users");
+      navigate("/super-admin/users", { state: { successMessage: "User details updated successfully!" } });
     } catch (err) {
       console.error("Error updating user:", err);
-      alert(err.response?.data?.message || err.message || "Failed to update user.");
+      setErrorMessage(err.response?.data?.message || err.message || "Failed to update user.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -169,6 +190,17 @@ const UserDetails = () => {
             <h2 style={{ textAlign: "center", fontSize: 24, fontWeight: 700, color: "#111827", marginBottom: 40 }}>
               Edit User Details
             </h2>
+
+            {errorMessage && (
+              <div style={{
+                padding: "12px 18px", background: "#FEF2F2", border: "1px solid #FEE2E2",
+                color: "#EF4444", borderRadius: 8, fontSize: 14, fontWeight: 600,
+                marginBottom: 24, display: "flex", alignItems: "center", gap: 8
+              }}>
+                <span style={{ fontSize: 16 }}>⚠️</span>
+                {errorMessage}
+              </div>
+            )}
 
             {loading ? (
               <div style={{ textAlign: "center", padding: 40, color: "#6B7280" }}>Loading...</div>
@@ -236,7 +268,7 @@ const UserDetails = () => {
                   </div>
                 </div>
 
-                {/* User Role, Assigned Branch, Active Status */}
+                {/* User Role, Assigned Branch / Company, Active Status */}
                 <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>User Role</label>
@@ -248,15 +280,40 @@ const UserDetails = () => {
                     </select>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>Assigned Branch</label>
-                    <select name="assignedBranch" value={formData.assignedBranch} onChange={handleChange} style={selectStyle}>
-                      <option value="">Select Branch</option>
-                      {branches.map(b => (
-                        <option key={b.B_id} value={b.B_id}>
-                          {b.B_name} {b.com_name ? `(${b.com_name})` : ""}
-                        </option>
-                      ))}
-                    </select>
+                    {formData.userRole === "6" ? (
+                      <>
+                        <label style={labelStyle}>Assigned Scope</label>
+                        <input
+                          disabled
+                          value="Universal Access (All Hotels & Branches)"
+                          style={{ ...inputStyle, background: "#E5E7EB", color: "#6B7280", cursor: "not-allowed" }}
+                        />
+                      </>
+                    ) : formData.userRole === "2" ? (
+                      <>
+                        <label style={labelStyle}>Assigned Company / Hotel</label>
+                        <select name="assignedCompany" value={formData.assignedCompany} onChange={handleChange} style={selectStyle}>
+                          <option value="">Select Company</option>
+                          {companies.map(c => (
+                            <option key={c.com_id} value={c.com_id}>
+                              {c.com_name}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    ) : (
+                      <>
+                        <label style={labelStyle}>Assigned Branch</label>
+                        <select name="assignedBranch" value={formData.assignedBranch} onChange={handleChange} style={selectStyle}>
+                          <option value="">Select Branch</option>
+                          {branches.map(b => (
+                            <option key={b.B_id} value={b.B_id}>
+                              {b.B_name} {b.com_name ? `(${b.com_name})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </>
+                    )}
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{
@@ -322,12 +379,14 @@ const UserDetails = () => {
                 <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
                   <button
                     onClick={handleSaveChanges}
+                    disabled={isSaving}
                     style={{
                       background: "#22C55E", color: "#fff", padding: "12px 32px", border: "none",
-                      borderRadius: 8, fontSize: 15, fontWeight: 600, cursor: "pointer"
+                      borderRadius: 8, fontSize: 15, fontWeight: 600,
+                      cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1
                     }}
                   >
-                    Save Changes
+                    {isSaving ? "Saving..." : "Save Changes"}
                   </button>
                 </div>
 
