@@ -46,10 +46,10 @@ export const getBranches = async () => {
 
 
 
-export const updateBranch = async (id, branchData) => {
-  const response = await api.put(`/branches/${id}`, branchData);
-  return response.data;
-};
+// export const updateBranch = async (id, branchData) => {
+//   const response = await api.put(`/branches/${id}`, branchData);
+//   return response.data;
+// };
 
 export const deleteBranch = async (id) => {
   const response = await api.delete(`/branches/${id}`);
@@ -91,9 +91,22 @@ export const getProducts = async () => {
   return response.data;
 };
 
-export const getBranchProducts = async () => {
-  const response = await api.get("/branch_products");
-  return response.data;
+export const getBranchProducts = async (branchId) => {
+  const response = await api.get("/branch_products", {
+    params: {
+      ...(branchId ? { B_id: branchId } : {}),
+      _ts: Date.now(),
+    },
+    headers: {
+      "Cache-Control": "no-cache",
+      Pragma: "no-cache",
+    },
+  });
+
+  const data = response.data;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
 };
 
 export const createBranchProduct = async (branchProductData) => {
@@ -136,6 +149,9 @@ export const getProductById = async (productId) => {
   return response.data;
 };
 
+
+
+
 export const getCategories = async () => {
   const response = await api.get("/categories");
   return response.data;
@@ -143,6 +159,45 @@ export const getCategories = async () => {
 
 export const getRawMaterials = async () => {
   const response = await api.get("/raw-materials");
+  return response.data;
+};
+
+export const getRecipes = async () => {
+  const response = await api.get("/recipes");
+  return response.data;
+};
+
+export const getRecipeById = async (recipeId) => {
+  const response = await api.get(`/recipes/${recipeId}`);
+  return response.data;
+};
+
+export const getRecipesByProduct = async (productId) => {
+  const response = await api.get(`/recipes/product/${productId}`);
+  return response.data;
+};
+
+export const createRecipe = async (payload) => {
+  const response = await api.post("/recipes", payload);
+  return response.data;
+};
+
+export const createRecipeBulk = async (payload) => {
+  const response = await api.post("/recipes/bulk", payload);
+  return response.data;
+};
+
+export const updateRecipe = async (recipeId, payload) => {
+  const response = await api.put(`/recipes/${recipeId}`, payload);
+  return response.data;
+};
+
+export const deleteRecipe = async (recipeId) => {
+  await api.delete(`/recipes/${recipeId}`);
+};
+
+export const deleteRecipeByProduct = async (productId) => {
+  const response = await api.delete(`/recipes/product/${productId}`);
   return response.data;
 };
 
@@ -158,6 +213,16 @@ export const createProduct = async (productData) => {
 
 export const createOrder = async (orderData) => {
   const response = await api.post("/orders", orderData);
+  return response.data;
+};
+
+export const updateOrder = async (orderId, orderData) => {
+  const response = await api.put(`/orders/${orderId}`, orderData);
+  return response.data;
+};
+
+export const deleteOrderItem = async (orderItemId) => {
+  const response = await api.delete(`/order-items/${orderItemId}`);
   return response.data;
 };
 
@@ -240,21 +305,101 @@ export const createBranch = async (branchData) => {
 
 export const setupBranchWithManager = async (combinedData) => {
   try {
-    const newUser = await createUser(combinedData.manager);
-
-    const branchPayload = {
+    // 1. Create the Branch first (no longer requires U_id)
+    const newBranch = await createBranch({
       ...combinedData.branch,
-      U_id: newUser.u_id,
       com_id: combinedData.com_id ?? 1,
-    };
+    });
 
-    const newBranch = await createBranch(branchPayload);
+    const branchId = newBranch.B_id ?? newBranch.b_id ?? null;
+
+    // 2. Create the User (Manager), linking them to the Branch using the newly created branchId
+    const newUser = await createUser({
+      ...combinedData.manager,
+      B_id: branchId,
+    });
 
     return { user: newUser, branch: newBranch };
   } catch (error) {
     throw error;
   }
 };
+
+export const getStatsOverview = async () => {
+  const res = await api.get("/stats/overview");
+  return res.data;
+};
+
+export const getBranchStats = async () => {
+  const res = await api.get("/stats/branches");
+  return res.data;
+};
+
+// Stats API helpers
+export const getStatsSalesOverTime = async (params = {}) => {
+  const res = await api.get("/stats/sales-over-time", { params });
+  return res.data;
+};
+
+export const getStatsTypeBreakdown = async (params = {}) => {
+  const res = await api.get("/stats/type-breakdown", { params });
+  return res.data;
+};
+
+export const getStatsPeakHours = async (params = {}) => {
+  const res = await api.get("/stats/peak-hours", { params });
+  return res.data;
+};
+
+export const getStatsBusyDays = async (params = {}) => {
+  const res = await api.get("/stats/busy-days", { params });
+  return res.data;
+};
+
+export const getBranchComparison = async () => {
+  const res = await api.get("/stats/branches/compare");
+  return res.data;
+};
+
+
+// --- Transactions / purchases helpers (append these) ---
+export const getOrderById = async (orderId) => {
+  const response = await api.get(`/orders/${orderId}`);
+  return response.data?.data || null;
+};
+
+export const getPurchaseOrders = async (params = {}) => {
+  const res = await api.get("/purchase-orders", { params });
+  return res.data?.data ?? res.data ?? [];
+};
+
+export const getPurchaseOrderById = async (id) => {
+  const res = await api.get(`/purchase-orders/${id}`);
+  return res.data || null;
+};
+
+export const getPurchaseItemsByOrder = async (orderId) => {
+  const res = await api.get(`/purchase-items/order/${orderId}`);
+  return res.data || [];
+};
+
+export const getSupplierPayments = async (params = {}) => {
+  const res = await api.get("/supplier-payments", { params });
+  return res.data || [];
+};
+
+export const getPaymentsByOrder = async (poId) => {
+  const res = await api.get(`/supplier-payments/order/${poId}`);
+  return res.data || [];
+};
+
+// Payments helper
+export const getPayments = async (params = {}) => {
+  const res = await api.get("/payments", { params });
+  // payment API returns { success, data, meta } where data is an array
+  return res.data?.data ?? [];
+};
+
 
 
 

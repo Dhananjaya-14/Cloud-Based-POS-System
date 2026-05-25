@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 const VALID_STATUSES = ["pending", "preparing", "completed", "cancelled"];
 
@@ -42,8 +43,60 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
   return null;
 }
 
+async function resolveWaiterBranchId(waiterId) {
+  const assigned = await pool.query(
+    `SELECT t.branch_id
+     FROM "TABLE_ASSIGNMENT" ta
+     JOIN "TABLES" t ON ta.table_id = t.table_id
+     WHERE ta.u_id = $1
+     ORDER BY ta.assigned_date DESC
+     LIMIT 1`,
+    [waiterId],
+  );
+
+  if (assigned.rows.length > 0) return assigned.rows[0].branch_id;
+
+  const fallback = await pool.query(
+    'SELECT "B_id" AS branch_id FROM "Branch" LIMIT 1',
+  );
+
+  return fallback.rows[0]?.branch_id ?? null;
+}
+
 async function ensureWaiterAssignedToTable(waiterId, tableId) {
   const today = getTodayStr();
+  
+  // Check if waiter has any assignments today
+  const anyAssigns = await pool.query(
+    `SELECT assign_id FROM "TABLE_ASSIGNMENT" WHERE u_id = $1 AND assigned_date = $2 LIMIT 1`,
+    [waiterId, today]
+  );
+
+  // If no assignments are configured for today, authorize table if it belongs to their branch
+  if (anyAssigns.rows.length === 0) {
+    const tableRes = await pool.query(
+      `SELECT branch_id FROM "TABLES" WHERE table_id = $1`,
+      [tableId]
+    );
+    if (tableRes.rows.length === 0) return false;
+    const tableBranchId = tableRes.rows[0].branch_id;
+
+    const branchRes = await pool.query(
+      `SELECT t.branch_id
+       FROM "TABLE_ASSIGNMENT" ta
+       JOIN "TABLES" t ON ta.table_id = t.table_id
+       WHERE ta.u_id = $1
+       LIMIT 1`,
+      [waiterId]
+    );
+    let waiterBranchId = branchRes.rows[0]?.branch_id;
+    if (!waiterBranchId) {
+      const defaultBranch = await pool.query('SELECT "B_id" AS branch_id FROM "Branch" LIMIT 1');
+      waiterBranchId = defaultBranch.rows[0]?.branch_id;
+    }
+    return tableBranchId === waiterBranchId;
+  }
+
   const { rows } = await pool.query(
     `SELECT assign_id
      FROM "TABLE_ASSIGNMENT"
@@ -57,7 +110,7 @@ async function ensureWaiterAssignedToTable(waiterId, tableId) {
 
 export async function getWaiterProfile(req, res, next) {
   try {
-    const { rows } = await pool.query(
+    const userRes = await pool.query(
       `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber,
               u.role_id, r.role_name
        FROM "User" u
@@ -66,12 +119,42 @@ export async function getWaiterProfile(req, res, next) {
       [req.user.u_id],
     );
 
-    if (!rows.length) {
+    if (!userRes.rows.length) {
       res.status(404);
-      return next(new Error("Waiter not found"));
+      return next(new Error("User not found"));
     }
 
-    res.json({ success: true, data: rows[0] });
+    const userData = userRes.rows[0];
+
+    // Fetch the branch associated with their table assignment if they have one
+    const branchRes = await pool.query(
+      `SELECT t.branch_id, b."B_name" AS b_name
+       FROM "TABLE_ASSIGNMENT" ta
+       JOIN "TABLES" t ON ta.table_id = t.table_id
+       JOIN "Branch" b ON b."B_id" = t.branch_id
+       WHERE ta.u_id = $1
+       LIMIT 1`,
+      [req.user.u_id],
+    );
+
+    if (branchRes.rows.length > 0) {
+      userData.branch_id = branchRes.rows[0].branch_id;
+      userData.b_name = branchRes.rows[0].b_name;
+    } else {
+      // Fallback: If no assignment, get the first branch or set to null
+      const defaultBranch = await pool.query(
+        'SELECT "B_id" AS branch_id, "B_name" AS b_name FROM "Branch" LIMIT 1'
+      );
+      if (defaultBranch.rows.length > 0) {
+        userData.branch_id = defaultBranch.rows[0].branch_id;
+        userData.b_name = defaultBranch.rows[0].b_name;
+      } else {
+        userData.branch_id = null;
+        userData.b_name = "No Branch Assigned";
+      }
+    }
+
+    res.json({ success: true, data: userData });
   } catch (err) {
     next(err);
   }
@@ -79,11 +162,48 @@ export async function getWaiterProfile(req, res, next) {
 
 export async function getMyTables(req, res, next) {
   try {
-    const waiterId = req.user.u_id;
+    const userId = req.user.u_id;
+    const roleId = req.user.role_id;
     const { date = getTodayStr(), shift } = req.query;
 
+    if (roleId !== ROLES.WAITER) {
+      // For non-waiters (Cashier, Branch Admin, Admin), fetch all tables in their branch
+      let branchId = null;
+      if (roleId === ROLES.BRANCH_ADMIN) {
+        branchId = req.user.b_id ?? null;
+      }
+      
+      if (!branchId) {
+        const defaultBranch = await pool.query(
+          'SELECT "B_id" AS branch_id FROM "Branch" LIMIT 1'
+        );
+        branchId = defaultBranch.rows[0]?.branch_id ?? null;
+      }
+
+      if (!branchId) {
+        return res.json({ success: true, count: 0, data: [] });
+      }
+
+      const { rows } = await pool.query(
+        `SELECT
+           t.table_id,
+           t.table_number,
+           t.table_capacity,
+           t.table_status,
+           t.branch_id,
+           b."B_name" AS branch_name
+         FROM "TABLES" t
+         LEFT JOIN "Branch" b ON b."B_id" = t.branch_id
+         WHERE t.branch_id = $1
+         ORDER BY t.table_number`,
+        [branchId],
+      );
+      return res.json({ success: true, count: rows.length, data: rows });
+    }
+
+    // For waiters, original table assignment logic
     const conditions = ["ta.u_id = $1", "ta.assigned_date = $2"];
-    const values = [waiterId, date];
+    const values = [userId, date];
     let idx = 3;
 
     if (shift) {
@@ -111,7 +231,48 @@ export async function getMyTables(req, res, next) {
       values,
     );
 
-    res.json({ success: true, count: rows.length, data: rows });
+    if (rows.length > 0) {
+      return res.json({ success: true, count: rows.length, data: rows });
+    }
+
+    // Fallback: If no assignments today, get all tables in their branch
+    const branchRes = await pool.query(
+      `SELECT t.branch_id, b."B_name" AS branch_name
+       FROM "TABLE_ASSIGNMENT" ta
+       JOIN "TABLES" t ON ta.table_id = t.table_id
+       JOIN "Branch" b ON b."B_id" = t.branch_id
+       WHERE ta.u_id = $1
+       LIMIT 1`,
+      [userId],
+    );
+    let branchId = branchRes.rows[0]?.branch_id;
+    if (!branchId) {
+      const defaultBranch = await pool.query(
+        'SELECT "B_id" AS branch_id, "B_name" AS b_name FROM "Branch" LIMIT 1'
+      );
+      branchId = defaultBranch.rows[0]?.branch_id;
+    }
+
+    if (!branchId) {
+      return res.json({ success: true, count: 0, data: [] });
+    }
+
+    const allBranchTables = await pool.query(
+      `SELECT
+         t.table_id,
+         t.table_number,
+         t.table_capacity,
+         t.table_status,
+         t.branch_id,
+         b."B_name" AS branch_name
+       FROM "TABLES" t
+       LEFT JOIN "Branch" b ON b."B_id" = t.branch_id
+       WHERE t.branch_id = $1
+       ORDER BY t.table_number`,
+      [branchId]
+    );
+
+    res.json({ success: true, count: allBranchTables.rows.length, data: allBranchTables.rows });
   } catch (err) {
     next(err);
   }
@@ -172,37 +333,50 @@ export async function createWaiterOrder(req, res, next) {
       or_totalCostWtax,
     } = req.body;
 
-    if (!table_id || or_totalcost === undefined || or_totalCostWtax === undefined) {
+    if (or_totalcost === undefined || or_totalCostWtax === undefined) {
       res.status(400);
       return next(
-        new Error("table_id, or_totalcost and or_totalCostWtax are required"),
+        new Error("or_totalcost and or_totalCostWtax are required"),
       );
     }
 
-    const tableIdInt = parsePositiveInt(table_id, "table_id");
+    const tableIdInt = table_id ? parsePositiveInt(table_id, "table_id") : null;
     const costError = validateCosts(or_tax, or_totalcost, or_totalCostWtax);
     if (costError) {
       res.status(400);
       return next(new Error(costError));
     }
 
-    const table = await pool.query(
-      `SELECT table_id, branch_id, table_status
-       FROM "TABLES"
-       WHERE table_id = $1`,
-      [tableIdInt],
-    );
-    if (!table.rows.length) {
-      res.status(404);
-      return next(new Error("Table not found"));
-    }
-
-    const isAssigned = await ensureWaiterAssignedToTable(waiterId, tableIdInt);
-    if (!isAssigned) {
-      res.status(403);
-      return next(
-        new Error("You can only create orders for tables assigned to you today"),
+    let branchId = null;
+    if (tableIdInt) {
+      const table = await pool.query(
+        `SELECT table_id, branch_id, table_status
+         FROM "TABLES"
+         WHERE table_id = $1`,
+        [tableIdInt],
       );
+      if (!table.rows.length) {
+        res.status(404);
+        return next(new Error("Table not found"));
+      }
+
+      if (req.user.role_id === ROLES.WAITER) {
+        const isAssigned = await ensureWaiterAssignedToTable(waiterId, tableIdInt);
+        if (!isAssigned) {
+          res.status(403);
+          return next(
+            new Error("You can only create orders for tables assigned to you today"),
+          );
+        }
+      }
+
+      branchId = table.rows[0].branch_id;
+    } else {
+      branchId = await resolveWaiterBranchId(waiterId);
+      if (!branchId) {
+        res.status(400);
+        return next(new Error("Unable to resolve branch for waiter"));
+      }
     }
 
     const client = await pool.connect();
@@ -221,17 +395,19 @@ export async function createWaiterOrder(req, res, next) {
           parseFloat(or_totalCostWtax),
           cust_id ?? null,
           waiterId,
-          table.rows[0].branch_id,
+          branchId,
           tableIdInt,
         ],
       );
 
-      await client.query(
-        `UPDATE "TABLES"
-         SET table_status = 'occupied'
-         WHERE table_id = $1 AND table_status <> 'occupied'`,
-        [tableIdInt],
-      );
+      if (tableIdInt) {
+        await client.query(
+          `UPDATE "TABLES"
+           SET table_status = 'occupied'
+           WHERE table_id = $1 AND table_status <> 'occupied'`,
+          [tableIdInt],
+        );
+      }
 
       await client.query("COMMIT");
       res.status(201).json({ success: true, data: orderResult.rows[0] });
@@ -268,7 +444,7 @@ export async function deleteWaiterOrder(req, res, next) {
     }
 
     const order = existing.rows[0];
-    if (order.u_id !== waiterId) {
+    if (req.user.role_id === ROLES.WAITER && order.u_id !== waiterId) {
       res.status(403);
       return next(new Error("You can only delete orders created by you"));
     }

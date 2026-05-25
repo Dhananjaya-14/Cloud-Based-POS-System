@@ -152,6 +152,7 @@ const EditUser = () => {
                 u_email: formData.email,
                 u_connumber: formData.contactNumber || null,
                 role_id: Number(formData.role),
+                b_id: formData.branch ? Number(formData.branch) : null,
             };
 
             if (formData.password) {

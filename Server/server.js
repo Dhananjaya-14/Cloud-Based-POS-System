@@ -57,6 +57,10 @@ import deliveryRoutes from "./routes/deliveryRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 
+
+
+import statsRoutes from "./routes/statsRoutes.js";
+
 // ─────────────────────────────────────────────
 // APP INIT
 // ─────────────────────────────────────────────
@@ -130,6 +134,10 @@ app.use("/api/discounts", discountRoutes);
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/terminals", terminalRoutes);
 
+
+// Stats
+app.use("/api/stats", statsRoutes);
+
 // ─────────────────────────────────────────────
 // ERROR HANDLING (must be last)
 // ─────────────────────────────────────────────
@@ -148,3 +156,6 @@ initializeSocket(httpServer);
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+
+
+// app.use("/api/stats", statsRoutes);

@@ -8,14 +8,13 @@ import {
 } from "../controllers/waiterController.js";
 import {
   requireAuth,
-  requireRole,
-  ROLES,
+  requireWaiterOrAbove,
 } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 router.use(requireAuth);
-router.use(requireRole([ROLES.WAITER], "Waiter"));
+router.use(requireWaiterOrAbove);
 
 router.get("/profile", getWaiterProfile);
 router.get("/my-tables", getMyTables);

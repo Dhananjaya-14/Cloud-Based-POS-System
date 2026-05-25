@@ -7,11 +7,13 @@ import {
 	FaExclamationTriangle,
 	FaSearch,
 } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-import { getBranchProducts, updateBranchProduct } from "../../services/api";
+import { getBranchProducts, updateBranchProduct, getBranches } from "../../services/api";
+
 
 const cardBaseStyle = {
 	flex: "0 1 calc((100% - 60px) / 3)",
@@ -87,6 +89,7 @@ const mapApiProductToTableItem = (product) => {
 
 const ProductManagement = () => {
 	const navigate = useNavigate();
+	const { user } = useAuth();
 	const [searchTerm, setSearchTerm] = useState("");
 	const [products, setProducts] = useState([]);
 	const [loading, setLoading] = useState(true);
@@ -102,7 +105,11 @@ const ProductManagement = () => {
 			try {
 				setLoading(true);
 				setError("");
-				const response = await getBranchProducts();
+				const branches = await getBranches();
+				const myBranch = branches.find(b => String(b.U_id) === String(user?.u_id)) || branches[0];
+				
+				const response = myBranch?.B_id ? await getBranchProducts(myBranch.B_id) : [];
+				
 				if (!isMounted) return;
 				setProducts(Array.isArray(response) ? response : []);
 			} catch (err) {
@@ -119,7 +126,7 @@ const ProductManagement = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, []);
+	}, [user?.u_id]);
 
 	const tableProducts = useMemo(() => {
 		const mapped = products.map(mapApiProductToTableItem);

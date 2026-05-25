@@ -22,7 +22,7 @@ export async function login(req, res, next) {
     }
     //search user from db
     const result = await pool.query(
-      'SELECT u_id, u_fname, u_lname, u_email, u_pw, u_connumber, role_id FROM "User" WHERE u_email = $1',
+      'SELECT u_id, u_fname, u_lname, u_email, u_pw, u_connumber, role_id, "B_id", "com_id" FROM "User" WHERE u_email = $1',
       [u_email]
     );
 
@@ -62,13 +62,15 @@ export async function login(req, res, next) {
       res.status(500);
       throw new Error("JWT_SECRET is not configured");
     }
-    let b_id = null;
-    if (user.role_id === ROLES.BRANCH_ADMIN) {
-      const branchRes = await pool.query(
-        'SELECT "B_id" AS b_id FROM "Branch" WHERE "U_id" = $1 LIMIT 1',
-        [user.u_id],
-      );
-      b_id = branchRes.rows[0]?.b_id ?? null;
+    let b_id = user.B_id ?? null;
+    let com_id = user.com_id ?? null;
+ 
+    if (user.role_id === ROLES.SUPER_ADMIN) {
+      b_id = null;
+      com_id = null;
+    } else if (!com_id && b_id) {
+      const bRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [b_id]);
+      com_id = bRes.rows[0]?.com_id ?? null;
     }
 
     //token creation
@@ -77,6 +79,7 @@ export async function login(req, res, next) {
       role_id: user.role_id,
       u_email: user.u_email,
       ...(b_id != null ? { b_id } : {}),
+      ...(com_id != null ? { com_id } : {}),
     });
 
     const userPayload = {
@@ -86,10 +89,9 @@ export async function login(req, res, next) {
       u_email: user.u_email,
       u_connumber: user.u_connumber,
       role_id: user.role_id,
+      ...(b_id != null ? { b_id } : {}),
+      ...(com_id != null ? { com_id } : {}),
     };
-    if (user.role_id === ROLES.BRANCH_ADMIN) {
-      userPayload.b_id = b_id;
-    }
 
     //frntend res
     res.json({

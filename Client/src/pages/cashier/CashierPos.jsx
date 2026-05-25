@@ -22,6 +22,11 @@ import {
   createOrderItem,
   getBranches,
   getBranchProducts,
+  getOrders,
+  getOrderItemsByOrderId,
+  updateOrderStatus,
+  updateOrder,
+  deleteOrderItem,
 } from "../../services/api";
 
 const categories = [
@@ -52,29 +57,59 @@ const CashierPos = () => {
   const [discountPct, setDiscountPct] = useState(0);
   const [serviceFee, setServiceFee] = useState(0);
 
+  const [heldOrders, setHeldOrders] = useState([]);
+  const [showHeldOrdersModal, setShowHeldOrdersModal] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState(null);
+
+  const [waiterOrders, setWaiterOrders] = useState([]);
+  const [showWaiterOrdersModal, setShowWaiterOrdersModal] = useState(false);
+  const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
+
+  const fetchWaiterOrders = async () => {
+    try {
+      setLoadingWaiterOrders(true);
+      const allOrders = await getOrders();
+      const activeDineIn = allOrders.filter(
+        (o) => o.or_type === "dine-in" && o.or_status !== "cancelled"
+      );
+      setWaiterOrders(activeDineIn);
+    } catch (err) {
+      console.error("Failed to fetch waiter orders", err);
+    } finally {
+      setLoadingWaiterOrders(false);
+    }
+  };
+
+  const handleOpenWaiterOrders = () => {
+    fetchWaiterOrders();
+    setShowWaiterOrdersModal(true);
+  };
+
   useEffect(() => {
     const loadPosData = async () => {
       try {
         setLoading(true);
         setError("");
 
-        const [branchList, branchProductList] = await Promise.all([
-          getBranches(),
-          getBranchProducts(),
-        ]);
-
+        const branchList = await getBranches();
         const matchedBranch =
           branchList.find((branch) => String(branch.U_id) === String(user?.u_id)) ??
           branchList[0];
 
-        setBranchId(matchedBranch?.B_id ?? null);
+        const matchedBranchId = matchedBranch?.B_id ?? null;
+        setBranchId(matchedBranchId);
         setBranchName(matchedBranch?.B_name ?? "Selected branch");
+
+        const branchProductList = matchedBranchId
+          ? await getBranchProducts(matchedBranchId)
+          : [];
+
         setProducts(branchProductList);
       } catch (loadError) {
         setError(
           loadError?.response?.data?.message ||
-            loadError.message ||
-            "Failed to load POS data",
+          loadError.message ||
+          "Failed to load POS data",
         );
       } finally {
         setLoading(false);
@@ -203,24 +238,46 @@ const CashierPos = () => {
       setSubmitting(true);
       setError("");
 
-      const orderResponse = await createOrder({
-        or_tax: taxRate,
-        or_totalcost: Number(taxableBase.toFixed(2)),
-        or_totalCostWtax: Number(total.toFixed(2)),
-        or_status: "pending",
-        or_type: orderType,
-        cust_id: null,
-        u_id: user.u_id,
-        b_id: branchId,
-        table_id: null,
-        or_discount_pct: Number(discountPct || 0),
-        or_service_fee: Number(serviceFee || 0),
-        or_notes: notes || undefined,
-      });
+      let orderId = editingOrderId;
 
-      const orderId = orderResponse?.data?.or_id;
-      if (!orderId) {
-        throw new Error("Order was created but no order id was returned");
+      if (editingOrderId) {
+        // Update existing order
+        await updateOrder(editingOrderId, {
+          or_tax: taxRate,
+          or_totalcost: Number(taxableBase.toFixed(2)),
+          or_totalCostWtax: Number(total.toFixed(2)),
+          or_status: "completed",
+          or_type: orderType,
+          cust_id: null,
+          u_id: user.u_id,
+          b_id: branchId,
+          table_id: null, // Depending on Waiter order, this might have a table. We could preserve it if we had it, but for Cashier checkout we assume paid at counter.
+        });
+
+        // Fetch existing items to delete them
+        const existingItems = await getOrderItemsByOrderId(editingOrderId);
+        if (existingItems && existingItems.length > 0) {
+          await Promise.all(
+            existingItems.map((item) => deleteOrderItem(item.orderItem_id))
+          );
+        }
+      } else {
+        const orderResponse = await createOrder({
+          or_tax: taxRate,
+          or_totalcost: Number(taxableBase.toFixed(2)),
+          or_totalCostWtax: Number(total.toFixed(2)),
+          or_status: "pending",
+          or_type: orderType,
+          cust_id: null,
+          u_id: user.u_id,
+          b_id: branchId,
+          table_id: null,
+        });
+
+        orderId = orderResponse?.data?.or_id;
+        if (!orderId) {
+          throw new Error("Order was created but no order id was returned");
+        }
       }
 
       await Promise.all(
@@ -243,6 +300,7 @@ const CashierPos = () => {
       }));
 
       setCart([]);
+      setEditingOrderId(null);
       navigate("/cashier/invoice-preview", {
         state: {
           orderId,
@@ -264,13 +322,92 @@ const CashierPos = () => {
     } catch (checkoutError) {
       setError(
         checkoutError?.response?.data?.error ||
-          checkoutError?.response?.data?.message ||
-          checkoutError.message ||
-          "Checkout failed",
+        checkoutError?.response?.data?.message ||
+        checkoutError.message ||
+        "Checkout failed",
       );
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleEditWaiterOrder = async (ao) => {
+    try {
+      setLoadingWaiterOrders(true);
+      const items = await getOrderItemsByOrderId(ao.or_id);
+      
+      const newCart = items.map((item) => ({
+        Bpro_id: item.Bpro_id,
+        pro_name: item.pro_name,
+        unitPrice: Number(item.unit_price || item.branch_price || 0),
+        qty: Number(item.pro_quantity || 1),
+      }));
+
+      setCart(newCart);
+      setOrderType(ao.or_type || "takeaway"); // Maintain their type or adjust according to edits
+      setNotes(ao.or_notes || "");
+      setEditingOrderId(ao.or_id);
+      setShowWaiterOrdersModal(false);
+    } catch (err) {
+      alert("Failed to load order for editing: " + err.message);
+    } finally {
+      setLoadingWaiterOrders(false);
+    }
+  };
+
+  const handleHoldOrder = () => {
+    if (cart.length === 0) return;
+    const newHeldOrder = {
+      id: Date.now(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      cart: [...cart],
+      paymentMethod,
+      orderType,
+      allergies,
+      addons,
+      notes,
+      discountPct,
+      serviceFee
+    };
+    setHeldOrders((prev) => [...prev, newHeldOrder]);
+    
+
+    // Reset form
+    setCart([]);
+    setPaymentMethod("Cash");
+    setOrderType("takeaway");
+    setAllergies("");
+    setAddons("");
+    setNotes("");
+    setDiscountPct(0);
+    setServiceFee(0);
+  };
+
+  const handleResumeOrder = (holdId) => {
+    const orderToResume = heldOrders.find((ho) => ho.id === holdId);
+    if (!orderToResume) return;
+
+    if (cart.length > 0) {
+      // Prompt user or hold current order?
+      // Pushing current to hold array to avoid losing it.
+      handleHoldOrder();
+    }
+
+    setCart(orderToResume.cart);
+    setPaymentMethod(orderToResume.paymentMethod);
+    setOrderType(orderToResume.orderType);
+    setAllergies(orderToResume.allergies || "");
+    setAddons(orderToResume.addons || "");
+    setNotes(orderToResume.notes || "");
+    setDiscountPct(orderToResume.discountPct || 0);
+    setServiceFee(orderToResume.serviceFee || 0);
+
+    setHeldOrders((prev) => prev.filter((ho) => ho.id !== holdId));
+    setShowHeldOrdersModal(false);
+  };
+
+  const handleRemoveHeldOrder = (holdId) => {
+    setHeldOrders((prev) => prev.filter((ho) => ho.id !== holdId));
   };
 
   const logoutAndNavigate = () => {
@@ -294,6 +431,18 @@ const CashierPos = () => {
           </div>
 
           <nav className="hidden items-center gap-2 md:flex">
+            <button
+              onClick={() => setShowHeldOrdersModal(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+            >
+              <span>Held Orders ({heldOrders.length})</span>
+            </button>
+            <button
+              onClick={handleOpenWaiterOrders}
+              className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+            >
+              <span>Waiter Orders ({waiterOrders.length})</span>
+            </button>
             <button
               onClick={() => navigate("/cashier/pos")}
               className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:-translate-y-px"
@@ -373,11 +522,10 @@ const CashierPos = () => {
                   <button
                     key={label}
                     onClick={() => setSelectedCategory(label)}
-                    className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                      active && selectedCategory === label
+                    className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${active && selectedCategory === label
                         ? "border-sky-500 bg-linear-to-r from-[#0A5BAE] to-[#19A4E5] text-white shadow-md shadow-sky-200"
                         : "border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50"
-                    }`}
+                      }`}
                   >
                     <Icon className="h-4 w-4" />
                     {label}
@@ -584,22 +732,20 @@ const CashierPos = () => {
                   <button
                     type="button"
                     onClick={() => setOrderType("takeaway")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
-                      orderType === "takeaway"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${orderType === "takeaway"
                         ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                         : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
-                    }`}
+                      }`}
                   >
                     Takeaway
                   </button>
                   <button
                     type="button"
                     onClick={() => setOrderType("dine-in")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
-                      orderType === "dine-in"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${orderType === "dine-in"
                         ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                         : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
-                    }`}
+                      }`}
                   >
                     Dine-in
                   </button>
@@ -612,11 +758,10 @@ const CashierPos = () => {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("Cash")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
-                      paymentMethod === "Cash"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Cash"
                         ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                         : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
-                    }`}
+                      }`}
                   >
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "Cash" ? "bg-[#00B67A]" : "bg-slate-300"}`}
@@ -626,11 +771,10 @@ const CashierPos = () => {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("Card")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${
-                      paymentMethod === "Card"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Card"
                         ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                         : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
-                    }`}
+                      }`}
                   >
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "Card" ? "bg-[#00B67A]" : "bg-slate-300"}`}
@@ -640,18 +784,160 @@ const CashierPos = () => {
                 </div>
               </div>
 
-              <button
-                onClick={handleCheckout}
-                disabled={submitting || cart.length === 0 || !branchId}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-              >
-                <FaShoppingCart className="h-4 w-4" />
-                {submitting ? "Processing..." : "Proceed to Checkout"}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={handleHoldOrder}
+                  disabled={submitting || cart.length === 0}
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#0A5BAE] bg-white px-5 py-4 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:bg-[#0A5BAE] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                >
+                  Hold Order
+                </button>
+
+                <button
+                  onClick={handleCheckout}
+                  disabled={submitting || cart.length === 0 || !branchId}
+                  className="inline-flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                >
+                  <FaShoppingCart className="h-4 w-4" />
+                  {submitting ? "Processing..." : "Checkout"}
+                </button>
+              </div>
             </div>
           </aside>
         </div>
       </main>
+
+      {/* Held Orders Modal */}
+      {showHeldOrdersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h2 className="text-xl font-bold text-slate-800">Held Orders ({heldOrders.length})</h2>
+              <button 
+                onClick={() => setShowHeldOrdersModal(false)}
+                className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="flex flex-col gap-4">
+              {heldOrders.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">No held orders available.</div>
+              ) : (
+                heldOrders.map((ho) => (
+                  <div key={ho.id} className="flex justify-between items-center rounded-xl border p-4 hover:shadow-md transition">
+                    <div>
+                      <div className="font-semibold text-slate-800">Order at {ho.timestamp}</div>
+                      <div className="text-sm text-slate-500">
+                        {ho.cart.length} items • {ho.orderType} • {ho.paymentMethod}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleRemoveHeldOrder(ho.id)}
+                        className="rounded-lg bg-red-50 text-red-500 px-3 py-2 text-sm font-medium hover:bg-red-100"
+                      >
+                        Remove
+                      </button>
+                      <button
+                        onClick={() => handleResumeOrder(ho.id)}
+                        className="rounded-lg bg-[#0A5BAE] text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700"
+                      >
+                        Resume
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Waiter Orders Modal */}
+      {showWaiterOrdersModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6 border-b pb-4">
+              <h2 className="text-xl font-bold text-slate-800">Waiter Orders ({waiterOrders.length})</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={fetchWaiterOrders}
+                  className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200"
+                >
+                  Refresh
+                </button>
+                <button
+                  onClick={() => setShowWaiterOrdersModal(false)}
+                  className="rounded-lg bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              {loadingWaiterOrders ? (
+                <div className="text-center py-6 text-slate-500">Loading orders...</div>
+              ) : waiterOrders.length === 0 ? (
+                <div className="text-center py-6 text-slate-500">No waiter orders available.</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {waiterOrders.map((ao) => (
+                    <div key={ao.or_id} className="flex flex-col justify-between rounded-xl border p-4 shadow-sm hover:shadow-md transition">
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="font-semibold text-slate-800 text-lg">Order #{ao.or_id}</div>
+                          <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${ao.or_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                              ao.or_status === 'sent_to_kitchen' ? 'bg-orange-100 text-orange-700' :
+                                ao.or_status === 'sent_to_bar' ? 'bg-purple-100 text-purple-700' :
+                                  'bg-slate-100 text-slate-700'
+                            }`}>
+                            {ao.or_status?.replace(/_/g, ' ')}
+                          </span>
+                        </div>
+                        <div className="text-sm text-slate-500 space-y-1">
+                          <p><strong>Table:</strong> {ao.table_id || 'Takeaway'}</p>
+                          <p><strong>Type:</strong> {ao.or_type}</p>
+                          <p><strong>Total:</strong> ${Number(ao.or_totalCostWtax || ao.or_totalcost || 0).toFixed(2)}</p>
+                          {ao.or_notes && <p className="text-xs italic mt-2 text-red-500 line-clamp-2">{ao.or_notes}</p>}
+                        </div>
+                      </div>
+                      <div className="mt-4 pt-4 border-t flex flex-col gap-2">
+                        <button
+                          onClick={() => handleEditWaiterOrder(ao)}
+                          disabled={loadingWaiterOrders}
+                          className="w-full rounded-lg border border-[#0A5BAE] text-[#0A5BAE] px-4 py-2 text-sm font-semibold hover:bg-[#0A5BAE] hover:text-white transition"
+                        >
+                          Edit Order
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              setLoadingWaiterOrders(true);
+                              await updateOrderStatus(ao.or_id, "completed");
+                              alert(`Order #${ao.or_id} marked as completed (paid)!`);
+                              fetchWaiterOrders();
+                            } catch (err) {
+                              alert("Failed to complete order. " + (err.response?.data?.error || err.message));
+                              setLoadingWaiterOrders(false);
+                            }
+                          }}
+                          className="w-full rounded-lg bg-[#55C24A] text-white px-4 py-2 text-sm font-semibold hover:bg-[#49b03f] transition"
+                        >
+                          Mark as Completed (Paid)
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

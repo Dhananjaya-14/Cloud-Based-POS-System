@@ -3,7 +3,7 @@ import { FaSearch, FaPlus, FaPen, FaTrash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import { getUsers, getRoles, createUser, deleteUserById, setAuthToken, logout } from "../../services/api";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 // Helper to get initials
 const getInitials = (name) => {
@@ -65,7 +65,11 @@ const UserManagement = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -75,10 +79,17 @@ const UserManagement = () => {
     }
     setAuthToken(token);
     fetchData();
-  }, [navigate]);
+
+    if (location.state?.successMessage) {
+      setSuccessMessage(location.state.successMessage);
+      setTimeout(() => setSuccessMessage(""), 3000);
+      window.history.replaceState({}, document.title); // clear state so it doesn't pop up again
+    }
+  }, [navigate, location.state]);
 
   const openDeleteModal = (user) => {
     setUserToDelete(user);
+    setErrorMessage("");
     setIsDeleteModalOpen(true);
   };
 
@@ -103,14 +114,19 @@ const UserManagement = () => {
 
   const handleDeleteUser = async () => {
     if (!userToDelete?.u_id) return;
+    setIsDeleting(true);
+    setErrorMessage("");
     try {
       await deleteUserById(userToDelete.u_id);
       setIsDeleteModalOpen(false);
       fetchData();
-      alert("User successfully deleted!");
+      setSuccessMessage("User successfully deleted!");
+      setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Error deleting user:", err);
-      alert(err.response?.data?.message || err.message || "Failed to delete user.");
+      setErrorMessage(err.response?.data?.message || err.message || "Failed to delete user.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -140,6 +156,19 @@ const UserManagement = () => {
               Manage all users and their permissions
             </p>
           </div>
+          {successMessage && (
+            <div style={{
+              padding: "12px 18px",
+              background: successMessage.toLowerCase().includes("deleted") ? "#FEF2F2" : "#ECFDF5",
+              border: successMessage.toLowerCase().includes("deleted") ? "1px solid #FEE2E2" : "1px solid #A7F3D0",
+              color: successMessage.toLowerCase().includes("deleted") ? "#EF4444" : "#065F46",
+              borderRadius: 8, fontSize: 14, fontWeight: 600,
+              marginBottom: 20, display: "flex", alignItems: "center", gap: 8
+            }}>
+              <span style={{ fontSize: 16 }}>{successMessage.toLowerCase().includes("deleted") ? "🗑️" : "✓"}</span>
+              {successMessage}
+            </div>
+          )}
 
           <div
             style={{
@@ -327,12 +356,22 @@ const UserManagement = () => {
             position: "relative", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
           }}>
             <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              style={{ position: "absolute", top: 16, right: 16, background: "#F3F4F6", border: "none", borderRadius: "8px", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
+              disabled={isDeleting}
+              style={{ position: "absolute", top: 16, right: 16, background: "#F3F4F6", border: "none", borderRadius: "8px", width: 32, height: 32, cursor: isDeleting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: 18, color: "#6B7280", lineHeight: 1 }}>&times;</span>
             </button>
 
             <h2 style={{ margin: "0 0 24px", fontSize: 20, fontWeight: 700, color: "#111827" }}>Delete User</h2>
+
+            {errorMessage && (
+              <div style={{
+                padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FEE2E2",
+                color: "#EF4444", borderRadius: 8, fontSize: 13, marginBottom: 16
+              }}>
+                {errorMessage}
+              </div>
+            )}
 
             <p style={{ margin: "0 0 32px", fontSize: 14, color: "#4B5563", lineHeight: 1.5 }}>
               Are you sure you want to delete this user?<br />
@@ -340,12 +379,23 @@ const UserManagement = () => {
             </p>
 
             <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-              <button onClick={() => setIsDeleteModalOpen(false)} style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#111827", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+              <button
+                onClick={() => setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+                style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#111827", fontSize: 14, fontWeight: 600, cursor: isDeleting ? "not-allowed" : "pointer" }}
+              >
+                Cancel
+              </button>
               <button
                 onClick={handleDeleteUser}
-                style={{ padding: "10px 20px", borderRadius: 8, border: "none", background: "#EF4444", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" }}
+                disabled={isDeleting}
+                style={{
+                  padding: "10px 20px", borderRadius: 8, border: "none",
+                  background: "#EF4444", color: "#fff", fontSize: 14, fontWeight: 600,
+                  cursor: isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.7 : 1
+                }}
               >
-                Delete
+                {isDeleting ? "Deleting..." : "Delete"}
               </button>
             </div>
           </div>

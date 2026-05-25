@@ -34,6 +34,11 @@ const HotelManagement = () => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [companyToDelete, setCompanyToDelete] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [modalError, setModalError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [formData, setFormData] = useState({
     id: null,
     name: "",
@@ -49,6 +54,7 @@ const HotelManagement = () => {
   const openAddModal = () => {
     setFormData({ id: null, name: "", location: "", email: "", phone: "", date: "", status: true });
     setModalMode("add");
+    setModalError("");
     setIsModalOpen(true);
   };
 
@@ -63,11 +69,13 @@ const HotelManagement = () => {
       status: company.c_status === true || String(company.c_status).toLowerCase() === "active",
     });
     setModalMode("edit");
+    setModalError("");
     setIsModalOpen(true);
   };
 
   const openDeleteModal = (company) => {
     setCompanyToDelete(company);
+    setDeleteError("");
     setIsDeleteModalOpen(true);
   };
 
@@ -102,12 +110,14 @@ const HotelManagement = () => {
   };
 
   const handleSave = async () => {
+    if (!formData.name) {
+      setModalError("Please fill in company name.");
+      return;
+    }
+    
+    setIsSaving(true);
+    setModalError("");
     try {
-      if (!formData.name) {
-        alert("Please fill in company name.");
-        return;
-      }
-      
       const payload = {
         com_name: formData.name,
         location: formData.location,
@@ -115,22 +125,24 @@ const HotelManagement = () => {
         c_status: !!formData.status,
         c_email: formData.email,
         reg_date: formData.date || new Date().toISOString().slice(0, 10),
-        // com_address and com_conNo can be added here if backend supports them
       };
 
       if (modalMode === "add") {
         await createCompany(payload);
-        alert("Company successfully added!");
+        setSuccessMessage("Company successfully added!");
       } else {
         await updateCompany(formData.id, payload);
-        alert("Company details updated!");
+        setSuccessMessage("Company details updated!");
       }
       
       setIsModalOpen(false);
       fetchData(); // Refresh list
+      setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Error saving company:", err);
-      alert(err.response?.data?.message || err.message || "Failed to save company.");
+      setModalError(err.response?.data?.message || err.message || "Failed to save company.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -155,14 +167,19 @@ const HotelManagement = () => {
 
   const handleDelete = async () => {
     if (!companyToDelete?.com_id) return;
+    setIsDeleting(true);
+    setDeleteError("");
     try {
       await deleteCompany(companyToDelete.com_id);
       setIsDeleteModalOpen(false);
       fetchData();
-      alert("Company successfully deleted!");
+      setSuccessMessage("Company successfully deleted!");
+      setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Error deleting company:", err);
-      alert(err.response?.data?.message || err.message || "Failed to delete company.");
+      setDeleteError(err.response?.data?.message || err.message || "Failed to delete company.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -182,6 +199,20 @@ const HotelManagement = () => {
               Manage all companies and their subscriptions
             </p>
           </div>
+
+          {successMessage && (
+            <div style={{
+              padding: "12px 18px",
+              background: successMessage.toLowerCase().includes("deleted") ? "#FEF2F2" : "#ECFDF5",
+              border: successMessage.toLowerCase().includes("deleted") ? "1px solid #FEE2E2" : "1px solid #A7F3D0",
+              color: successMessage.toLowerCase().includes("deleted") ? "#EF4444" : "#065F46",
+              borderRadius: 8, fontSize: 14, fontWeight: 600,
+              marginBottom: 20, display: "flex", alignItems: "center", gap: 8
+            }}>
+              <span style={{ fontSize: 16 }}>{successMessage.toLowerCase().includes("deleted") ? "🗑️" : "✓"}</span>
+              {successMessage}
+            </div>
+          )}
 
           <div
             style={{
@@ -397,6 +428,15 @@ const HotelManagement = () => {
               {modalMode === "add" ? "Add New Company" : "Edit Company"}
             </h2>
 
+            {modalError && (
+              <div style={{
+                padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FEE2E2",
+                color: "#EF4444", borderRadius: 8, fontSize: 13, marginBottom: 16
+              }}>
+                {modalError}
+              </div>
+            )}
+
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <label style={labelStyle}>Company Name</label>
@@ -449,9 +489,24 @@ const HotelManagement = () => {
             </div>
 
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 32 }}>
-              <button onClick={() => setIsModalOpen(false)} style={cancelBtnStyle}>Cancel</button>
-              <button onClick={handleSave} style={{ ...saveBtnStyle, background: "#3B82F6" }}>
-                {modalMode === "add" ? "Save Company" : "Save Changes"}
+              <button
+                onClick={() => !isSaving && setIsModalOpen(false)}
+                disabled={isSaving}
+                style={{ ...cancelBtnStyle, cursor: isSaving ? "not-allowed" : "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                style={{
+                  ...saveBtnStyle,
+                  background: "#3B82F6",
+                  cursor: isSaving ? "not-allowed" : "pointer",
+                  opacity: isSaving ? 0.7 : 1
+                }}
+              >
+                {isSaving ? "Saving..." : modalMode === "add" ? "Save Company" : "Save Changes"}
               </button>
             </div>
           </div>
@@ -477,14 +532,40 @@ const HotelManagement = () => {
 
             <h2 style={{ margin: "0 0 16px", fontSize: 20, fontWeight: 700, color: "#111827" }}>Delete Company</h2>
 
+            {deleteError && (
+              <div style={{
+                padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FEE2E2",
+                color: "#EF4444", borderRadius: 8, fontSize: 13, marginBottom: 16
+              }}>
+                {deleteError}
+              </div>
+            )}
+
             <p style={{ margin: "0 0 32px", fontSize: 14, color: "#4B5563", lineHeight: 1.5 }}>
               Are you sure you want to delete <b>{companyToDelete?.com_name || "this company"}</b>?<br/>
               This action cannot be undone and will permanently remove all company data.
             </p>
 
             <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
-              <button onClick={() => setIsDeleteModalOpen(false)} style={cancelBtnStyle}>Cancel</button>
-              <button onClick={handleDelete} style={{ ...saveBtnStyle, background: "#EF4444" }}>Delete</button>
+              <button
+                onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
+                disabled={isDeleting}
+                style={{ ...cancelBtnStyle, cursor: isDeleting ? "not-allowed" : "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                style={{
+                  ...saveBtnStyle,
+                  background: "#EF4444",
+                  cursor: isDeleting ? "not-allowed" : "pointer",
+                  opacity: isDeleting ? 0.7 : 1
+                }}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
             </div>
           </div>
         </div>
