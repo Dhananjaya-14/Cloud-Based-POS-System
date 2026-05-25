@@ -101,7 +101,7 @@ const CashierDashboard = () => {
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
-              Hello,<span className="ml-1">Samantha</span>
+              Hello,<span className="ml-1">{user?.u_fname || "Cashier"} {user?.u_lname || ""}</span>
             </h1>
             <p className="mt-3 text-sm sm:text-base text-slate-500 max-w-xl mx-auto">
               Ready to start your day? Let&apos;s make it productive.

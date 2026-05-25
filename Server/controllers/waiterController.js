@@ -112,7 +112,7 @@ export async function getWaiterProfile(req, res, next) {
   try {
     const userRes = await pool.query(
       `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber,
-              u.role_id, r.role_name
+              u.role_id, u."B_id" AS b_id, r.role_name
        FROM "User" u
        LEFT JOIN "Role" r ON r.role_id = u.role_id
        WHERE u.u_id = $1`,
@@ -140,6 +140,18 @@ export async function getWaiterProfile(req, res, next) {
     if (branchRes.rows.length > 0) {
       userData.branch_id = branchRes.rows[0].branch_id;
       userData.b_name = branchRes.rows[0].b_name;
+    } else if (userData.b_id != null) {
+      const branchByUser = await pool.query(
+        'SELECT "B_id" AS branch_id, "B_name" AS b_name FROM "Branch" WHERE "B_id" = $1',
+        [userData.b_id],
+      );
+      if (branchByUser.rows.length > 0) {
+        userData.branch_id = branchByUser.rows[0].branch_id;
+        userData.b_name = branchByUser.rows[0].b_name;
+      } else {
+        userData.branch_id = null;
+        userData.b_name = "No Branch Assigned";
+      }
     } else {
       // Fallback: If no assignment, get the first branch or set to null
       const defaultBranch = await pool.query(
@@ -372,7 +384,10 @@ export async function createWaiterOrder(req, res, next) {
 
       branchId = table.rows[0].branch_id;
     } else {
-      branchId = await resolveWaiterBranchId(waiterId);
+      branchId = req.user?.b_id ?? req.user?.B_id ?? null;
+      if (!branchId) {
+        branchId = await resolveWaiterBranchId(waiterId);
+      }
       if (!branchId) {
         res.status(400);
         return next(new Error("Unable to resolve branch for waiter"));
