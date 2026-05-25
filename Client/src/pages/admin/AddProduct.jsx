@@ -4,6 +4,7 @@ import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import { createProduct, getCompanies } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 const cardStyle = {
   border: "1px solid #C9DDF3",
@@ -41,6 +42,7 @@ const sectionTitleStyle = {
 
 const AddProduct = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [form, setForm] = useState({
     pro_name: "",
     pro_qty: "",
@@ -57,6 +59,12 @@ const AddProduct = () => {
 
     const loadCompany = async () => {
       try {
+        if (user?.com_id != null) {
+          if (!isMounted) return;
+          setForm((prev) => ({ ...prev, com_id: String(user.com_id) }));
+          return;
+        }
+
         const companies = await getCompanies();
         const firstCompanyId = companies?.[0]?.com_id ?? 1;
         if (!isMounted) return;
@@ -72,7 +80,7 @@ const AddProduct = () => {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [user?.com_id]);
 
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
@@ -93,7 +101,7 @@ const AddProduct = () => {
         pro_qty: Number(form.pro_qty),
         pro_price: Number(form.pro_price),
         pro_image: form.pro_image.trim() || "N/A",
-        com_id: Number(form.com_id || 1),
+        com_id: Number(form.com_id || user?.com_id || 1),
       };
 
       await createProduct(payload);

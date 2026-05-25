@@ -68,9 +68,12 @@ const CashierPos = () => {
   const fetchWaiterOrders = async () => {
     try {
       setLoadingWaiterOrders(true);
-      const allOrders = await getOrders();
+      const allOrders = await getOrders(branchId ? { b_id: branchId } : {});
       const activeDineIn = allOrders.filter(
-        (o) => o.or_type === "dine-in" && o.or_status !== "cancelled"
+        (o) =>
+          o.or_type === "dine-in" &&
+          o.or_status !== "cancelled" &&
+          (!branchId || String(o.b_id) === String(branchId))
       );
       setWaiterOrders(activeDineIn);
     } catch (err) {
