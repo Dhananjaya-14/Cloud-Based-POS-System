@@ -38,6 +38,23 @@ const menuCategories = [
 const Promotions = () => {
   const [view, setView] = useState('list');
   const [promotions, setPromotions] = useState([]);
+  const [editingPromo, setEditingPromo] = useState(null);
+
+  const handleDelete = (id) => {
+    setPromotions(promotions.filter((p) => p.id !== id));
+  };
+
+  const handleEdit = (promo) => {
+    setEditingPromo(promo);
+    setView('create');
+  };
+
+  const [viewingPromo, setViewingPromo] = useState(null);
+
+  const handleView = (promo) => {
+    setViewingPromo(promo);
+    setView('view');
+  };
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f5f6fa' }}>
@@ -49,23 +66,51 @@ const Promotions = () => {
             <PromotionsList
               promotions={promotions}
               onAddClick={() => setView('create')}
+              onDelete={handleDelete}
+              onEdit={handleEdit}
+              onView={handleView}
+            />
+          ) : view === 'view' ? (
+            <ViewPromotion
+              promo={viewingPromo}
+              menuCategories={menuCategories}
+              onBack={() => {
+                setViewingPromo(null);
+                setView('list');
+              }}
+              onEdit={() => {
+                setEditingPromo(viewingPromo);
+                setViewingPromo(null);
+                setView('create');
+              }}
             />
           ) : (
             <CreatePromotion
-              onBack={() => setView('list')}
-              onSubmit={(data) => {
-                setPromotions([...promotions, { ...data, id: Date.now() }]);
-                setView('list');
-              }}
-            />
-          )}
+    onBack={() => {
+      setEditingPromo(null);
+      setView('list');
+    }}
+    initialData={editingPromo}
+    onSubmit={(data) => {
+      if (editingPromo) {
+        setPromotions(promotions.map((p) =>
+          p.id === editingPromo.id ? { ...data, id: editingPromo.id } : p
+        ));
+      } else {
+        setPromotions([...promotions, { ...data, id: Date.now() }]);
+      }
+      setEditingPromo(null);
+      setView('list');
+    }}
+  />
+)}
         </div>
       </div>
     </div>
   );
 };
 
-const PromotionsList = ({ promotions, onAddClick }) => (
+const PromotionsList = ({ promotions, onAddClick, onDelete, onEdit, onView }) => (
   <div>
     
     <div style={{
@@ -122,12 +167,14 @@ const PromotionsList = ({ promotions, onAddClick }) => (
         gap: '20px'
       }}>
         {promotions.map((promo) => (
-          <div key={promo.id} style={{
+          <div key={promo.id} 
+           onClick={() => onView(promo)}style={{
             backgroundColor: 'white',
             borderRadius: '12px',
             overflow: 'hidden',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-            border: '2px solid #3A4DBF'
+            border: '2px solid #3A4DBF',
+            cursor: 'pointer'
           }}>
             {promo.imageUrl && (
               <img
@@ -155,6 +202,38 @@ const PromotionsList = ({ promotions, onAddClick }) => (
               <p style={{ fontSize: '13px', color: '#999', margin: 0 }}>
                 Valid until: {promo.validUntil}
               </p>
+              {/* Edit and Delete buttons */}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                <Button
+                  label="Edit"
+                  onClick={(e) => { e.stopPropagation(); onEdit(promo); }}
+                  style={{
+                    flex: 1,
+                    background: 'white',
+                    color: '#3A4DBF',
+                    border: '1px solid #3A4DBF',
+                    padding: '6px 12px',
+                    fontSize: '13px'
+                  }}
+                />
+                <Button
+                  label="Delete"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (window.confirm('Are you sure you want to delete this promotion?')) {
+                      onDelete(promo.id);
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    background: '#fee2e2',
+                    color: '#dc2626',
+                    border: '1px solid #fca5a5',
+                    padding: '6px 12px',
+                    fontSize: '13px'
+                  }}
+                />
+              </div>
             </div>
           </div>
         ))}
@@ -164,14 +243,14 @@ const PromotionsList = ({ promotions, onAddClick }) => (
 );
 
 
-const CreatePromotion = ({ onBack, onSubmit }) => {
+const CreatePromotion = ({ onBack, onSubmit, initialData }) => {
   const [form, setForm] = useState({
-    title: '',
-    description: '',
-    price: '',
-    validUntil: '',
-    imageUrl: '',
-    selectedItems: []
+    title: initialData?.title || '',
+    description: initialData?.description || '',
+    price: initialData?.price || '',
+    validUntil: initialData?.validUntil || '',
+    imageUrl: initialData?.imageUrl || '',
+    selectedItems: initialData?.selectedItems || []
   });
 
   const handleChange = (e) => {
@@ -181,6 +260,10 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
   const handleSubmit = () => {
     if (!form.title || !form.price || !form.validUntil) {
       alert('Please fill Title, Price and Valid Until fields');
+      return;
+    }
+    if (!form.selectedItems || form.selectedItems.length === 0) {
+      alert('Please select at least one menu item');
       return;
     }
     onSubmit(form);
@@ -227,8 +310,10 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
       </button>
 
       <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#1a1a2e', margin: '0 0 4px' }}>
-        Create New Promotion
-      </h2>
+        {initialData ? 'Edit Promotion' : 'Create New Promotion'}
+        </h2>
+
+      
       <p style={{ color: '#888', fontSize: '14px', margin: '0 0 24px' }}>
         Setup a new promotion package
       </p>
@@ -410,9 +495,67 @@ const CreatePromotion = ({ onBack, onSubmit }) => {
 
         
         <Button
-          label="Create Promotion"
+        label={initialData ? 'Update Promotion' : 'Create Promotion'}
           onClick={handleSubmit}
-        />
+/>
+      </div>
+    </div>
+  );
+};
+const ViewPromotion = ({ promo, menuCategories, onBack, onEdit }) => {
+  const allItems = menuCategories.flatMap((c) => c.items);
+  const selectedItems = allItems.filter((item) =>
+    promo.selectedItems?.includes(item.id)
+  );
+
+  return (
+    <div>
+      <button onClick={onBack} style={{ background: 'none', border: 'none', color: '#3A4DBF', cursor: 'pointer', fontSize: '14px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '6px', padding: 0, fontWeight: '600' }}>
+        ← Back to Promotions
+      </button>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#1a1a2e', margin: 0 }}>Promotion Details</h2>
+        <Button label="Edit Promotion" onClick={onEdit} />
+      </div>
+
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '28px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', border: '2px solid #3A4DBF', marginBottom: '24px' }}>
+        {promo.imageUrl && (
+          <img src={promo.imageUrl} alt={promo.title} style={{ width: '100%', height: '200px', objectFit: 'cover', borderRadius: '8px', marginBottom: '20px' }} />
+        )}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {[
+            { label: 'Title', value: promo.title },
+            { label: 'Price', value: `$${promo.price}`, color: '#22c55e' },
+            { label: 'Valid Until', value: promo.validUntil },
+            { label: 'Description', value: promo.description || 'No description' },
+          ].map(({ label, value, color }) => (
+            <div key={label}>
+              <p style={{ fontSize: '12px', color: '#888', margin: '0 0 4px' }}>{label}</p>
+              <p style={{ fontSize: '15px', fontWeight: '600', color: color || '#1a1a2e', margin: 0 }}>{value}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '28px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+        <h3 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 16px', color: '#1a1a2e' }}>Included Menu Items</h3>
+        {selectedItems.length === 0 ? (
+          <p style={{ color: '#999', fontSize: '14px' }}>No items selected</p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '12px' }}>
+            {selectedItems.map((item) => (
+              <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px', borderRadius: '8px', border: '2px solid #3A4DBF', backgroundColor: '#f0f3ff' }}>
+                <img src={item.image} alt={item.name} style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover' }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: '600', color: '#1a1a2e' }}>{item.name}</div>
+                  <div style={{ fontSize: '12px', color: '#888' }}>{item.description}</div>
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: '700', color: '#3A4DBF' }}>${item.price}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
