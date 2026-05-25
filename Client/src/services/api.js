@@ -45,6 +45,12 @@ export const getBranches = async () => {
 };
 
 
+<<<<<<< HEAD
+=======
+
+
+
+>>>>>>> 1091aad (Resolve conflicts: AuthContext, branchController, api.js)
 export const deleteBranch = async (id) => {
   const response = await api.delete(`/branches/${id}`);
   return response.data;
@@ -278,10 +284,6 @@ export const getBranchStats = async () => {
   return res.data;
 };
 
-// Stats API helpers
-export const getStatsSalesOverTime = async (params = {}) => {
-  const res = await api.get("/stats/sales-over-time", { params });
-  return res.data;
 };
 
 export const getStatsTypeBreakdown = async (params = {}) => {
