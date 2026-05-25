@@ -61,7 +61,7 @@ function QuickActionsCompact() {
   const navigate = useNavigate();
 
   const handleAddBranch = () => {
-    navigate("/admin/branches");
+    navigate("/branches");
   };
 
   const handleBranchStats = () => {
