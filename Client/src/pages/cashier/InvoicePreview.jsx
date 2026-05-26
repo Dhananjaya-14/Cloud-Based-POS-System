@@ -4,7 +4,7 @@ import { FaPrint, FaTimes } from "react-icons/fa";
 
 const defaultState = {
   orderId: "INV-0000000",
-  cashierName: "Samantha",
+  cashierName: "Cashier",
   branchName: "Kandy Branch",
   branchLabel: "Kandy\nBranch",
   paymentMethod: "Cash",

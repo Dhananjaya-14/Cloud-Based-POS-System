@@ -3,6 +3,7 @@ import {
   requireAuth,
   requireAdmin,
   requireCashierOrAbove,
+  requireWaiterOrAbove,
 } from "../middleware/authMiddleware.js";
 import {
   getBranches,
@@ -16,7 +17,7 @@ const router = express.Router();
 
 router.use(requireAuth);
 router.get("/", requireCashierOrAbove, getBranches);
-router.get("/:id", requireCashierOrAbove, getBranchById);
+router.get("/:id", requireWaiterOrAbove, getBranchById);
 router.post("/", requireAdmin, createBranch);
 router.put("/:id", requireAdmin, updateBranch);
 router.delete("/:id", requireAdmin, deleteBranch);
