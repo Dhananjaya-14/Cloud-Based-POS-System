@@ -17,6 +17,7 @@ import {
   FaCoffee,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
+import ToastMessage from "../../components/branch-admin/ToastMessage";
 import {
   getWaiterProfile,
   getBranchProducts,
@@ -47,8 +48,10 @@ const WaiterPos = () => {
   const { user, logout } = useAuth();
   
   const [branchName, setBranchName] = useState("Loading...");
+  const [branchId, setBranchId] = useState(null);
   const [roleName, setRoleName] = useState("Waiter");
   const [products, setProducts] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,6 +67,10 @@ const WaiterPos = () => {
   // Tax calculations
   const [taxRate, setTaxRate] = useState(10); // Example Tax
 
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -73,14 +80,26 @@ const WaiterPos = () => {
       const profileData = profile?.data ?? null;
 
       if (profileData) {
+        const resolvedBranchId =
+          profileData.branch_id ?? profileData.b_id ?? profileData.B_id ?? null;
+
+        setBranchId(resolvedBranchId);
         setBranchName(profileData.b_name || "Assigned Branch");
+
         if (profileData.role_name) {
           setRoleName(profileData.role_name);
         }
-      }
 
-      const branchProductList = await getBranchProducts();
-      setProducts(Array.isArray(branchProductList) ? branchProductList : []);
+        if (!resolvedBranchId) {
+          setProducts([]);
+          setError("No branch is assigned to your account.");
+        } else {
+          const branchProductList = await getBranchProducts(resolvedBranchId);
+          setProducts(Array.isArray(branchProductList) ? branchProductList : []);
+        }
+      } else {
+        setProducts([]);
+      }
 
       const catsRes = await getCategories();
       if (catsRes) {
@@ -194,7 +213,7 @@ const WaiterPos = () => {
       );
 
       setCart([]);
-      alert("Order placed successfully!");
+      showToast("Order placed successfully!", "success");
       
     } catch (err) {
       console.error(err);
@@ -223,6 +242,13 @@ const WaiterPos = () => {
   
     return (
       <div className="flex h-screen flex-col overflow-hidden bg-slate-50 font-sans text-slate-800">
+        {toast.show && (
+          <ToastMessage
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast((current) => ({ ...current, show: false }))}
+          />
+        )}
         {/* Top Header */}
         <header className="border-b border-black/5 bg-gradient-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)] flex-none">
           <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">

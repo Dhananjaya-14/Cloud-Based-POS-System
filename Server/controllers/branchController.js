@@ -87,26 +87,50 @@ export async function getBranches(req, res, next) {
 export async function getBranchById(req, res, next) {
   try {
     const { id } = req.params;
+    const { role_id, b_id, com_id } = req.user || {};
 
     if (isNaN(Number(id))) {
       res.status(400);
       throw new Error("Invalid branch ID.");
     }
 
-    const result = await pool.query(
-      `
+    const branchId = Number(id);
+    
+    // Check permissions for non-admin roles
+    if (
+      role_id === ROLES.BRANCH_ADMIN ||
+      role_id === ROLES.CASHIER ||
+      role_id === ROLES.WAITER ||
+      role_id === ROLES.KITCHEN_STAFF
+    ) {
+      if (b_id == null || Number(b_id) !== branchId) {
+        return res.status(403).json({
+          message: "You can only access your assigned branch.",
+        });
+      }
+    }
+
+    // Build query with optional company filter for admin
+    let query = `
       SELECT b.*, c."com_name"
       FROM "Branch" b
       LEFT JOIN "Company" c
       ON b."com_id" = c."com_id"
       WHERE b."B_id" = $1
-      `,
-      [id],
-    );
+    `;
+    
+    const queryParams = [branchId];
+    
+    // Add company filter for admin users
+    if (role_id === ROLES.ADMIN && com_id != null) {
+      query += ` AND b."com_id" = $2`;
+      queryParams.push(Number(com_id));
+    }
+
+    const result = await pool.query(query, queryParams);
 
     if (result.rows.length === 0) {
       res.status(404);
-
       throw new Error(
         "Branch not found. It may have been removed or never existed.",
       );

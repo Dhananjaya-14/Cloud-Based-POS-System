@@ -20,7 +20,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   createOrder,
   createOrderItem,
-  getBranches,
+  getBranchById,
   getBranchProducts,
   getOrders,
   getOrderItemsByOrderId,
@@ -68,9 +68,12 @@ const CashierPos = () => {
   const fetchWaiterOrders = async () => {
     try {
       setLoadingWaiterOrders(true);
-      const allOrders = await getOrders();
+      const allOrders = await getOrders(branchId ? { b_id: branchId } : {});
       const activeDineIn = allOrders.filter(
-        (o) => o.or_type === "dine-in" && o.or_status !== "cancelled"
+        (o) =>
+          o.or_type === "dine-in" &&
+          o.or_status !== "cancelled" &&
+          (!branchId || String(o.b_id) === String(branchId))
       );
       setWaiterOrders(activeDineIn);
     } catch (err) {
@@ -91,19 +94,20 @@ const CashierPos = () => {
         setLoading(true);
         setError("");
 
-        const branchList = await getBranches();
-        const matchedBranch =
-          branchList.find((branch) => String(branch.U_id) === String(user?.u_id)) ??
-          branchList[0];
+        const branchId = user?.b_id ?? user?.B_id ?? null;
 
-        const matchedBranchId = matchedBranch?.B_id ?? null;
-        setBranchId(matchedBranchId);
-        setBranchName(matchedBranch?.B_name ?? "Selected branch");
+        if (!branchId) {
+          setError("No branch is assigned to your account.");
+          setLoading(false);
+          return;
+        }
 
-        const branchProductList = matchedBranchId
-          ? await getBranchProducts(matchedBranchId)
-          : [];
+        const branch = await getBranchById(branchId);
+        const name = branch?.B_name ?? branch?.data?.B_name ?? "Selected branch";
+        setBranchId(branchId);
+        setBranchName(name);
 
+        const branchProductList = await getBranchProducts(branchId);
         setProducts(branchProductList);
       } catch (loadError) {
         setError(
@@ -117,7 +121,7 @@ const CashierPos = () => {
     };
 
     loadPosData();
-  }, [user?.u_id]);
+  }, [user?.b_id, user?.B_id]);
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
