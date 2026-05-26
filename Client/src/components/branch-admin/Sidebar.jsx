@@ -11,7 +11,7 @@ import {
   FaCog,
   FaSignOutAlt,
   FaUsers,
-  FaTag,
+  
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -196,12 +196,7 @@ const Sidebar = () => {
             "/branch-admin/transactions",
             isExactActive("/branch-admin/transactions")
           )}
-          {menuItem(
-            <FaTag />,
-            "Promotions",
-            "/branch-admin/promotions",
-            isExactActive("/branch-admin/promotions")
-          )}
+          
         </div>
       </div>
 
