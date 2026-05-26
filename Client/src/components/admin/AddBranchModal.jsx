@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   FaTimes,
@@ -283,8 +284,6 @@ const errorAlert = {
 const successBox = { padding: 40, textAlign: "center" };
 
 export default AddBranchWizard;
-
-
 
 
 
@@ -897,56 +896,4 @@ export default AddBranchWizard;
 // // const successIconContainer = { width: "80px", height: "80px", background: "#10B981", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px", boxShadow: "0 10px 15px -3px rgba(16, 185, 129, 0.4)" };
 
 // // export default AddBranchWizard;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
