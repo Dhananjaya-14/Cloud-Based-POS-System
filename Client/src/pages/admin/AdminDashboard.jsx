@@ -4,7 +4,7 @@ import Header from "../../components/admin/Header";
 import Sidebar from "../../components/admin/Sidebar";
 import OverviewCards from "../../components/admin/OverviewCards";
 import TodayActivitiesChart from "../../components/admin/TodayActivitiesChart";
-import { getStatsOverview, getBranchStats, getOrders } from "../../services/api";
+import { getStatsOverview, getBranchStats, getOrders, getBranches, getCurrentUser } from "../../services/api";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { FiPlus, FiBarChart2 } from "react-icons/fi";
@@ -61,11 +61,11 @@ function QuickActionsCompact() {
   const navigate = useNavigate();
 
   const handleAddBranch = () => {
-    navigate("/admin/branches");
+    navigate("/branches");
   };
 
   const handleBranchStats = () => {
-    navigate("/admin/statistics"); // adjust route if you have a dedicated branch-stats page
+    navigate("/admin/statistics");
   };
 
   const cardStyle = {
@@ -120,21 +120,66 @@ function QuickActionsCompact() {
 export default function AdminDashboardPage() {
   const [overview, setOverview] = useState(null);
   const [branchStats, setBranchStats] = useState([]);
-  const [loading, setLoading] = useState(true); // kept for non-blocking indicators
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // read logged-in user to determine company scope
+  const currentUser = getCurrentUser();
+  const currentComId = currentUser?.com_id ?? null;
+  const companyLabel = currentComId ? `Company ID: ${currentComId}` : "All companies";
 
   useEffect(() => {
     let mounted = true;
     (async () => {
       setLoading(true);
       try {
-        const [o, bs] = await Promise.all([getStatsOverview(), getBranchStats()]);
+        // fetch server stats and the branch catalog (branches include com_id)
+        const [o, bs, allBranches] = await Promise.all([getStatsOverview(), getBranchStats(), getBranches()]);
+
         if (!mounted) return;
-        setOverview(o);
-        setBranchStats(bs || []);
+
+        const branchesList = allBranches?.data ?? allBranches ?? [];
+        let filteredBranches = Array.isArray(bs) ? bs.slice() : [];
+
+        if (currentComId) {
+          // build allowed branch id set from the branches catalog where com_id matches
+          const allowed = new Set(
+            branchesList
+              .filter((b) => b?.com_id != null && String(b.com_id) === String(currentComId))
+              .map((b) => String(b.B_id ?? b.b_id ?? b.id ?? ""))
+          );
+
+          // keep only branch-stats whose B_id is in allowed set
+          filteredBranches = filteredBranches.filter((b) => {
+            const bid = b?.B_id ?? b?.b_id ?? b?.id ?? null;
+            return bid != null && allowed.has(String(bid));
+          });
+        }
+
+        setBranchStats(filteredBranches);
+
+        // compute overview scoped to company when com_id exists; otherwise use server overview
+        if (currentComId) {
+          const totalBranches = filteredBranches.length;
+          const totalRevenue = filteredBranches.reduce((sum, b) => {
+            const inc = b?.income ?? 0;
+            return sum + Number(inc || 0);
+          }, 0);
+          const totalOrders = filteredBranches.reduce((sum, b) => {
+            const ord = b?.orders ?? 0;
+            return sum + Number(ord || 0);
+          }, 0);
+          setOverview({
+            totalBranches,
+            totalRevenue,
+            totalOrders,
+          });
+        } else {
+          setOverview(o);
+        }
+
         setError(null);
       } catch (err) {
-        // keep the page visible; show a small inline error banner instead
         setError("Failed to load dashboard data.");
       } finally {
         if (mounted) setLoading(false);
@@ -143,25 +188,22 @@ export default function AdminDashboardPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [currentComId]);
 
   return (
     <div style={{ display: "flex", backgroundColor: "#F5F7FA", minHeight: "100vh" }}>
       <Sidebar />
       <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
-        <Header title="Admin DashBoard" />
+        <Header title={`Admin Dashboard — ${companyLabel}`} />
         <main style={{ padding: 40, flex: 1 }}>
-          {/* Inline error banner (non-blocking) */}
           {error && (
             <div style={{ marginBottom: 16, padding: 12, borderRadius: 8, background: "#FEF3C7", color: "#92400E" }}>
               {error}
             </div>
           )}
 
-          {/* Overview cards render immediately even while data loads */}
           <OverviewCards overview={overview || {}} />
 
-          {/* Layout: wide main chart on left, right column shows Order Summary and compact quick actions below */}
           <div
             style={{
               display: "grid",
@@ -172,12 +214,10 @@ export default function AdminDashboardPage() {
               alignItems: "start",
             }}
           >
-            {/* Left: Today's Activities (spans both rows) */}
             <div style={{ gridColumn: "1 / 2", gridRow: "1 / 3" }}>
               <TodayActivitiesChart data={branchStats} />
             </div>
 
-            {/* Right (row 1): Order Summary */}
             <div style={{ gridColumn: "2 / 3", gridRow: "1 / 2" }}>
               <div style={{ background: "#fff", padding: 16, borderRadius: 12, boxShadow: "0 4px 15px rgba(0,0,0,0.03)" }}>
                 <h3 style={{ margin: 0, marginBottom: 12, fontSize: 16, fontWeight: 700, color: "#313D4F" }}>Order Summary</h3>
@@ -185,7 +225,6 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            {/* Right (row 2): Compact quick actions with two friendly cards */}
             <div style={{ gridColumn: "2 / 3", gridRow: "2 / 3" }}>
               <QuickActionsCompact />
             </div>
@@ -195,6 +234,12 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+
+
+
+
+
 
 
 
