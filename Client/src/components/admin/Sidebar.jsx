@@ -74,8 +74,12 @@ const Sidebar = () => {
           {menuItem(<FaUsers />, "User Management", "/users")}
           {menuItem(<FaChartBar />, "Statistics", "/admin/statistics")}
           {menuItem(<FaMoneyBill />, "Transactions", "/admin/transactions")}
+<<<<<<< Updated upstream
           {menuItem(<FaTag />, "Promotions", "/admin/promotions")}
           
+=======
+          {menuItem(<FaTag />, "Promotions", "/branch-admin/promotions")}
+>>>>>>> Stashed changes
           
         </div>
       </div>

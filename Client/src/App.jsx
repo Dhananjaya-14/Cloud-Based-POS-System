@@ -455,6 +455,15 @@ function App() {
             }
           />
 
+        <Route
+            path="/branch-admin/promotions"
+          element={
+            <ProtectedRoute allowedRoles={[1 , 2, 6]}>
+                    <Promotions />
+                    </ProtectedRoute>
+  }
+/>
+
       <Route path="*" element={<Navigate to="/" />} />
       
     </Routes>
