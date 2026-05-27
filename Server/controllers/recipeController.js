@@ -1,6 +1,8 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
 
+const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
+
 // ─────────────────────────────────────────────
 // HELPERS
 // ─────────────────────────────────────────────
@@ -33,7 +35,7 @@ function toResponseRow(row) {
     rawmaterial_id: row.rawmaterial_id,
     // enriched fields (present only in getRecipesByProduct)
     ...(row.rm_name !== undefined && { rm_name: row.rm_name }),
-    ...(row.rm_unit !== undefined && { rm_unit: row.rm_unit }),
+    rm_unit: row.rm_unit || row.unit || "",
     ...(row.pro_name !== undefined && { pro_name: row.pro_name }),
   };
 }
@@ -54,7 +56,7 @@ export async function getRecipes(req, res, next) {
         r."rawmaterial_ID" AS "rawmaterial_id",
         p."pro_name",
         rm."rm_name",
-        rm."unit" AS "rm_unit" 
+        COALESCE(r."unit", rm."unit") AS "rm_unit" 
       FROM "public"."RECIPE" r
       JOIN "public"."Product"      p  ON p."pro_id"  = r."pro_id"
       JOIN "public"."Raw_Material" rm ON rm."rm_id"  = r."rawmaterial_ID"`;
@@ -95,7 +97,7 @@ export async function getRecipeById(req, res, next) {
         r."rawmaterial_ID" AS "rawmaterial_id",
         p."pro_name",
         rm."rm_name",
-        rm."unit" AS "rm_unit" 
+        COALESCE(r."unit", rm."unit") AS "rm_unit" 
       FROM "public"."RECIPE" r
       JOIN "public"."Product"      p  ON p."pro_id" = r."pro_id"
       JOIN "public"."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
@@ -155,7 +157,7 @@ export async function getRecipesByProduct(req, res, next) {
         r."rawmaterial_ID" AS "rawmaterial_id",
         p."pro_name",
         rm."rm_name",
-        rm."unit" AS "rm_unit"
+        COALESCE(r."unit", rm."unit") AS "rm_unit"
       FROM "public"."RECIPE" r
       JOIN "public"."Product"      p  ON p."pro_id" = r."pro_id"
       JOIN "public"."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
@@ -180,7 +182,12 @@ export async function getRecipesByProduct(req, res, next) {
 // ─────────────────────────────────────────────
 export async function createRecipe(req, res, next) {
   try {
-    const { quantity_req, pro_id, rawmaterial_id } = req.body;
+    const { quantity_req, pro_id, rawmaterial_id, unit } = req.body;
+
+    if (unit !== undefined && unit !== null && !VALID_UNITS.includes(unit)) {
+      res.status(400);
+      throw new Error(`Unit "${unit}" is not valid. Allowed: ${VALID_UNITS.join(", ")}`);
+    }
 
     // ── Presence checks ──────────────────────
     if (quantity_req === undefined || quantity_req === null) {
@@ -256,14 +263,15 @@ export async function createRecipe(req, res, next) {
     const safeQty = roundQuantity(quantity_req);
 
     const result = await pool.query(
-      `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID")
-       VALUES ($1, $2, $3)
+      `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit")
+       VALUES ($1, $2, $3, $4)
        RETURNING
          "recipe_id",
          "quantity_req",
          "pro_id",
-         "rawmaterial_ID" AS "rawmaterial_id"`,
-      [safeQty, pro_id, rawmaterial_id],
+         "rawmaterial_ID" AS "rawmaterial_id",
+         "unit"`,
+      [safeQty, pro_id, rawmaterial_id, unit || null],
     );
 
     res.status(201).json(toResponseRow(result.rows[0]));
@@ -341,6 +349,12 @@ export async function createRecipeBulk(req, res, next) {
           `${pos}: quantity_req must be a positive number no greater than 99999.999.`,
         );
       }
+      if (item.unit !== undefined && item.unit !== null && !VALID_UNITS.includes(item.unit)) {
+        res.status(400);
+        throw new Error(
+          `${pos}: Unit "${item.unit}" is not valid. Allowed: ${VALID_UNITS.join(", ")}`,
+        );
+      }
     }
 
     // ── Duplicate rawmaterial_id within the submitted list ──
@@ -399,14 +413,15 @@ export async function createRecipeBulk(req, res, next) {
     for (const item of ingredients) {
       const safeQty = roundQuantity(item.quantity_req);
       const result = await client.query(
-        `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID")
-         VALUES ($1, $2, $3)
+        `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit")
+         VALUES ($1, $2, $3, $4)
          RETURNING
            "recipe_id",
            "quantity_req",
            "pro_id",
-           "rawmaterial_ID" AS "rawmaterial_id"`,
-        [safeQty, pro_id, item.rawmaterial_id],
+           "rawmaterial_ID" AS "rawmaterial_id",
+           "unit"`,
+        [safeQty, pro_id, item.rawmaterial_id, item.unit || null],
       );
       inserted.push(toResponseRow(result.rows[0]));
     }
@@ -455,17 +470,18 @@ export async function updateRecipe(req, res, next) {
       throw new Error("Invalid recipe id.");
     }
 
-    const { quantity_req, pro_id, rawmaterial_id } = req.body;
+    const { quantity_req, pro_id, rawmaterial_id, unit } = req.body;
 
     // ── At least one field required ──────────
     if (
       quantity_req === undefined &&
       pro_id === undefined &&
-      rawmaterial_id === undefined
+      rawmaterial_id === undefined &&
+      unit === undefined
     ) {
       res.status(400);
       throw new Error(
-        "At least one field (quantity_req, pro_id, rawmaterial_id) must be provided.",
+        "At least one field (quantity_req, pro_id, rawmaterial_id, unit) must be provided.",
       );
     }
 
@@ -475,6 +491,10 @@ export async function updateRecipe(req, res, next) {
       throw new Error(
         "quantity_req must be a positive number no greater than 99999.999.",
       );
+    }
+    if (unit !== undefined && unit !== null && !VALID_UNITS.includes(unit)) {
+      res.status(400);
+      throw new Error(`Unit "${unit}" is not valid. Allowed: ${VALID_UNITS.join(", ")}`);
     }
     if (pro_id !== undefined && !isPositiveInt(pro_id)) {
       res.status(400);
@@ -553,17 +573,20 @@ export async function updateRecipe(req, res, next) {
        SET
          "quantity_req"   = COALESCE($1, "quantity_req"),
          "pro_id"         = COALESCE($2, "pro_id"),
-         "rawmaterial_ID" = COALESCE($3, "rawmaterial_ID")
-       WHERE "recipe_id" = $4
+         "rawmaterial_ID" = COALESCE($3, "rawmaterial_ID"),
+         "unit"           = COALESCE($4, "unit")
+       WHERE "recipe_id" = $5
        RETURNING
          "recipe_id",
          "quantity_req",
          "pro_id",
-         "rawmaterial_ID" AS "rawmaterial_id"`,
+         "rawmaterial_ID" AS "rawmaterial_id",
+         "unit"`,
       [
         fieldOrNull(safeQty),
         fieldOrNull(pro_id),
         fieldOrNull(rawmaterial_id),
+        fieldOrNull(unit),
         id,
       ],
     );
