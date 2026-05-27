@@ -25,6 +25,7 @@ const RecipeMapperDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedRawMaterial, setSelectedRawMaterial] = useState("");
+  const [selectedUnit, setSelectedUnit] = useState("");
   const [quantityRequired, setQuantityRequired] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingMapping, setSavingMapping] = useState(false);
@@ -107,6 +108,22 @@ const RecipeMapperDetail = () => {
     (material) => String(material.rm_id) === String(selectedRawMaterial)
   );
 
+  const unitOptions = useMemo(() => {
+    const units = new Set(["kg", "g", "l", "ml"]);
+    rawMaterials.forEach((material) => {
+      if (material?.unit) units.add(material.unit);
+    });
+    return Array.from(units);
+  }, [rawMaterials]);
+
+  useEffect(() => {
+    if (!selectedRawMaterial) {
+      setSelectedUnit("");
+      return;
+    }
+    setSelectedUnit(selectedMaterial?.unit || "");
+  }, [selectedRawMaterial, selectedMaterial?.unit]);
+
   const handleAddIngredient = async () => {
     if (!selectedRawMaterial || !quantityRequired) {
       setError("Select a raw material and quantity.");
@@ -135,11 +152,12 @@ const RecipeMapperDetail = () => {
         rawmaterial_id: Number(selectedRawMaterial),
         quantity_req: quantity,
         rm_name: selectedMaterial?.rm_name,
-        rm_unit: selectedMaterial?.unit,
+        rm_unit: selectedUnit || selectedMaterial?.unit,
       };
 
       setRecipeItems((prev) => [...prev, nextItem]);
       setSelectedRawMaterial("");
+      setSelectedUnit("");
       setQuantityRequired("");
     } catch (err) {
       setError(err?.message || "Failed to add ingredient");
@@ -363,10 +381,17 @@ const RecipeMapperDetail = () => {
                 </div>
                 <div>
                   <label style={labelStyle}>Unit</label>
-                  <select value={selectedMaterial?.unit || ""} style={inputStyle} disabled>
-                    <option value={selectedMaterial?.unit || ""}>
-                      {selectedMaterial?.unit || "g (grams)"}
-                    </option>
+                  <select
+                    value={selectedUnit}
+                    onChange={(event) => setSelectedUnit(event.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="">Select unit</option>
+                    {unitOptions.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
