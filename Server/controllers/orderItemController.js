@@ -79,6 +79,66 @@ function guardOrderStatus(or_status, roleId) {
   return null;
 }
 
+/**
+ * Converts a recipe quantity into the raw material stock unit.
+ */
+function convertQuantity(recipeQty, recipeUnit, stockUnit) {
+  const rUnit = String(recipeUnit || "").toLowerCase().trim();
+  const sUnit = String(stockUnit || "").toLowerCase().trim();
+
+  if (rUnit === sUnit || !rUnit || !sUnit) {
+    return recipeQty;
+  }
+
+  // Mass conversions
+  if (rUnit === "g" && sUnit === "kg") return recipeQty / 1000;
+  if (rUnit === "mg" && sUnit === "g") return recipeQty / 1000;
+  if (rUnit === "mg" && sUnit === "kg") return recipeQty / 1000000;
+  if (rUnit === "kg" && sUnit === "g") return recipeQty * 1000;
+
+  // Volume conversions
+  if (rUnit === "ml" && sUnit === "l") return recipeQty / 1000;
+  if (rUnit === "l" && sUnit === "ml") return recipeQty * 1000;
+
+  // Count/dozen conversions
+  if (rUnit === "pcs" && sUnit === "dozen") return recipeQty / 12;
+  if (rUnit === "units" && sUnit === "dozen") return recipeQty / 12;
+
+  return recipeQty;
+}
+
+/**
+ * Transaction-safe stock adjuster for order items.
+ * Finds all mapped recipes and updates raw materials stock levels.
+ */
+export async function adjustStockForOrderItem(client, Bpro_id, quantity, operation) {
+  const recipesResult = await client.query(
+    `SELECT 
+       r."rawmaterial_ID" AS "rawmaterial_id",
+       r."quantity_req",
+       COALESCE(r."unit", rm."unit") AS "recipe_unit",
+       rm."unit" AS "stock_unit"
+     FROM public."Branch_Product" bp
+     JOIN public."RECIPE" r ON r."pro_id" = bp."pro_id"
+     JOIN public."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
+     WHERE bp."Bpro_id" = $1`,
+    [Bpro_id]
+  );
+
+  for (const recipe of recipesResult.rows) {
+    const totalRecipeQty = recipe.quantity_req * quantity;
+    const convertedQty = convertQuantity(totalRecipeQty, recipe.recipe_unit, recipe.stock_unit);
+    const sign = operation === "subtract" ? "-" : "+";
+
+    await client.query(
+      `UPDATE "Raw_Material"
+       SET stock_qty = stock_qty ${sign} $1
+       WHERE rm_id = $2`,
+      [convertedQty, recipe.rawmaterial_id]
+    );
+  }
+}
+
 // ─────────────────────────────────────────────
 // GET /order-items — list all order items
 // ─────────────────────────────────────────────
@@ -168,6 +228,7 @@ export const getOrderItemById = async (req, res) => {
 // POST /order-items — create a new order item
 // ─────────────────────────────────────────────
 export const createOrderItem = async (req, res) => {
+  const client = await pool.connect();
   try {
     const { Bpro_id, pro_quantity, unit_price, order_id } = req.body;
 
@@ -225,15 +286,23 @@ export const createOrderItem = async (req, res) => {
     const price = parseFloat(unit_price);
     const total_price = parseFloat((price * qty).toFixed(2));
 
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    // Deduct raw material stock
+    await adjustStockForOrderItem(client, Bpro_id, qty, "subtract");
+
+    const result = await client.query(
       `INSERT INTO public."ORDER_ITEM" ("Bpro_id", pro_quantity, unit_price, total_price, order_id)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
       [Bpro_id, qty, price, total_price, parsedOrderId],
     );
 
+    await client.query("COMMIT");
+
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {
+    await client.query("ROLLBACK");
     if (err.code === "23503") {
       return res.status(400).json({
         success: false,
@@ -241,6 +310,8 @@ export const createOrderItem = async (req, res) => {
       });
     }
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -248,6 +319,7 @@ export const createOrderItem = async (req, res) => {
 // PUT /order-items/:id — full update
 // ─────────────────────────────────────────────
 export const updateOrderItem = async (req, res) => {
+  const client = await pool.connect();
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id) || id <= 0) {
@@ -274,28 +346,38 @@ export const updateOrderItem = async (req, res) => {
       });
     }
 
+    await client.query("BEGIN");
+
     // ── Confirm item exists ──
-    const existing = await pool.query(
-      `SELECT * FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1`,
+    const existing = await client.query(
+      `SELECT * FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1 FOR UPDATE`,
       [id],
     );
     if (existing.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res
         .status(404)
         .json({ success: false, error: "Order item not found" });
     }
 
+    const oldItem = existing.rows[0];
+
     // ── Numeric / range validation ──
     const qtyError = validateQuantity(pro_quantity);
-    if (qtyError)
+    if (qtyError) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: qtyError });
+    }
 
     const priceError = validateUnitPrice(unit_price);
-    if (priceError)
+    if (priceError) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: priceError });
+    }
 
     const parsedOrderId = parseInt(order_id, 10);
     if (isNaN(parsedOrderId) || parsedOrderId <= 0) {
+      await client.query("ROLLBACK");
       return res
         .status(400)
         .json({ success: false, error: "Invalid order_id" });
@@ -304,15 +386,19 @@ export const updateOrderItem = async (req, res) => {
     // ── FK: order must exist and be editable ──
     const order = await fetchOrder(parsedOrderId);
     if (!order) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ success: false, error: "Order not found" });
     }
     const statusError = guardOrderStatus(order.or_status, req.user?.role_id);
-    if (statusError)
+    if (statusError) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: statusError });
+    }
 
     // ── FK: branch product must exist ──
     const bProduct = await fetchBranchProduct(Bpro_id);
     if (!bProduct) {
+      await client.query("ROLLBACK");
       return res
         .status(404)
         .json({ success: false, error: "Branch product not found" });
@@ -322,7 +408,20 @@ export const updateOrderItem = async (req, res) => {
     const price = parseFloat(unit_price);
     const total_price = parseFloat((price * qty).toFixed(2));
 
-    const result = await pool.query(
+    // Calculate quantity difference and adjust stock
+    if (Number(oldItem.Bpro_id) !== Number(Bpro_id)) {
+      await adjustStockForOrderItem(client, oldItem.Bpro_id, oldItem.pro_quantity, "add");
+      await adjustStockForOrderItem(client, Bpro_id, qty, "subtract");
+    } else {
+      const diff = qty - oldItem.pro_quantity;
+      if (diff > 0) {
+        await adjustStockForOrderItem(client, Bpro_id, diff, "subtract");
+      } else if (diff < 0) {
+        await adjustStockForOrderItem(client, Bpro_id, Math.abs(diff), "add");
+      }
+    }
+
+    const result = await client.query(
       `UPDATE public."ORDER_ITEM"
        SET "Bpro_id" = $1, pro_quantity = $2, unit_price = $3, total_price = $4, order_id = $5
        WHERE "orderItem_id" = $6
@@ -330,8 +429,11 @@ export const updateOrderItem = async (req, res) => {
       [Bpro_id, qty, price, total_price, parsedOrderId, id],
     );
 
+    await client.query("COMMIT");
+
     res.json({ success: true, data: result.rows[0] });
   } catch (err) {
+    await client.query("ROLLBACK");
     if (err.code === "23503") {
       return res.status(400).json({
         success: false,
@@ -339,6 +441,8 @@ export const updateOrderItem = async (req, res) => {
       });
     }
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -346,6 +450,7 @@ export const updateOrderItem = async (req, res) => {
 // DELETE /order-items/:id — delete an order item
 // ─────────────────────────────────────────────
 export const deleteOrderItem = async (req, res) => {
+  const client = await pool.connect();
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id) || id <= 0) {
@@ -354,29 +459,41 @@ export const deleteOrderItem = async (req, res) => {
         .json({ success: false, error: "Invalid order item ID" });
     }
 
+    await client.query("BEGIN");
+
     // ── Confirm item exists ──
-    const existing = await pool.query(
+    const existing = await client.query(
       `SELECT oi.*, o.or_status
        FROM public."ORDER_ITEM" oi
        JOIN "ORDER" o ON o.or_id = oi.order_id
-       WHERE oi."orderItem_id" = $1`,
+       WHERE oi."orderItem_id" = $1 FOR UPDATE`,
       [id],
     );
     if (existing.rows.length === 0) {
+      await client.query("ROLLBACK");
       return res
         .status(404)
         .json({ success: false, error: "Order item not found" });
     }
 
-    // ── Block deletion if the parent order is terminal ──
-    const statusError = guardOrderStatus(existing.rows[0].or_status, req.user?.role_id);
-    if (statusError)
-      return res.status(400).json({ success: false, error: statusError });
+    const item = existing.rows[0];
 
-    const result = await pool.query(
+    // ── Block deletion if the parent order is terminal ──
+    const statusError = guardOrderStatus(item.or_status, req.user?.role_id);
+    if (statusError) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, error: statusError });
+    }
+
+    // Restore stock levels
+    await adjustStockForOrderItem(client, item.Bpro_id, item.pro_quantity, "add");
+
+    const result = await client.query(
       `DELETE FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1 RETURNING *`,
       [id],
     );
+
+    await client.query("COMMIT");
 
     res.json({
       success: true,
@@ -384,6 +501,9 @@ export const deleteOrderItem = async (req, res) => {
       data: result.rows[0],
     });
   } catch (err) {
+    await client.query("ROLLBACK");
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 };

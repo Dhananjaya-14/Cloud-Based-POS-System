@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { adjustStockForOrderItem } from "./orderItemController.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -740,6 +741,17 @@ export const deleteOrder = async (req, res) => {
     let rows;
     try {
       await client.query("BEGIN");
+
+      // Fetch all items in the order to restore their raw materials
+      const itemsResult = await client.query(
+        `SELECT "Bpro_id", pro_quantity FROM public."ORDER_ITEM" WHERE order_id = $1`,
+        [id]
+      );
+
+      for (const item of itemsResult.rows) {
+        await adjustStockForOrderItem(client, item.Bpro_id, item.pro_quantity, "add");
+      }
+
       await client.query(`DELETE FROM public."ORDER_ITEM" WHERE order_id = $1`, [
         id,
       ]);

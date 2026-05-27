@@ -14,6 +14,8 @@ import {
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
+const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
+
 const RecipeMapperDetail = () => {
   const navigate = useNavigate();
   const { productId } = useParams();
@@ -125,8 +127,8 @@ const RecipeMapperDetail = () => {
   }, [selectedRawMaterial, selectedMaterial?.unit]);
 
   const handleAddIngredient = async () => {
-    if (!selectedRawMaterial || !quantityRequired) {
-      setError("Select a raw material and quantity.");
+    if (!selectedRawMaterial || !quantityRequired || !selectedUnit) {
+      setError("Select a raw material, quantity, and unit.");
       return;
     }
 
@@ -159,6 +161,7 @@ const RecipeMapperDetail = () => {
       setSelectedRawMaterial("");
       setSelectedUnit("");
       setQuantityRequired("");
+      setSelectedUnit("");
     } catch (err) {
       setError(err?.message || "Failed to add ingredient");
     } finally {
@@ -189,6 +192,7 @@ const RecipeMapperDetail = () => {
         ingredients: recipeItems.map((item) => ({
           rawmaterial_id: Number(item.rawmaterial_id),
           quantity_req: Number(item.quantity_req),
+          unit: item.rm_unit || null,
         })),
       };
 
@@ -355,7 +359,12 @@ const RecipeMapperDetail = () => {
               <label style={labelStyle}>Ingredient Name</label>
               <select
                 value={selectedRawMaterial}
-                onChange={(event) => setSelectedRawMaterial(event.target.value)}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setSelectedRawMaterial(val);
+                  const mat = rawMaterials.find((m) => String(m.rm_id) === String(val));
+                  setSelectedUnit(mat ? (mat.unit || "") : "");
+                }}
                 style={inputStyle}
               >
                 <option value="">e.g., Fresh Tomatoes</option>
