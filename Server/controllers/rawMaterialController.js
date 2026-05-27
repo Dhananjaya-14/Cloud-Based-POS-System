@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -78,12 +79,41 @@ function validateName(rm_name) {
 // ─── GET /api/raw-materials ──────────────────────────────────────────────────
 export async function getRawMaterials(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT rm_id, rm_name, unit, stock_qty, record_level,
+    const { role_id, com_id, b_id } = req.user;
+    const branchFilter = req.query?.b_id ?? req.query?.B_id;
+
+    let query = `SELECT rm_id, rm_name, unit, stock_qty, record_level,
               CASE WHEN stock_qty <= record_level THEN true ELSE false END AS low_stock
-       FROM "Raw_Material"
-       ORDER BY rm_name ASC`,
-    );
+       FROM "Raw_Material"`;
+
+    const conditions = [];
+    const params = [];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      conditions.push(`"Com_id" = $${params.length + 1}`);
+      params.push(com_id);
+
+      if (b_id) {
+        conditions.push(`b_id = $${params.length + 1}`);
+        params.push(b_id);
+      } else if (branchFilter !== undefined) {
+        conditions.push(`b_id = $${params.length + 1}`);
+        params.push(Number(branchFilter));
+      }
+    } else {
+      if (branchFilter !== undefined) {
+        conditions.push(`b_id = $${params.length + 1}`);
+        params.push(Number(branchFilter));
+      }
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+
+    query += " ORDER BY rm_name ASC";
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -93,13 +123,38 @@ export async function getRawMaterials(req, res, next) {
 // ─── GET /api/raw-materials/low-stock ────────────────────────────────────────
 export async function getLowStockMaterials(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT rm_id, rm_name, unit, stock_qty, record_level,
+    const { role_id, com_id, b_id } = req.user;
+    const branchFilter = req.query?.b_id ?? req.query?.B_id;
+
+    let query = `SELECT rm_id, rm_name, unit, stock_qty, record_level,
               (record_level - stock_qty) AS shortage_qty
-       FROM "Raw_Material"
-       WHERE stock_qty <= record_level
-       ORDER BY shortage_qty DESC`,
-    );
+       FROM "Raw_Material"`;
+
+    const conditions = ["stock_qty <= record_level"];
+    const params = [];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      conditions.push(`"Com_id" = $${params.length + 1}`);
+      params.push(com_id);
+
+      if (b_id) {
+        conditions.push(`b_id = $${params.length + 1}`);
+        params.push(b_id);
+      } else if (branchFilter !== undefined) {
+        conditions.push(`b_id = $${params.length + 1}`);
+        params.push(Number(branchFilter));
+      }
+    } else {
+      if (branchFilter !== undefined) {
+        conditions.push(`b_id = $${params.length + 1}`);
+        params.push(Number(branchFilter));
+      }
+    }
+
+    query += " WHERE " + conditions.join(" AND ");
+    query += " ORDER BY shortage_qty DESC";
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -110,14 +165,25 @@ export async function getLowStockMaterials(req, res, next) {
 export async function getRawMaterialById(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "rm_id");
+    const { role_id, com_id, b_id } = req.user;
 
-    const result = await pool.query(
-      `SELECT rm_id, rm_name, unit, stock_qty, record_level,
+    let query = `SELECT rm_id, rm_name, unit, stock_qty, record_level,
               CASE WHEN stock_qty <= record_level THEN true ELSE false END AS low_stock
        FROM "Raw_Material"
-       WHERE rm_id = $1`,
-      [id],
-    );
+       WHERE rm_id = $1`;
+    const params = [id];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` AND "Com_id" = $2`;
+      params.push(com_id);
+
+      if (b_id) {
+        query += ` AND b_id = $3`;
+        params.push(b_id);
+      }
+    }
+
+    const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       res.status(404);
@@ -206,21 +272,56 @@ export async function createRawMaterial(req, res, next) {
       );
     }
 
-    // ── Duplicate name check ──
-    const dupCheck = await pool.query(
-      'SELECT rm_id FROM "Raw_Material" WHERE LOWER(rm_name) = LOWER($1)',
-      [rm_name],
-    );
+    // ── Duplicate name check & resolved com_id / b_id ──
+    let dupQuery = 'SELECT rm_id FROM "Raw_Material" WHERE LOWER(rm_name) = LOWER($1)';
+    const dupParams = [rm_name];
+
+    let resolvedComId = null;
+    let resolvedBId = null;
+
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      resolvedComId = req.user.com_id;
+      dupQuery += ` AND "Com_id" = $2`;
+      dupParams.push(resolvedComId);
+
+      if (req.user.b_id) {
+        resolvedBId = req.user.b_id;
+        dupQuery += ` AND b_id = $3`;
+        dupParams.push(resolvedBId);
+      } else if (req.body.b_id || req.body.B_id) {
+        resolvedBId = parsePositiveInt(req.body.b_id || req.body.B_id, "b_id");
+        const branchCheck = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [resolvedBId]);
+        if (branchCheck.rows.length === 0 || branchCheck.rows[0].com_id !== req.user.com_id) {
+          res.status(403);
+          throw new Error("You do not have permission to add raw materials to this branch.");
+        }
+        dupQuery += ` AND b_id = $3`;
+        dupParams.push(resolvedBId);
+      }
+    } else {
+      resolvedComId = req.body.com_id || req.body.Com_id || null;
+      resolvedBId = req.body.b_id || req.body.B_id || null;
+      if (resolvedComId) {
+        dupQuery += ` AND "Com_id" = $2`;
+        dupParams.push(resolvedComId);
+      }
+      if (resolvedBId) {
+        dupQuery += ` AND b_id = $${dupParams.length + 1}`;
+        dupParams.push(resolvedBId);
+      }
+    }
+
+    const dupCheck = await pool.query(dupQuery, dupParams);
     if (dupCheck.rows.length > 0) {
       res.status(409);
       throw new Error(`A raw material named "${rm_name}" already exists`);
     }
 
     const result = await pool.query(
-      `INSERT INTO "Raw_Material" (rm_name, unit, stock_qty, record_level)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO "Raw_Material" (rm_name, unit, stock_qty, record_level, "Com_id", b_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING rm_id, rm_name, unit, stock_qty, record_level`,
-      [rm_name, unitLower, stockQty, recordLevel],
+      [rm_name, unitLower, stockQty, recordLevel, resolvedComId, resolvedBId],
     );
 
     res.status(201).json(result.rows[0]);
@@ -228,6 +329,7 @@ export async function createRawMaterial(req, res, next) {
     next(err);
   }
 }
+
 
 // ─── PUT /api/raw-materials/:id ───────────────────────────────────────────────
 export async function updateRawMaterial(req, res, next) {
@@ -255,11 +357,18 @@ export async function updateRawMaterial(req, res, next) {
 
     const { rm_name, unit, stock_qty, record_level } = body;
 
-    // ── Existence check ──
-    const existing = await pool.query(
-      'SELECT rm_id, rm_name FROM "Raw_Material" WHERE rm_id = $1',
-      [id],
-    );
+    // ── Existence & Scoping check ──
+    let existQuery = 'SELECT rm_id, rm_name FROM "Raw_Material" WHERE rm_id = $1';
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND "Com_id" = $2`;
+      existParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        existQuery += ` AND b_id = $3`;
+        existParams.push(req.user.b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Raw material not found");
@@ -269,10 +378,17 @@ export async function updateRawMaterial(req, res, next) {
     if (rm_name !== undefined) {
       validateName(rm_name);
 
-      const dupCheck = await pool.query(
-        'SELECT rm_id FROM "Raw_Material" WHERE LOWER(rm_name) = LOWER($1) AND rm_id <> $2',
-        [rm_name, id],
-      );
+      let dupQuery = 'SELECT rm_id FROM "Raw_Material" WHERE LOWER(rm_name) = LOWER($1) AND rm_id <> $2';
+      const dupParams = [rm_name, id];
+      if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+        dupQuery += ` AND "Com_id" = $3`;
+        dupParams.push(req.user.com_id);
+        if (req.user.b_id) {
+          dupQuery += ` AND b_id = $4`;
+          dupParams.push(req.user.b_id);
+        }
+      }
+      const dupCheck = await pool.query(dupQuery, dupParams);
       if (dupCheck.rows.length > 0) {
         res.status(409);
         throw new Error(`A raw material named "${rm_name}" already exists`);
@@ -404,10 +520,17 @@ export async function adjustStock(req, res, next) {
 
     const adjRounded = parseFloat(adjValue.toFixed(3));
 
-    const existing = await pool.query(
-      'SELECT rm_id, rm_name, stock_qty, record_level, unit FROM "Raw_Material" WHERE rm_id = $1',
-      [id],
-    );
+    let existQuery = 'SELECT rm_id, rm_name, stock_qty, record_level, unit FROM "Raw_Material" WHERE rm_id = $1';
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND "Com_id" = $2`;
+      existParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        existQuery += ` AND b_id = $3`;
+        existParams.push(req.user.b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Raw material not found");
@@ -447,10 +570,17 @@ export async function deleteRawMaterial(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "rm_id");
 
-    const stockCheck = await pool.query(
-      'SELECT stock_qty FROM "Raw_Material" WHERE rm_id = $1',
-      [id],
-    );
+    let existQuery = 'SELECT stock_qty FROM "Raw_Material" WHERE rm_id = $1';
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND "Com_id" = $2`;
+      existParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        existQuery += ` AND b_id = $3`;
+        existParams.push(req.user.b_id);
+      }
+    }
+    const stockCheck = await pool.query(existQuery, existParams);
     if (stockCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Raw material not found");

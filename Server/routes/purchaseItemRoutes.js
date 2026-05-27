@@ -1,6 +1,7 @@
 // purchaseItemRoutes.js
 import express from "express";
 import {
+  getPurchaseItems,
   getPurchaseItemsByOrder,
   getPurchaseItemById,
   createPurchaseItem,
@@ -14,9 +15,23 @@ import {
   ROLES,
 } from "../middleware/authMiddleware.js";
 
-const router = express.Router();
+const router = Router();
+
+function Router() {
+  return express.Router();
+}
 
 router.use(requireAuth);
+
+// Anyone in kitchen staff, branch admin, or admin can list purchase items
+router.get(
+  "/",
+  requireRole(
+    [ROLES.ADMIN, ROLES.BRANCH_ADMIN, ROLES.KITCHEN_STAFF],
+    "Admin, Branch Admin, or Kitchen Staff",
+  ),
+  getPurchaseItems,
+);
 
 // Kitchen staff can VIEW items in an order (so they know what's coming in)
 // but cannot create, edit, or delete them
@@ -44,3 +59,4 @@ router.put("/:id", requireBranchAdminOrAdmin, updatePurchaseItem);
 router.delete("/:id", requireBranchAdminOrAdmin, deletePurchaseItem);
 
 export default router;
+

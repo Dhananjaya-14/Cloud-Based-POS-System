@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -40,10 +41,13 @@ function toResponseRow(row) {
 // ─────────────────────────────────────────────
 // GET /api/recipes
 // ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// GET /api/recipes
+// ─────────────────────────────────────────────
 export async function getRecipes(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT
+    const { role_id, com_id } = req.user;
+    let query = `SELECT
         r."recipe_id",
         r."quantity_req",
         r."pro_id",
@@ -53,9 +57,17 @@ export async function getRecipes(req, res, next) {
         rm."unit" AS "rm_unit" 
       FROM "public"."RECIPE" r
       JOIN "public"."Product"      p  ON p."pro_id"  = r."pro_id"
-      JOIN "public"."Raw_Material" rm ON rm."rm_id"  = r."rawmaterial_ID"
-      ORDER BY r."pro_id", r."recipe_id"`,
-    );
+      JOIN "public"."Raw_Material" rm ON rm."rm_id"  = r."rawmaterial_ID"`;
+    const params = [];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` WHERE p."Com_id" = $1`;
+      params.push(com_id);
+    }
+
+    query += ` ORDER BY r."pro_id", r."recipe_id"`;
+
+    const result = await pool.query(query, params);
 
     res.json(result.rows.map(toResponseRow));
   } catch (err) {
@@ -63,20 +75,20 @@ export async function getRecipes(req, res, next) {
   }
 }
 
-// ─────────────────────────────────────────────
+// ─── ──────────────────────────────────────────
 // GET /api/recipes/:id
 // ─────────────────────────────────────────────
 export async function getRecipeById(req, res, next) {
   try {
     const { id } = req.params;
+    const { role_id, com_id } = req.user;
 
     if (!isPositiveInt(id)) {
       res.status(400);
       throw new Error("Invalid recipe id.");
     }
 
-    const result = await pool.query(
-      `SELECT
+    let query = `SELECT
         r."recipe_id",
         r."quantity_req",
         r."pro_id",
@@ -87,9 +99,15 @@ export async function getRecipeById(req, res, next) {
       FROM "public"."RECIPE" r
       JOIN "public"."Product"      p  ON p."pro_id" = r."pro_id"
       JOIN "public"."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
-      WHERE r."recipe_id" = $1`,
-      [id],
-    );
+      WHERE r."recipe_id" = $1`;
+    const params = [id];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` AND p."Com_id" = $2`;
+      params.push(com_id);
+    }
+
+    const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       res.status(404);
@@ -102,27 +120,31 @@ export async function getRecipeById(req, res, next) {
   }
 }
 
-// ─────────────────────────────────────────────
+// ─── ──────────────────────────────────────────
 // GET /api/recipes/product/:pro_id
 // All ingredients for a specific product
-// ─────────────────────────────────────────────
+// ─── ──────────────────────────────────────────
 export async function getRecipesByProduct(req, res, next) {
   try {
     const { pro_id } = req.params;
+    const { role_id, com_id } = req.user;
 
     if (!isPositiveInt(pro_id)) {
       res.status(400);
       throw new Error("Invalid pro_id.");
     }
 
-    // Verify product exists first
-    const productCheck = await pool.query(
-      'SELECT "pro_id", "pro_name" FROM "public"."Product" WHERE "pro_id" = $1',
-      [pro_id],
-    );
+    // Verify product exists first and belongs to the company
+    let prodQuery = 'SELECT "pro_id", "pro_name", "Com_id" FROM "public"."Product" WHERE "pro_id" = $1';
+    const prodParams = [pro_id];
+    const productCheck = await pool.query(prodQuery, prodParams);
     if (productCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Product not found.");
+    }
+    if (role_id !== ROLES.SUPER_ADMIN && productCheck.rows[0].Com_id !== com_id) {
+      res.status(403);
+      throw new Error("You do not have permission to view recipes for this product.");
     }
 
     const result = await pool.query(
@@ -190,24 +212,32 @@ export async function createRecipe(req, res, next) {
       throw new Error("rawmaterial_id must be a positive integer.");
     }
 
-    // ── Business rule: product must exist ────
+    // ── Business rule: product must exist and belong to the user's company ────
     const productCheck = await pool.query(
-      'SELECT "pro_id" FROM "public"."Product" WHERE "pro_id" = $1',
+      'SELECT "pro_id", "Com_id" FROM "public"."Product" WHERE "pro_id" = $1',
       [pro_id],
     );
     if (productCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Product not found.");
     }
+    if (req.user.role_id !== ROLES.SUPER_ADMIN && productCheck.rows[0].Com_id !== req.user.com_id) {
+      res.status(403);
+      throw new Error("You do not have permission to add a recipe to this product.");
+    }
 
-    // ── Business rule: raw material must exist ──
+    // ── Business rule: raw material must exist and belong to the user's company ──
     const rmCheck = await pool.query(
-      'SELECT "rm_id" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
+      'SELECT "rm_id", "Com_id" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
       [rawmaterial_id],
     );
     if (rmCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Raw material not found.");
+    }
+    if (req.user.role_id !== ROLES.SUPER_ADMIN && rmCheck.rows[0].Com_id !== req.user.com_id) {
+      res.status(403);
+      throw new Error("You do not have permission to use this raw material.");
     }
 
     // ── Business rule: no duplicate pro_id + rawmaterial_id combo ──
@@ -323,14 +353,31 @@ export async function createRecipeBulk(req, res, next) {
       );
     }
 
-    // ── Product must exist ───────────────────
+    // ── Product must exist and belong to the user's company ───────────────────
     const productCheck = await pool.query(
-      'SELECT "pro_id", "pro_name" FROM "public"."Product" WHERE "pro_id" = $1',
+      'SELECT "pro_id", "pro_name", "Com_id" FROM "public"."Product" WHERE "pro_id" = $1',
       [pro_id],
     );
     if (productCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Product not found.");
+    }
+    if (req.user.role_id !== ROLES.SUPER_ADMIN && productCheck.rows[0].Com_id !== req.user.com_id) {
+      res.status(403);
+      throw new Error("You do not have permission to add a recipe to this product.");
+    }
+
+    // ── Verify each raw material belongs to user's company ─────────────────────
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      const rmIdsList = ingredients.map((i) => i.rawmaterial_id);
+      const rmCheck = await pool.query(
+        'SELECT "rm_id" FROM "public"."Raw_Material" WHERE "rm_id" = ANY($1) AND "Com_id" = $2',
+        [rmIdsList, req.user.com_id]
+      );
+      if (rmCheck.rows.length !== rmIdsList.length) {
+        res.status(403);
+        throw new Error("One or more raw materials do not exist or do not belong to your company.");
+      }
     }
 
     // ── Check no existing recipe entries for this product ──
@@ -401,6 +448,7 @@ export async function createRecipeBulk(req, res, next) {
 export async function updateRecipe(req, res, next) {
   try {
     const { id } = req.params;
+    const { role_id, com_id } = req.user;
 
     if (!isPositiveInt(id)) {
       res.status(400);
@@ -437,11 +485,19 @@ export async function updateRecipe(req, res, next) {
       throw new Error("rawmaterial_id must be a positive integer.");
     }
 
-    // ── Record must exist ────────────────────
-    const existing = await pool.query(
-      'SELECT "recipe_id", "pro_id", "rawmaterial_ID" FROM "public"."RECIPE" WHERE "recipe_id" = $1',
-      [id],
-    );
+    // ── Record must exist and belong to user's company ────────────────────
+    let existQuery = `
+      SELECT r."recipe_id", r."pro_id", r."rawmaterial_ID" AS "rawmaterial_id"
+      FROM "public"."RECIPE" r
+      JOIN "public"."Product" p ON p."pro_id" = r."pro_id"
+      WHERE r."recipe_id" = $1
+    `;
+    const existParams = [id];
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND p."Com_id" = $2`;
+      existParams.push(com_id);
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Recipe not found.");
@@ -449,9 +505,33 @@ export async function updateRecipe(req, res, next) {
 
     const current = existing.rows[0];
 
+    // If new pro_id is provided, verify it belongs to user's company
+    if (pro_id !== undefined && role_id !== ROLES.SUPER_ADMIN) {
+      const productCheck = await pool.query(
+        'SELECT "Com_id" FROM "public"."Product" WHERE "pro_id" = $1',
+        [pro_id],
+      );
+      if (productCheck.rows.length === 0 || productCheck.rows[0].Com_id !== com_id) {
+        res.status(403);
+        throw new Error("You do not have permission to use this product.");
+      }
+    }
+
+    // If new rawmaterial_id is provided, verify it belongs to user's company
+    if (rawmaterial_id !== undefined && role_id !== ROLES.SUPER_ADMIN) {
+      const rmCheck = await pool.query(
+        'SELECT "Com_id" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
+        [rawmaterial_id],
+      );
+      if (rmCheck.rows.length === 0 || rmCheck.rows[0].Com_id !== com_id) {
+        res.status(403);
+        throw new Error("You do not have permission to use this raw material.");
+      }
+    }
+
     // ── Business rule: no duplicate combo after update ──
     const finalProId = pro_id ?? current.pro_id;
-    const finalRawMaterialId = rawmaterial_id ?? current.rawmaterial_ID;
+    const finalRawMaterialId = rawmaterial_id ?? current.rawmaterial_id;
 
     const duplicateCheck = await pool.query(
       `SELECT "recipe_id" FROM "public"."RECIPE"
@@ -516,21 +596,35 @@ export async function updateRecipe(req, res, next) {
 export async function deleteRecipe(req, res, next) {
   try {
     const { id } = req.params;
+    const { role_id, com_id } = req.user;
 
     if (!isPositiveInt(id)) {
       res.status(400);
       throw new Error("Invalid recipe id.");
     }
 
-    const result = await pool.query(
-      'DELETE FROM "public"."RECIPE" WHERE "recipe_id" = $1 RETURNING "recipe_id"',
-      [id],
-    );
-
-    if (result.rows.length === 0) {
+    // Verify recipe exists and belongs to the company
+    let checkQuery = `
+      SELECT r."recipe_id"
+      FROM "public"."RECIPE" r
+      JOIN "public"."Product" p ON p."pro_id" = r."pro_id"
+      WHERE r."recipe_id" = $1
+    `;
+    const checkParams = [id];
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      checkQuery += ` AND p."Com_id" = $2`;
+      checkParams.push(com_id);
+    }
+    const existCheck = await pool.query(checkQuery, checkParams);
+    if (existCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Recipe not found.");
     }
+
+    await pool.query(
+      'DELETE FROM "public"."RECIPE" WHERE "recipe_id" = $1',
+      [id],
+    );
 
     res.status(204).send();
   } catch (err) {
@@ -553,20 +647,24 @@ export async function deleteRecipe(req, res, next) {
 export async function deleteRecipeByProduct(req, res, next) {
   try {
     const { pro_id } = req.params;
+    const { role_id, com_id } = req.user;
 
     if (!isPositiveInt(pro_id)) {
       res.status(400);
       throw new Error("Invalid pro_id.");
     }
 
-    // Verify product exists
-    const productCheck = await pool.query(
-      'SELECT "pro_id" FROM "public"."Product" WHERE "pro_id" = $1',
-      [pro_id],
-    );
+    // Verify product exists and belongs to company
+    let checkQuery = 'SELECT "pro_id", "Com_id" FROM "public"."Product" WHERE "pro_id" = $1';
+    const checkParams = [pro_id];
+    const productCheck = await pool.query(checkQuery, checkParams);
     if (productCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Product not found.");
+    }
+    if (role_id !== ROLES.SUPER_ADMIN && productCheck.rows[0].Com_id !== com_id) {
+      res.status(403);
+      throw new Error("You do not have permission to delete recipes for this product.");
     }
 
     const result = await pool.query(
