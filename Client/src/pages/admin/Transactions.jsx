@@ -21,7 +21,6 @@ export default function Transactions() {
     dateTo: null,
     tab: "all",
   });
-
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(null);

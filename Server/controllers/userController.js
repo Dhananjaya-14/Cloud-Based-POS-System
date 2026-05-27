@@ -2,7 +2,6 @@ import bcrypt from "bcryptjs";
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
 
-// Helper to hash password when provided
 async function hashPassword(password) {
   const salt = await bcrypt.genSalt(10);
   return bcrypt.hash(password, salt);
@@ -71,8 +70,7 @@ export async function getUsers(req, res, next) {
     next(err);
   }
 }
-//single user by id
-// GET /api/users/:id
+
 export async function getUserById(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
@@ -112,20 +110,19 @@ export async function getUserById(req, res, next) {
   }
 }
 
-//create user
-// POST /api/users
 export async function createUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
     const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
+    const { targetRoleId, B_id, com_id } = resolveUserScope(req, role_id, req.body, null);
 
     if (!u_fname || !u_lname || !u_email || !u_pw) {
       res.status(400);
       throw new Error("u_fname, u_lname, u_email and u_pw are required");
     }
 
-    let B_id = null;
-    let com_id = null;
+    B_id = null;
+    com_id = null;
 
     if (Number(role_id) === ROLES.SUPER_ADMIN) {
       // Super Admin needs no company or branch
@@ -161,7 +158,7 @@ export async function createUser(req, res, next) {
     // Check for existing email
     const existing = await pool.query(
       'SELECT u_id FROM "User" WHERE u_email = $1',
-      [u_email]
+      [u_email],
     );
     if (existing.rows.length > 0) {
       res.status(400);
@@ -196,8 +193,6 @@ export async function createUser(req, res, next) {
   }
 }
 
-//update user
-// PUT /api/users/:id
 export async function updateUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
@@ -309,8 +304,6 @@ export async function updateUser(req, res, next) {
   }
 }
 
-//delete user
-// DELETE /api/users/:id
 export async function deleteUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
@@ -339,4 +332,3 @@ export async function deleteUser(req, res, next) {
     next(err);
   }
 }
-

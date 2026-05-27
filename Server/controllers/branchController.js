@@ -1,6 +1,6 @@
 import pool from "../config/database.js";
-import { BRANCH_SOCKET_ROOM, emitSocketEvent } from "../utils/socket.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { BRANCH_SOCKET_ROOM, emitSocketEvent } from "../utils/socket.js";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9\s\-().]{7,20}$/;
