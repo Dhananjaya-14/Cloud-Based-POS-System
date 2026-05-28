@@ -84,7 +84,7 @@ export async function login(req, res, next) {
       com_id = bRes.rows[0]?.com_id ?? null;
     }
     if (!com_id) {
-      const uRes = await pool.query('SELECT com_id, "B_id" FROM "Branch" WHERE "U_id" = $1 LIMIT 1', [user.u_id]);
+      const uRes = await pool.query('SELECT com_id, "B_id" FROM "Branch" WHERE "u_id" = $1 LIMIT 1', [user.u_id]);
       if (uRes.rows.length > 0) {
         com_id = uRes.rows[0].com_id;
         // If they are a Branch Admin without a B_id, use the B_id they manage
