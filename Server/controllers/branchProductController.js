@@ -40,6 +40,7 @@ function toResponseRow(row) {
     cat_id: row.cat_id,
     pro_id: row.pro_id,
     B_id: row.B_id,
+    cat_name: row.cat_name,
   };
 }
 
@@ -74,8 +75,10 @@ export async function getBranchProducts(req, res, next) {
         bp." Pro_Price" AS "pro_price",
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
-        bp."B_id"
+        bp."B_id",
+        c."cat_name"
       FROM "public"."Branch_Product" bp
+      LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
     `;
 
     const conditions = [];
@@ -132,8 +135,10 @@ export async function getBranchProductById(req, res, next) {
         bp." Pro_Price" AS "pro_price",
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
-        bp."B_id"
+        bp."B_id",
+        c."cat_name"
       FROM "public"."Branch_Product" bp
+      LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
     `;
     let params = [id];
 

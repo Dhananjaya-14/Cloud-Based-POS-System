@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import { createProduct, getCompanies } from "../../services/api";
+import { createProduct, getCompanies, getCategories } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const cardStyle = {
@@ -49,10 +49,12 @@ const AddProduct = () => {
     pro_price: "",
     pro_image: "",
     com_id: "",
+    cat_id: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,6 +78,15 @@ const AddProduct = () => {
     };
 
     loadCompany();
+
+    // Fetch categories
+    getCategories()
+      .then((cats) => {
+        if (!Array.isArray(cats) || cats.length === 0) return;
+        setCategories(cats);
+        setForm((prev) => ({ ...prev, cat_id: String(cats[0].cat_id) }));
+      })
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -102,6 +113,7 @@ const AddProduct = () => {
         pro_price: Number(form.pro_price),
         pro_image: form.pro_image.trim() || "N/A",
         com_id: Number(form.com_id || user?.com_id || 1),
+        cat_id: Number(form.cat_id) || undefined,
       };
 
       await createProduct(payload);
@@ -151,6 +163,8 @@ const AddProduct = () => {
                     <label style={labelStyle}>Category</label>
                     <div style={{ position: "relative" }}>
                       <select
+                        value={form.cat_id}
+                        onChange={handleChange("cat_id")}
                         style={{
                           ...inputStyle,
                           appearance: "none",
@@ -159,7 +173,15 @@ const AddProduct = () => {
                           paddingRight: "30px",
                         }}
                       >
-                        <option></option>
+                        {categories.length === 0 ? (
+                          <option value="">Loading...</option>
+                        ) : (
+                          categories.map((cat) => (
+                            <option key={cat.cat_id} value={cat.cat_id}>
+                              {cat.cat_name}
+                            </option>
+                          ))
+                        )}
                       </select>
                       <FaChevronDown
                         size={10}

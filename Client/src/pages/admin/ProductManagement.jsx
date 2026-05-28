@@ -90,7 +90,7 @@ const mapApiProductToTableItem = (product) => {
     imageAlt: product.pro_name || "Product",
     name: product.pro_name,
     sku: `SKU: PRD-${String(product.pro_id).padStart(3, "0")}`,
-    category: "General",
+    category: product.cat_name || "General",
     price: `$${price.toFixed(2)}`,
     discount: "0%",
     stock: quantity,

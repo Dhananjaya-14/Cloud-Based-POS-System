@@ -12,7 +12,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-import { getBranchProducts, updateBranchProduct, getBranches } from "../../services/api";
+import { getBranchProducts, updateBranchProduct } from "../../services/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -92,7 +92,7 @@ const mapApiProductToTableItem = (product) => {
 		imageAlt: product.pro_name || "Product",
 		name: product.pro_name,
 		sku: `SKU: BPRD-${String(product.Bpro_id).padStart(3, "0")}`,
-		category: product.cat_id ? `Category ${product.cat_id}` : "General",
+		category: product.cat_name || "General",
 		price: `$${price.toFixed(2)}`,
 		discount: "0%",
 		stock: quantity,
@@ -118,10 +118,10 @@ const ProductManagement = () => {
 			try {
 				setLoading(true);
 				setError("");
-				const branches = await getBranches();
-				const myBranch = branches.find(b => String(b.U_id) === String(user?.u_id)) || branches[0];
+				// Use b_id directly from the JWT token — no need to re-fetch all branches
+				const myBranchId = user?.b_id ?? null;
 				
-				const response = myBranch?.B_id ? await getBranchProducts(myBranch.B_id) : [];
+				const response = myBranchId ? await getBranchProducts(myBranchId) : [];
 				
 				if (!isMounted) return;
 				setProducts(Array.isArray(response) ? response : []);

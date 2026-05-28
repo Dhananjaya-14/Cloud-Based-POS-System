@@ -159,7 +159,7 @@ const ProductDetails = () => {
 				setForm({
 					pro_name: productData?.pro_name || "",
 					short_name: toShortName(productData?.pro_name || ""),
-					category: categoryData?.[0]?.cat_name || "General",
+					category: productData?.cat_name || categoryData.find(c => c.cat_id === productData?.cat_id)?.cat_name || "General",
 					pro_qty: String(productData?.pro_qty ?? ""),
 					pro_price: String(productData?.pro_price ?? ""),
 					pro_image: productData?.pro_image || "",
@@ -234,11 +234,15 @@ const ProductDetails = () => {
 		try {
 			setSaving(true);
 			setError("");
+			const selectedCategoryObj = categories.find((c) => c.cat_name === form.category);
+			const cat_id = selectedCategoryObj ? selectedCategoryObj.cat_id : null;
+
 			const updated = await updateProduct(productId, {
 				pro_name: form.pro_name.trim(),
 				pro_qty: Number(form.pro_qty),
 				pro_price: Number(form.pro_price),
 				pro_image: form.pro_image.trim() || null,
+				cat_id: cat_id,
 			});
 			setProduct(updated);
 			setSuccess("Product updated successfully");

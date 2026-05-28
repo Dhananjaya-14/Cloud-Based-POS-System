@@ -6,6 +6,7 @@ import {
   FaUsers,
   FaCog,
   FaSignOutAlt,
+  FaCodeBranch,
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -66,6 +67,7 @@ const Sidebar = () => {
         <div style={{ marginTop: 30 }}>
           {menuItem(<FaTachometerAlt />, "Dashboard", "/dashboard")}
           {menuItem(<FaStore />, "Company Management", "/super-admin/hotels")}
+          {menuItem(<FaCodeBranch />, "Branch Management", "/branches")}
           {menuItem(<FaUsers />, "User Management", "/super-admin/users")}
         </div>
       </div>

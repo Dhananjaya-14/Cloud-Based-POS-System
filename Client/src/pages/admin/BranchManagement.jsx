@@ -2,10 +2,13 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
+import SuperAdminSidebar from "../../components/super-admin/Sidebar";
+import SuperAdminHeader from "../../components/super-admin/Header";
 import BranchTable from "../../components/admin/BranchTable";
 import Button from "../../components/admin/Button";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, setAuthToken, logout } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 const SIDEBAR_WIDTH = 240;
 const HEADER_HEIGHT = 64;
@@ -14,6 +17,7 @@ const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -48,10 +52,10 @@ const BranchManagement = () => {
 
   return (
     <div style={{ display: "flex",minHeight: "100vh", background: "#F4F6F9" }}>
-      <Sidebar />
+      {user?.role_id === 6 ? <SuperAdminSidebar /> : <Sidebar />}
 
       <div style={{ flex: 1, marginLeft: "240px" }}>
-        <Header />
+        {user?.role_id === 6 ? <SuperAdminHeader /> : <Header />}
 
         <div style={{ padding: "20px" }}>
           <div
