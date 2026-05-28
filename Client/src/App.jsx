@@ -33,6 +33,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminStatistics from './pages/admin/AdminStatistics';
 import AdminTransactions from './pages/admin/Transactions';
 import BranchAdminTransactions from './pages/branch-admin/Transactions';
+import Promotions from './pages/admin/Promotions';
 
 // Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
 // send them to Product Management instead of showing Branch Profile.
@@ -445,6 +446,23 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+            path="/admin/promotions"
+            element={
+              <ProtectedRoute allowedRoles={[2]}>
+                <Promotions />
+              </ProtectedRoute>
+            }
+          />
+
+        <Route
+            path="/branch-admin/promotions"
+          element={
+            <ProtectedRoute allowedRoles={[1 , 2, 6]}>
+                    <Promotions />
+                    </ProtectedRoute>
+  }
+/>
 
       <Route path="*" element={<Navigate to="/" />} />
       
