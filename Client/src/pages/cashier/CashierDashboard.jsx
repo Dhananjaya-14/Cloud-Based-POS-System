@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ToastMessage from "../../components/branch-admin/ToastMessage";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders } from "../../services/api";
+import { connectSocket } from "../../services/socket";
 
 const statCards = [
   {
@@ -44,52 +46,98 @@ const CashierDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ revenue: 0, transactions: 0 });
   const [activities, setActivities] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = useCallback((message, type = "success") => {
+    setToast({ show: true, message, type });
+  }, []);
+
+  const loadTodayOrders = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const params = { status: "completed", date: today };
+
+      if (user?.u_id) {
+        params.u_id = user.u_id;
+      }
+
+      const orders = await getOrders(params);
+
+      let revenue = 0;
+      orders.forEach((order) => {
+        const total = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
+        if (!Number.isNaN(total)) revenue += total;
+      });
+
+      setStats({
+        revenue,
+        transactions: orders.length,
+      });
+
+      const recent = orders.slice(0, 5).map((order) => ({
+        orderId: order.or_id,
+        time: order.or_time?.slice(0, 5) || "--:--",
+        title: "Sale completed",
+        subtitle: order.or_type || "-",
+        amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
+      }));
+
+      setActivities(recent);
+    } catch (error) {
+      console.error("Failed to load cashier dashboard orders", error);
+    }
+  }, [user?.u_id]);
 
   useEffect(() => {
-    const fetchTodayOrders = async () => {
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        const params = { status: "completed", date: today };
+    loadTodayOrders();
+  }, [loadTodayOrders]);
 
-        if (user?.u_id) {
-          params.u_id = user.u_id;
-        }
+  useEffect(() => {
+    const socket = connectSocket();
 
-        const orders = await getOrders(params);
+    const handleOrderReady = (order) => {
+      if (!order) return;
+      if (user?.u_id && order.u_id && Number(order.u_id) !== Number(user.u_id)) {
+        return;
+      }
 
-        let revenue = 0;
-        orders.forEach((order) => {
-          const total = Number(
-            order.or_totalCostWtax ?? order.or_totalcost ?? 0,
-          );
-          if (!Number.isNaN(total)) revenue += total;
-        });
+      const orderNumber = String(order.or_id).padStart(5, "0");
+      showToast(`Order #${orderNumber} is ready for pickup.`, "success");
 
-        setStats({
-          revenue,
-          transactions: orders.length,
-        });
-
-        const recent = orders.slice(0, 5).map((order) => ({
+      setActivities((current) => {
+        const nextItem = {
+          orderId: order.or_id,
           time: order.or_time?.slice(0, 5) || "--:--",
           title: "Sale completed",
           subtitle: order.or_type || "-",
-          amount: `$${Number(
-            order.or_totalCostWtax ?? order.or_totalcost ?? 0,
-          ).toFixed(2)}`,
-        }));
+          amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
+        };
 
-        setActivities(recent);
-      } catch (error) {
-        console.error("Failed to load cashier dashboard orders", error);
-      }
+        return [
+          nextItem,
+          ...current.filter((item) => Number(item.orderId) !== Number(order.or_id)),
+        ].slice(0, 5);
+      });
+
+      loadTodayOrders();
     };
 
-    fetchTodayOrders();
-  }, [user]);
+    socket.on("order:ready", handleOrderReady);
+
+    return () => {
+      socket.off("order:ready", handleOrderReady);
+    };
+  }, [loadTodayOrders, showToast, user?.b_id]);
   return (
     <div className="min-h-screen bg-[#F4F7FB] flex flex-col">
       <CashierHeader />
+      {toast.show && (
+        <ToastMessage
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast((current) => ({ ...current, show: false }))}
+        />
+      )}
 
       <main className="flex-1">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -168,7 +216,7 @@ const CashierDashboard = () => {
             <div className="divide-y divide-slate-100">
               {activities.map((item, idx) => (
                 <div
-                  key={idx}
+                  key={item.orderId ?? idx}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5"
                 >
                   <div className="flex items-center gap-3">

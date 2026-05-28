@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaSearch, FaClock } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
+import { connectSocket } from "../../services/socket";
 import {
 	getBranchProducts,
 	getOrderItems,
@@ -62,63 +63,83 @@ const KitchenManagement = () => {
 	const [error, setError] = useState("");
 	const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
+	const loadKitchenData = useCallback(async (silent = false) => {
+		if (!silent) {
+			setLoading(true);
+		}
+		setError("");
+
+		try {
+			const params = {};
+			if (user?.b_id) params.b_id = user.b_id;
+
+			const [ordersData, itemsResult, productsResult] =
+				await Promise.allSettled([
+					getOrders(params),
+					getOrderItems(),
+					getBranchProducts(),
+				]);
+
+			if (ordersData.status === "fulfilled") {
+				setOrders(Array.isArray(ordersData.value) ? ordersData.value : []);
+			} else {
+				setOrders([]);
+				setError("Failed to load orders.");
+			}
+
+			if (itemsResult.status === "fulfilled") {
+				setOrderItems(Array.isArray(itemsResult.value) ? itemsResult.value : []);
+			} else {
+				setOrderItems([]);
+			}
+
+			if (productsResult.status === "fulfilled") {
+				setBranchProducts(
+					Array.isArray(productsResult.value) ? productsResult.value : [],
+				);
+			} else {
+				setBranchProducts([]);
+			}
+		} catch (err) {
+			setOrders([]);
+			setOrderItems([]);
+			setBranchProducts([]);
+			setError("Failed to load kitchen data.");
+		} finally {
+			if (!silent) {
+				setLoading(false);
+			}
+		}
+	}, [user?.b_id]);
+
 	useEffect(() => {
 		let isMounted = true;
+		let refreshTimer;
 
-		const loadData = async () => {
-			setLoading(true);
-			setError("");
-
-			try {
-				const params = {};
-				if (user?.b_id) params.b_id = user.b_id;
-
-				const [ordersData, itemsResult, productsResult] =
-					await Promise.allSettled([
-						getOrders(params),
-						getOrderItems(),
-						getBranchProducts(),
-					]);
-
-				if (!isMounted) return;
-
-				if (ordersData.status === "fulfilled") {
-					setOrders(Array.isArray(ordersData.value) ? ordersData.value : []);
-				} else {
-					setOrders([]);
-					setError("Failed to load orders.");
+		const scheduleRefresh = () => {
+			window.clearTimeout(refreshTimer);
+			refreshTimer = window.setTimeout(() => {
+				if (isMounted) {
+					loadKitchenData(true);
 				}
-
-				if (itemsResult.status === "fulfilled") {
-					setOrderItems(Array.isArray(itemsResult.value) ? itemsResult.value : []);
-				} else {
-					setOrderItems([]);
-				}
-
-				if (productsResult.status === "fulfilled") {
-					setBranchProducts(
-						Array.isArray(productsResult.value) ? productsResult.value : [],
-					);
-				} else {
-					setBranchProducts([]);
-				}
-			} catch (err) {
-				if (!isMounted) return;
-				setOrders([]);
-				setOrderItems([]);
-				setBranchProducts([]);
-				setError("Failed to load kitchen data.");
-			} finally {
-				if (isMounted) setLoading(false);
-			}
+			}, 250);
 		};
 
-		loadData();
+		loadKitchenData(false);
+
+		const socket = connectSocket();
+		socket.on("order:created", scheduleRefresh);
+		socket.on("order:updated", scheduleRefresh);
+		socket.on("order:deleted", scheduleRefresh);
 
 		return () => {
 			isMounted = false;
+			window.clearTimeout(refreshTimer);
+			socket.off("order:created", scheduleRefresh);
+			socket.off("order:updated", scheduleRefresh);
+			socket.off("order:deleted", scheduleRefresh);
 		};
-	}, [user]);
+	}, [loadKitchenData]);
 
 	const branchProductMap = useMemo(() => {
 		return branchProducts.reduce((acc, product) => {
