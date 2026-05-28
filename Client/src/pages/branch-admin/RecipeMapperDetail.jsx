@@ -15,6 +15,17 @@ import {
 import { useAuth } from "../../context/AuthContext";
 
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
+
+const resolveProductImage = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+  return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
+};
 
 const RecipeMapperDetail = () => {
   const navigate = useNavigate();
@@ -213,7 +224,7 @@ const RecipeMapperDetail = () => {
     }
   };
 
-  const heroImage = product?.pro_image || "";
+  const heroImage = resolveProductImage(product?.pro_image);
   const categoryLabel = categoryMap.get(String(product?.cat_id)) || "Main Course";
   const description = product?.pro_des || "Popular savory dish, featuring a cooked seasoned ground meat patty served inside a sliced bun";
 

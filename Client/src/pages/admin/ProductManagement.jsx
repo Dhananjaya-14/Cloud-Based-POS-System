@@ -13,6 +13,8 @@ import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getProducts, updateProduct } from "../../services/api";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
 const cardBaseStyle = {
   flex: "0 1 calc((100% - 60px) / 3)",
   borderRadius: "18px",
@@ -68,31 +70,24 @@ const getStockStatus = (quantity) => {
   return "In stock";
 };
 
-const isImageUrl = (value) => typeof value === "string" && /^(https?:)?\/\//i.test(value.trim());
+const resolveProductImage = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+  return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
+};
 
 const mapApiProductToTableItem = (product) => {
   const quantity = Number(product.pro_qty ?? 0);
   const price = Number(product.pro_price ?? 0);
-  const imageUrl = product.pro_image;
-  const imageNode = isImageUrl(imageUrl) ? (
-    <img
-      src={imageUrl}
-      alt={product.pro_name || "Product"}
-      style={{
-        width: "32px",
-        height: "32px",
-        borderRadius: "8px",
-        objectFit: "cover",
-        display: "block",
-      }}
-    />
-  ) : (
-    <FaBoxOpen color="#64748B" size={20} />
-  );
+  const imageUrl = resolveProductImage(product.pro_image);
 
   return {
     id: product.pro_id,
-    image: "📦",
+    imageUrl,
+    imageAlt: product.pro_name || "Product",
     name: product.pro_name,
     sku: `SKU: PRD-${String(product.pro_id).padStart(3, "0")}`,
     category: "General",
