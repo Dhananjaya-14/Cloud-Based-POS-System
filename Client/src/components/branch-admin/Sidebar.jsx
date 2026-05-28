@@ -11,6 +11,7 @@ import {
   FaCog,
   FaSignOutAlt,
   FaUsers,
+  
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -195,12 +196,14 @@ const Sidebar = () => {
             "/branch-admin/transactions",
             isExactActive("/branch-admin/transactions")
           )}
+          
         </div>
       </div>
 
       <div>
         {menuItem(<FaCog />, "Settings", "/branch-admin/settings", isExactActive("/branch-admin/settings"))}
         {menuItem(<FaSignOutAlt />, "Log Out", "/logout", isExactActive("/logout"))}
+        
       </div>
     </div>
   );
