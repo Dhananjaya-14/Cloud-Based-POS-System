@@ -70,14 +70,32 @@ const CashierDashboard = () => {
           transactions: orders.length,
         });
 
-        const recent = orders.slice(0, 5).map((order) => ({
-          time: order.or_time?.slice(0, 5) || "--:--",
-          title: "Sale completed",
-          subtitle: order.or_type || "-",
-          amount: `$${Number(
-            order.or_totalCostWtax ?? order.or_totalcost ?? 0,
-          ).toFixed(2)}`,
-        }));
+        const recent = orders.slice(0, 5).map((order) => {
+          let localTime = "--:--";
+          if (order.or_time) {
+            try {
+              const datePart = order.or_date ? order.or_date.slice(0, 10) : new Date().toISOString().slice(0, 10);
+              const date = new Date(`${datePart}T${order.or_time}Z`);
+              if (!isNaN(date.getTime())) {
+                const hh = String(date.getHours()).padStart(2, "0");
+                const mm = String(date.getMinutes()).padStart(2, "0");
+                localTime = `${hh}:${mm}`;
+              } else {
+                localTime = order.or_time.slice(0, 5);
+              }
+            } catch {
+              localTime = order.or_time.slice(0, 5);
+            }
+          }
+          return {
+            time: localTime,
+            title: "Sale completed",
+            subtitle: order.or_type || "-",
+            amount: `$${Number(
+              order.or_totalCostWtax ?? order.or_totalcost ?? 0,
+            ).toFixed(2)}`,
+          };
+        });
 
         setActivities(recent);
       } catch (error) {

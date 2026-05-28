@@ -54,6 +54,19 @@ const statusPalette = {
 
 const KitchenManagement = () => {
 	const { user } = useAuth();
+	const formatToLocalTime = (orDate, orTime) => {
+		if (!orTime) return "--:--";
+		try {
+			const datePart = orDate ? String(orDate).split("T")[0] : new Date().toISOString().split("T")[0];
+			const date = new Date(`${datePart}T${orTime}Z`);
+			if (!Number.isNaN(date.getTime())) {
+				const hh = String(date.getHours()).padStart(2, "0");
+				const mm = String(date.getMinutes()).padStart(2, "0");
+				return `${hh}:${mm}`;
+			}
+		} catch (e) {}
+		return String(orTime).slice(0, 5);
+	};
 	const [orders, setOrders] = useState([]);
 	const [orderItems, setOrderItems] = useState([]);
 	const [branchProducts, setBranchProducts] = useState([]);
@@ -232,7 +245,7 @@ const KitchenManagement = () => {
 								ORD{String(order.or_id).padStart(5, "0")}
 							</div>
 							<div className="text-[11px] text-slate-500">
-								{order.or_type || "Dine in"} | {order.or_time || "--:--"}
+								{order.or_type || "Dine in"} | {formatToLocalTime(order.or_date, order.or_time)}
 							</div>
 						</div>
 
@@ -244,7 +257,7 @@ const KitchenManagement = () => {
 							</span>
 							<span className="text-[10px] text-slate-400 flex items-center gap-1">
 								<FaClock />
-								<span>{order.or_time || "--:--"}</span>
+								<span>{formatToLocalTime(order.or_date, order.or_time)}</span>
 							</span>
 						</div>
 					</div>
