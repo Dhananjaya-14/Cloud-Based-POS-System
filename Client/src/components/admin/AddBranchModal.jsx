@@ -128,6 +128,27 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
             </div>
           )}
 
+          {isSuperAdmin && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={label}>Company</label>
+              <div style={inputWrapper}>
+                <FaBuilding style={icon} />
+                <select
+                  name="com_id"
+                  value={form.com_id}
+                  onChange={handleChange}
+                  style={{ ...input, appearance: "none" }}
+                >
+                  <option value="" disabled>Select Company...</option>
+                  {companies.map(c => (
+                    <option key={c.com_id} value={c.com_id}>{c.com_name}</option>
+                  ))}
+                </select>
+              </div>
+              {errors.com_id && <div style={errTxt}>{errors.com_id}</div>}
+            </div>
+          )}
+
           <label style={label}>Official Branch Name</label>
           <div style={inputWrapper}>
             <FaStore style={icon} />
@@ -155,43 +176,18 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
           </div>
           {errors.B_email && <div style={errTxt}>{errors.B_email}</div>}
 
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={label}>Branch Contact</label>
-              <div style={inputWrapper}>
-                <FaPhone style={icon} />
-                <input
-                  name="B_conNo"
-                  value={form.B_conNo}
-                  onChange={handleChange}
-                  placeholder="+94 77 ..."
-                  style={input}
-                />
-              </div>
-              {errors.B_conNo && <div style={errTxt}>{errors.B_conNo}</div>}
-            </div>
-
-            {isSuperAdmin && (
-              <div style={{ flex: 1 }}>
-                <label style={label}>Company</label>
-                <div style={inputWrapper}>
-                  <FaBuilding style={icon} />
-                  <select
-                    name="com_id"
-                    value={form.com_id}
-                    onChange={handleChange}
-                    style={{ ...input, appearance: "none" }}
-                  >
-                    <option value="" disabled>Select Company...</option>
-                    {companies.map(c => (
-                      <option key={c.com_id} value={c.com_id}>{c.com_name}</option>
-                    ))}
-                  </select>
-                </div>
-                {errors.com_id && <div style={errTxt}>{errors.com_id}</div>}
-              </div>
-            )}
+          <label style={label}>Branch Contact</label>
+          <div style={inputWrapper}>
+            <FaPhone style={icon} />
+            <input
+              name="B_conNo"
+              value={form.B_conNo}
+              onChange={handleChange}
+              placeholder="+94 77 ..."
+              style={input}
+            />
           </div>
+          {errors.B_conNo && <div style={errTxt}>{errors.B_conNo}</div>}
 
           <label style={label}>Physical Address</label>
           <div style={{ ...inputWrapper, alignItems: "flex-start" }}>
