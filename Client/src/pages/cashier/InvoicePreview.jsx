@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaPrint, FaTimes } from "react-icons/fa";
+import { printReceipt } from "../../utils/printReceipt";
 
 const defaultState = {
   orderId: "INV-0000000",
@@ -39,7 +40,7 @@ const InvoicePreview = () => {
   const tax = Number(invoice.tax ?? 0).toFixed(2);
 
   const handlePrint = () => {
-    window.print();
+    printReceipt(invoice);
   };
 
   const handlePay = () => {
