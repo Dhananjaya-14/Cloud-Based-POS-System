@@ -128,6 +128,27 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
             </div>
           )}
 
+          {isSuperAdmin && (
+              <div style={{ flex: 1 }}>
+                <label style={label}>Company</label>
+                <div style={inputWrapper}>
+                  <FaBuilding style={icon} />
+                  <select
+                    name="com_id"
+                    value={form.com_id}
+                    onChange={handleChange}
+                    style={{ ...input, appearance: "none" }}
+                  >
+                    <option value="" disabled>Select Company...</option>
+                    {companies.map(c => (
+                      <option key={c.com_id} value={c.com_id}>{c.com_name}</option>
+                    ))}
+                  </select>
+                </div>
+                {errors.com_id && <div style={errTxt}>{errors.com_id}</div>}
+              </div>
+            )}
+
           <label style={label}>Official Branch Name</label>
           <div style={inputWrapper}>
             <FaStore style={icon} />
@@ -171,26 +192,7 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
               {errors.B_conNo && <div style={errTxt}>{errors.B_conNo}</div>}
             </div>
 
-            {isSuperAdmin && (
-              <div style={{ flex: 1 }}>
-                <label style={label}>Company</label>
-                <div style={inputWrapper}>
-                  <FaBuilding style={icon} />
-                  <select
-                    name="com_id"
-                    value={form.com_id}
-                    onChange={handleChange}
-                    style={{ ...input, appearance: "none" }}
-                  >
-                    <option value="" disabled>Select Company...</option>
-                    {companies.map(c => (
-                      <option key={c.com_id} value={c.com_id}>{c.com_name}</option>
-                    ))}
-                  </select>
-                </div>
-                {errors.com_id && <div style={errTxt}>{errors.com_id}</div>}
-              </div>
-            )}
+            
           </div>
 
           <label style={label}>Physical Address</label>
