@@ -114,10 +114,12 @@ function convertQuantity(recipeQty, recipeUnit, stockUnit) {
  * Fixes:
  *  1. Branch isolation — UPDATE is scoped to the branch's b_id so only the
  *     correct branch row is touched (global rows where b_id IS NULL still work).
- *  2. Negative-stock guard — throws 409 before subtracting if stock is insufficient.
+ *  2. Low-stock warning — logs insufficient stock and clamps deducted stock to zero.
  *  3. FOR UPDATE — row-level lock prevents race conditions under concurrent orders.
  */
 export async function adjustStockForOrderItem(client, Bpro_id, quantity, operation) {
+  const stockWarnings = [];
+
   // Lock raw material rows for this branch product to prevent concurrent overselling
   const recipesResult = await client.query(
     `SELECT
@@ -144,24 +146,32 @@ export async function adjustStockForOrderItem(client, Bpro_id, quantity, operati
     if (operation === "subtract") {
       const currentStock = parseFloat(recipe.stock_qty);
       if (convertedQty > currentStock) {
-        const err = new Error(
+        const warningMessage =
           `Insufficient stock for "${recipe.rm_name}": ` +
           `need ${convertedQty.toFixed(3)} ${recipe.stock_unit}, ` +
-          `only ${currentStock} ${recipe.stock_unit} available in this branch`
-        );
-        err.status = 409;
-        throw err;
+          `only ${currentStock} ${recipe.stock_unit} available in this branch`;
+        stockWarnings.push({
+          rawMaterialName: recipe.rm_name,
+          needed: Number(convertedQty.toFixed(3)),
+          available: currentStock,
+          unit: recipe.stock_unit,
+          message: warningMessage,
+        });
+        console.warn(warningMessage);
       }
     }
 
-    const sign = operation === "subtract" ? "-" : "+";
+    const stockExpression =
+      operation === "subtract"
+        ? "GREATEST(0, stock_qty - $1)"
+        : "stock_qty + $1";
 
     // ── Branch-scoped Raw_Material UPDATE ────────────────────────────────────
     // Raw materials with a specific b_id are branch-level; those with b_id IS NULL
     // are company-wide. Both cases are handled by the OR condition below.
     await client.query(
       `UPDATE "Raw_Material"
-         SET stock_qty = stock_qty ${sign} $1
+         SET stock_qty = ${stockExpression}
        WHERE rm_id = $2
          AND (
            b_id = $3
@@ -198,6 +208,8 @@ export async function adjustStockForOrderItem(client, Bpro_id, quantity, operati
       );
     }
   }
+
+  return stockWarnings;
 }
 
 // ─────────────────────────────────────────────
@@ -350,7 +362,7 @@ export const createOrderItem = async (req, res) => {
     await client.query("BEGIN");
 
     // Deduct raw material stock
-    await adjustStockForOrderItem(client, Bpro_id, qty, "subtract");
+    const stockWarnings = await adjustStockForOrderItem(client, Bpro_id, qty, "subtract");
 
     const result = await client.query(
       `INSERT INTO public."ORDER_ITEM" ("Bpro_id", pro_quantity, unit_price, total_price, order_id)
@@ -361,7 +373,11 @@ export const createOrderItem = async (req, res) => {
 
     await client.query("COMMIT");
 
-    res.status(201).json({ success: true, data: result.rows[0] });
+    res.status(201).json({
+      success: true,
+      data: result.rows[0],
+      warnings: stockWarnings,
+    });
   } catch (err) {
     await client.query("ROLLBACK");
     if (err.code === "23503") {
