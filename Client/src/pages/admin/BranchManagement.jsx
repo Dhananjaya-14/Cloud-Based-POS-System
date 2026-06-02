@@ -9,12 +9,15 @@ import Button from "../../components/admin/Button";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, setAuthToken, logout } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import Spinner from "../../components/super-admin/Spinner";
+
 
 const SIDEBAR_WIDTH = 240;
 const HEADER_HEIGHT = 64;
 
 const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -31,6 +34,7 @@ const BranchManagement = () => {
 
   const fetchBranches = async () => {
     try {
+      setLoading(true);
       const data = await getBranches();
       setBranches(data);
     } catch (err) {
@@ -39,6 +43,8 @@ const BranchManagement = () => {
         logout();
         navigate("/login");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -69,7 +75,13 @@ const BranchManagement = () => {
             <Button label="+ New Branch" onClick={() => setShowModal(true)} />
           </div>
 
-          <BranchTable branches={branches} />
+          {loading ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px", marginTop: "24px", background: "#ffffff", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)" }}>
+              <Spinner size={36} />
+            </div>
+          ) : (
+            <BranchTable branches={branches} />
+          )}
         </div>
       </div>
       {showModal && (

@@ -40,9 +40,10 @@ export async function getBranches(req, res, next) {
   try {
     const { role_id, com_id, b_id } = req.user;
 
-    let query = `SELECT b.*, c."com_name" 
+    let query = `SELECT DISTINCT ON (b."B_id") b.*, c."com_name", u."u_id" AS "U_id"
                  FROM "Branch" b
-                 LEFT JOIN "Company" c ON b."com_id" = c."com_id"`;
+                 LEFT JOIN "Company" c ON b."com_id" = c."com_id"
+                 LEFT JOIN "User" u ON b."B_id" = u."B_id" AND u."role_id" = 1`;
     let params = [];
 
     if (role_id === ROLES.ADMIN && com_id != null) {
@@ -88,9 +89,10 @@ export async function getBranchById(req, res, next) {
     }
 
     const result = await pool.query(
-      `SELECT b.*, c."com_name" 
+      `SELECT b.*, c."com_name", u."u_id" AS "U_id"
        FROM "Branch" b
        LEFT JOIN "Company" c ON b."com_id" = c."com_id"
+       LEFT JOIN "User" u ON b."B_id" = u."B_id" AND u."role_id" = 1
        WHERE b."B_id" = $1
        AND ($2::int IS NULL OR b."com_id" = $2)`,
       [branchId, role_id === ROLES.ADMIN ? Number(com_id) || null : null],
@@ -171,7 +173,7 @@ export async function updateBranch(req, res, next) {
       throw new Error("Invalid branch ID.");
     }
 
-    const { B_name, B_email, B_conNo, B_address, com_id } = req.body;
+    const { B_name, B_email, B_conNo, B_address, com_id, B_status } = req.body;
 
     // Must send at least one field
     const hasAnyField = [
@@ -180,6 +182,7 @@ export async function updateBranch(req, res, next) {
       B_conNo,
       B_address,
       com_id,
+      B_status,
     ].some((v) => v !== undefined && v !== null && v !== "");
     if (!hasAnyField) {
       return res.status(400).json({
@@ -225,15 +228,17 @@ export async function updateBranch(req, res, next) {
          "B_email"   = COALESCE($2, "B_email"),
          "B_conNo"   = COALESCE($3, "B_conNo"),
          "B_address" = COALESCE($4, "B_address"),
-         "com_id"    = COALESCE($5, "com_id")
-       WHERE "B_id" = $6
-       RETURNING ${BRANCH_COLS}`,
+         "com_id"    = COALESCE($5, "com_id"),
+         "B_status"  = COALESCE($6, "B_status")
+       WHERE "B_id" = $7
+       RETURNING "B_id", "B_name", "B_email", "B_conNo", "B_address", "com_id", "B_status"`,
       [
         B_name ? sanitizeStr(B_name) : null,
         B_email ? B_email.trim().toLowerCase() : null,
         B_conNo ? B_conNo.trim() : null,
         B_address ? sanitizeStr(B_address) : null,
         com_id ? Number(com_id) : null,
+        B_status !== undefined ? !!B_status : null,
         id,
       ],
     );

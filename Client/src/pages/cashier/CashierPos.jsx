@@ -1,17 +1,20 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaBed,
   FaCalculator,
+  FaCheckCircle,
   FaCoffee,
   FaDesktop,
   FaMinus,
+  FaExclamationTriangle,
   FaPlus,
   FaSearch,
   FaShoppingCart,
   FaSignOutAlt,
   FaStore,
   FaTrashAlt,
+  FaTimes,
   FaUtensils,
   FaUserCircle,
   FaWineGlassAlt,
@@ -36,6 +39,9 @@ const categories = [
   { label: "Room Service", icon: FaBed },
   { label: "Front Desk", icon: FaDesktop },
 ];
+
+const READY_ORDER_POLL_INTERVAL = 8000;
+const LOW_STOCK_WARNING_THRESHOLD = 5;
 
 const CashierPos = () => {
   const navigate = useNavigate();
@@ -64,6 +70,29 @@ const CashierPos = () => {
   const [waiterOrders, setWaiterOrders] = useState([]);
   const [showWaiterOrdersModal, setShowWaiterOrdersModal] = useState(false);
   const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
+  const [readyOrderAlerts, setReadyOrderAlerts] = useState([]);
+  const [notice, setNotice] = useState(null);
+  const knownCompletedOrderIdsRef = useRef(new Set());
+  const completedOrderBaselineLoadedRef = useRef(false);
+
+  const showNotice = (nextNotice) => {
+    setNotice({
+      id: `${Date.now()}-${Math.random()}`,
+      tone: nextNotice.tone || "warning",
+      title: nextNotice.title || "Notice",
+      message: nextNotice.message || "",
+    });
+  };
+
+  useEffect(() => {
+    if (!notice) return undefined;
+
+    const timer = window.setTimeout(() => {
+      setNotice(null);
+    }, 6000);
+
+    return () => window.clearTimeout(timer);
+  }, [notice]);
 
   const fetchWaiterOrders = async () => {
     try {
@@ -122,6 +151,64 @@ const CashierPos = () => {
 
     loadPosData();
   }, [user?.b_id, user?.B_id]);
+
+  useEffect(() => {
+    if (!branchId) return undefined;
+
+    let isMounted = true;
+
+    const checkCompletedOrders = async () => {
+      try {
+        const completedOrders = await getOrders({
+          b_id: branchId,
+          status: "completed",
+        });
+
+        if (!isMounted) return;
+
+        const knownIds = knownCompletedOrderIdsRef.current;
+        const newCompletedOrders = completedOrders.filter((order) => {
+          if (!order?.or_id || knownIds.has(order.or_id)) return false;
+          knownIds.add(order.or_id);
+          return completedOrderBaselineLoadedRef.current;
+        });
+
+        if (!completedOrderBaselineLoadedRef.current) {
+          completedOrderBaselineLoadedRef.current = true;
+          return;
+        }
+
+        if (newCompletedOrders.length) {
+          setReadyOrderAlerts((current) => [
+            ...newCompletedOrders.map((order) => ({
+              id: `${order.or_id}-${Date.now()}`,
+              orderId: order.or_id,
+              type: order.or_type || "Order",
+              tableId: order.table_id,
+              total: Number(order.or_totalCostWtax || order.or_totalcost || 0),
+            })),
+            ...current,
+          ].slice(0, 3));
+        }
+      } catch (err) {
+        console.error("Failed to check completed orders", err);
+      }
+    };
+
+    completedOrderBaselineLoadedRef.current = false;
+    knownCompletedOrderIdsRef.current = new Set();
+    checkCompletedOrders();
+
+    const intervalId = window.setInterval(
+      checkCompletedOrders,
+      READY_ORDER_POLL_INTERVAL,
+    );
+
+    return () => {
+      isMounted = false;
+      window.clearInterval(intervalId);
+    };
+  }, [branchId]);
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -187,16 +274,31 @@ const CashierPos = () => {
 
   const addToCart = (product) => {
     const unitPrice = Number(product.pro_price ?? 0);
+    const stockCount = Number(product.pro_quantity ?? 0);
+    const showLowStockWarning = () => {
+      if (stockCount <= 0) {
+        alert("Out of stock warning. Order will still be placed.");
+        return;
+      }
+      if (stockCount <= LOW_STOCK_WARNING_THRESHOLD) {
+        alert(`Low stock warning: only ${stockCount} items available in stock.`);
+      }
+    };
 
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
       if (existing) {
+        if (existing.qty >= stockCount || stockCount <= LOW_STOCK_WARNING_THRESHOLD) {
+          showLowStockWarning();
+        }
         return currentCart.map((item) =>
           item.Bpro_id === product.Bpro_id
             ? { ...item, qty: item.qty + 1 }
             : item,
         );
       }
+
+      showLowStockWarning();
 
       return [
         ...currentCart,
@@ -211,11 +313,24 @@ const CashierPos = () => {
   };
 
   const updateQuantity = (Bpro_id, delta) => {
+    const product = products.find((p) => p.Bpro_id === Bpro_id);
+    const stockCount = Number(product?.pro_quantity ?? 0);
+
     setCart((currentCart) =>
       currentCart
-        .map((item) =>
-          item.Bpro_id === Bpro_id ? { ...item, qty: item.qty + delta } : item,
-        )
+        .map((item) => {
+          if (item.Bpro_id === Bpro_id) {
+            const nextQty = item.qty + delta;
+            if (
+              delta > 0 &&
+              (nextQty > stockCount || stockCount <= LOW_STOCK_WARNING_THRESHOLD)
+            ) {
+              alert(`Low stock warning: only ${stockCount} items available in stock.`);
+            }
+            return { ...item, qty: nextQty };
+          }
+          return item;
+        })
         .filter((item) => item.qty > 0),
     );
   };
@@ -284,7 +399,7 @@ const CashierPos = () => {
         }
       }
 
-      await Promise.all(
+      const orderItemResponses = await Promise.all(
         cart.map((item) =>
           createOrderItem({
             Bpro_id: item.Bpro_id,
@@ -294,6 +409,19 @@ const CashierPos = () => {
           }),
         ),
       );
+      const rawMaterialWarnings = orderItemResponses.flatMap((response) =>
+        Array.isArray(response?.warnings) ? response.warnings : [],
+      );
+
+      if (rawMaterialWarnings.length) {
+        alert(
+          [
+            "Raw material stock warning:",
+            ...rawMaterialWarnings.map((warning) => `- ${warning.message}`),
+            "Order will still be placed.",
+          ].join("\n"),
+        );
+      }
 
       const invoiceItems = cart.map((item) => ({
         Bpro_id: item.Bpro_id,
@@ -414,6 +542,12 @@ const CashierPos = () => {
     setHeldOrders((prev) => prev.filter((ho) => ho.id !== holdId));
   };
 
+  const dismissReadyOrderAlert = (alertId) => {
+    setReadyOrderAlerts((current) =>
+      current.filter((alert) => alert.id !== alertId),
+    );
+  };
+
   const logoutAndNavigate = () => {
     logout();
   };
@@ -422,6 +556,59 @@ const CashierPos = () => {
 
   return (
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
+      {readyOrderAlerts.length > 0 && (
+        <div className="fixed right-4 top-4 z-[70] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3 sm:right-6 sm:top-6">
+          {readyOrderAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className="overflow-hidden rounded-2xl border border-emerald-300 bg-white shadow-[0_22px_60px_rgba(16,185,129,0.35)] ring-4 ring-emerald-100"
+            >
+              <div className="bg-linear-to-r from-emerald-500 via-[#55C24A] to-sky-500 px-4 py-3 text-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-11 w-11 animate-pulse items-center justify-center rounded-2xl bg-white/20">
+                      <FaCheckCircle className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-white/80">
+                        Order Complete
+                      </div>
+                      <div className="text-xl font-black leading-tight">
+                        ORD{String(alert.orderId).padStart(5, "0")}
+                      </div>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => dismissReadyOrderAlert(alert.id)}
+                    className="flex h-8 w-8 items-center justify-center rounded-xl bg-white/15 text-lg font-semibold text-white transition hover:bg-white/25"
+                    aria-label="Dismiss order complete notification"
+                  >
+                    x
+                  </button>
+                </div>
+              </div>
+              <div className="px-4 py-3">
+                <div className="text-sm font-semibold text-slate-900">
+                  Order is ready to serve.
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700">
+                    {alert.type}
+                  </span>
+                  <span className="rounded-full bg-sky-50 px-2.5 py-1 font-semibold text-sky-700">
+                    {alert.tableId ? `Table ${alert.tableId}` : "Takeaway"}
+                  </span>
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
+                    ${alert.total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <header className="border-b border-black/5 bg-linear-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)]">
         <div className="mx-auto flex max-w-350 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

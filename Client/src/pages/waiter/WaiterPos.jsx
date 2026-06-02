@@ -155,15 +155,26 @@ const WaiterPos = () => {
   const total = taxableBase + taxAmount;
 
   const addToCart = (product) => {
+    const stockCount = Number(product.pro_quantity ?? 0);
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
       if (existing) {
+        if (existing.qty >= stockCount) {
+          showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
+          return currentCart;
+        }
         return currentCart.map((item) =>
           item.Bpro_id === product.Bpro_id
             ? { ...item, qty: item.qty + 1 }
             : item
         );
       }
+
+      if (stockCount <= 0) {
+        showToast("This item is out of stock.", "error");
+        return currentCart;
+      }
+
       return [
         ...currentCart,
         {
@@ -177,11 +188,22 @@ const WaiterPos = () => {
   };
 
   const updateQuantity = (Bpro_id, delta) => {
+    const product = products.find((p) => p.Bpro_id === Bpro_id);
+    const stockCount = Number(product?.pro_quantity ?? 0);
+
     setCart((currentCart) =>
       currentCart
-        .map((item) =>
-          item.Bpro_id === Bpro_id ? { ...item, qty: item.qty + delta } : item
-        )
+        .map((item) => {
+          if (item.Bpro_id === Bpro_id) {
+            const nextQty = item.qty + delta;
+            if (delta > 0 && nextQty > stockCount) {
+              showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
+              return item;
+            }
+            return { ...item, qty: nextQty };
+          }
+          return item;
+        })
         .filter((item) => item.qty > 0)
     );
   };

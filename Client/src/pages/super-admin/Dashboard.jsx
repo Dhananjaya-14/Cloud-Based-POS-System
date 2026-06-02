@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import { getBranches, getUsers, getCompanies, setAuthToken, logout } from "../../services/api";
+import Spinner from "../../components/super-admin/Spinner";
 import {
   FaFileInvoiceDollar,
   FaMoneyBillWave,
@@ -204,10 +205,13 @@ const Dashboard = () => {
     return (
       <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
         <Sidebar />
-        <div style={{ flex: 1, marginLeft: 240 }}>
+        <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
           <Header title="System Admin DashBoard" />
-          <div style={{ padding: 40, textAlign: "center", color: "#888", fontSize: 18 }}>
-            Loading dashboard...
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 70px)" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+              <Spinner size={44} />
+              <p style={{ margin: 0, color: "#6B7280", fontWeight: 600, fontSize: 16 }}>Loading Dashboard...</p>
+            </div>
           </div>
         </div>
       </div>
