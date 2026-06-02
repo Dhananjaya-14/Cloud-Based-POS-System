@@ -31,11 +31,11 @@ export async function getProducts(req, res, next) {
     let result;
     if (role_id === ROLES.SUPER_ADMIN) {
       result = await pool.query(
-        'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id" FROM "public"."Product" ORDER BY "pro_id"'
+        'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" ORDER BY p."pro_id"'
       );
     } else {
       result = await pool.query(
-        'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id" FROM "public"."Product" WHERE "Com_id" = $1 ORDER BY "pro_id"',
+        'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" WHERE p."Com_id" = $1 ORDER BY p."pro_id"',
         [com_id]
       );
     }
@@ -55,11 +55,11 @@ export async function getProductById(req, res, next) {
       throw new Error("Invalid product id");
     }
 
-    let query = 'SELECT "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id" FROM "public"."Product" WHERE "pro_id" = $1';
+    let query = 'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" WHERE p."pro_id" = $1';
     let params = [id];
 
     if (role_id !== ROLES.SUPER_ADMIN) {
-      query += ' AND "Com_id" = $2';
+      query += ' AND p."Com_id" = $2';
       params.push(com_id);
     }
 
@@ -80,7 +80,7 @@ export async function getProductById(req, res, next) {
 //create product
 export async function createProduct(req, res, next) {
   try {
-    const { pro_name, pro_qty, pro_price, pro_image } = req.body;
+    const { pro_name, pro_qty, pro_price, pro_image, cat_id } = req.body;
     const com_id = normalizeComId(req.body);
 
     if (
@@ -119,19 +119,22 @@ export async function createProduct(req, res, next) {
       throw new Error("com_id must be a positive integer");
     }
 
-    const insertQuery = `
-      INSERT INTO "public"."Product" ("pro_name", "pro_qty", "pro_price", " pro_image", "Com_id")
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id"
-    `;
+    // cat_id is optional — only insert if provided
+    const resolvedCatId = cat_id != null && isPositiveInt(cat_id) ? Number(cat_id) : null;
 
-    const result = await pool.query(insertQuery, [
-      pro_name,
-      pro_qty,
-      pro_price,
-      pro_image,
-      com_id,
-    ]);
+    const insertQuery = resolvedCatId
+      ? `INSERT INTO "public"."Product" ("pro_name", "pro_qty", "pro_price", " pro_image", "Com_id", "cat_id")
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id"`
+      : `INSERT INTO "public"."Product" ("pro_name", "pro_qty", "pro_price", " pro_image", "Com_id")
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id"`;
+
+    const insertParams = resolvedCatId
+      ? [pro_name, pro_qty, pro_price, pro_image, com_id, resolvedCatId]
+      : [pro_name, pro_qty, pro_price, pro_image, com_id];
+
+    const result = await pool.query(insertQuery, insertParams);
 
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -152,7 +155,7 @@ export async function createProduct(req, res, next) {
 export async function updateProduct(req, res, next) {
   try {
     const { id } = req.params;
-    const { pro_name, pro_qty, pro_price, pro_image } = req.body;
+    const { pro_name, pro_qty, pro_price, pro_image, cat_id } = req.body;
     const com_id = normalizeComId(req.body);
     if (!isPositiveInt(id)) {
       res.status(400);
@@ -184,6 +187,11 @@ export async function updateProduct(req, res, next) {
       throw new Error("com_id must be a positive integer");
     }
 
+    if (cat_id !== undefined && cat_id !== null && !isPositiveInt(cat_id)) {
+      res.status(400);
+      throw new Error("cat_id must be a positive integer");
+    }
+
     const { role_id, com_id: userComId } = req.user;
     if (role_id !== ROLES.SUPER_ADMIN && com_id !== undefined && com_id !== userComId) {
       res.status(403);
@@ -202,6 +210,8 @@ export async function updateProduct(req, res, next) {
       throw new Error("Product not found");
     }
 
+    const resolvedCatId = cat_id !== undefined ? (cat_id != null && isPositiveInt(cat_id) ? Number(cat_id) : null) : undefined;
+
     const updateQuery = `
       UPDATE "public"."Product"
       SET
@@ -209,9 +219,10 @@ export async function updateProduct(req, res, next) {
         "pro_qty" = COALESCE($2, "pro_qty"),
         "pro_price" = COALESCE($3, "pro_price"),
         " pro_image" = COALESCE($4, " pro_image"),
-        "Com_id" = COALESCE($5, "Com_id")
-      WHERE "pro_id" = $6
-      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id"
+        "Com_id" = COALESCE($5, "Com_id"),
+        "cat_id" = COALESCE($6, "cat_id")
+      WHERE "pro_id" = $7
+      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id"
     `;
 
     const result = await pool.query(updateQuery, [
@@ -220,6 +231,7 @@ export async function updateProduct(req, res, next) {
       fieldOrNull(pro_price),
       fieldOrNull(pro_image),
       fieldOrNull(com_id),
+      fieldOrNull(resolvedCatId),
       id,
     ]);
 

@@ -404,7 +404,89 @@ export async function updatePurchaseOrder(req, res, next) {
   }
 }
 
-// ─── PATCH /api/purchase-orders/:id/status ───────────────────────────────────
+// // ─── PATCH /api/purchase-orders/:id/status ───────────────────────────────────
+// export async function updatePurchaseOrderStatus(req, res, next) {
+//   try {
+//     const id = parsePositiveInt(req.params.id, "po_id");
+
+//     const body = sanitizeBody(req.body, ["status"]);
+//     const { status } = body;
+
+//     if (!status) {
+//       res.status(400);
+//       throw new Error("status is required");
+//     }
+
+//     if (!VALID_STATUSES.includes(status)) {
+//       res.status(400);
+//       throw new Error(`status must be one of: ${VALID_STATUSES.join(", ")}`);
+//     }
+
+//     // ── Existence & Scoping check ──
+//     let existQuery = `
+//       SELECT po.po_id, po.status 
+//       FROM purchase_order po
+//       JOIN "Branch" b ON b."B_id" = po.b_id
+//       WHERE po.po_id = $1
+//     `;
+//     const existParams = [id];
+//     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+//       existQuery += ` AND b.com_id = $2`;
+//       existParams.push(req.user.com_id);
+//       if (req.user.b_id) {
+//         existQuery += ` AND po.b_id = $3`;
+//         existParams.push(req.user.b_id);
+//       }
+//     }
+//     const existing = await pool.query(existQuery, existParams);
+//     if (existing.rows.length === 0) {
+//       res.status(404);
+//       throw new Error("Purchase order not found");
+//     }
+
+//     const currentStatus = existing.rows[0].status;
+
+//     if (currentStatus === "received" && status !== "received") {
+//       res.status(409);
+//       throw new Error("Cannot revert a received purchase order back to pending");
+//     }
+
+//     if (currentStatus === status) {
+//       res.status(409);
+//       throw new Error(`Purchase order is already '${status}'`);
+//     }
+
+//     if (status === "received") {
+//       const itemCheck = await pool.query(
+//         `SELECT pi_id FROM purchase_item WHERE po_id = $1 LIMIT 1`,
+//         [id],
+//       );
+//       if (itemCheck.rows.length === 0) {
+//         res.status(422);
+//         throw new Error(
+//           "Cannot mark order as received — no purchase items exist for this order",
+//         );
+//       }
+//     }
+
+//     const result = await pool.query(
+//       `UPDATE purchase_order
+//        SET
+//          status        = $1::VARCHAR,
+//          received_date = CASE WHEN $1::VARCHAR = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
+//        WHERE po_id = $2
+//        RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
+//       [status, id],
+//     );
+
+//     res.json(result.rows[0]);
+//   } catch (err) {
+//     next(err);
+//   }
+// }
+
+
+
 export async function updatePurchaseOrderStatus(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "po_id");
@@ -424,7 +506,7 @@ export async function updatePurchaseOrderStatus(req, res, next) {
 
     // ── Existence & Scoping check ──
     let existQuery = `
-      SELECT po.po_id, po.status 
+      SELECT po.po_id, po.status, po.b_id
       FROM purchase_order po
       JOIN "Branch" b ON b."B_id" = po.b_id
       WHERE po.po_id = $1
@@ -456,6 +538,7 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       throw new Error(`Purchase order is already '${status}'`);
     }
 
+    // If marking as received, ensure there is at least one purchase_item
     if (status === "received") {
       const itemCheck = await pool.query(
         `SELECT pi_id FROM purchase_item WHERE po_id = $1 LIMIT 1`,
@@ -469,21 +552,66 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       }
     }
 
-    const result = await pool.query(
-      `UPDATE purchase_order
-       SET
-         status        = $1::VARCHAR,
-         received_date = CASE WHEN $1::VARCHAR = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
-       WHERE po_id = $2
-       RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
-      [status, id],
-    );
+    // Perform the status update and stock adjustments in a single transaction
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    res.json(result.rows[0]);
+      // If the target status is 'received', add each purchase_item.qty to the corresponding Raw_Material.stock_qty
+      if (status === "received") {
+        const items = await client.query(
+          `SELECT rm_id, qty FROM purchase_item WHERE po_id = $1`,
+          [id],
+        );
+
+        // Update each raw material stock
+        for (const it of items.rows) {
+          const adjQty = Number(it.qty) || 0;
+          if (adjQty === 0) continue;
+
+          const updateRes = await client.query(
+            `UPDATE "Raw_Material"
+             SET stock_qty = COALESCE(stock_qty, 0) + $1
+             WHERE rm_id = $2
+             RETURNING rm_id`,
+            [adjQty, it.rm_id],
+          );
+
+          if (updateRes.rows.length === 0) {
+            // Raw material missing or out-of-scope — abort
+            await client.query("ROLLBACK");
+            res.status(404);
+            throw new Error(`Raw material with id ${it.rm_id} not found`);
+          }
+        }
+      }
+
+      // Update purchase_order status + received_date
+      const result = await client.query(
+        `UPDATE purchase_order
+         SET
+           status        = $1::VARCHAR,
+           received_date = CASE WHEN $1::VARCHAR = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
+         WHERE po_id = $2
+         RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
+        [status, id],
+      );
+
+      await client.query("COMMIT");
+      res.json(result.rows[0]);
+    } catch (txErr) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     next(err);
   }
 }
+
+
+
 
 // ─── DELETE /api/purchase-orders/:id ─────────────────────────────────────────
 export async function deletePurchaseOrder(req, res, next) {

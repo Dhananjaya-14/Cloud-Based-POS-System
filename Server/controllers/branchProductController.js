@@ -40,6 +40,7 @@ function toResponseRow(row) {
     cat_id: row.cat_id,
     pro_id: row.pro_id,
     B_id: row.B_id,
+    cat_name: row.cat_name,
   };
 }
 
@@ -74,8 +75,10 @@ export async function getBranchProducts(req, res, next) {
         bp." Pro_Price" AS "pro_price",
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
-        bp."B_id"
+        bp."B_id",
+        c."cat_name"
       FROM "public"."Branch_Product" bp
+      LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
     `;
 
     const conditions = [];
@@ -132,8 +135,10 @@ export async function getBranchProductById(req, res, next) {
         bp." Pro_Price" AS "pro_price",
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
-        bp."B_id"
+        bp."B_id",
+        c."cat_name"
       FROM "public"."Branch_Product" bp
+      LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
     `;
     let params = [id];
 
@@ -159,6 +164,7 @@ export async function getBranchProductById(req, res, next) {
 
 // POST /api/branch_products
 export async function createBranchProduct(req, res, next) {
+  const client = await pool.connect();
   try {
     const pro_name = req.body?.pro_name;
     const pro_shortname = normalizeSpaced(req.body, "pro_shortname", " pro_shortname");
@@ -225,20 +231,45 @@ export async function createBranchProduct(req, res, next) {
     }
 
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-      const branchCheck = await pool.query('SELECT "com_id" FROM "public"."Branch" WHERE "B_id" = $1', [B_id]);
+      const branchCheck = await client.query('SELECT "com_id" FROM "public"."Branch" WHERE "B_id" = $1', [B_id]);
       if (branchCheck.rows.length === 0 || branchCheck.rows[0].com_id !== req.user.com_id) {
         res.status(403);
         throw new Error("You do not have permission to add products to this branch.");
       }
 
-      const productCheck = await pool.query('SELECT "Com_id" FROM "public"."Product" WHERE "pro_id" = $1', [pro_id]);
+      const productCheck = await client.query('SELECT "Com_id" FROM "public"."Product" WHERE "pro_id" = $1', [pro_id]);
       if (productCheck.rows.length === 0 || productCheck.rows[0].Com_id !== req.user.com_id) {
         res.status(403);
         throw new Error("You do not have permission to use this base product.");
       }
     }
 
-    const result = await pool.query(
+    await client.query("BEGIN");
+
+    // Lock and check the base product stock
+    const productStock = await client.query(
+      'SELECT "pro_qty" FROM "public"."Product" WHERE "pro_id" = $1 FOR UPDATE',
+      [pro_id]
+    );
+    if (productStock.rows.length === 0) {
+      res.status(404);
+      throw new Error("Base product not found");
+    }
+
+    const currentBaseQty = Number(productStock.rows[0].pro_qty ?? 0);
+    const neededQty = Number(pro_quantity);
+    if (neededQty > currentBaseQty) {
+      res.status(400);
+      throw new Error(`Insufficient stock in main hotel: only ${currentBaseQty} available`);
+    }
+
+    // Deduct from main stock
+    await client.query(
+      'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" - $1 WHERE "pro_id" = $2',
+      [neededQty, pro_id]
+    );
+
+    const result = await client.query(
       `
       INSERT INTO "public"."Branch_Product"
         ("pro_name", " pro_shortname", " pro_image", " pro_des", "pro_quantity", " Pro_Price", "Cat_id", "pro_id", "B_id")
@@ -259,9 +290,10 @@ export async function createBranchProduct(req, res, next) {
       [pro_name, pro_shortname, pro_image, pro_des, pro_quantity, pro_price, Cat_id, pro_id, B_id]
     );
 
+    await client.query("COMMIT");
     res.status(201).json(toResponseRow(result.rows[0]));
   } catch (err) {
-    // Foreign key errors: if Cat_id or pro_id doesn't exist
+    await client.query("ROLLBACK");
     if (err?.code === "23503") {
       res.status(400);
       return next(
@@ -269,11 +301,14 @@ export async function createBranchProduct(req, res, next) {
       );
     }
     next(err);
+  } finally {
+    client.release();
   }
 }
 
 // PUT /api/branch_products/:id
 export async function updateBranchProduct(req, res, next) {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
     if (!isPositiveInt(id)) {
@@ -331,24 +366,66 @@ export async function updateBranchProduct(req, res, next) {
       throw new Error("B_id must be a positive integer");
     }
 
+    await client.query("BEGIN");
+
     let checkQuery = `
-      SELECT bp."Bpro_id" 
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id"
       FROM "public"."Branch_Product" bp
     `;
     let checkParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2`;
+      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2 FOR UPDATE`;
       checkParams.push(req.user.com_id);
     } else {
-      checkQuery += ` WHERE bp."Bpro_id" = $1`;
+      checkQuery += ` WHERE bp."Bpro_id" = $1 FOR UPDATE`;
     }
-    const existing = await pool.query(checkQuery, checkParams);
+    const existing = await client.query(checkQuery, checkParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Branch product not found");
     }
 
-    const result = await pool.query(
+    const oldBranchQty = Number(existing.rows[0].pro_quantity ?? 0);
+    const baseProId = existing.rows[0].pro_id;
+
+    if (pro_quantity !== undefined) {
+      const newBranchQty = Number(pro_quantity);
+      const diff = newBranchQty - oldBranchQty;
+
+      if (diff !== 0) {
+        // Lock and check the base product stock
+        const baseProductRes = await client.query(
+          'SELECT "pro_qty" FROM "public"."Product" WHERE "pro_id" = $1 FOR UPDATE',
+          [baseProId]
+        );
+        if (baseProductRes.rows.length === 0) {
+          res.status(404);
+          throw new Error("Base product not found");
+        }
+
+        const currentBaseQty = Number(baseProductRes.rows[0].pro_qty ?? 0);
+
+        if (diff > 0) {
+          if (diff > currentBaseQty) {
+            res.status(400);
+            throw new Error(`Insufficient stock in main hotel: only ${currentBaseQty} available`);
+          }
+          // Deduct from main stock
+          await client.query(
+            'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" - $1 WHERE "pro_id" = $2',
+            [diff, baseProId]
+          );
+        } else {
+          // Return to main stock
+          await client.query(
+            'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" + $1 WHERE "pro_id" = $2',
+            [Math.abs(diff), baseProId]
+          );
+        }
+      }
+    }
+
+    const result = await client.query(
       `
       UPDATE "public"."Branch_Product"
       SET
@@ -388,8 +465,10 @@ export async function updateBranchProduct(req, res, next) {
       ]
     );
 
+    await client.query("COMMIT");
     res.json(toResponseRow(result.rows[0]));
   } catch (err) {
+    await client.query("ROLLBACK");
     if (err?.code === "23503") {
       res.status(400);
       return next(
@@ -397,11 +476,14 @@ export async function updateBranchProduct(req, res, next) {
       );
     }
     next(err);
+  } finally {
+    client.release();
   }
 }
 
 // DELETE /api/branch_products/:id
 export async function deleteBranchProduct(req, res, next) {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
     if (!isPositiveInt(id)) {
@@ -409,24 +491,37 @@ export async function deleteBranchProduct(req, res, next) {
       throw new Error("Invalid branch product id");
     }
 
+    await client.query("BEGIN");
+
     let checkQuery = `
-      SELECT bp."Bpro_id" 
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id"
       FROM "public"."Branch_Product" bp
     `;
     let checkParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2`;
+      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2 FOR UPDATE`;
       checkParams.push(req.user.com_id);
     } else {
-      checkQuery += ` WHERE bp."Bpro_id" = $1`;
+      checkQuery += ` WHERE bp."Bpro_id" = $1 FOR UPDATE`;
     }
-    const existing = await pool.query(checkQuery, checkParams);
+    const existing = await client.query(checkQuery, checkParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Branch product not found");
     }
 
-    const result = await pool.query(
+    const remainingQty = Number(existing.rows[0].pro_quantity ?? 0);
+    const baseProId = existing.rows[0].pro_id;
+
+    if (remainingQty > 0) {
+      // Return remaining stock to the base product
+      await client.query(
+        'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" + $1 WHERE "pro_id" = $2',
+        [remainingQty, baseProId]
+      );
+    }
+
+    const result = await client.query(
       'DELETE FROM "public"."Branch_Product" WHERE "Bpro_id" = $1 RETURNING "Bpro_id"',
       [id]
     );
@@ -436,8 +531,12 @@ export async function deleteBranchProduct(req, res, next) {
       throw new Error("Branch product not found");
     }
 
+    await client.query("COMMIT");
     res.status(204).send();
   } catch (err) {
+    await client.query("ROLLBACK");
     next(err);
+  } finally {
+    client.release();
   }
 }

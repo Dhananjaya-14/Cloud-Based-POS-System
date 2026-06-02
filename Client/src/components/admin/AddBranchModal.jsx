@@ -7,8 +7,9 @@ import {
   FaMapMarkerAlt,
   FaCheckCircle,
   FaExclamationTriangle,
+  FaBuilding,
 } from "react-icons/fa";
-import { createBranch, getCurrentUser } from "../../services/api";
+import { createBranch, getCurrentUser, getCompanies } from "../../services/api";
 
 const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
   const [form, setForm] = useState({
@@ -16,6 +17,7 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
     B_email: "",
     B_conNo: "",
     B_address: "",
+    com_id: "",
   });
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
@@ -26,10 +28,15 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
   // company id comes from authenticated user (or fallback prop)
   const currentUser = getCurrentUser();
   const effectiveComId = currentUser?.com_id ?? propComId ?? 1;
+  const isSuperAdmin = currentUser?.role_id === 6;
+  const [companies, setCompanies] = useState([]);
 
   useEffect(() => {
     nameRef.current?.focus();
-  }, []);
+    if (isSuperAdmin) {
+      getCompanies().then(setCompanies).catch(console.error);
+    }
+  }, [isSuperAdmin]);
 
   const validate = () => {
     const e = {};
@@ -45,6 +52,11 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
       !/^\+?[0-9\s\-().]{7,20}$/.test(form.B_conNo.trim())
     )
       e.B_conNo = "Valid contact number required";
+      
+    if (isSuperAdmin && !form.com_id) {
+      e.com_id = "Company selection is required";
+    }
+      
     setErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -59,8 +71,11 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
     if (!validate()) return;
     setIsSubmitting(true);
     try {
-      // use company id from authenticated user (not from the form)
-      const payload = { ...form, com_id: effectiveComId };
+      // use company id from form if super admin, else from authenticated user
+      const payload = { 
+        ...form, 
+        com_id: isSuperAdmin ? form.com_id : effectiveComId 
+      };
       const created = await createBranch(payload);
       setIsSuccess(true);
       onSuccess?.(created);
@@ -113,6 +128,27 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
             </div>
           )}
 
+          {isSuperAdmin && (
+            <div style={{ marginBottom: 12 }}>
+              <label style={label}>Company</label>
+              <div style={inputWrapper}>
+                <FaBuilding style={icon} />
+                <select
+                  name="com_id"
+                  value={form.com_id}
+                  onChange={handleChange}
+                  style={{ ...input, appearance: "none" }}
+                >
+                  <option value="" disabled>Select Company...</option>
+                  {companies.map(c => (
+                    <option key={c.com_id} value={c.com_id}>{c.com_name}</option>
+                  ))}
+                </select>
+              </div>
+              {errors.com_id && <div style={errTxt}>{errors.com_id}</div>}
+            </div>
+          )}
+
           <label style={label}>Official Branch Name</label>
           <div style={inputWrapper}>
             <FaStore style={icon} />
@@ -140,22 +176,18 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
           </div>
           {errors.B_email && <div style={errTxt}>{errors.B_email}</div>}
 
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <label style={label}>Branch Contact</label>
-              <div style={inputWrapper}>
-                <FaPhone style={icon} />
-                <input
-                  name="B_conNo"
-                  value={form.B_conNo}
-                  onChange={handleChange}
-                  placeholder="+94 77 ..."
-                  style={input}
-                />
-              </div>
-              {errors.B_conNo && <div style={errTxt}>{errors.B_conNo}</div>}
-            </div>
+          <label style={label}>Branch Contact</label>
+          <div style={inputWrapper}>
+            <FaPhone style={icon} />
+            <input
+              name="B_conNo"
+              value={form.B_conNo}
+              onChange={handleChange}
+              placeholder="+94 77 ..."
+              style={input}
+            />
           </div>
+          {errors.B_conNo && <div style={errTxt}>{errors.B_conNo}</div>}
 
           <label style={label}>Physical Address</label>
           <div style={{ ...inputWrapper, alignItems: "flex-start" }}>

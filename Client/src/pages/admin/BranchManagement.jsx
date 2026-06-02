@@ -2,18 +2,25 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
+import SuperAdminSidebar from "../../components/super-admin/Sidebar";
+import SuperAdminHeader from "../../components/super-admin/Header";
 import BranchTable from "../../components/admin/BranchTable";
 import Button from "../../components/admin/Button";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, setAuthToken, logout } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
+import Spinner from "../../components/super-admin/Spinner";
+
 
 const SIDEBAR_WIDTH = 240;
 const HEADER_HEIGHT = 64;
 
 const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -27,6 +34,7 @@ const BranchManagement = () => {
 
   const fetchBranches = async () => {
     try {
+      setLoading(true);
       const data = await getBranches();
       setBranches(data);
     } catch (err) {
@@ -35,6 +43,8 @@ const BranchManagement = () => {
         logout();
         navigate("/login");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -48,10 +58,10 @@ const BranchManagement = () => {
 
   return (
     <div style={{ display: "flex",minHeight: "100vh", background: "#F4F6F9" }}>
-      <Sidebar />
+      {user?.role_id === 6 ? <SuperAdminSidebar /> : <Sidebar />}
 
       <div style={{ flex: 1, marginLeft: "240px" }}>
-        <Header />
+        {user?.role_id === 6 ? <SuperAdminHeader /> : <Header />}
 
         <div style={{ padding: "20px" }}>
           <div
@@ -65,7 +75,13 @@ const BranchManagement = () => {
             <Button label="+ New Branch" onClick={() => setShowModal(true)} />
           </div>
 
-          <BranchTable branches={branches} />
+          {loading ? (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px", marginTop: "24px", background: "#ffffff", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)" }}>
+              <Spinner size={36} />
+            </div>
+          ) : (
+            <BranchTable branches={branches} />
+          )}
         </div>
       </div>
       {showModal && (

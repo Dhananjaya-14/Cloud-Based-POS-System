@@ -13,6 +13,17 @@ import {
 } from "../../services/api";
 
 const PAGE_SIZE = 6;
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
+
+const resolveProductImage = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+  return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
+};
 
 const RecipeMapper = () => {
   const { user } = useAuth();
@@ -262,7 +273,7 @@ const RecipeMapper = () => {
               : pageItems.map((item) => {
                   const categoryName = categoryMap.get(String(item?.cat_id)) || "Main Course";
                   const priceValue = Number(item?.pro_price ?? 0);
-                  const imageSrc = item?.pro_image || "";
+                  const imageSrc = resolveProductImage(item?.pro_image);
                   const recipeCount = recipeCounts[String(item?.pro_id)] || 0;
                   return (
                     <div key={item?.Bpro_id || item?.pro_id} style={baseCard}>

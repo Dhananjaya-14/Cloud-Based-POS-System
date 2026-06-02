@@ -26,6 +26,18 @@ import {
   getCategories,
 } from "../../services/api";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
+
+const resolveProductImage = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+  return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
+};
+
 const getCategoryIcon = (name) => {
   const lower = String(name).toLowerCase();
   if (lower.includes("bev") || lower.includes("drink") || lower.includes("bar") || lower.includes("wine")) {
@@ -143,15 +155,26 @@ const WaiterPos = () => {
   const total = taxableBase + taxAmount;
 
   const addToCart = (product) => {
+    const stockCount = Number(product.pro_quantity ?? 0);
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
       if (existing) {
+        if (existing.qty >= stockCount) {
+          showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
+          return currentCart;
+        }
         return currentCart.map((item) =>
           item.Bpro_id === product.Bpro_id
             ? { ...item, qty: item.qty + 1 }
             : item
         );
       }
+
+      if (stockCount <= 0) {
+        showToast("This item is out of stock.", "error");
+        return currentCart;
+      }
+
       return [
         ...currentCart,
         {
@@ -165,11 +188,22 @@ const WaiterPos = () => {
   };
 
   const updateQuantity = (Bpro_id, delta) => {
+    const product = products.find((p) => p.Bpro_id === Bpro_id);
+    const stockCount = Number(product?.pro_quantity ?? 0);
+
     setCart((currentCart) =>
       currentCart
-        .map((item) =>
-          item.Bpro_id === Bpro_id ? { ...item, qty: item.qty + delta } : item
-        )
+        .map((item) => {
+          if (item.Bpro_id === Bpro_id) {
+            const nextQty = item.qty + delta;
+            if (delta > 0 && nextQty > stockCount) {
+              showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
+              return item;
+            }
+            return { ...item, qty: nextQty };
+          }
+          return item;
+        })
         .filter((item) => item.qty > 0)
     );
   };
@@ -350,14 +384,13 @@ const WaiterPos = () => {
                     className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:-translate-y-1 hover:border-[#0A5BAE]/30 hover:shadow-xl md:p-4"
                   >
                     <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-xl bg-slate-50">
-                      {p.pro_image ? (
+                      {resolveProductImage(p.pro_image) ? (
                         <img
-                          src={`http://localhost:5000/images/${p.pro_image}`}
+                          src={resolveProductImage(p.pro_image)}
                           alt={p.pro_name}
                           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = "https://via.placeholder.com/150?text=No+Image";
+                            e.currentTarget.style.display = "none";
                           }}
                         />
                       ) : (

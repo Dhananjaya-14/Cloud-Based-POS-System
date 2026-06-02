@@ -100,10 +100,12 @@ const EditUser = () => {
             return [{ label: "No roles available", value: "" }];
         }
 
-        return roles.map((roleItem) => ({
-            label: roleItem.role_name,
-            value: String(roleItem.role_id),
-        }));
+        return roles
+            .filter((roleItem) => Number(roleItem.role_id) !== 6)
+            .map((roleItem) => ({
+                label: roleItem.role_name,
+                value: String(roleItem.role_id),
+            }));
     }, [roles]);
 
     const branchOptions = useMemo(() => {
