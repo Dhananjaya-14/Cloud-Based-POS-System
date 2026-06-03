@@ -178,8 +178,12 @@ const HotelManagement = () => {
 
   const filteredCompanies = companies.filter(
     (c) => {
-      const searchMatch = (c.com_name || "").toLowerCase().includes(searchQuery.toLowerCase());
-      
+      const searchName = (c.com_name|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchLocation=(c.location|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchEmail=(c.c_email|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchPhone=(c.phone|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchMatch=searchName||searchLocation||searchEmail||searchPhone;
+
       const s = String(c.c_status || "").toLowerCase();
       const isActive = s === "active" || s === "true" || c.c_status === true;
       

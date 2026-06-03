@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaPrint, FaTimes } from "react-icons/fa";
+import { printReceipt } from "../../utils/printReceipt";
 
 const defaultState = {
   orderId: "INV-0000000",
@@ -31,7 +32,17 @@ const InvoicePreview = () => {
     ...defaultState,
     ...(location.state || {}),
   }), [location.state]);
+  
   const [isPaid, setIsPaid] = useState(false);
+
+    useEffect(() => {
+    if (isPaid) {
+      const timer = setTimeout(() => {
+        navigate("/cashier/pos");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [isPaid, navigate]);
 
   const grandTotal = Number(invoice.total ?? 0).toFixed(2);
   const subtotal = Number(invoice.subtotal ?? 0).toFixed(2);
@@ -39,7 +50,7 @@ const InvoicePreview = () => {
   const tax = Number(invoice.tax ?? 0).toFixed(2);
 
   const handlePrint = () => {
-    window.print();
+    printReceipt(invoice);
   };
 
   const handlePay = () => {
