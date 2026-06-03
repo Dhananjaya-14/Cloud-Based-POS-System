@@ -160,18 +160,33 @@ const KitchenManagement = () => {
 
 	const itemsByOrderId = useMemo(() => {
 		return orderItems.reduce((acc, item) => {
+			const product = branchProductMap[item.Bpro_id];
+			const stations = product?.stations || {};
+
+			// If the product explicitly has Kitchen set to false, skip it for the kitchen display
+			if (stations.Kitchen === false) {
+				return acc;
+			}
+
 			const orderId = item.order_id;
 			if (!acc[orderId]) acc[orderId] = [];
 			acc[orderId].push(item);
 			return acc;
 		}, {});
-	}, [orderItems]);
+	}, [orderItems, branchProductMap]);
 
 	const filteredOrders = useMemo(() => {
 		const query = searchTerm.trim().toLowerCase();
-		if (!query) return orders;
 
-		return orders.filter((order) => {
+		// Only show orders that have items requiring kitchen preparation
+		const withKitchenPrep = orders.filter((order) => {
+			const items = itemsByOrderId[order.or_id] || [];
+			return items.length > 0;
+		});
+
+		if (!query) return withKitchenPrep;
+
+		return withKitchenPrep.filter((order) => {
 			if (String(order.or_id ?? "").includes(query)) return true;
 
 			const items = itemsByOrderId[order.or_id] || [];
@@ -187,7 +202,7 @@ const KitchenManagement = () => {
 	const statusCounts = useMemo(() => {
 		const counts = { pending: 0, preparing: 0, ready: 0 };
 
-		orders.forEach((order) => {
+		filteredOrders.forEach((order) => {
 			if (order.or_status === "pending") counts.pending += 1;
 			if (order.or_status === "preparing") counts.preparing += 1;
 			if (order.or_status === "completed") counts.ready += 1;
@@ -199,7 +214,7 @@ const KitchenManagement = () => {
 			ready: counts.ready,
 			active: counts.pending + counts.preparing,
 		};
-	}, [orders]);
+	}, [filteredOrders]);
 
 	const sortedOrders = useMemo(() => {
 		const toTimestamp = (order) => {

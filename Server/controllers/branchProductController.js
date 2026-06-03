@@ -29,6 +29,15 @@ function normalizeSpaced(body, apiKey, dbKey) {
 
 function toResponseRow(row) {
   // Ensure consistent output keys.
+  let stations = row.stations;
+  if (typeof stations === "string") {
+    try {
+      stations = JSON.parse(stations);
+    } catch (e) {
+      stations = {};
+    }
+  }
+
   return {
     Bpro_id: row.Bpro_id,
     pro_name: row.pro_name,
@@ -41,6 +50,7 @@ function toResponseRow(row) {
     pro_id: row.pro_id,
     B_id: row.B_id,
     cat_name: row.cat_name,
+    stations: stations || {},
   };
 }
 
@@ -142,9 +152,11 @@ export async function getBranchProducts(req, res, next) {
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
         bp."B_id",
-        c."cat_name"
+        c."cat_name",
+        p."stations"
       FROM "public"."Branch_Product" bp
       LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
+      LEFT JOIN "public"."Product"   p ON bp."pro_id" = p."pro_id"
     `;
 
     const conditions = [];
@@ -205,6 +217,7 @@ export async function getBranchProductById(req, res, next) {
         c."cat_name"
       FROM "public"."Branch_Product" bp
       LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
+      LEFT JOIN "public"."Product"   p ON bp."pro_id" = p."pro_id"
     `;
     let params = [id];
 
@@ -337,21 +350,27 @@ export async function createBranchProduct(req, res, next) {
 
     const result = await client.query(
       `
-      INSERT INTO "public"."Branch_Product"
-        ("pro_name", " pro_shortname", " pro_image", " pro_des", "pro_quantity", " Pro_Price", "Cat_id", "pro_id", "B_id")
-      VALUES
-        ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-      RETURNING
-        "Bpro_id",
-        "pro_name",
-        " pro_shortname" AS "pro_shortname",
-        " pro_image" AS "pro_image",
-        " pro_des" AS "pro_des",
-        "pro_quantity",
-        " Pro_Price" AS "pro_price",
-        "Cat_id" AS "cat_id",
-        "pro_id",
-        "B_id"
+      WITH inserted AS (
+        INSERT INTO "public"."Branch_Product"
+          ("pro_name", " pro_shortname", " pro_image", " pro_des", "pro_quantity", " Pro_Price", "Cat_id", "pro_id", "B_id")
+        VALUES
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        RETURNING *
+      )
+      SELECT
+        i."Bpro_id",
+        i."pro_name",
+        i." pro_shortname" AS "pro_shortname",
+        i." pro_image" AS "pro_image",
+        i." pro_des" AS "pro_des",
+        i."pro_quantity",
+        i." Pro_Price" AS "pro_price",
+        i."Cat_id" AS "cat_id",
+        i."pro_id",
+        i."B_id",
+        p."stations"
+      FROM inserted i
+      LEFT JOIN "public"."Product" p ON i."pro_id" = p."pro_id"
       `,
       [pro_name, pro_shortname, pro_image, pro_des, pro_quantity, pro_price, Cat_id, pro_id, B_id]
     );
@@ -501,29 +520,35 @@ export async function updateBranchProduct(req, res, next) {
 
     const result = await client.query(
       `
-      UPDATE "public"."Branch_Product"
-      SET
-        "pro_name" = COALESCE($1, "pro_name"),
-        " pro_shortname" = COALESCE($2, " pro_shortname"),
-        " pro_image" = COALESCE($3, " pro_image"),
-        " pro_des" = COALESCE($4, " pro_des"),
-        "pro_quantity" = COALESCE($5, "pro_quantity"),
-        " Pro_Price" = COALESCE($6, " Pro_Price"),
-        "Cat_id" = COALESCE($7, "Cat_id"),
-        "pro_id" = COALESCE($8, "pro_id"),
-        "B_id" = COALESCE($9, "B_id")
-      WHERE "Bpro_id" = $10
-      RETURNING
-        "Bpro_id",
-        "pro_name",
-        " pro_shortname" AS "pro_shortname",
-        " pro_image" AS "pro_image",
-        " pro_des" AS "pro_des",
-        "pro_quantity",
-        " Pro_Price" AS "pro_price",
-        "Cat_id" AS "cat_id",
-        "pro_id",
-        "B_id"
+      WITH updated AS (
+        UPDATE "public"."Branch_Product"
+        SET
+          "pro_name" = COALESCE($1, "pro_name"),
+          " pro_shortname" = COALESCE($2, " pro_shortname"),
+          " pro_image" = COALESCE($3, " pro_image"),
+          " pro_des" = COALESCE($4, " pro_des"),
+          "pro_quantity" = COALESCE($5, "pro_quantity"),
+          " Pro_Price" = COALESCE($6, " Pro_Price"),
+          "Cat_id" = COALESCE($7, "Cat_id"),
+          "pro_id" = COALESCE($8, "pro_id"),
+          "B_id" = COALESCE($9, "B_id")
+        WHERE "Bpro_id" = $10
+        RETURNING *
+      )
+      SELECT
+        u."Bpro_id",
+        u."pro_name",
+        u." pro_shortname" AS "pro_shortname",
+        u." pro_image" AS "pro_image",
+        u." pro_des" AS "pro_des",
+        u."pro_quantity",
+        u." Pro_Price" AS "pro_price",
+        u."Cat_id" AS "cat_id",
+        u."pro_id",
+        u."B_id",
+        p."stations"
+      FROM updated u
+      LEFT JOIN "public"."Product" p ON u."pro_id" = p."pro_id"
       `,
       [
         fieldOrNull(pro_name),
