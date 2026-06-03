@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { FaSearch} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
@@ -19,6 +20,7 @@ const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [searchQuery,setSearchQuery]=useState("");
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -48,6 +50,16 @@ const BranchManagement = () => {
     }
   };
 
+
+const filteredBranches = branches.filter((branch) => {
+  if (!searchQuery.trim()) return true; // If filter is empty/whitespace, show everything
+  const companyName = branch.com_name || "";
+  const branchName = branch.B_name || "";
+  
+  return companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         branchName.toLowerCase().includes(searchQuery.toLowerCase());
+});
+
   const addButtonStyle = {
   padding: "10px 18px",
   background: "#2E3E8F", // or backgroundColor: "#2E3E8F"
@@ -75,12 +87,41 @@ const BranchManagement = () => {
             <Button label="+ New Branch" onClick={() => setShowModal(true)} />
           </div>
 
+          <div style={{ position: "relative", width: "100%", maxWidth: "300px", marginBottom: "20px" }}>
+           <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+            <input
+              type="text"
+              placeholder="Search here..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                maxWidth: "300px",
+                padding: "10px 14px 10px 36px",
+                borderRadius: "8px",
+                border: "1px solid #D1D5DB",
+                fontSize: "14px",
+                outline: "none",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+            />
+          </div>
+
           {loading ? (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px", marginTop: "24px", background: "#ffffff", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)" }}>
               <Spinner size={36} />
             </div>
-          ) : (
-            <BranchTable branches={branches} />
+          ) : filteredBranches.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 20px", marginTop: "24px", background: "#ffffff", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)", color: "#6B7280" }}>
+            <p style={{ fontSize: "16px", fontWeight: "500", margin: 0 }}>
+              No records match "{searchQuery}"
+            </p>
+            <p style={{ fontSize: "14px", marginTop: "4px", color: "#9CA3AF" }}>
+             Try checking your spelling or using a different search term.
+             </p>
+          </div>
+        ):(
+            <BranchTable branches={filteredBranches} />
           )}
         </div>
       </div>

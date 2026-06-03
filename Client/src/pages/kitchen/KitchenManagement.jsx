@@ -10,45 +10,53 @@ import {
 } from "../../services/api";
 
 const statCards = [
-	{
-		key: "pending",
-		title: "Pending",
-		subtitle: "Items waiting",
-		tone: "from-amber-100 to-yellow-200",
-		accent: "text-amber-600",
-		border: "border-amber-300",
-	},
-	{
-		key: "preparing",
-		title: "Preparing",
-		subtitle: "In progress",
-		tone: "from-orange-100 to-orange-200",
-		accent: "text-orange-600",
-		border: "border-orange-300",
-	},
-	{
-		key: "ready",
-		title: "Ready",
-		subtitle: "Ready to serve",
-		tone: "from-emerald-100 to-emerald-200",
-		accent: "text-emerald-600",
-		border: "border-emerald-300",
-	},
-	{
-		key: "active",
-		title: "Active Orders",
-		subtitle: "Total orders",
-		tone: "from-sky-100 to-indigo-100",
-		accent: "text-indigo-600",
-		border: "border-indigo-300",
-	},
+    {
+        key: "pending",
+        title: "Pending",
+        subtitle: "Items waiting",
+        tone: "from-amber-100 to-yellow-200",
+        accent: "text-amber-600",
+        border: "border-amber-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+    },
+    {
+        key: "preparing",
+        title: "Preparing",
+        subtitle: "In progress",
+        tone: "from-orange-100 to-orange-200",
+        accent: "text-orange-600",
+        border: "border-orange-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase", 
+        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+    },
+    {
+        key: "ready",
+        title: "Ready",
+        subtitle: "Ready to serve",
+        tone: "from-emerald-100 to-emerald-200",
+        accent: "text-emerald-600",
+        border: "border-emerald-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+    },
+    {
+        key: "active",
+        title: "Active Orders",
+        subtitle: "Total orders",
+        tone: "from-sky-100 to-indigo-100",
+        accent: "text-indigo-600",
+        border: "border-indigo-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+    },
 ];
 
 const statusPalette = {
-	Pending: "bg-slate-100 text-slate-700 border-slate-200",
-	Preparing: "bg-orange-100 text-orange-700 border-orange-200",
-	Completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-	Declined: "bg-rose-100 text-rose-700 border-rose-200",
+	Pending: "bg-slate-100 text-[12px] font-semibold text-slate-700 border-slate-200",
+	Preparing: "bg-orange-100 text-[12px] font-semibold text-orange-700 border-orange-200",
+	Completed: "bg-emerald-100 text-[12px] font-semibold text-emerald-700 border-emerald-200",
+	Declined: "bg-rose-100 text-[12px] font-semibold text-rose-700 border-rose-200",
 };
 
 
@@ -74,6 +82,7 @@ const KitchenManagement = () => {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [updatingOrderId, setUpdatingOrderId] = useState(null);
+	const [activeTab, setActiveTab] = useState("received");
 
 	useEffect(() => {
 		let isMounted = true;
@@ -236,7 +245,7 @@ const KitchenManagement = () => {
 		return (
 			<div
 				key={order.or_id}
-				className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4"
+				className="bg-white rounded-2xl border border-slate-200 p-4 hover:shadow-md transition-shadow duration-200"
 			>
 				<div className="flex flex-col gap-3">
 					<div className="flex flex-wrap items-center justify-between gap-3">
@@ -244,7 +253,7 @@ const KitchenManagement = () => {
 							<div className="text-sm font-semibold text-slate-900">
 								ORD{String(order.or_id).padStart(5, "0")}
 							</div>
-							<div className="text-[11px] text-slate-500">
+							<div className="text-[14px] font-semibold text-slate-500">
 								{order.or_type || "Dine in"} | {formatToLocalTime(order.or_date, order.or_time)}
 							</div>
 						</div>
@@ -255,7 +264,7 @@ const KitchenManagement = () => {
 							>
 								{statusLabel}
 							</span>
-							<span className="text-[10px] text-slate-400 flex items-center gap-1">
+							<span className="text-[12px] font-semibold text-slate-400 flex items-center gap-1">
 								<FaClock />
 								<span>{formatToLocalTime(order.or_date, order.or_time)}</span>
 							</span>
@@ -272,14 +281,14 @@ const KitchenManagement = () => {
 								<button
 									onClick={() => updateStatus(order.or_id, "preparing")}
 									disabled={updatingOrderId === order.or_id}
-									className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold cursor-pointer"
+									className="px-12 py-1.5 rounded-lg border border-emerald-200 bg-emerald-100 text-emerald-700 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-emerald-300 hover:text-emerald-800 hover:border-emerald-300"
 								>
 									Accept
 								</button>
 								<button
 									onClick={() => updateStatus(order.or_id, "cancelled")}
 									disabled={updatingOrderId === order.or_id}
-									className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold cursor-pointer"
+									className="px-12 py-1.5 rounded-lg border border-rose-200 bg-rose-100 text-rose-600 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-rose-300 hover:text-rose-800 hover:border-rose-300"
 								>
 									Decline
 								</button>
@@ -290,7 +299,7 @@ const KitchenManagement = () => {
 							<button
 								onClick={() => updateStatus(order.or_id, "completed")}
 								disabled={updatingOrderId === order.or_id}
-								className="px-4 py-1.5 rounded-lg border border-emerald-200 bg-emerald-500 text-white text-xs font-semibold cursor-pointer"
+								className="px-4 py-1.5 rounded-lg border border-emerald-200 bg-emerald-500 text-white text-xs font-semibold cursor-pointer transition-colors duration-200 hover:bg-emerald-600"
 							>
 								Ready
 							</button>
@@ -302,25 +311,31 @@ const KitchenManagement = () => {
 	};
 
 	const renderOrderColumn = (title, ordersInColumn) => {
-		return (
-			<div className="flex flex-col gap-3">
-				<div className="flex items-center justify-between">
-					<h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
-						{title}
-					</h2>
-					<span className="text-xs text-slate-400">
-						{ordersInColumn.length}
-					</span>
-				</div>
-				{ordersInColumn.length ? (
-					ordersInColumn.map(renderOrderCard)
-				) : (
-					<div className="text-sm text-slate-500">No orders</div>
-				)}
-			</div>
-		);
-	};
+	return (
+		<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+		<div className="flex items-center justify-between mb-4">
+			<h2 className="text-lg font-semibold text-slate-800">
+			{title}
+			</h2>
 
+			<span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium">
+			{ordersInColumn.length} Orders
+			</span>
+		</div>
+
+		<div className="space-y-4">
+			{ordersInColumn.length ? (
+			ordersInColumn.map(renderOrderCard)
+			) : (
+			<div className="flex flex-col items-center justify-center py-12 text-slate-400">
+				<div className="text-5xl mb-3">📋</div>
+				<p className="font-medium">No orders available</p>
+			</div>
+			)}
+		</div>
+		</div>
+	);
+	};
 	const updateStatus = async (orderId, nextStatus) => {
 		if (!orderId || updatingOrderId) return;
 		setUpdatingOrderId(orderId);
@@ -374,7 +389,7 @@ const KitchenManagement = () => {
 					key={item.orderItem_id}
 					className="flex gap-3 items-center rounded-xl border border-slate-100 bg-white px-3 py-2"
 				>
-					<div className="w-12 h-12 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">
+					<div className="w-25 h-25 rounded-xl bg-slate-100 overflow-hidden flex items-center justify-center">
 						{image ? (
 							<img src={image} alt={name} className="w-full h-full object-cover" />
 						) : (
@@ -382,12 +397,8 @@ const KitchenManagement = () => {
 						)}
 					</div>
 					<div className="flex-1">
-						<div className="text-sm font-semibold text-slate-900">{name}</div>
-						<div className="text-[11px] text-slate-500">Qty: {quantity}</div>
-					</div>
-					<div className="text-[10px] text-slate-400 flex items-center gap-1">
-						<FaClock />
-						<span>-- min</span>
+						<div className="text-[16px] font-semibold text-slate-900">{name}</div>
+						<div className="text-[14px] font-semibold text-slate-800">Qty: {quantity}</div>
 					</div>
 				</div>
 			);
@@ -419,13 +430,18 @@ const KitchenManagement = () => {
 								key={card.key}
 								className={`rounded-2xl border ${card.border} bg-gradient-to-br ${card.tone} p-4 shadow-sm`}
 							>
-								<div className="text-[11px] uppercase tracking-wide text-slate-500">
+								{/* Title Style applied here */}
+								<div className={card.titleStyles || "text-[11px] uppercase tracking-wide text-slate-500"}>
 									{card.title}
 								</div>
-								<div className={`text-2xl font-semibold ${card.accent} mt-2`}>
-									{statusCounts[card.key]}
+								
+								{/* Metric Number (Uses accent color + a clean, readable bold font size) */}
+								<div className={`text-2xl font-bold font-sans ${card.accent} mt-2`}>
+									{statusCounts[card.key] || 0}
 								</div>
-								<div className="text-[11px] text-slate-500 mt-1">
+								
+								{/* Subtitle Style applied here */}
+								<div className={card.subtitleStyles || "text-[11px] text-slate-500 mt-1"}>
 									{card.subtitle}
 								</div>
 							</div>
@@ -444,6 +460,70 @@ const KitchenManagement = () => {
 						</div>
 					</div>
 
+					<div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-2 mb-6">
+					<div className="flex flex-wrap gap-2">
+						<button
+						onClick={() => setActiveTab("received")}
+						className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+							activeTab === "received"
+							? "bg-amber-50 text-amber-700 shadow-sm border border-amber-200"
+							: "text-slate-600 hover:bg-slate-50"
+						}`}
+						>
+						<span>Received Orders</span>
+						<span
+							className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+							activeTab === "received"
+								? "bg-amber-100 text-amber-700"
+								: "bg-slate-100 text-slate-600"
+							}`}
+						>
+							{pendingOrders.length}
+						</span>
+						</button>
+
+						<button
+						onClick={() => setActiveTab("accepted")}
+						className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+							activeTab === "accepted"
+							? "bg-emerald-50 text-emerald-700 shadow-sm border border-emerald-200"
+							: "text-slate-600 hover:bg-slate-50"
+						}`}
+						>
+						<span>Accepted Orders</span>
+						<span
+							className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+							activeTab === "accepted"
+								? "bg-emerald-100 text-emerald-700"
+								: "bg-slate-100 text-slate-600"
+							}`}
+						>
+							{acceptedOrders.length}
+						</span>
+						</button>
+
+						<button
+						onClick={() => setActiveTab("rejected")}
+						className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+							activeTab === "rejected"
+							? "bg-rose-50 text-rose-700 shadow-sm border border-rose-200"
+							: "text-slate-600 hover:bg-slate-50"
+						}`}
+						>
+						<span>Rejected Orders</span>
+						<span
+							className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+							activeTab === "rejected"
+								? "bg-rose-100 text-rose-700"
+								: "bg-slate-100 text-slate-600"
+							}`}
+						>
+							{rejectedOrders.length}
+						</span>
+						</button>
+					</div>
+					</div>
+
 					{error && (
 						<div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
 							{error}
@@ -452,11 +532,16 @@ const KitchenManagement = () => {
 
 					{loading ? (
 						<div className="text-sm text-slate-500">Loading orders...</div>
-					) : (
-						<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-							{renderOrderColumn("Received orders", pendingOrders)}
-							{renderOrderColumn("Accepted orders", acceptedOrders)}
-							{renderOrderColumn("Rejected orders", rejectedOrders)}
+						) : (
+						<div>
+							{activeTab === "received" &&
+							renderOrderColumn("Received Orders", pendingOrders)}
+
+							{activeTab === "accepted" &&
+							renderOrderColumn("Accepted Orders", acceptedOrders)}
+
+							{activeTab === "rejected" &&
+							renderOrderColumn("Rejected Orders", rejectedOrders)}
 						</div>
 					)}
 				</div>
