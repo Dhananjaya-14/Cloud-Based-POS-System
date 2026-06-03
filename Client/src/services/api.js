@@ -44,13 +44,6 @@ export const getBranches = async () => {
   return response.data;
 };
 
-
-
-export const updateBranch = async (id, branchData) => {
-  const response = await api.put(`/branches/${id}`, branchData);
-  return response.data;
-};
-
 export const deleteBranch = async (id) => {
   const response = await api.delete(`/branches/${id}`);
   return response.data;
@@ -277,6 +270,11 @@ export const updateUser = async (id, payload) => {
 
 export const getBranchById = async (branchId) => {
   const response = await api.get(`/branches/${branchId}`);
+  return response.data;
+};
+
+export const updateBranch = async (branchId, payload) => {
+  const response = await api.put(`/branches/${branchId}`, payload);
   return response.data;
 };
 

@@ -1,53 +1,69 @@
 import React from "react";
 
 const StatusToggle = ({ checked = true, onChange }) => {
+  const statusLabel = checked ? "Active" : "Inactive";
+
   return (
-    <div style={{ display: "flex", alignItems: "center", marginTop: "20px" }}>
+    <div style={{ display: "flex", alignItems: "center", marginTop: "6px" }}>
       <label
         style={{
-          width: "190px",
-          height: "36px",
-          borderRadius: "8px",
-          border: "1px solid #C8C8C8",
-          background: "#F4F4F4",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "0 10px",
+          gap: "165px",
+          height: "45px",
+          padding: "0 12px",
+          borderRadius: "12px",
+          border: "1px solid #d8e0ed",
+          background: "#ffffff",
           cursor: "pointer",
+          boxSizing: "border-box",
+          minWidth: "220px",
         }}
       >
-        <span style={{ fontSize: "14px", color: "#4D4D4D" }}>Active Status</span>
+        <span style={{ fontSize: "14px", color: "#30425f", fontWeight: 500 }}>Status</span>
 
-        <div
-          style={{
-            width: "36px",
-            height: "20px",
-            borderRadius: "20px",
-            background: checked ? "#53C653" : "#B8B8B8",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: checked ? "flex-end" : "flex-start",
-            padding: "2px",
-            transition: "0.2s",
-          }}
-        >
-          <div
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <span
             style={{
-              width: "16px",
-              height: "16px",
-              borderRadius: "50%",
-              background: "#fff",
+              fontSize: "13px",
+              fontWeight: 600,
+              color: checked ? "#1e6f2a" : "#a33b3b",
+              minWidth: "56px",
+              textAlign: "right",
             }}
-          />
+          >
+            {statusLabel}
+          </span>
+
+          <div
+            aria-hidden
+            style={{
+              width: "40px",
+              height: "24px",
+              borderRadius: "999px",
+              background: checked ? "#53C653" : "#E5E7EB",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: checked ? "flex-end" : "flex-start",
+              padding: "3px",
+              transition: "0.18s",
+              boxSizing: "border-box",
+            }}
+          >
+            <div
+              style={{
+                width: "18px",
+                height: "18px",
+                borderRadius: "50%",
+                background: "#fff",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+              }}
+            />
+          </div>
         </div>
 
-        <input
-          type="checkbox"
-          checked={checked}
-          onChange={onChange}
-          style={{ display: "none" }}
-        />
+        <input type="checkbox" checked={checked} onChange={onChange} style={{ display: "none" }} />
       </label>
     </div>
   );

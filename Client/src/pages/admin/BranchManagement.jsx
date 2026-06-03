@@ -3,26 +3,20 @@ import { FaSearch} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import SuperAdminSidebar from "../../components/super-admin/Sidebar";
-import SuperAdminHeader from "../../components/super-admin/Header";
 import BranchTable from "../../components/admin/BranchTable";
 import Button from "../../components/admin/Button";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, setAuthToken, logout } from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
-import Spinner from "../../components/super-admin/Spinner";
-
+import { connectSocket } from "../../services/socket";
 
 const SIDEBAR_WIDTH = 240;
 const HEADER_HEIGHT = 64;
 
 const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [searchQuery,setSearchQuery]=useState("");
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -34,9 +28,37 @@ const BranchManagement = () => {
     fetchBranches();
   }, [navigate]);
 
+  // Realtime branch updates (created / updated / deleted)
+  useEffect(() => {
+    const socket = connectSocket();
+
+    const handleCreated = (branch) => {
+      setBranches((prev) => [branch, ...prev]);
+    };
+
+    const handleUpdated = (branch) => {
+      setBranches((prev) => prev.map((b) => (b.B_id === branch.B_id ? branch : b)));
+    };
+
+    const handleDeleted = (payload) => {
+      const id = payload?.B_id ?? payload?.b_id ?? payload?.id ?? null;
+      if (id == null) return;
+      setBranches((prev) => prev.filter((b) => Number(b.B_id) !== Number(id)));
+    };
+
+    socket.on("branch:created", handleCreated);
+    socket.on("branch:updated", handleUpdated);
+    socket.on("branch:deleted", handleDeleted);
+
+    return () => {
+      socket.off("branch:created", handleCreated);
+      socket.off("branch:updated", handleUpdated);
+      socket.off("branch:deleted", handleDeleted);
+    };
+  }, []);
+
   const fetchBranches = async () => {
     try {
-      setLoading(true);
       const data = await getBranches();
       setBranches(data);
     } catch (err) {
@@ -45,8 +67,6 @@ const BranchManagement = () => {
         logout();
         navigate("/login");
       }
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -70,10 +90,10 @@ const filteredBranches = branches.filter((branch) => {
 
   return (
     <div style={{ display: "flex",minHeight: "100vh", background: "#F4F6F9" }}>
-      {user?.role_id === 6 ? <SuperAdminSidebar /> : <Sidebar />}
+      <Sidebar />
 
       <div style={{ flex: 1, marginLeft: "240px" }}>
-        {user?.role_id === 6 ? <SuperAdminHeader /> : <Header />}
+        <Header />
 
         <div style={{ padding: "20px" }}>
           <div
