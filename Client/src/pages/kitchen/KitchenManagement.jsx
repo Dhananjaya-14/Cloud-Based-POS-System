@@ -55,6 +55,7 @@ const statusPalette = {
 
 const KitchenManagement = () => {
 	const { user } = useAuth();
+	const branchId = user?.b_id ?? user?.B_id;
 	const [orders, setOrders] = useState([]);
 	const [orderItems, setOrderItems] = useState([]);
 	const [branchProducts, setBranchProducts] = useState([]);
@@ -71,7 +72,7 @@ const KitchenManagement = () => {
 
 		try {
 			const params = {};
-			if (user?.b_id) params.b_id = user.b_id;
+			if (branchId) params.b_id = branchId;
 
 			const [ordersData, itemsResult, productsResult] =
 				await Promise.allSettled([
@@ -110,7 +111,7 @@ const KitchenManagement = () => {
 				setLoading(false);
 			}
 		}
-	}, [user?.b_id]);
+	}, [branchId]);
 
 	useEffect(() => {
 		let isMounted = true;

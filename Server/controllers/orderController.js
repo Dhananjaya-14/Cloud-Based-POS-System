@@ -318,6 +318,8 @@ export const createOrder = async (req, res) => {
       ],
     );
 
+    emitSocketEvent("order:created", rows[0]);
+
     res.status(201).json({ success: true, data: rows[0] });
   } catch (err) {
     if (err.code === "23514") {
