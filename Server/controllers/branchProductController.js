@@ -54,6 +54,72 @@ function isNonNegativeNumber(value) {
   return Number.isFinite(n) && n >= 0;
 }
 
+// ─────────────────────────────────────────────
+// RECIPE INGREDIENT HELPERS
+// ─────────────────────────────────────────────
+
+/**
+ * Converts a recipe quantity from recipe unit to raw-material stock unit.
+ */
+function convertQty(recipeQty, recipeUnit, stockUnit) {
+  const rUnit = String(recipeUnit || "").toLowerCase().trim();
+  const sUnit = String(stockUnit || "").toLowerCase().trim();
+  if (rUnit === sUnit || !rUnit || !sUnit) return recipeQty;
+  if (rUnit === "g"     && sUnit === "kg")    return recipeQty / 1000;
+  if (rUnit === "mg"    && sUnit === "g")     return recipeQty / 1000;
+  if (rUnit === "mg"    && sUnit === "kg")    return recipeQty / 1_000_000;
+  if (rUnit === "kg"    && sUnit === "g")     return recipeQty * 1000;
+  if (rUnit === "ml"    && sUnit === "l")     return recipeQty / 1000;
+  if (rUnit === "l"     && sUnit === "ml")    return recipeQty * 1000;
+  if (rUnit === "pcs"   && sUnit === "dozen") return recipeQty / 12;
+  if (rUnit === "units" && sUnit === "dozen") return recipeQty / 12;
+  return recipeQty;
+}
+
+/**
+ * Deducts or restores raw-material stock according to the product's recipe.
+ * Called when a branch admin adds, updates, or removes pre-made product batches.
+ *
+ * @param {object} client    - pg transaction client (must be inside BEGIN)
+ * @param {number} pro_id    - base product ID (used to look up RECIPE)
+ * @param {number} b_id      - branch ID (scopes branch-level raw materials)
+ * @param {number} quantity  - number of product units being added/removed
+ * @param {"subtract"|"add"} operation
+ */
+async function adjustRecipeIngredients(client, pro_id, b_id, quantity, operation) {
+  const recipesResult = await client.query(
+    `SELECT
+       r."rawmaterial_ID" AS "rawmaterial_id",
+       r."quantity_req",
+       COALESCE(r."unit", rm."unit") AS "recipe_unit",
+       rm."unit"                     AS "stock_unit"
+     FROM public."RECIPE"        r
+     JOIN public."Raw_Material"  rm ON rm."rm_id" = r."rawmaterial_ID"
+     WHERE r."pro_id" = $1
+     FOR UPDATE OF rm`,
+    [pro_id]
+  );
+
+  for (const recipe of recipesResult.rows) {
+    const totalQty     = recipe.quantity_req * quantity;
+    const convertedQty = convertQty(totalQty, recipe.recipe_unit, recipe.stock_unit);
+    const stockExpr    = operation === "subtract"
+      ? "GREATEST(0, stock_qty - $1)"
+      : "stock_qty + $1";
+
+    await client.query(
+      `UPDATE public."Raw_Material"
+         SET stock_qty = ${stockExpr}
+       WHERE rm_id = $2
+         AND (
+           b_id = $3
+           OR (b_id IS NULL AND $3::integer IS NULL)
+         )`,
+      [convertedQty, recipe.rawmaterial_id, b_id ?? null]
+    );
+  }
+}
+
 // GET /api/branch_products
 export async function getBranchProducts(req, res, next) {
   try {
@@ -290,6 +356,9 @@ export async function createBranchProduct(req, res, next) {
       [pro_name, pro_shortname, pro_image, pro_des, pro_quantity, pro_price, Cat_id, pro_id, B_id]
     );
 
+    // Deduct raw-material ingredients via recipe mapper (pre-made product prep)
+    await adjustRecipeIngredients(client, Number(pro_id), Number(B_id), neededQty, "subtract");
+
     await client.query("COMMIT");
     res.status(201).json(toResponseRow(result.rows[0]));
   } catch (err) {
@@ -369,7 +438,7 @@ export async function updateBranchProduct(req, res, next) {
     await client.query("BEGIN");
 
     let checkQuery = `
-      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id"
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id"
       FROM "public"."Branch_Product" bp
     `;
     let checkParams = [id];
@@ -386,7 +455,8 @@ export async function updateBranchProduct(req, res, next) {
     }
 
     const oldBranchQty = Number(existing.rows[0].pro_quantity ?? 0);
-    const baseProId = existing.rows[0].pro_id;
+    const baseProId    = existing.rows[0].pro_id;
+    const branchId     = existing.rows[0].B_id;
 
     if (pro_quantity !== undefined) {
       const newBranchQty = Number(pro_quantity);
@@ -415,12 +485,16 @@ export async function updateBranchProduct(req, res, next) {
             'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" - $1 WHERE "pro_id" = $2',
             [diff, baseProId]
           );
+          // Deduct additional raw-material ingredients (more products prepped)
+          await adjustRecipeIngredients(client, baseProId, branchId, diff, "subtract");
         } else {
           // Return to main stock
           await client.query(
             'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" + $1 WHERE "pro_id" = $2',
             [Math.abs(diff), baseProId]
           );
+          // Restore raw-material ingredients (fewer products → return ingredients)
+          await adjustRecipeIngredients(client, baseProId, branchId, Math.abs(diff), "add");
         }
       }
     }
@@ -494,7 +568,7 @@ export async function deleteBranchProduct(req, res, next) {
     await client.query("BEGIN");
 
     let checkQuery = `
-      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id"
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id"
       FROM "public"."Branch_Product" bp
     `;
     let checkParams = [id];
@@ -511,7 +585,8 @@ export async function deleteBranchProduct(req, res, next) {
     }
 
     const remainingQty = Number(existing.rows[0].pro_quantity ?? 0);
-    const baseProId = existing.rows[0].pro_id;
+    const baseProId    = existing.rows[0].pro_id;
+    const branchBId    = existing.rows[0].B_id;
 
     if (remainingQty > 0) {
       // Return remaining stock to the base product
@@ -519,6 +594,8 @@ export async function deleteBranchProduct(req, res, next) {
         'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" + $1 WHERE "pro_id" = $2',
         [remainingQty, baseProId]
       );
+      // Restore raw-material ingredients for remaining unsold units
+      await adjustRecipeIngredients(client, baseProId, branchBId, remainingQty, "add");
     }
 
     const result = await client.query(
