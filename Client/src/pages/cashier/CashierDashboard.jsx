@@ -1,8 +1,16 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CashierHeader from "../../components/cashier/Header";
+import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders } from "../../services/api";
+import { connectSocket } from "../../services/socket";
+import {
+  addOrderReadyAlert,
+  dismissOrderReadyAlert,
+  loadOrderReadyAlerts,
+  saveOrderReadyAlerts,
+} from "../../utils/orderReadyAlerts";
 
 const statCards = [
   {
@@ -44,70 +52,112 @@ const CashierDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ revenue: 0, transactions: 0 });
   const [activities, setActivities] = useState([]);
+  const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
+
+  const loadTodayOrders = useCallback(async () => {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const params = { status: "completed", date: today };
+
+      if (user?.u_id) {
+        params.u_id = user.u_id;
+      }
+
+      const orders = await getOrders(params);
+
+      let revenue = 0;
+      orders.forEach((order) => {
+        const total = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
+        if (!Number.isNaN(total)) revenue += total;
+      });
+
+      setStats({
+        revenue,
+        transactions: orders.length,
+      });
+
+      const recent = orders.slice(0, 5).map((order) => ({
+        orderId: order.or_id,
+        time: order.or_time?.slice(0, 5) || "--:--",
+        title: "Sale completed",
+        subtitle: order.or_type || "-",
+        amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
+      }));
+
+      setActivities(recent);
+    } catch (error) {
+      console.error("Failed to load cashier dashboard orders", error);
+    }
+  }, [user?.u_id]);
 
   useEffect(() => {
-    const fetchTodayOrders = async () => {
-      try {
-        const today = new Date().toISOString().split("T")[0];
-        const params = { status: "completed", date: today };
+    loadTodayOrders();
+  }, [loadTodayOrders]);
 
-        if (user?.u_id) {
-          params.u_id = user.u_id;
-        }
+  useEffect(() => {
+    if (!user?.u_id) {
+      setOrderReadyAlerts([]);
+      return;
+    }
 
-        const orders = await getOrders(params);
+    setOrderReadyAlerts(loadOrderReadyAlerts(user.u_id));
+  }, [user?.u_id]);
 
-        let revenue = 0;
-        orders.forEach((order) => {
-          const total = Number(
-            order.or_totalCostWtax ?? order.or_totalcost ?? 0,
-          );
-          if (!Number.isNaN(total)) revenue += total;
-        });
+  useEffect(() => {
+    const socket = connectSocket();
 
-        setStats({
-          revenue,
-          transactions: orders.length,
-        });
-
-        const recent = orders.slice(0, 5).map((order) => {
-          let localTime = "--:--";
-          if (order.or_time) {
-            try {
-              const datePart = order.or_date ? order.or_date.slice(0, 10) : new Date().toISOString().slice(0, 10);
-              const date = new Date(`${datePart}T${order.or_time}Z`);
-              if (!isNaN(date.getTime())) {
-                const hh = String(date.getHours()).padStart(2, "0");
-                const mm = String(date.getMinutes()).padStart(2, "0");
-                localTime = `${hh}:${mm}`;
-              } else {
-                localTime = order.or_time.slice(0, 5);
-              }
-            } catch {
-              localTime = order.or_time.slice(0, 5);
-            }
-          }
-          return {
-            time: localTime,
-            title: "Sale completed",
-            subtitle: order.or_type || "-",
-            amount: `$${Number(
-              order.or_totalCostWtax ?? order.or_totalcost ?? 0,
-            ).toFixed(2)}`,
-          };
-        });
-
-        setActivities(recent);
-      } catch (error) {
-        console.error("Failed to load cashier dashboard orders", error);
+    const handleOrderReady = (order) => {
+      if (!order) return;
+      if (user?.u_id && order.u_id && Number(order.u_id) !== Number(user.u_id)) {
+        return;
       }
+
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = addOrderReadyAlert(currentAlerts, order);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+
+      setActivities((current) => {
+        const nextItem = {
+          orderId: order.or_id,
+          time: order.or_time?.slice(0, 5) || "--:--",
+          title: "Sale completed",
+          subtitle: order.or_type || "-",
+          amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
+        };
+
+        return [
+          nextItem,
+          ...current.filter((item) => Number(item.orderId) !== Number(order.or_id)),
+        ].slice(0, 5);
+      });
+
+      loadTodayOrders();
     };
 
-    fetchTodayOrders();
-  }, [user]);
+    socket.on("order:ready", handleOrderReady);
+
+    return () => {
+      socket.off("order:ready", handleOrderReady);
+    };
+  }, [loadTodayOrders, user?.u_id]);
+
+  const handleDismissOrderReady = useCallback(
+    (orderId) => {
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = dismissOrderReadyAlert(currentAlerts, orderId);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+    },
+    [user?.u_id],
+  );
+
   return (
     <div className="min-h-screen bg-[#F4F7FB] flex flex-col">
       <CashierHeader />
+      <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
 
       <main className="flex-1">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
@@ -186,7 +236,7 @@ const CashierDashboard = () => {
             <div className="divide-y divide-slate-100">
               {activities.map((item, idx) => (
                 <div
-                  key={idx}
+                  key={item.orderId ?? idx}
                   className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 py-3.5"
                 >
                   <div className="flex items-center gap-3">

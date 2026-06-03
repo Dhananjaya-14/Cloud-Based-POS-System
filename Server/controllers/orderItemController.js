@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { emitSocketEvent, KITCHEN_SOCKET_ROOM } from "../utils/socket.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -258,6 +259,11 @@ export const createOrderItem = async (req, res) => {
        RETURNING *`,
       [Bpro_id, qty, price, total_price, parsedOrderId],
     );
+
+    emitSocketEvent("order:created", {
+      orderId: parsedOrderId,
+      orderItem: result.rows[0],
+    });
 
     await client.query("COMMIT");
 
