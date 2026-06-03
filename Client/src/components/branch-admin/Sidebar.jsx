@@ -185,7 +185,7 @@ const Sidebar = () => {
           )}
           {isStatisticsOpen && (
             <>
-              {subItem("Sales&Revenue", "/branch-admin/sales-revenue")}
+              {subItem("Sales & Revenue", "/branch-admin/sales-revenue")}
               {subItem("Cashier Performance", "/branch-admin/cashier-performance")}
             </>
           )}

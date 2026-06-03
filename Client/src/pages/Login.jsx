@@ -22,8 +22,8 @@ const Login = () => {
       const roleId = Number(data.user?.role_id);
       // map role ids to routes
       if (roleId === 6) navigate("/dashboard"); // super admin -> Dashboard overview
-      else if (roleId === 2) navigate("/branches"); // admin -> BranchManagement
-      else if (roleId === 1) navigate("/branch-admin/products");
+      else if (roleId === 2) navigate("/admin/dashboard"); // admin -> BranchManagement
+      else if (roleId === 1) navigate("/branch-admin/dashboard");
       else if (roleId === 3) navigate("/cashier/dashboard");
       else if (roleId === 9) navigate("/kitchen/orders");
       else if (roleId === 8) navigate("/waiter/pos");
