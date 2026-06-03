@@ -16,7 +16,6 @@ import {
   getBranchProducts,
   getCategories,
   getProducts,
-  getBranches,
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
@@ -186,9 +185,8 @@ const AddProduct = () => {
         setLoading(true);
         setError("");
 
-        const branches = await getBranches();
-        const myBranch = branches.find(b => String(b.U_id) === String(user?.u_id)) || branches[0];
-        const myBranchId = myBranch?.B_id || null;
+        // Use b_id directly from the JWT token — no need to re-fetch all branches
+        const myBranchId = user?.b_id ?? null;
 
         if (mounted) setBranchId(myBranchId);
 

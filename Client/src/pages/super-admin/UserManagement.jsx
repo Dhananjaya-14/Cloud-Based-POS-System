@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { FaSearch, FaPlus, FaPen, FaTrash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
-import { getUsers, getRoles, createUser, deleteUserById, setAuthToken, logout } from "../../services/api";
+import { getUsers, getRoles, getCompanies, createUser, updateUser, deleteUserById, setAuthToken, logout } from "../../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
+import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
+import Spinner from "../../components/super-admin/Spinner";
 
 // Helper to get initials
 const getInitials = (name) => {
@@ -61,6 +63,9 @@ const StatusBadge = ({ status }) => {
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompany, setSelectedCompany] = useState("");
+  const [selectedRole, setSelectedRole] = useState("");
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -68,8 +73,35 @@ const UserManagement = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [togglingId, setTogglingId] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const handleToggleStatus = async (userId, currentStatus) => {
+    setTogglingId(userId);
+    try {
+      const s = String(currentStatus || "").toLowerCase();
+      const isActive = s === "active" || s === "true" || currentStatus === true;
+      const nextStatus = !isActive;
+
+      // Optimistic update locally
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.u_id === userId ? { ...u, u_status: nextStatus } : u
+        )
+      );
+
+      // Call API
+      await updateUser(userId, { u_status: nextStatus });
+    } catch (err) {
+      console.error("Error toggling user status:", err);
+      // Revert on error
+      fetchData();
+      alert("Failed to update status: " + (err.response?.data?.message || err.message));
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -95,12 +127,14 @@ const UserManagement = () => {
 
   const fetchData = async () => {
     try {
-      const [usersData, rolesData] = await Promise.all([
+      const [usersData, rolesData, companiesData] = await Promise.all([
         getUsers(),
-        getRoles()
+        getRoles(),
+        getCompanies().catch(() => [])
       ]);
       setUsers(Array.isArray(usersData) ? usersData : []);
       setRoles(Array.isArray(rolesData) ? rolesData : []);
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
     } catch (err) {
       console.error("Fetch error:", err);
       if (err.response?.status === 401) {
@@ -130,15 +164,35 @@ const UserManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) => {
-      const search = searchQuery.toLowerCase();
-      const fullName = `${u.u_fname} ${u.u_lname}`.toLowerCase();
-      const email = (u.u_email || "").toLowerCase();
-      const role = (u.role_name || "").toLowerCase();
-      return fullName.includes(search) || email.includes(search) || role.includes(search);
-    }
-  );
+  const filteredUsers = users.filter((u) => {
+    const search = searchQuery.toLowerCase();
+    const fullName = `${u.u_fname} ${u.u_lname}`.toLowerCase();
+    const email = (u.u_email || "").toLowerCase();
+    const role = (u.role_name || "").toLowerCase();
+    
+    const matchesSearch = fullName.includes(search) || email.includes(search) || role.includes(search);
+    const matchesCompany = !selectedCompany || String(u.com_id) === String(selectedCompany);
+    const matchesRole = !selectedRole || String(u.role_id) === String(selectedRole);
+    
+    return matchesSearch && matchesCompany && matchesRole;
+  });
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+        <Sidebar />
+        <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+          <Header title="User Management" />
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 70px)" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+              <Spinner size={44} />
+              <p style={{ margin: 0, color: "#6B7280", fontWeight: 600, fontSize: 16 }}>Loading User Management...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
@@ -185,34 +239,96 @@ const UserManagement = () => {
                 justifyContent: "space-between",
                 alignItems: "center",
                 marginBottom: 24,
+                gap: 16,
+                flexWrap: "wrap"
               }}
             >
               <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  background: "#F9FAFB",
-                  border: "1px solid #E5E7EB",
-                  padding: "10px 16px",
-                  borderRadius: 8,
-                  width: 400,
+                  gap: 12,
+                  flex: 1,
+                  minWidth: 300,
+                  flexWrap: "wrap"
                 }}
               >
-                <FaSearch color="#9CA3AF" size={14} />
-                <input
-                  type="text"
-                  placeholder="Search users by name, email, or role..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                <div
                   style={{
-                    border: "none",
-                    background: "transparent",
-                    marginLeft: 10,
-                    outline: "none",
+                    display: "flex",
+                    alignItems: "center",
+                    background: "#F9FAFB",
+                    border: "1px solid #E5E7EB",
+                    padding: "10px 16px",
+                    borderRadius: 8,
                     width: "100%",
-                    fontSize: 14,
+                    maxWidth: 320,
                   }}
-                />
+                >
+                  <FaSearch color="#9CA3AF" size={14} />
+                  <input
+                    type="text"
+                    placeholder="Search users..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      marginLeft: 10,
+                      outline: "none",
+                      width: "100%",
+                      fontSize: 14,
+                    }}
+                  />
+                </div>
+
+                {/* Company Filter Dropdown */}
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  style={{
+                    border: "1px solid #E5E7EB",
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    fontSize: 14,
+                    background: "#F9FAFB",
+                    color: "#374151",
+                    outline: "none",
+                    minWidth: 160,
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="">All Companies</option>
+                  {companies.map((c) => (
+                    <option key={c.com_id} value={String(c.com_id)}>
+                      {c.com_name}
+                    </option>
+                  ))}
+                </select>
+
+                {/* Role Filter Dropdown */}
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  style={{
+                    border: "1px solid #E5E7EB",
+                    borderRadius: 8,
+                    padding: "10px 14px",
+                    fontSize: 14,
+                    background: "#F9FAFB",
+                    color: "#374151",
+                    outline: "none",
+                    minWidth: 160,
+                    cursor: "pointer"
+                  }}
+                >
+                  <option value="">All Roles</option>
+                  {roles.map((r) => (
+                    <option key={r.role_id} value={String(r.role_id)}>
+                      {r.role_name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
@@ -241,6 +357,7 @@ const UserManagement = () => {
                 <tr style={{ borderBottom: "2px solid #E5E7EB" }}>
                   <th style={thStyle}>NAME</th>
                   <th style={thStyle}>EMAIL</th>
+                  <th style={thStyle}>COMPANY</th>
                   <th style={thStyle}>ROLE</th>
                   <th style={thStyle}>STATUS</th>
                   <th style={thStyle}>ACTIONS</th>
@@ -249,8 +366,8 @@ const UserManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="5" style={{ padding: 20, textAlign: "center" }}>
-                      Loading...
+                    <td colSpan="6" style={{ padding: 20 }}>
+                      <Spinner />
                     </td>
                   </tr>
                 ) : filteredUsers.length > 0 ? (
@@ -280,12 +397,19 @@ const UserManagement = () => {
                           </div>
                         </td>
                         <td style={tdStyle}>{user.u_email || "—"}</td>
+                        <td style={tdStyle}>{user.company_name || "—"}</td>
                         <td style={tdStyle}>
                           <RoleBadge role={user.role_name} />
                         </td>
-                        <td style={tdStyle}>
-                          {/* Fallback to active if no status available, adjusting to API */}
-                          <StatusBadge status={user.u_status !== undefined ? user.u_status : "Active"} />
+                        <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <ToggleSwitch
+                              checked={String(user.u_status !== undefined ? user.u_status : "Active").toLowerCase() === "active" || String(user.u_status).toLowerCase() === "true" || user.u_status === true}
+                              onChange={() => handleToggleStatus(user.u_id, user.u_status)}
+                              disabled={togglingId === user.u_id}
+                            />
+                            {togglingId === user.u_id && <Spinner size={16} />}
+                          </div>
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", gap: 10 }}>
@@ -314,7 +438,7 @@ const UserManagement = () => {
                   })
                 ) : (
                   <tr>
-                    <td colSpan="5" style={{ padding: 20, textAlign: "center" }}>
+                    <td colSpan="6" style={{ padding: 20, textAlign: "center" }}>
                       No users found
                     </td>
                   </tr>
@@ -392,9 +516,14 @@ const UserManagement = () => {
                 style={{
                   padding: "10px 20px", borderRadius: 8, border: "none",
                   background: "#EF4444", color: "#fff", fontSize: 14, fontWeight: 600,
-                  cursor: isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.7 : 1
+                  cursor: isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8
                 }}
               >
+                {isDeleting && <Spinner size={14} color="#ffffff" />}
                 {isDeleting ? "Deleting..." : "Delete"}
               </button>
             </div>

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import { createProduct, getCompanies } from "../../services/api";
+import { createProduct, getCompanies, getCategories } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const cardStyle = {
@@ -49,10 +49,58 @@ const AddProduct = () => {
     pro_price: "",
     pro_image: "",
     com_id: "",
+    cat_id: "",
+    add_ons: {
+      Cheese: true,
+      Bacon: true,
+    },
+    stations: {
+      Kitchen: true,
+      Bar: true,
+    },
   });
   const [submitting, setSubmitting] = useState(false);
+
+  const toggleCheckbox = (group, key) => {
+    setForm((prev) => ({
+      ...prev,
+      [group]: {
+        ...prev[group],
+        [key]: !prev[group][key],
+      },
+    }));
+  };
+  const [newAddOn, setNewAddOn] = useState("");
+  const [newStation, setNewStation] = useState("");
+
+  const handleAddAddOn = () => {
+    if (!newAddOn.trim()) return;
+    const key = newAddOn.trim();
+    setForm((prev) => ({
+      ...prev,
+      add_ons: {
+        ...prev.add_ons,
+        [key]: true,
+      },
+    }));
+    setNewAddOn("");
+  };
+
+  const handleAddStation = () => {
+    if (!newStation.trim()) return;
+    const key = newStation.trim();
+    setForm((prev) => ({
+      ...prev,
+      stations: {
+        ...prev.stations,
+        [key]: true,
+      },
+    }));
+    setNewStation("");
+  };
   const [error, setError] = useState("");
   const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -76,6 +124,15 @@ const AddProduct = () => {
     };
 
     loadCompany();
+
+    // Fetch categories
+    getCategories()
+      .then((cats) => {
+        if (!Array.isArray(cats) || cats.length === 0) return;
+        setCategories(cats);
+        setForm((prev) => ({ ...prev, cat_id: String(cats[0].cat_id) }));
+      })
+      .catch(() => {});
 
     return () => {
       isMounted = false;
@@ -102,6 +159,9 @@ const AddProduct = () => {
         pro_price: Number(form.pro_price),
         pro_image: form.pro_image.trim() || "N/A",
         com_id: Number(form.com_id || user?.com_id || 1),
+        cat_id: Number(form.cat_id) || undefined,
+        add_ons: form.add_ons,
+        stations: form.stations,
       };
 
       await createProduct(payload);
@@ -112,6 +172,14 @@ const AddProduct = () => {
         pro_qty: "",
         pro_price: "",
         pro_image: "",
+        add_ons: {
+          Cheese: true,
+          Bacon: true,
+        },
+        stations: {
+          Kitchen: true,
+          Bar: true,
+        },
       }));
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save product");
@@ -151,6 +219,8 @@ const AddProduct = () => {
                     <label style={labelStyle}>Category</label>
                     <div style={{ position: "relative" }}>
                       <select
+                        value={form.cat_id}
+                        onChange={handleChange("cat_id")}
                         style={{
                           ...inputStyle,
                           appearance: "none",
@@ -159,7 +229,15 @@ const AddProduct = () => {
                           paddingRight: "30px",
                         }}
                       >
-                        <option></option>
+                        {categories.length === 0 ? (
+                          <option value="">Loading...</option>
+                        ) : (
+                          categories.map((cat) => (
+                            <option key={cat.cat_id} value={cat.cat_id}>
+                              {cat.cat_name}
+                            </option>
+                          ))
+                        )}
                       </select>
                       <FaChevronDown
                         size={10}
@@ -292,74 +370,140 @@ const AddProduct = () => {
               <h2 style={{ ...sectionTitleStyle, fontSize: "30px", marginBottom: "10px" }}>Modifiers</h2>
 
               <div style={{ ...cardStyle, minHeight: "386px", display: "flex", flexDirection: "column", padding: "12px" }}>
-                <div
-                  style={{
-                    width: "146px",
-                    border: "1px solid #D5E2EE",
-                    borderRadius: "12px",
-                    padding: "10px 12px 8px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <div style={{ fontSize: "16px", fontWeight: "700", marginBottom: "6px" }}>Add-Ons</div>
-                  {[
-                    ["Cheese", true],
-                    ["Bacon", true],
-                  ].map(([name, checked]) => (
-                    <label
-                      key={name}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: "8px",
-                        fontSize: "16px",
-                        lineHeight: 1,
-                      }}
-                    >
-                      <span>{name}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
+                  <div
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      border: "1px solid #D5E2EE",
+                      borderRadius: "12px",
+                      padding: "10px 12px 8px",
+                    }}
+                  >
+                    <div style={{ fontSize: "16px", fontWeight: "700", marginBottom: "6px" }}>Add-Ons</div>
+                    {Object.entries(form.add_ons).map(([key, value]) => (
+                      <label
+                        key={key}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: "8px",
+                          fontSize: "16px",
+                          lineHeight: 1,
+                        }}
+                      >
+                        <span>{key}</span>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={() => toggleCheckbox("add_ons", key)}
+                          style={{ accentColor: "#83CAE8", width: "14px", height: "14px", transform: "translateY(1px)" }}
+                        />
+                      </label>
+                    ))}
+                    <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
                       <input
-                        type="checkbox"
-                        defaultChecked={checked}
-                        style={{ accentColor: "#83CAE8", width: "14px", height: "14px", transform: "translateY(1px)" }}
+                        placeholder="New Add-on"
+                        value={newAddOn}
+                        onChange={(e) => setNewAddOn(e.target.value)}
+                        style={{
+                          flex: 1,
+                          height: "22px",
+                          borderRadius: "6px",
+                          border: "1px solid #C9DDF3",
+                          padding: "0 6px",
+                          fontSize: "12px",
+                          outline: "none",
+                          background: "#fff",
+                        }}
                       />
-                    </label>
-                  ))}
-                </div>
+                      <button
+                        type="button"
+                        onClick={handleAddAddOn}
+                        style={{
+                          height: "22px",
+                          padding: "0 8px",
+                          background: "#0E6DCF",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
 
-                <div
-                  style={{
-                    width: "146px",
-                    border: "1px solid #D5E2EE",
-                    borderRadius: "12px",
-                    padding: "10px 12px 8px",
-                    marginBottom: "16px",
-                  }}
-                >
-                  <div style={{ fontSize: "16px", fontWeight: "700", marginBottom: "6px" }}>Stations</div>
-                  {[
-                    ["Kitchen", true],
-                    ["Bar", true],
-                  ].map(([name, checked]) => (
-                    <label
-                      key={name}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "space-between",
-                        marginBottom: "8px",
-                        fontSize: "16px",
-                        lineHeight: 1,
-                      }}
-                    >
-                      <span>{name}</span>
+                  <div
+                    style={{
+                      width: "100%",
+                      boxSizing: "border-box",
+                      border: "1px solid #D5E2EE",
+                      borderRadius: "12px",
+                      padding: "10px 12px 8px",
+                    }}
+                  >
+                    <div style={{ fontSize: "16px", fontWeight: "700", marginBottom: "6px" }}>Stations</div>
+                    {Object.entries(form.stations).map(([key, value]) => (
+                      <label
+                        key={key}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginBottom: "8px",
+                          fontSize: "16px",
+                          lineHeight: 1,
+                        }}
+                      >
+                        <span>{key}</span>
+                        <input
+                          type="checkbox"
+                          checked={value}
+                          onChange={() => toggleCheckbox("stations", key)}
+                          style={{ accentColor: "#83CAE8", width: "14px", height: "14px", transform: "translateY(1px)" }}
+                        />
+                      </label>
+                    ))}
+                    <div style={{ display: "flex", gap: "6px", marginTop: "8px" }}>
                       <input
-                        type="checkbox"
-                        defaultChecked={checked}
-                        style={{ accentColor: "#83CAE8", width: "14px", height: "14px", transform: "translateY(1px)" }}
+                        placeholder="New Station"
+                        value={newStation}
+                        onChange={(e) => setNewStation(e.target.value)}
+                        style={{
+                          flex: 1,
+                          height: "22px",
+                          borderRadius: "6px",
+                          border: "1px solid #C9DDF3",
+                          padding: "0 6px",
+                          fontSize: "12px",
+                          outline: "none",
+                          background: "#fff",
+                        }}
                       />
-                    </label>
-                  ))}
+                      <button
+                        type="button"
+                        onClick={handleAddStation}
+                        style={{
+                          height: "22px",
+                          padding: "0 8px",
+                          background: "#0E6DCF",
+                          color: "#fff",
+                          border: "none",
+                          borderRadius: "6px",
+                          fontSize: "12px",
+                          fontWeight: "700",
+                          cursor: "pointer",
+                        }}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
 
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
