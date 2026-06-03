@@ -263,7 +263,7 @@ const KitchenManagement = () => {
 								ORD{String(order.or_id).padStart(5, "0")}
 							</div>
 							<div className="text-[14px] font-semibold text-slate-500">
-								{order.or_type || "Dine in"} | {formatToLocalTime(order.or_date, order.or_time)}
+								{order.or_type || "Dine in"} | {order.or_time?.slice(0, 5) || "--:--"}
 							</div>
 						</div>
 
@@ -275,7 +275,7 @@ const KitchenManagement = () => {
 							</span>
 							<span className="text-[12px] font-semibold text-slate-400 flex items-center gap-1">
 								<FaClock />
-								<span>{order.or_time || "--:--"}</span>
+								<span>{order.or_time?.slice(0, 5) || "--:--"}</span>
 							</span>
 						</div>
 					</div>

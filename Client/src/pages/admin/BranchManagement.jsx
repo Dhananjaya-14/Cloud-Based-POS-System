@@ -8,6 +8,8 @@ import Button from "../../components/admin/Button";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, setAuthToken, logout } from "../../services/api";
 import { connectSocket } from "../../services/socket";
+import Spinner from "../../components/super-admin/Spinner";
+
 
 const SIDEBAR_WIDTH = 240;
 const HEADER_HEIGHT = 64;
@@ -16,7 +18,9 @@ const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [searchQuery,setSearchQuery]=useState("");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -59,14 +63,19 @@ const BranchManagement = () => {
 
   const fetchBranches = async () => {
     try {
+      setLoading(true);
+
       const data = await getBranches();
       setBranches(data);
     } catch (err) {
       console.error("fetchBranches error:", err);
+
       if (err.response?.status === 401) {
         logout();
         navigate("/login");
       }
+    } finally {
+      setLoading(false);
     }
   };
 
