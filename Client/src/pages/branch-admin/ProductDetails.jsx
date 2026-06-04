@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaArrowLeft, FaChevronDown, FaCheck, FaMinus, FaPlus } from "react-icons/fa";
+import { FaArrowLeft, FaChevronDown, FaCheck, FaMinus, FaPlus, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
@@ -114,6 +114,34 @@ const ProductDetails = () => {
 	const [saving, setSaving] = useState(false);
 	const [error, setError] = useState("");
 	const [success, setSuccess] = useState("");
+	const [newAddOn, setNewAddOn] = useState("");
+	const [newStation, setNewStation] = useState("");
+
+	const handleAddAddOn = () => {
+		if (!newAddOn.trim()) return;
+		const key = newAddOn.trim();
+		setForm((prev) => ({
+			...prev,
+			add_ons: {
+				...prev.add_ons,
+				[key]: true,
+			},
+		}));
+		setNewAddOn("");
+	};
+
+	const handleAddStation = () => {
+		if (!newStation.trim()) return;
+		const key = newStation.trim();
+		setForm((prev) => ({
+			...prev,
+			stations: {
+				...prev.stations,
+				[key]: true,
+			},
+		}));
+		setNewStation("");
+	};
 	const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
 	const [categories, setCategories] = useState([]);
 	const [product, setProduct] = useState(null);
@@ -166,11 +194,11 @@ const ProductDetails = () => {
 					description: "",
 					track_inventory: true,
 					low_stock: String(Math.max(1, Math.min(Number(productData?.pro_qty ?? 10), 10))),
-					add_ons: {
+					add_ons: productData?.add_ons || {
 						Cheese: true,
 						Bacon: true,
 					},
-					stations: {
+					stations: productData?.stations || {
 						Kitchen: true,
 						Bar: true,
 					},
@@ -243,6 +271,8 @@ const ProductDetails = () => {
 				pro_price: Number(form.pro_price),
 				pro_image: form.pro_image.trim() || null,
 				cat_id: cat_id,
+				add_ons: form.add_ons,
+				stations: form.stations,
 			});
 			setProduct(updated);
 			setSuccess("Product updated successfully");
@@ -424,37 +454,111 @@ const ProductDetails = () => {
 
 						<div style={{ paddingTop: "34px" }}>
 							<h2 style={{ ...sectionTitleStyle, fontSize: "20px", marginBottom: "8px" }}>Modifiers</h2>
-							<div style={cardStyle}>
-								<div style={{ fontSize: "14px", fontWeight: "700", color: "#374151", marginBottom: "8px" }}>Add-Ons</div>
-								<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-									{Object.entries(form.add_ons).map(([key, value]) => (
-										<label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "14px", color: "#374151" }}>
-											<span>{key}</span>
-											<button type="button" onClick={() => toggleModifier("add_ons", key)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
-												<span style={badgeStyle}>
-													<FaCheck size={9} />
-													{value ? "On" : "Off"}
-												</span>
-											</button>
-										</label>
-									))}
-								</div>
-							</div>
+							<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginBottom: "22px" }}>
+								<div style={cardStyle}>
+									<div style={{ fontSize: "14px", fontWeight: "700", color: "#374151", marginBottom: "8px" }}>Add-Ons</div>
+									<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+										{Object.entries(form.add_ons).map(([key, value]) => (
+											<label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "14px", color: "#374151" }}>
+												<span>{key}</span>
+												<button type="button" onClick={() => toggleModifier("add_ons", key)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
+													<span style={{ ...badgeStyle, background: value ? "#E8F7EC" : "#FCE8E6", color: value ? "#15803D" : "#B91C1C" }}>
+														{value ? <FaCheck size={9} /> : <FaTimes size={9} />}
+														{value ? "On" : "Off"}
+													</span>
+												</button>
+											</label>
+										))}
+									</div>
 
-							<h2 style={{ ...sectionTitleStyle, fontSize: "20px", marginTop: "22px", marginBottom: "8px" }}>Stations</h2>
-							<div style={cardStyle}>
-								<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-									{Object.entries(form.stations).map(([key, value]) => (
-										<label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "14px", color: "#374151" }}>
-											<span>{key}</span>
-											<button type="button" onClick={() => toggleModifier("stations", key)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
-												<span style={badgeStyle}>
-													<FaCheck size={9} />
-													{value ? "On" : "Off"}
-												</span>
-											</button>
-										</label>
-									))}
+									{/* Dynamic Add-On Input */}
+									<div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+										<input
+											placeholder="Add new add-on..."
+											value={newAddOn}
+											onChange={(e) => setNewAddOn(e.target.value)}
+											style={{
+												flex: 1,
+												height: "26px",
+												borderRadius: "8px",
+												border: "1px solid #D6E2EF",
+												padding: "0 10px",
+												fontSize: "12px",
+												outline: "none",
+												background: "#F8FBFE",
+											}}
+										/>
+										<button
+											type="button"
+											onClick={handleAddAddOn}
+											style={{
+												height: "26px",
+												padding: "0 12px",
+												background: "#26B44A",
+												color: "#fff",
+												border: "none",
+												borderRadius: "8px",
+												fontSize: "12px",
+												fontWeight: "700",
+												cursor: "pointer",
+											}}
+										>
+											+ Add
+										</button>
+									</div>
+								</div>
+
+								<div style={cardStyle}>
+									<div style={{ fontSize: "14px", fontWeight: "700", color: "#374151", marginBottom: "8px" }}>Stations</div>
+									<div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+										{Object.entries(form.stations).map(([key, value]) => (
+											<label key={key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "12px", fontSize: "14px", color: "#374151" }}>
+												<span>{key}</span>
+												<button type="button" onClick={() => toggleModifier("stations", key)} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
+													<span style={{ ...badgeStyle, background: value ? "#E8F7EC" : "#FCE8E6", color: value ? "#15803D" : "#B91C1C" }}>
+														{value ? <FaCheck size={9} /> : <FaTimes size={9} />}
+														{value ? "On" : "Off"}
+													</span>
+												</button>
+											</label>
+										))}
+									</div>
+
+									{/* Dynamic Station Input */}
+									<div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+										<input
+											placeholder="Add new station..."
+											value={newStation}
+											onChange={(e) => setNewStation(e.target.value)}
+											style={{
+												flex: 1,
+												height: "26px",
+												borderRadius: "8px",
+												border: "1px solid #D6E2EF",
+												padding: "0 10px",
+												fontSize: "12px",
+												outline: "none",
+												background: "#F8FBFE",
+											}}
+										/>
+										<button
+											type="button"
+											onClick={handleAddStation}
+											style={{
+												height: "26px",
+												padding: "0 12px",
+												background: "#26B44A",
+												color: "#fff",
+												border: "none",
+												borderRadius: "8px",
+												fontSize: "12px",
+												fontWeight: "700",
+												cursor: "pointer",
+											}}
+										>
+											+ Add
+										</button>
+									</div>
 								</div>
 							</div>
 
