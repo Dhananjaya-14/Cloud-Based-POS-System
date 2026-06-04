@@ -5,6 +5,9 @@ import { ROLES } from "../middleware/authMiddleware.js";
 let io;
 
 const BRANCH_UPDATE_ROOM = "branch-updates";
+const KITCHEN_UPDATE_ROOM = "kitchen-updates";
+
+export const getCashierSocketRoom = (userId) => `cashier-updates:${userId}`;
 
 function extractSocketToken(socket) {
   const authToken = socket.handshake.auth?.token;
@@ -65,6 +68,14 @@ export const initializeSocket = (httpServer) => {
       socket.join(BRANCH_UPDATE_ROOM);
     }
 
+    if (roleId === ROLES.CASHIER && socket.user?.u_id) {
+      socket.join(getCashierSocketRoom(socket.user.u_id));
+    }
+
+    if (roleId === ROLES.KITCHEN_STAFF) {
+      socket.join(KITCHEN_UPDATE_ROOM);
+    }
+
     socket.emit("socket:ready", {
       message: "WebSocket connection established",
       socketId: socket.id,
@@ -123,3 +134,4 @@ export const emitSocketEvent = (eventName, payload, options = {}) => {
 };
 
 export const BRANCH_SOCKET_ROOM = BRANCH_UPDATE_ROOM;
+export const KITCHEN_SOCKET_ROOM = KITCHEN_UPDATE_ROOM;

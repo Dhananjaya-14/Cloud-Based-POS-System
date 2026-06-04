@@ -49,28 +49,18 @@ export const getBranches = async () => {
   return response.data;
 };
 
-export const getBranchById = async (branchId) => {
-  const response = await api.get(`/branches/${branchId}`);
+export const deleteBranch = async (id) => {
+  const response = await api.delete(`/branches/${id}`);
   return response.data;
 };
 
-export const createBranch = async (branchData) => {
-  const res = await api.post("/branches", branchData);
-  return res.data;
-};
+// export const deleteBranch = async (branchId) => {
+//   await api.delete(`/branches/${branchId}`);
+// };
 
-export const updateBranch = async (branchId, payload) => {
-  const response = await api.put(`/branches/${branchId}`, payload);
-  return response.data;
-};
-
-export const deleteBranch = async (branchId) => {
-  await api.delete(`/branches/${branchId}`);
-};
-
-export const deleteBranchById = async (branchId) => {
-  await api.delete(`/branches/${branchId}`);
-};
+// export const deleteBranchById = async (branchId) => {
+//   await api.delete(`/branches/${branchId}`);
+// };
 
 // ---------------- USERS ----------------
 
@@ -79,24 +69,24 @@ export const getUsers = async () => {
   return response.data;
 };
 
-export const getUserById = async (userId) => {
-  const response = await api.get(`/users/${userId}`);
-  return response.data;
-};
+// export const getUserById = async (userId) => {
+//   const response = await api.get(`/users/${userId}`);
+//   return response.data;
+// };
 
-export const createUser = async (userData) => {
-  const res = await api.post("/users", userData);
-  return res.data;
-};
+// export const createUser = async (userData) => {
+//   const res = await api.post("/users", userData);
+//   return res.data;
+// };
 
-export const updateUser = async (id, payload) => {
-  const response = await api.put(`/users/${id}`, payload);
-  return response.data;
-};
+// export const updateUser = async (id, payload) => {
+//   const response = await api.put(`/users/${id}`, payload);
+//   return response.data;
+// };
 
-export const deleteUserById = async (userId) => {
-  await api.delete(`/users/${userId}`);
-};
+// export const deleteUserById = async (userId) => {
+//   await api.delete(`/users/${userId}`);
+// };
 
 // ---------------- ROLES ----------------
 
@@ -144,14 +134,14 @@ export const createProduct = async (productData) => {
   return response.data;
 };
 
-export const updateProduct = async (productId, payload) => {
-  const response = await api.put(`/products/${productId}`, payload);
-  return response.data;
-};
+// export const updateProduct = async (productId, payload) => {
+//   const response = await api.put(`/products/${productId}`, payload);
+//   return response.data;
+// };
 
-export const deleteProduct = async (productId) => {
-  await api.delete(`/products/${productId}`);
-};
+// export const deleteProduct = async (productId) => {
+//   await api.delete(`/products/${productId}`);
+// };
 
 // ---------------- BRANCH PRODUCTS ----------------
 
@@ -252,16 +242,16 @@ export const getOrderItemsByOrderId = async (
   return response.data?.data || [];
 };
 
-export const createOrderItem = async (
-  orderItemData
-) => {
-  const response = await api.post(
-    "/order-items",
-    orderItemData
-  );
+// export const createOrderItem = async (
+//   orderItemData
+// ) => {
+//   const response = await api.post(
+//     "/order-items",
+//     orderItemData
+//   );
 
-  return response.data;
-};
+//   return response.data;
+// };
 
 export const deleteOrderItem = async (
   orderItemId
@@ -412,7 +402,79 @@ export const deleteWaiterOrder = async (
   return response.data;
 };
 
-// ---------------- STATS ----------------
+export const createOrderItem = async (orderItemData) => {
+  const response = await api.post("/order-items", orderItemData);
+  return response.data;
+};
+
+export const updateProduct = async (productId, payload) => {
+  const response = await api.put(`/products/${productId}`, payload);
+  return response.data;
+};
+
+export const deleteProduct = async (productId) => {
+  await api.delete(`/products/${productId}`);
+};
+
+export const getUserById = async (userId) => {
+  const response = await api.get(`/users/${userId}`);
+  return response.data;
+};
+
+export const updateUser = async (id, payload) => {
+  const response = await api.put(`/users/${id}`, payload);
+  return response.data;
+};
+
+export const getBranchById = async (branchId) => {
+  const response = await api.get(`/branches/${branchId}`);
+  return response.data;
+};
+
+export const updateBranch = async (branchId, payload) => {
+  const response = await api.put(`/branches/${branchId}`, payload);
+  return response.data;
+};
+
+export const deleteBranchById = async (branchId) => {
+  await api.delete(`/branches/${branchId}`);
+};
+
+export const createUser = async (userData) => {
+  const res = await api.post(`/users`, userData);
+  return res.data;
+};
+
+export const deleteUserById = async (userId) => {
+  await api.delete(`/users/${userId}`);
+};
+
+export const createBranch = async (branchData) => {
+  const res = await api.post(`/branches`, branchData);
+  return res.data;
+};
+
+export const setupBranchWithManager = async (combinedData) => {
+  try {
+    // 1. Create the Branch first (no longer requires U_id)
+    const newBranch = await createBranch({
+      ...combinedData.branch,
+      com_id: combinedData.com_id ?? 1,
+    });
+
+    const branchId = newBranch.B_id ?? newBranch.b_id ?? null;
+
+    // 2. Create the User (Manager), linking them to the Branch using the newly created branchId
+    const newUser = await createUser({
+      ...combinedData.manager,
+      B_id: branchId,
+    });
+
+    return { user: newUser, branch: newBranch };
+  } catch (error) {
+    throw error;
+  }
+};
 
 export const getStatsOverview = async () => {
   const res = await api.get("/stats/overview");
@@ -544,32 +606,32 @@ export const getPayments = async (
 
 // ---------------- SETUP HELPERS ----------------
 
-export const setupBranchWithManager = async (
-  combinedData
-) => {
-  try {
-    // Create branch
-    const newBranch = await createBranch({
-      ...combinedData.branch,
-      com_id: combinedData.com_id ?? 1,
-    });
+// export const setupBranchWithManager = async (
+//   combinedData
+// ) => {
+//   try {
+//     // Create branch
+//     const newBranch = await createBranch({
+//       ...combinedData.branch,
+//       com_id: combinedData.com_id ?? 1,
+//     });
 
-    const branchId =
-      newBranch.B_id ??
-      newBranch.b_id ??
-      null;
+//     const branchId =
+//       newBranch.B_id ??
+//       newBranch.b_id ??
+//       null;
 
-    // Create manager
-    const newUser = await createUser({
-      ...combinedData.manager,
-      B_id: branchId,
-    });
+//     // Create manager
+//     const newUser = await createUser({
+//       ...combinedData.manager,
+//       B_id: branchId,
+//     });
 
-    return {
-      user: newUser,
-      branch: newBranch,
-    };
-  } catch (error) {
-    throw error;
-  }
-};
+//     return {
+//       user: newUser,
+//       branch: newBranch,
+//     };
+//   } catch (error) {
+//     throw error;
+//   }
+// };

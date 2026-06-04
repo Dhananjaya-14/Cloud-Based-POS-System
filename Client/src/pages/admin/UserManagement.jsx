@@ -307,11 +307,13 @@ const UserManagement = () => {
                   }}
                 >
                   <option value="all">All Roles</option>
-                  {roles.map((role) => (
-                    <option key={role.role_id} value={String(role.role_id)}>
-                      {role.role_name}
-                    </option>
-                  ))}
+                  {roles
+                    .filter((role) => Number(role.role_id) !== 6)
+                    .map((role) => (
+                      <option key={role.role_id} value={String(role.role_id)}>
+                        {role.role_name}
+                      </option>
+                    ))}
                 </select>
               </div>
             </div>
@@ -596,11 +598,13 @@ const AddUserModal = ({ roles, form, onChange, onClose, onSubmit }) => {
                   color: "#334466",
                 }}
               >
-                {roles.map((role) => (
-                  <option key={role.role_id} value={String(role.role_id)}>
-                    {role.role_name}
-                  </option>
-                ))}
+                {roles
+                  .filter((role) => Number(role.role_id) !== 6)
+                  .map((role) => (
+                    <option key={role.role_id} value={String(role.role_id)}>
+                      {role.role_name}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>

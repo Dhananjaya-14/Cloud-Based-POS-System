@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -26,10 +27,11 @@ function sanitizeBody(body, allowedFields) {
 const VALID_STATUSES = ["pending", "received"];
 
 // ─── GET /api/purchase-orders ─────────────────────────────────────────────────
+// ─── GET /api/purchase-orders ─────────────────────────────────────────────────
 export async function getPurchaseOrders(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT
+    const { role_id, com_id, b_id } = req.user;
+    let query = `SELECT
          po.po_id,
          po.status,
          po.order_date,
@@ -41,9 +43,28 @@ export async function getPurchaseOrders(req, res, next) {
          b."B_name"
        FROM purchase_order po
        JOIN "SUPPLIER" s ON s.sup_id = po.sup_id
-       JOIN "Branch"   b ON b."B_id" = po.b_id
-       ORDER BY po.order_date DESC`,
-    );
+       JOIN "Branch"   b ON b."B_id" = po.b_id`;
+
+    const conditions = [];
+    const params = [];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      conditions.push(`b.com_id = $${params.length + 1}`);
+      params.push(com_id);
+
+      if (b_id) {
+        conditions.push(`po.b_id = $${params.length + 1}`);
+        params.push(b_id);
+      }
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+
+    query += ` ORDER BY po.order_date DESC`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -54,18 +75,22 @@ export async function getPurchaseOrders(req, res, next) {
 export async function getPurchaseOrdersBySupplier(req, res, next) {
   try {
     const supId = parsePositiveInt(req.params.supId, "sup_id");
+    const { role_id, com_id, b_id } = req.user;
 
-    const supCheck = await pool.query(
-      `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`,
-      [supId],
-    );
+    // Verify supplier exists and belongs to company
+    let supQuery = `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`;
+    const supParams = [supId];
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      supQuery += ` AND "Com_id" = $2`;
+      supParams.push(com_id);
+    }
+    const supCheck = await pool.query(supQuery, supParams);
     if (supCheck.rows.length === 0) {
       res.status(404);
-      throw new Error(`Supplier with id ${supId} not found`);
+      throw new Error(`Supplier not found`);
     }
 
-    const result = await pool.query(
-      `SELECT
+    let query = `SELECT
          po.po_id,
          po.status,
          po.order_date,
@@ -78,11 +103,22 @@ export async function getPurchaseOrdersBySupplier(req, res, next) {
        FROM purchase_order po
        JOIN "SUPPLIER" s ON s.sup_id = po.sup_id
        JOIN "Branch"   b ON b."B_id" = po.b_id
-       WHERE po.sup_id = $1
-       ORDER BY po.order_date DESC`,
-      [supId],
-    );
+       WHERE po.sup_id = $1`;
+    const params = [supId];
 
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` AND b.com_id = $2`;
+      params.push(com_id);
+
+      if (b_id) {
+        query += ` AND po.b_id = $3`;
+        params.push(b_id);
+      }
+    }
+
+    query += ` ORDER BY po.order_date DESC`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -93,9 +129,9 @@ export async function getPurchaseOrdersBySupplier(req, res, next) {
 export async function getPurchaseOrderById(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "po_id");
+    const { role_id, com_id, b_id } = req.user;
 
-    const result = await pool.query(
-      `SELECT
+    let query = `SELECT
          po.po_id,
          po.status,
          po.order_date,
@@ -108,9 +144,20 @@ export async function getPurchaseOrderById(req, res, next) {
        FROM purchase_order po
        JOIN "SUPPLIER" s ON s.sup_id = po.sup_id
        JOIN "Branch"   b ON b."B_id" = po.b_id
-       WHERE po.po_id = $1`,
-      [id],
-    );
+       WHERE po.po_id = $1`;
+    const params = [id];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` AND b.com_id = $2`;
+      params.push(com_id);
+
+      if (b_id) {
+        query += ` AND po.b_id = $3`;
+        params.push(b_id);
+      }
+    }
+
+    const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       res.status(404);
@@ -176,21 +223,27 @@ export async function createPurchaseOrder(req, res, next) {
       }
     }
 
-    // ── Supplier existence check ──
-    const supCheck = await pool.query(
-      `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`,
-      [parsedSupId],
-    );
+    // ── Supplier existence & scoping check ──
+    let supQuery = `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`;
+    const supParams = [parsedSupId];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      supQuery += ` AND "Com_id" = $2`;
+      supParams.push(req.user.com_id);
+    }
+    const supCheck = await pool.query(supQuery, supParams);
     if (supCheck.rows.length === 0) {
       res.status(404);
       throw new Error(`Supplier with id ${parsedSupId} not found`);
     }
 
-    // ── Branch existence check ──
-    const branchCheck = await pool.query(
-      `SELECT "B_id" FROM "Branch" WHERE "B_id" = $1`,
-      [parsedBId],
-    );
+    // ── Branch existence & scoping check ──
+    let branchQuery = `SELECT "B_id" FROM "Branch" WHERE "B_id" = $1`;
+    const branchParams = [parsedBId];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      branchQuery += ` AND "com_id" = $2`;
+      branchParams.push(req.user.com_id);
+    }
+    const branchCheck = await pool.query(branchQuery, branchParams);
     if (branchCheck.rows.length === 0) {
       res.status(404);
       throw new Error(`Branch with id ${parsedBId} not found`);
@@ -235,11 +288,23 @@ export async function updatePurchaseOrder(req, res, next) {
 
     const { sup_id, B_id, status, order_date, received_date } = body;
 
-    // ── Existence check ──
-    const existing = await pool.query(
-      `SELECT po_id, status, order_date FROM purchase_order WHERE po_id = $1`,
-      [id],
-    );
+    // ── Existence & Scoping check ──
+    let existQuery = `
+      SELECT po.po_id, po.status, po.order_date 
+      FROM purchase_order po
+      JOIN "Branch" b ON b."B_id" = po.b_id
+      WHERE po.po_id = $1
+    `;
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND b.com_id = $2`;
+      existParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        existQuery += ` AND po.b_id = $3`;
+        existParams.push(req.user.b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Purchase order not found");
@@ -285,10 +350,13 @@ export async function updatePurchaseOrder(req, res, next) {
     // ── FK validations ──
     if (sup_id !== undefined) {
       const parsedSupId = parsePositiveInt(sup_id, "sup_id");
-      const supCheck = await pool.query(
-        `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`,
-        [parsedSupId],
-      );
+      let supQuery = `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`;
+      const supParams = [parsedSupId];
+      if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+        supQuery += ` AND "Com_id" = $2`;
+        supParams.push(req.user.com_id);
+      }
+      const supCheck = await pool.query(supQuery, supParams);
       if (supCheck.rows.length === 0) {
         res.status(404);
         throw new Error(`Supplier with id ${parsedSupId} not found`);
@@ -297,10 +365,13 @@ export async function updatePurchaseOrder(req, res, next) {
 
     if (B_id !== undefined) {
       const parsedBId = parsePositiveInt(B_id, "B_id");
-      const branchCheck = await pool.query(
-        `SELECT "B_id" FROM "Branch" WHERE "B_id" = $1`,
-        [parsedBId],
-      );
+      let branchQuery = `SELECT "B_id" FROM "Branch" WHERE "B_id" = $1`;
+      const branchParams = [parsedBId];
+      if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+        branchQuery += ` AND "com_id" = $2`;
+        branchParams.push(req.user.com_id);
+      }
+      const branchCheck = await pool.query(branchQuery, branchParams);
       if (branchCheck.rows.length === 0) {
         res.status(404);
         throw new Error(`Branch with id ${parsedBId} not found`);
@@ -333,7 +404,89 @@ export async function updatePurchaseOrder(req, res, next) {
   }
 }
 
-// ─── PATCH /api/purchase-orders/:id/status ───────────────────────────────────
+// // ─── PATCH /api/purchase-orders/:id/status ───────────────────────────────────
+// export async function updatePurchaseOrderStatus(req, res, next) {
+//   try {
+//     const id = parsePositiveInt(req.params.id, "po_id");
+
+//     const body = sanitizeBody(req.body, ["status"]);
+//     const { status } = body;
+
+//     if (!status) {
+//       res.status(400);
+//       throw new Error("status is required");
+//     }
+
+//     if (!VALID_STATUSES.includes(status)) {
+//       res.status(400);
+//       throw new Error(`status must be one of: ${VALID_STATUSES.join(", ")}`);
+//     }
+
+//     // ── Existence & Scoping check ──
+//     let existQuery = `
+//       SELECT po.po_id, po.status 
+//       FROM purchase_order po
+//       JOIN "Branch" b ON b."B_id" = po.b_id
+//       WHERE po.po_id = $1
+//     `;
+//     const existParams = [id];
+//     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+//       existQuery += ` AND b.com_id = $2`;
+//       existParams.push(req.user.com_id);
+//       if (req.user.b_id) {
+//         existQuery += ` AND po.b_id = $3`;
+//         existParams.push(req.user.b_id);
+//       }
+//     }
+//     const existing = await pool.query(existQuery, existParams);
+//     if (existing.rows.length === 0) {
+//       res.status(404);
+//       throw new Error("Purchase order not found");
+//     }
+
+//     const currentStatus = existing.rows[0].status;
+
+//     if (currentStatus === "received" && status !== "received") {
+//       res.status(409);
+//       throw new Error("Cannot revert a received purchase order back to pending");
+//     }
+
+//     if (currentStatus === status) {
+//       res.status(409);
+//       throw new Error(`Purchase order is already '${status}'`);
+//     }
+
+//     if (status === "received") {
+//       const itemCheck = await pool.query(
+//         `SELECT pi_id FROM purchase_item WHERE po_id = $1 LIMIT 1`,
+//         [id],
+//       );
+//       if (itemCheck.rows.length === 0) {
+//         res.status(422);
+//         throw new Error(
+//           "Cannot mark order as received — no purchase items exist for this order",
+//         );
+//       }
+//     }
+
+//     const result = await pool.query(
+//       `UPDATE purchase_order
+//        SET
+//          status        = $1::VARCHAR,
+//          received_date = CASE WHEN $1::VARCHAR = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
+//        WHERE po_id = $2
+//        RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
+//       [status, id],
+//     );
+
+//     res.json(result.rows[0]);
+//   } catch (err) {
+//     next(err);
+//   }
+// }
+
+
+
 export async function updatePurchaseOrderStatus(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "po_id");
@@ -351,10 +504,23 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       throw new Error(`status must be one of: ${VALID_STATUSES.join(", ")}`);
     }
 
-    const existing = await pool.query(
-      `SELECT po_id, status FROM purchase_order WHERE po_id = $1`,
-      [id],
-    );
+    // ── Existence & Scoping check ──
+    let existQuery = `
+      SELECT po.po_id, po.status, po.b_id
+      FROM purchase_order po
+      JOIN "Branch" b ON b."B_id" = po.b_id
+      WHERE po.po_id = $1
+    `;
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND b.com_id = $2`;
+      existParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        existQuery += ` AND po.b_id = $3`;
+        existParams.push(req.user.b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Purchase order not found");
@@ -372,6 +538,7 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       throw new Error(`Purchase order is already '${status}'`);
     }
 
+    // If marking as received, ensure there is at least one purchase_item
     if (status === "received") {
       const itemCheck = await pool.query(
         `SELECT pi_id FROM purchase_item WHERE po_id = $1 LIMIT 1`,
@@ -385,31 +552,89 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       }
     }
 
-    const result = await pool.query(
-      `UPDATE purchase_order
-       SET
-         status        = $1::VARCHAR,
-         received_date = CASE WHEN $1::VARCHAR = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
-       WHERE po_id = $2
-       RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
-      [status, id],
-    );
+    // Perform the status update and stock adjustments in a single transaction
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
 
-    res.json(result.rows[0]);
+      // If the target status is 'received', add each purchase_item.qty to the corresponding Raw_Material.stock_qty
+      if (status === "received") {
+        const items = await client.query(
+          `SELECT rm_id, qty FROM purchase_item WHERE po_id = $1`,
+          [id],
+        );
+
+        // Update each raw material stock
+        for (const it of items.rows) {
+          const adjQty = Number(it.qty) || 0;
+          if (adjQty === 0) continue;
+
+          const updateRes = await client.query(
+            `UPDATE "Raw_Material"
+             SET stock_qty = COALESCE(stock_qty, 0) + $1
+             WHERE rm_id = $2
+             RETURNING rm_id`,
+            [adjQty, it.rm_id],
+          );
+
+          if (updateRes.rows.length === 0) {
+            // Raw material missing or out-of-scope — abort
+            await client.query("ROLLBACK");
+            res.status(404);
+            throw new Error(`Raw material with id ${it.rm_id} not found`);
+          }
+        }
+      }
+
+      // Update purchase_order status + received_date
+      const result = await client.query(
+        `UPDATE purchase_order
+         SET
+           status        = $1::VARCHAR,
+           received_date = CASE WHEN $1::VARCHAR = 'received' THEN CURRENT_TIMESTAMP ELSE received_date END
+         WHERE po_id = $2
+         RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
+        [status, id],
+      );
+
+      await client.query("COMMIT");
+      res.json(result.rows[0]);
+    } catch (txErr) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     next(err);
   }
 }
+
+
+
 
 // ─── DELETE /api/purchase-orders/:id ─────────────────────────────────────────
 export async function deletePurchaseOrder(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "po_id");
 
-    const existing = await pool.query(
-      `SELECT po_id, status FROM purchase_order WHERE po_id = $1`,
-      [id],
-    );
+    // ── Existence & Scoping check ──
+    let existQuery = `
+      SELECT po.po_id, po.status 
+      FROM purchase_order po
+      JOIN "Branch" b ON b."B_id" = po.b_id
+      WHERE po.po_id = $1
+    `;
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND b.com_id = $2`;
+      existParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        existQuery += ` AND po.b_id = $3`;
+        existParams.push(req.user.b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Purchase order not found");

@@ -14,6 +14,19 @@ import {
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
+const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
+
+const resolveProductImage = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+  return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
+};
+
 const RecipeMapperDetail = () => {
   const navigate = useNavigate();
   const { productId } = useParams();
@@ -25,6 +38,7 @@ const RecipeMapperDetail = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [selectedRawMaterial, setSelectedRawMaterial] = useState("");
+  const [selectedUnit, setSelectedUnit] = useState("");
   const [quantityRequired, setQuantityRequired] = useState("");
   const [saving, setSaving] = useState(false);
   const [savingMapping, setSavingMapping] = useState(false);
@@ -107,9 +121,25 @@ const RecipeMapperDetail = () => {
     (material) => String(material.rm_id) === String(selectedRawMaterial)
   );
 
+  const unitOptions = useMemo(() => {
+    const units = new Set(["kg", "g", "l", "ml"]);
+    rawMaterials.forEach((material) => {
+      if (material?.unit) units.add(material.unit);
+    });
+    return Array.from(units);
+  }, [rawMaterials]);
+
+  useEffect(() => {
+    if (!selectedRawMaterial) {
+      setSelectedUnit("");
+      return;
+    }
+    setSelectedUnit(selectedMaterial?.unit || "");
+  }, [selectedRawMaterial, selectedMaterial?.unit]);
+
   const handleAddIngredient = async () => {
-    if (!selectedRawMaterial || !quantityRequired) {
-      setError("Select a raw material and quantity.");
+    if (!selectedRawMaterial || !quantityRequired || !selectedUnit) {
+      setError("Select a raw material, quantity, and unit.");
       return;
     }
 
@@ -135,12 +165,14 @@ const RecipeMapperDetail = () => {
         rawmaterial_id: Number(selectedRawMaterial),
         quantity_req: quantity,
         rm_name: selectedMaterial?.rm_name,
-        rm_unit: selectedMaterial?.unit,
+        rm_unit: selectedUnit || selectedMaterial?.unit,
       };
 
       setRecipeItems((prev) => [...prev, nextItem]);
       setSelectedRawMaterial("");
+      setSelectedUnit("");
       setQuantityRequired("");
+      setSelectedUnit("");
     } catch (err) {
       setError(err?.message || "Failed to add ingredient");
     } finally {
@@ -171,6 +203,7 @@ const RecipeMapperDetail = () => {
         ingredients: recipeItems.map((item) => ({
           rawmaterial_id: Number(item.rawmaterial_id),
           quantity_req: Number(item.quantity_req),
+          unit: item.rm_unit || null,
         })),
       };
 
@@ -191,7 +224,7 @@ const RecipeMapperDetail = () => {
     }
   };
 
-  const heroImage = product?.pro_image || "";
+  const heroImage = resolveProductImage(product?.pro_image);
   const categoryLabel = categoryMap.get(String(product?.cat_id)) || "Main Course";
   const description = product?.pro_des || "Popular savory dish, featuring a cooked seasoned ground meat patty served inside a sliced bun";
 
@@ -337,7 +370,12 @@ const RecipeMapperDetail = () => {
               <label style={labelStyle}>Ingredient Name</label>
               <select
                 value={selectedRawMaterial}
-                onChange={(event) => setSelectedRawMaterial(event.target.value)}
+                onChange={(event) => {
+                  const val = event.target.value;
+                  setSelectedRawMaterial(val);
+                  const mat = rawMaterials.find((m) => String(m.rm_id) === String(val));
+                  setSelectedUnit(mat ? (mat.unit || "") : "");
+                }}
                 style={inputStyle}
               >
                 <option value="">e.g., Fresh Tomatoes</option>
@@ -363,10 +401,17 @@ const RecipeMapperDetail = () => {
                 </div>
                 <div>
                   <label style={labelStyle}>Unit</label>
-                  <select value={selectedMaterial?.unit || ""} style={inputStyle} disabled>
-                    <option value={selectedMaterial?.unit || ""}>
-                      {selectedMaterial?.unit || "g (grams)"}
-                    </option>
+                  <select
+                    value={selectedUnit}
+                    onChange={(event) => setSelectedUnit(event.target.value)}
+                    style={inputStyle}
+                  >
+                    <option value="">Select unit</option>
+                    {unitOptions.map((unit) => (
+                      <option key={unit} value={unit}>
+                        {unit}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

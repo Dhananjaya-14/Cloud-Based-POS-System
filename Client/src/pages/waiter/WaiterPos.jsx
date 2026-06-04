@@ -17,6 +17,7 @@ import {
   FaCoffee,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
+import ToastMessage from "../../components/branch-admin/ToastMessage";
 import {
   getWaiterProfile,
   getBranchProducts,
@@ -24,6 +25,18 @@ import {
   createOrderItem,
   getCategories,
 } from "../../services/api";
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
+
+const resolveProductImage = (value) => {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+  return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
+};
 
 const getCategoryIcon = (name) => {
   const lower = String(name).toLowerCase();
@@ -47,8 +60,10 @@ const WaiterPos = () => {
   const { user, logout } = useAuth();
   
   const [branchName, setBranchName] = useState("Loading...");
+  const [branchId, setBranchId] = useState(null);
   const [roleName, setRoleName] = useState("Waiter");
   const [products, setProducts] = useState([]);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
   
   const [cart, setCart] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -64,6 +79,10 @@ const WaiterPos = () => {
   // Tax calculations
   const [taxRate, setTaxRate] = useState(10); // Example Tax
 
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+  };
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -73,14 +92,26 @@ const WaiterPos = () => {
       const profileData = profile?.data ?? null;
 
       if (profileData) {
+        const resolvedBranchId =
+          profileData.branch_id ?? profileData.b_id ?? profileData.B_id ?? null;
+
+        setBranchId(resolvedBranchId);
         setBranchName(profileData.b_name || "Assigned Branch");
+
         if (profileData.role_name) {
           setRoleName(profileData.role_name);
         }
-      }
 
-      const branchProductList = await getBranchProducts();
-      setProducts(Array.isArray(branchProductList) ? branchProductList : []);
+        if (!resolvedBranchId) {
+          setProducts([]);
+          setError("No branch is assigned to your account.");
+        } else {
+          const branchProductList = await getBranchProducts(resolvedBranchId);
+          setProducts(Array.isArray(branchProductList) ? branchProductList : []);
+        }
+      } else {
+        setProducts([]);
+      }
 
       const catsRes = await getCategories();
       if (catsRes) {
@@ -124,15 +155,26 @@ const WaiterPos = () => {
   const total = taxableBase + taxAmount;
 
   const addToCart = (product) => {
+    const stockCount = Number(product.pro_quantity ?? 0);
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
       if (existing) {
+        if (existing.qty >= stockCount) {
+          showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
+          return currentCart;
+        }
         return currentCart.map((item) =>
           item.Bpro_id === product.Bpro_id
             ? { ...item, qty: item.qty + 1 }
             : item
         );
       }
+
+      if (stockCount <= 0) {
+        showToast("This item is out of stock.", "error");
+        return currentCart;
+      }
+
       return [
         ...currentCart,
         {
@@ -146,11 +188,22 @@ const WaiterPos = () => {
   };
 
   const updateQuantity = (Bpro_id, delta) => {
+    const product = products.find((p) => p.Bpro_id === Bpro_id);
+    const stockCount = Number(product?.pro_quantity ?? 0);
+
     setCart((currentCart) =>
       currentCart
-        .map((item) =>
-          item.Bpro_id === Bpro_id ? { ...item, qty: item.qty + delta } : item
-        )
+        .map((item) => {
+          if (item.Bpro_id === Bpro_id) {
+            const nextQty = item.qty + delta;
+            if (delta > 0 && nextQty > stockCount) {
+              showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
+              return item;
+            }
+            return { ...item, qty: nextQty };
+          }
+          return item;
+        })
         .filter((item) => item.qty > 0)
     );
   };
@@ -194,7 +247,7 @@ const WaiterPos = () => {
       );
 
       setCart([]);
-      alert("Order placed successfully!");
+      showToast("Order placed successfully!", "success");
       
     } catch (err) {
       console.error(err);
@@ -223,6 +276,13 @@ const WaiterPos = () => {
   
     return (
       <div className="flex h-screen flex-col overflow-hidden bg-slate-50 font-sans text-slate-800">
+        {toast.show && (
+          <ToastMessage
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast((current) => ({ ...current, show: false }))}
+          />
+        )}
         {/* Top Header */}
         <header className="border-b border-black/5 bg-gradient-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)] flex-none">
           <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
@@ -324,14 +384,13 @@ const WaiterPos = () => {
                     className="group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border border-slate-100 bg-white p-3 shadow-sm transition-all hover:-translate-y-1 hover:border-[#0A5BAE]/30 hover:shadow-xl md:p-4"
                   >
                     <div className="relative mb-3 aspect-square w-full overflow-hidden rounded-xl bg-slate-50">
-                      {p.pro_image ? (
+                      {resolveProductImage(p.pro_image) ? (
                         <img
-                          src={`http://localhost:5000/images/${p.pro_image}`}
+                          src={resolveProductImage(p.pro_image)}
                           alt={p.pro_name}
                           className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                           onError={(e) => {
-                            e.target.onerror = null;
-                            e.target.src = "https://via.placeholder.com/150?text=No+Image";
+                            e.currentTarget.style.display = "none";
                           }}
                         />
                       ) : (

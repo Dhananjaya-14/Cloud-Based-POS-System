@@ -11,6 +11,7 @@ import {
   FaCog,
   FaSignOutAlt,
   FaUsers,
+  
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -169,7 +170,7 @@ const Sidebar = () => {
           {isInventoryOpen && (
             <>
               {subItem("Inventory", "/branch-admin/inventory")}
-              {subItem("Add Raw Ingredient", "/branch-admin/raw-ingredient")}
+              {subItem("Add Inventory Item", "/branch-admin/raw-ingredient")}
               {subItem("Supplier Directory", "/branch-admin/suppliers")}
               {subItem("Recipe Mapper", "/branch-admin/recipe-mapper")}
             </>
@@ -184,7 +185,7 @@ const Sidebar = () => {
           )}
           {isStatisticsOpen && (
             <>
-              {subItem("Sales&Revenue", "/branch-admin/sales-revenue")}
+              {subItem("Sales & Revenue", "/branch-admin/sales-revenue")}
               {subItem("Cashier Performance", "/branch-admin/cashier-performance")}
             </>
           )}
@@ -195,12 +196,14 @@ const Sidebar = () => {
             "/branch-admin/transactions",
             isExactActive("/branch-admin/transactions")
           )}
+          
         </div>
       </div>
 
       <div>
         {menuItem(<FaCog />, "Settings", "/branch-admin/settings", isExactActive("/branch-admin/settings"))}
         {menuItem(<FaSignOutAlt />, "Log Out", "/logout", isExactActive("/logout"))}
+        
       </div>
     </div>
   );

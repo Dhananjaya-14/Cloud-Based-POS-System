@@ -4,6 +4,7 @@ import { FaArrowLeft, FaPlus, FaEye, FaEyeSlash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import { getRoles, getBranches, getCompanies, createUser, setAuthToken, logout } from "../../services/api";
+import Spinner from "../../components/super-admin/Spinner";
 
 const AddUser = () => {
   const navigate = useNavigate();
@@ -134,6 +135,23 @@ const AddUser = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+        <Sidebar />
+        <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+          <Header title="User Management" />
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 70px)" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+              <Spinner size={44} />
+              <p style={{ margin: 0, color: "#6B7280", fontWeight: 600, fontSize: 16 }}>Loading User Form...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
       <Sidebar />
@@ -179,10 +197,7 @@ const AddUser = () => {
               </div>
             )}
 
-            {loading ? (
-              <div style={{ textAlign: "center", padding: 40, color: "#6B7280" }}>Loading...</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
                 {/* Profile Picture & Names */}
                 <div style={{ display: "flex", gap: 40, alignItems: "center" }}>
@@ -360,15 +375,18 @@ const AddUser = () => {
                     style={{
                       background: "#22C55E", color: "#fff", padding: "12px 32px", border: "none",
                       borderRadius: 8, fontSize: 15, fontWeight: 600,
-                      cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1
+                      cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1,
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8
                     }}
                   >
+                    {isSaving && <Spinner size={14} color="#ffffff" />}
                     {isSaving ? "Saving..." : "Save User"}
                   </button>
                 </div>
 
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

@@ -1,5 +1,11 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import {
+  emitSocketEvent,
+  getCashierSocketRoom,
+  KITCHEN_SOCKET_ROOM,
+} from "../utils/socket.js";
+import { adjustStockForOrderItem } from "./orderItemController.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -312,6 +318,8 @@ export const createOrder = async (req, res) => {
         table_id ?? null,
       ],
     );
+
+    emitSocketEvent("order:created", rows[0]);
 
     res.status(201).json({ success: true, data: rows[0] });
   } catch (err) {
@@ -681,6 +689,18 @@ export const updateOrderStatus = async (req, res) => {
       [status, id],
     );
 
+    emitSocketEvent(
+      "order:updated",
+      rows[0],
+      { room: KITCHEN_SOCKET_ROOM },
+    );
+
+    if (status === "completed") {
+      emitSocketEvent("order:ready", rows[0], {
+        room: getCashierSocketRoom(rows[0].u_id),
+      });
+    }
+
     res.status(200).json({ success: true, data: rows[0] });
   } catch (err) {
     if (err.code === "23514") {
@@ -740,6 +760,17 @@ export const deleteOrder = async (req, res) => {
     let rows;
     try {
       await client.query("BEGIN");
+
+      // Fetch all items in the order to restore their raw materials
+      const itemsResult = await client.query(
+        `SELECT "Bpro_id", pro_quantity FROM public."ORDER_ITEM" WHERE order_id = $1`,
+        [id]
+      );
+
+      for (const item of itemsResult.rows) {
+        await adjustStockForOrderItem(client, item.Bpro_id, item.pro_quantity, "add");
+      }
+
       await client.query(`DELETE FROM public."ORDER_ITEM" WHERE order_id = $1`, [
         id,
       ]);

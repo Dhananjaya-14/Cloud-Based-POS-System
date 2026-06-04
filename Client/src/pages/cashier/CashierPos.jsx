@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaBed,
@@ -20,7 +20,7 @@ import { useAuth } from "../../context/AuthContext";
 import {
   createOrder,
   createOrderItem,
-  getBranches,
+  getBranchById,
   getBranchProducts,
   getOrders,
   getOrderItemsByOrderId,
@@ -28,6 +28,14 @@ import {
   updateOrder,
   deleteOrderItem,
 } from "../../services/api";
+import { connectSocket } from "../../services/socket";
+import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
+import {
+  addOrderReadyAlert,
+  dismissOrderReadyAlert,
+  loadOrderReadyAlerts,
+  saveOrderReadyAlerts,
+} from "../../utils/orderReadyAlerts";
 
 const categories = [
   { label: "All Items", icon: FaStore, active: true },
@@ -64,13 +72,17 @@ const CashierPos = () => {
   const [waiterOrders, setWaiterOrders] = useState([]);
   const [showWaiterOrdersModal, setShowWaiterOrdersModal] = useState(false);
   const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
+  const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
   const fetchWaiterOrders = async () => {
     try {
       setLoadingWaiterOrders(true);
-      const allOrders = await getOrders();
+      const allOrders = await getOrders(branchId ? { b_id: branchId } : {});
       const activeDineIn = allOrders.filter(
-        (o) => o.or_type === "dine-in" && o.or_status !== "cancelled"
+        (o) =>
+          o.or_type === "dine-in" &&
+          o.or_status !== "cancelled" &&
+          (!branchId || String(o.b_id) === String(branchId))
       );
       setWaiterOrders(activeDineIn);
     } catch (err) {
@@ -91,19 +103,20 @@ const CashierPos = () => {
         setLoading(true);
         setError("");
 
-        const branchList = await getBranches();
-        const matchedBranch =
-          branchList.find((branch) => String(branch.U_id) === String(user?.u_id)) ??
-          branchList[0];
+        const branchId = user?.b_id ?? user?.B_id ?? null;
 
-        const matchedBranchId = matchedBranch?.B_id ?? null;
-        setBranchId(matchedBranchId);
-        setBranchName(matchedBranch?.B_name ?? "Selected branch");
+        if (!branchId) {
+          setError("No branch is assigned to your account.");
+          setLoading(false);
+          return;
+        }
 
-        const branchProductList = matchedBranchId
-          ? await getBranchProducts(matchedBranchId)
-          : [];
+        const branch = await getBranchById(branchId);
+        const name = branch?.B_name ?? branch?.data?.B_name ?? "Selected branch";
+        setBranchId(branchId);
+        setBranchName(name);
 
+        const branchProductList = await getBranchProducts(branchId);
         setProducts(branchProductList);
       } catch (loadError) {
         setError(
@@ -117,7 +130,50 @@ const CashierPos = () => {
     };
 
     loadPosData();
+  }, [user?.b_id, user?.B_id]);
+
+  useEffect(() => {
+    if (!user?.u_id) {
+      setOrderReadyAlerts([]);
+      return;
+    }
+
+    setOrderReadyAlerts(loadOrderReadyAlerts(user.u_id));
   }, [user?.u_id]);
+
+  useEffect(() => {
+    const socket = connectSocket();
+
+    const handleOrderReady = (order) => {
+      if (!order) return;
+      if (user?.u_id && order.u_id && Number(order.u_id) !== Number(user.u_id)) {
+        return;
+      }
+
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = addOrderReadyAlert(currentAlerts, order);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+    };
+
+    socket.on("order:ready", handleOrderReady);
+
+    return () => {
+      socket.off("order:ready", handleOrderReady);
+    };
+  }, [user?.u_id]);
+
+  const handleDismissOrderReady = useCallback(
+    (orderId) => {
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = dismissOrderReadyAlert(currentAlerts, orderId);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+    },
+    [user?.u_id],
+  );
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -418,6 +474,7 @@ const CashierPos = () => {
 
   return (
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
+      <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
       <header className="border-b border-black/5 bg-linear-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)]">
         <div className="mx-auto flex max-w-350 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">

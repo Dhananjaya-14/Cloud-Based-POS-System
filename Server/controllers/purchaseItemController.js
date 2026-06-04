@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -40,8 +41,8 @@ const MAX_UNIT_PRICE = 999_999.99;
 // ─── GET /api/purchase-items ──────────────────────────────────────────────────
 export async function getPurchaseItems(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT
+    const { role_id, com_id, b_id } = req.user;
+    let query = `SELECT
          pi.pi_id,
          pi.qty,
          pi.price,
@@ -51,12 +52,37 @@ export async function getPurchaseItems(req, res, next) {
          po.order_date,
          rm.rm_id,
          rm.rm_name,
-         rm.unit        AS rm_unit
+         rm.unit        AS rm_unit,
+         b."B_id"       AS branch_id,
+         b."B_name"     AS branch_name,
+         c.com_id       AS company_id,
+         c.com_name     AS company_name
        FROM purchase_item pi
        JOIN purchase_order po ON po.po_id = pi.po_id
-       JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
-       ORDER BY pi.pi_id ASC`,
-    );
+       JOIN "Branch"       b  ON b."B_id" = po.b_id
+       JOIN "Company"      c  ON c.com_id = b.com_id
+       JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id`;
+    
+    const conditions = [];
+    const params = [];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      conditions.push(`b.com_id = $${params.length + 1}`);
+      params.push(com_id);
+
+      if (b_id) {
+        conditions.push(`po.b_id = $${params.length + 1}`);
+        params.push(b_id);
+      }
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
+    }
+
+    query += ` ORDER BY pi.pi_id ASC`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -67,11 +93,28 @@ export async function getPurchaseItems(req, res, next) {
 export async function getPurchaseItemsByOrder(req, res, next) {
   try {
     const orderId = parsePositiveInt(req.params.orderId, "po_id");
+    const { role_id, com_id, b_id } = req.user;
 
-    const orderCheck = await pool.query(
-      `SELECT po_id FROM purchase_order WHERE po_id = $1`,
-      [orderId],
-    );
+    // Verify the parent purchase order exists and belongs to the company/branch
+    let orderQuery = `
+      SELECT po.po_id 
+      FROM purchase_order po
+      JOIN "Branch" b ON b."B_id" = po.b_id
+      WHERE po.po_id = $1
+    `;
+    const orderParams = [orderId];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      orderQuery += ` AND b.com_id = $2`;
+      orderParams.push(com_id);
+
+      if (b_id) {
+        orderQuery += ` AND po.b_id = $3`;
+        orderParams.push(b_id);
+      }
+    }
+
+    const orderCheck = await pool.query(orderQuery, orderParams);
     if (orderCheck.rows.length === 0) {
       res.status(404);
       throw new Error("Purchase order not found");
@@ -83,10 +126,20 @@ export async function getPurchaseItemsByOrder(req, res, next) {
          pi.qty,
          pi.price,
          pi.unit_price,
+         po.po_id,
+         po.status      AS order_status,
+         po.order_date,
          rm.rm_id,
          rm.rm_name,
-         rm.unit AS rm_unit
+         rm.unit        AS rm_unit,
+         b."B_id"       AS branch_id,
+         b."B_name"     AS branch_name,
+         c.com_id       AS company_id,
+         c.com_name     AS company_name
        FROM purchase_item pi
+       JOIN purchase_order po ON po.po_id = pi.po_id
+       JOIN "Branch"       b  ON b."B_id" = po.b_id
+       JOIN "Company"      c  ON c.com_id = b.com_id
        JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
        WHERE pi.po_id = $1
        ORDER BY pi.pi_id ASC`,
@@ -103,9 +156,9 @@ export async function getPurchaseItemsByOrder(req, res, next) {
 export async function getPurchaseItemById(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "pi_id");
+    const { role_id, com_id, b_id } = req.user;
 
-    const result = await pool.query(
-      `SELECT
+    let query = `SELECT
          pi.pi_id,
          pi.qty,
          pi.price,
@@ -115,13 +168,30 @@ export async function getPurchaseItemById(req, res, next) {
          po.order_date,
          rm.rm_id,
          rm.rm_name,
-         rm.unit        AS rm_unit
+         rm.unit        AS rm_unit,
+         b."B_id"       AS branch_id,
+         b."B_name"     AS branch_name,
+         c.com_id       AS company_id,
+         c.com_name     AS company_name
        FROM purchase_item pi
        JOIN purchase_order po ON po.po_id = pi.po_id
+       JOIN "Branch"       b  ON b."B_id" = po.b_id
+       JOIN "Company"      c  ON c.com_id = b.com_id
        JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
-       WHERE pi.pi_id = $1`,
-      [id],
-    );
+       WHERE pi.pi_id = $1`;
+    const params = [id];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` AND b.com_id = $2`;
+      params.push(com_id);
+
+      if (b_id) {
+        query += ` AND po.b_id = $3`;
+        params.push(b_id);
+      }
+    }
+
+    const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       res.status(404);
@@ -183,11 +253,23 @@ export async function createPurchaseItem(req, res, next) {
       );
     }
 
-    // ── Purchase order existence & status check ──
-    const orderCheck = await pool.query(
-      `SELECT po_id, status FROM purchase_order WHERE po_id = $1`,
-      [parsedPoId],
-    );
+    // ── Purchase order existence, status & scoping check ──
+    let orderQuery = `
+      SELECT po.po_id, po.status 
+      FROM purchase_order po
+      JOIN "Branch" b ON b."B_id" = po.b_id
+      WHERE po.po_id = $1
+    `;
+    const orderParams = [parsedPoId];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      orderQuery += ` AND b.com_id = $2`;
+      orderParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        orderQuery += ` AND po.b_id = $3`;
+        orderParams.push(req.user.b_id);
+      }
+    }
+    const orderCheck = await pool.query(orderQuery, orderParams);
     if (orderCheck.rows.length === 0) {
       res.status(404);
       throw new Error(`Purchase order with id ${parsedPoId} not found`);
@@ -199,11 +281,18 @@ export async function createPurchaseItem(req, res, next) {
       );
     }
 
-    // ── Raw material existence check ──
-    const rmCheck = await pool.query(
-      `SELECT rm_id FROM "Raw_Material" WHERE rm_id = $1`,
-      [parsedRmId],
-    );
+    // ── Raw material existence & scoping check ──
+    let rmQuery = `SELECT rm_id FROM "Raw_Material" WHERE rm_id = $1`;
+    const rmParams = [parsedRmId];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      rmQuery += ` AND "Com_id" = $2`;
+      rmParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        rmQuery += ` AND b_id = $3`;
+        rmParams.push(req.user.b_id);
+      }
+    }
+    const rmCheck = await pool.query(rmQuery, rmParams);
     if (rmCheck.rows.length === 0) {
       res.status(404);
       throw new Error(`Raw material with id ${parsedRmId} not found`);
@@ -238,6 +327,7 @@ export async function createPurchaseItem(req, res, next) {
 export async function updatePurchaseItem(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "pi_id");
+    const { role_id, com_id, b_id } = req.user;
 
     const body = sanitizeBody(req.body, [
       "po_id",
@@ -254,14 +344,24 @@ export async function updatePurchaseItem(req, res, next) {
 
     const { po_id, rm_id, qty, price, unit_price } = body;
 
-    // ── Existence check ──
-    const existing = await pool.query(
-      `SELECT pi.pi_id, pi.po_id, pi.rm_id, pi.qty, pi.unit_price, po.status AS order_status
-       FROM purchase_item pi
-       JOIN purchase_order po ON po.po_id = pi.po_id
-       WHERE pi.pi_id = $1`,
-      [id],
-    );
+    // ── Existence & Scoping check ──
+    let existQuery = `
+      SELECT pi.pi_id, pi.po_id, pi.rm_id, pi.qty, pi.unit_price, po.status AS order_status
+      FROM purchase_item pi
+      JOIN purchase_order po ON po.po_id = pi.po_id
+      JOIN "Branch"       b  ON b."B_id" = po.b_id
+      WHERE pi.pi_id = $1
+    `;
+    const existParams = [id];
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND b.com_id = $2`;
+      existParams.push(com_id);
+      if (b_id) {
+        existQuery += ` AND po.b_id = $3`;
+        existParams.push(b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Purchase item not found");
@@ -280,10 +380,21 @@ export async function updatePurchaseItem(req, res, next) {
     // ── FK validations ──
     if (po_id !== undefined) {
       const parsedPoId = parsePositiveInt(po_id, "po_id");
-      const orderCheck = await pool.query(
-        `SELECT po_id, status FROM purchase_order WHERE po_id = $1`,
-        [parsedPoId],
-      );
+      let orderQuery = `
+        SELECT po_id, status FROM purchase_order po
+        JOIN "Branch" b ON b."B_id" = po.b_id
+        WHERE po.po_id = $1
+      `;
+      const orderParams = [parsedPoId];
+      if (role_id !== ROLES.SUPER_ADMIN) {
+        orderQuery += ` AND b.com_id = $2`;
+        orderParams.push(com_id);
+        if (b_id) {
+          orderQuery += ` AND po.b_id = $3`;
+          orderParams.push(b_id);
+        }
+      }
+      const orderCheck = await pool.query(orderQuery, orderParams);
       if (orderCheck.rows.length === 0) {
         res.status(404);
         throw new Error(`Purchase order with id ${parsedPoId} not found`);
@@ -296,10 +407,17 @@ export async function updatePurchaseItem(req, res, next) {
 
     if (rm_id !== undefined) {
       const parsedRmId = parsePositiveInt(rm_id, "rm_id");
-      const rmCheck = await pool.query(
-        `SELECT rm_id FROM "Raw_Material" WHERE rm_id = $1`,
-        [parsedRmId],
-      );
+      let rmQuery = `SELECT rm_id FROM "Raw_Material" WHERE rm_id = $1`;
+      const rmParams = [parsedRmId];
+      if (role_id !== ROLES.SUPER_ADMIN) {
+        rmQuery += ` AND "Com_id" = $2`;
+        rmParams.push(com_id);
+        if (b_id) {
+          rmQuery += ` AND b_id = $3`;
+          rmParams.push(b_id);
+        }
+      }
+      const rmCheck = await pool.query(rmQuery, rmParams);
       if (rmCheck.rows.length === 0) {
         res.status(404);
         throw new Error(`Raw material with id ${parsedRmId} not found`);
@@ -376,14 +494,26 @@ export async function updatePurchaseItem(req, res, next) {
 export async function deletePurchaseItem(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "pi_id");
+    const { role_id, com_id, b_id } = req.user;
 
-    const existing = await pool.query(
-      `SELECT pi.pi_id, po.status AS order_status
-       FROM purchase_item pi
-       JOIN purchase_order po ON po.po_id = pi.po_id
-       WHERE pi.pi_id = $1`,
-      [id],
-    );
+    // ── Existence & Scoping check ──
+    let existQuery = `
+      SELECT pi.pi_id, po.status AS order_status
+      FROM purchase_item pi
+      JOIN purchase_order po ON po.po_id = pi.po_id
+      JOIN "Branch"       b  ON b."B_id" = po.b_id
+      WHERE pi.pi_id = $1
+    `;
+    const existParams = [id];
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND b.com_id = $2`;
+      existParams.push(com_id);
+      if (b_id) {
+        existQuery += ` AND po.b_id = $3`;
+        existParams.push(b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Purchase item not found");

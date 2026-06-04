@@ -4,6 +4,8 @@ import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import { getCompanies, createCompany, updateCompany, deleteCompany, getCurrentUser, setAuthToken, logout } from "../../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
+import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
+import Spinner from "../../components/super-admin/Spinner";
 
 const StatusBadge = ({ status }) => {
   const statusStr = String(status || "").toLowerCase();
@@ -39,6 +41,7 @@ const HotelManagement = () => {
   const [modalError, setModalError] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [togglingId, setTogglingId] = useState(null);
   const [formData, setFormData] = useState({
     id: null,
     name: "",
@@ -51,8 +54,35 @@ const HotelManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  const handleToggleStatus = async (companyId, currentStatus) => {
+    setTogglingId(companyId);
+    try {
+      const statusStr = String(currentStatus || "").toLowerCase();
+      const isActive = statusStr === "active" || statusStr === "true" || currentStatus === true;
+      const nextStatus = !isActive;
+
+      // Optimistic update locally
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.com_id === companyId ? { ...c, c_status: nextStatus } : c
+        )
+      );
+
+      // Call API
+      await updateCompany(companyId, { c_status: nextStatus });
+    } catch (err) {
+      console.error("Error toggling company status:", err);
+      // Revert on error
+      fetchData();
+      alert("Failed to update status: " + (err.response?.data?.message || err.message));
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const openAddModal = () => {
-    setFormData({ id: null, name: "", location: "", email: "", phone: "", date: "", status: true });
+    const today = new Date().toISOString().slice(0, 10);
+    setFormData({ id: null, name: "", location: "", email: "", phone: "", date: today, status: true });
     setModalMode("add");
     setModalError("");
     setIsModalOpen(true);
@@ -148,8 +178,12 @@ const HotelManagement = () => {
 
   const filteredCompanies = companies.filter(
     (c) => {
-      const searchMatch = (c.com_name || "").toLowerCase().includes(searchQuery.toLowerCase());
-      
+      const searchName = (c.com_name|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchLocation=(c.location|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchEmail=(c.c_email|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchPhone=(c.phone|| "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchMatch=searchName||searchLocation||searchEmail||searchPhone;
+
       const s = String(c.c_status || "").toLowerCase();
       const isActive = s === "active" || s === "true" || c.c_status === true;
       
@@ -182,6 +216,23 @@ const HotelManagement = () => {
       setIsDeleting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+        <Sidebar />
+        <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+          <Header title="Company Management" />
+          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 70px)" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+              <Spinner size={44} />
+              <p style={{ margin: 0, color: "#6B7280", fontWeight: 600, fontSize: 16 }}>Loading Company Management...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
@@ -325,8 +376,8 @@ const HotelManagement = () => {
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="6" style={{ padding: 20, textAlign: "center" }}>
-                      Loading...
+                    <td colSpan="6" style={{ padding: 20 }}>
+                      <Spinner />
                     </td>
                   </tr>
                 ) : filteredCompanies.length > 0 ? (
@@ -346,7 +397,14 @@ const HotelManagement = () => {
                           : "—"}
                       </td>
                       <td style={tdStyle}>
-                        <StatusBadge status={company.c_status} />
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <ToggleSwitch
+                            checked={String(company.c_status || "").toLowerCase() === "active" || String(company.c_status || "").toLowerCase() === "true" || company.c_status === true}
+                            onChange={() => handleToggleStatus(company.com_id, company.c_status)}
+                            disabled={togglingId === company.com_id}
+                          />
+                          {togglingId === company.com_id && <Spinner size={16} />}
+                        </div>
                       </td>
                       <td style={tdStyle}>
                         <div style={{ display: "flex", gap: 10 }}>
@@ -503,9 +561,13 @@ const HotelManagement = () => {
                   ...saveBtnStyle,
                   background: "#3B82F6",
                   cursor: isSaving ? "not-allowed" : "pointer",
-                  opacity: isSaving ? 0.7 : 1
+                  opacity: isSaving ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
                 }}
               >
+                {isSaving && <Spinner size={14} color="#ffffff" />}
                 {isSaving ? "Saving..." : modalMode === "add" ? "Save Company" : "Save Changes"}
               </button>
             </div>
@@ -561,9 +623,13 @@ const HotelManagement = () => {
                   ...saveBtnStyle,
                   background: "#EF4444",
                   cursor: isDeleting ? "not-allowed" : "pointer",
-                  opacity: isDeleting ? 0.7 : 1
+                  opacity: isDeleting ? 0.7 : 1,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8
                 }}
               >
+                {isDeleting && <Spinner size={14} color="#ffffff" />}
                 {isDeleting ? "Deleting..." : "Delete"}
               </button>
             </div>

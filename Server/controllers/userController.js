@@ -141,17 +141,28 @@ export async function createUser(req, res, next) {
       B_id = scopedBranchId
         ? Number(scopedBranchId)
         : normalizeOptionalPositiveInt(requestedBranchId, "B_id");
-      if (!B_id) {
+      
+      // B_id is required for cashier, waiter, kitchen staff, but optional for branch admin
+      if (!B_id && Number(role_id) !== ROLES.BRANCH_ADMIN) {
         res.status(400);
         throw new Error("B_id is required for branch-level roles");
       }
 
-      // Automatically look up the branch's company ID (com_id)
-      const branchRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [B_id]);
-      com_id = branchRes.rows[0]?.com_id ?? null;
-      if (!com_id) {
-        res.status(400);
-        throw new Error("The assigned branch does not belong to a valid company");
+      if (B_id) {
+        // Automatically look up the branch's company ID (com_id)
+        const branchRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [B_id]);
+        com_id = branchRes.rows[0]?.com_id ?? null;
+        if (!com_id) {
+          res.status(400);
+          throw new Error("The assigned branch does not belong to a valid company");
+        }
+      } else {
+        const requestedComId = req.body?.com_id ?? req.body?.company_id;
+        com_id = normalizeOptionalPositiveInt(requestedComId, "com_id");
+        if (!com_id) {
+          res.status(400);
+          throw new Error("com_id is required for branch-level users when B_id is not assigned");
+        }
       }
     }
 
@@ -248,17 +259,28 @@ export async function updateUser(req, res, next) {
       } else {
         B_id = scopedBranchId ? Number(scopedBranchId) : existingUser.rows[0].B_id;
       }
-      if (!B_id) {
+      
+      // B_id is required for cashier, waiter, kitchen staff, but optional for branch admin
+      if (!B_id && targetRoleId !== ROLES.BRANCH_ADMIN) {
         res.status(400);
         throw new Error("B_id is required for branch-level roles");
       }
 
-      // Automatically look up the branch's company ID (com_id)
-      const branchRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [B_id]);
-      com_id = branchRes.rows[0]?.com_id ?? null;
-      if (!com_id) {
-        res.status(400);
-        throw new Error("The assigned branch does not belong to a valid company");
+      if (B_id) {
+        // Automatically look up the branch's company ID (com_id)
+        const branchRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [B_id]);
+        com_id = branchRes.rows[0]?.com_id ?? null;
+        if (!com_id) {
+          res.status(400);
+          throw new Error("The assigned branch does not belong to a valid company");
+        }
+      } else {
+        const requestedComId = req.body?.com_id ?? req.body?.company_id;
+        if (requestedComId !== undefined) {
+          com_id = normalizeOptionalPositiveInt(requestedComId, "com_id");
+        } else {
+          com_id = existingUser.rows[0].com_id;
+        }
       }
     }
 
