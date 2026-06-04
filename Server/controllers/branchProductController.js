@@ -214,7 +214,8 @@ export async function getBranchProductById(req, res, next) {
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
         bp."B_id",
-        c."cat_name"
+        c."cat_name",
+        p."stations"
       FROM "public"."Branch_Product" bp
       LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
       LEFT JOIN "public"."Product"   p ON bp."pro_id" = p."pro_id"

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FaSearch, FaClock } from "react-icons/fa";
-import CashierHeader from "../../components/kitchen/Header";
+import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket } from "../../services/socket";
 import {
@@ -74,8 +74,11 @@ const KitchenManagement = () => {
 
 	useEffect(() => {
 		let isMounted = true;
+		let refreshTimer = null;
+		const socket = connectSocket();
 
 		const loadData = async () => {
+			if (!isMounted) return;
 			setLoading(true);
 			setError("");
 
@@ -123,11 +126,20 @@ const KitchenManagement = () => {
 			}
 		};
 
+		const scheduleRefresh = () => {
+			if (refreshTimer) window.clearTimeout(refreshTimer);
+			refreshTimer = window.setTimeout(loadData, 1000);
+		};
+
 		loadData();
+
+		socket.on("order:created", scheduleRefresh);
+		socket.on("order:updated", scheduleRefresh);
+		socket.on("order:deleted", scheduleRefresh);
 
 		return () => {
 			isMounted = false;
-			window.clearTimeout(refreshTimer);
+			if (refreshTimer) window.clearTimeout(refreshTimer);
 			socket.off("order:created", scheduleRefresh);
 			socket.off("order:updated", scheduleRefresh);
 			socket.off("order:deleted", scheduleRefresh);
@@ -146,10 +158,11 @@ const KitchenManagement = () => {
 			const product = branchProductMap[item.Bpro_id];
 			const stations = product?.stations || {};
 
-			// If the product explicitly has Kitchen set to false, skip it for the kitchen display
-			if (stations.Kitchen === false) {
-				return acc;
-			}
+			// --- THE FIX FOR PREMADE FOODS ---
+			// 1. If Kitchen is explicitly false, hide it.
+			// 2. If the item is marked for Bar and NOT explicitly Kitchen, hide it.
+			if (stations.Kitchen === false) return acc;
+			if (stations.Bar === true && stations.Kitchen !== true) return acc;
 
 			const orderId = item.order_id;
 			if (!acc[orderId]) acc[orderId] = [];
