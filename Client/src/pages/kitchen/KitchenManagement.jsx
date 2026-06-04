@@ -77,9 +77,9 @@ const KitchenManagement = () => {
 		let refreshTimer = null;
 		const socket = connectSocket();
 
-		const loadData = async () => {
+		const loadData = async (silent = false) => {
 			if (!isMounted) return;
-			setLoading(true);
+			if (!silent) setLoading(true);
 			setError("");
 
 			try {
@@ -97,52 +97,50 @@ const KitchenManagement = () => {
 
 				if (ordersData.status === "fulfilled") {
 					setOrders(Array.isArray(ordersData.value) ? ordersData.value : []);
-				} else {
+				} else if (!silent) {
 					setOrders([]);
 					setError("Failed to load orders.");
 				}
 
 				if (itemsResult.status === "fulfilled") {
 					setOrderItems(Array.isArray(itemsResult.value) ? itemsResult.value : []);
-				} else {
-					setOrderItems([]);
 				}
 
 				if (productsResult.status === "fulfilled") {
 					setBranchProducts(
 						Array.isArray(productsResult.value) ? productsResult.value : [],
 					);
-				} else {
-					setBranchProducts([]);
 				}
 			} catch (err) {
 				if (!isMounted) return;
-				setOrders([]);
-				setOrderItems([]);
-				setBranchProducts([]);
-				setError("Failed to load kitchen data.");
+				if (!silent) {
+					setOrders([]);
+					setOrderItems([]);
+					setBranchProducts([]);
+					setError("Failed to load kitchen data.");
+				}
 			} finally {
-				if (isMounted) setLoading(false);
+				if (isMounted && !silent) setLoading(false);
 			}
 		};
 
-		const scheduleRefresh = () => {
+		const scheduleRefresh = (silent = true) => {
 			if (refreshTimer) window.clearTimeout(refreshTimer);
-			refreshTimer = window.setTimeout(loadData, 1000);
+			refreshTimer = window.setTimeout(() => loadData(silent), 1000);
 		};
 
-		loadData();
+		loadData(false);
 
-		socket.on("order:created", scheduleRefresh);
-		socket.on("order:updated", scheduleRefresh);
-		socket.on("order:deleted", scheduleRefresh);
+		socket.on("order:created", () => scheduleRefresh(true));
+		socket.on("order:updated", () => scheduleRefresh(true));
+		socket.on("order:deleted", () => scheduleRefresh(true));
 
 		return () => {
 			isMounted = false;
 			if (refreshTimer) window.clearTimeout(refreshTimer);
-			socket.off("order:created", scheduleRefresh);
-			socket.off("order:updated", scheduleRefresh);
-			socket.off("order:deleted", scheduleRefresh);
+			socket.off("order:created");
+			socket.off("order:updated");
+			socket.off("order:deleted");
 		};
 	}, [user]);
 
@@ -352,18 +350,35 @@ const KitchenManagement = () => {
 
 	const updateStatus = async (orderId, nextStatus) => {
 		if (!orderId || updatingOrderId) return;
+
+		// Store previous state for rollback
+		const previousOrders = [...orders];
+
+		// Optimistic Update
+		setOrders((prev) =>
+			prev.map((order) =>
+				order.or_id === orderId ? { ...order, or_status: nextStatus } : order,
+			),
+		);
+
 		setUpdatingOrderId(orderId);
+		setError("");
 
 		try {
 			const updated = await updateOrderStatus(orderId, nextStatus);
-			setOrders((prev) =>
-				prev.map((order) =>
-					order.or_id === orderId
-						? { ...order, or_status: updated?.or_status || nextStatus }
-						: order,
-				),
-			);
+			// Update with actual server response if needed (e.g. status might be slightly different)
+			if (updated) {
+				setOrders((prev) =>
+					prev.map((order) =>
+						order.or_id === orderId
+							? { ...order, or_status: updated.or_status }
+							: order,
+					),
+				);
+			}
 		} catch (err) {
+			// Rollback on error
+			setOrders(previousOrders);
 			setError(
 				err?.response?.data?.error ||
 					err?.response?.data?.message ||
