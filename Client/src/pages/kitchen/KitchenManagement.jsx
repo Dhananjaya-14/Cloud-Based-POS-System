@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FaSearch, FaClock } from "react-icons/fa";
-import CashierHeader from "../../components/kitchen/Header";
+import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket } from "../../services/socket";
 import {
