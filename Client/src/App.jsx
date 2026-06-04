@@ -9,6 +9,7 @@ import SuperAdminHotelManagement from './pages/super-admin/HotelManagement';
 import SuperAdminUserManagement from './pages/super-admin/UserManagement';
 import SuperAdminUserDetails from './pages/super-admin/UserDetails';
 import SuperAdminAddUser from './pages/super-admin/AddUser';
+import SuperAdminBranchManagement from './pages/super-admin/BranchManagement';
 import BranchManagement from './pages/admin/BranchManagement';
 import AddUser from './pages/admin/AddUser';
 import EditUser from './pages/admin/EditUser';
@@ -107,6 +108,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[6]}>
             <SuperAdminUserDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/branches"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminBranchManagement />
           </ProtectedRoute>
         }
       />

@@ -6,6 +6,7 @@ import { getUsers, getRoles, getCompanies, createUser, updateUser, deleteUserByI
 import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
+import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
 // Helper to get initials
 const getInitials = (name) => {
@@ -74,6 +75,7 @@ const UserManagement = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [togglingId, setTogglingId] = useState(null);
+  const { toasts, removeToast, toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -113,9 +115,8 @@ const UserManagement = () => {
     fetchData();
 
     if (location.state?.successMessage) {
-      setSuccessMessage(location.state.successMessage);
-      setTimeout(() => setSuccessMessage(""), 3000);
-      window.history.replaceState({}, document.title); // clear state so it doesn't pop up again
+      toast.success("User Created", location.state.successMessage);
+      window.history.replaceState({}, document.title);
     }
   }, [navigate, location.state]);
 
@@ -154,8 +155,7 @@ const UserManagement = () => {
       await deleteUserById(userToDelete.u_id);
       setIsDeleteModalOpen(false);
       fetchData();
-      setSuccessMessage("User successfully deleted!");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      toast.success("User Deleted", "The user was permanently removed.");
     } catch (err) {
       console.error("Error deleting user:", err);
       setErrorMessage(err.response?.data?.message || err.message || "Failed to delete user.");
@@ -210,19 +210,6 @@ const UserManagement = () => {
               Manage all users and their permissions
             </p>
           </div>
-          {successMessage && (
-            <div style={{
-              padding: "12px 18px",
-              background: successMessage.toLowerCase().includes("deleted") ? "#FEF2F2" : "#ECFDF5",
-              border: successMessage.toLowerCase().includes("deleted") ? "1px solid #FEE2E2" : "1px solid #A7F3D0",
-              color: successMessage.toLowerCase().includes("deleted") ? "#EF4444" : "#065F46",
-              borderRadius: 8, fontSize: 14, fontWeight: 600,
-              marginBottom: 20, display: "flex", alignItems: "center", gap: 8
-            }}>
-              <span style={{ fontSize: 16 }}>{successMessage.toLowerCase().includes("deleted") ? "🗑️" : "✓"}</span>
-              {successMessage}
-            </div>
-          )}
 
           <div
             style={{
@@ -530,6 +517,8 @@ const UserManagement = () => {
           </div>
         </div>
       )}
+
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 };

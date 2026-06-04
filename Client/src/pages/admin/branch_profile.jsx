@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaEdit, FaTrashAlt } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import Sidebar from "../../components/admin/Sidebar";
-import Header from "../../components/admin/Header";
+import AdminSidebar from "../../components/admin/Sidebar";
+import AdminHeader from "../../components/admin/Header";
+import SuperAdminSidebar from "../../components/super-admin/Sidebar";
+import SuperAdminHeader from "../../components/super-admin/Header";
 import { deleteBranchById, getBranchById, getUserById } from "../../services/api";
 
 const inputBase = {
@@ -45,6 +47,14 @@ const BranchProfile = () => {
   const { branchId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+
+  // Determine if the current user is a Super Admin (role_id 6)
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const isSuperAdmin = storedUser?.role_id === 6;
+  const Sidebar = isSuperAdmin ? SuperAdminSidebar : AdminSidebar;
+  const Header = isSuperAdmin ? SuperAdminHeader : AdminHeader;
+  const backPath = isSuperAdmin ? "/super-admin/branches" : "/branches";
+  const headerTitle = isSuperAdmin ? "Branch Management" : undefined;
 
   const [branch, setBranch] = useState(location.state?.branch || null);
   const [manager, setManager] = useState(null);
@@ -126,7 +136,7 @@ const BranchProfile = () => {
   }, [branch]);
 
   const branchStatusLabel = useMemo(() => {
-    const isActive = normalizeStatus(branch?.status ?? branch?.B_status ?? branch?.branch_status);
+    const isActive = normalizeStatus(branch?.B_status ?? branch?.status ?? branch?.branch_status);
     return isActive ? "Active" : "Inactive";
   }, [branch]);
 
@@ -148,7 +158,7 @@ const BranchProfile = () => {
       setDeleting(true);
       setDeleteError("");
       await deleteBranchById(branchId);
-      navigate("/branches");
+      navigate(backPath);
     } catch (err) {
       setDeleteError(err?.response?.data?.message || "Unable to delete branch. Please try again.");
     } finally {
@@ -162,7 +172,7 @@ const BranchProfile = () => {
         <Sidebar />
 
         <div style={{ flex: 1, marginLeft: "240px" }}>
-          <Header />
+          {isSuperAdmin ? <Header title={headerTitle} /> : <Header />}
 
           <div style={{ padding: "0 20px 20px" }}>
             <div
@@ -175,7 +185,7 @@ const BranchProfile = () => {
             >
             <button
               type="button"
-              onClick={() => navigate("/branches")}
+              onClick={() => navigate(backPath)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
