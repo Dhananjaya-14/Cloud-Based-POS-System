@@ -1,14 +1,13 @@
 import React, { useEffect, useState } from "react";
+import { FaSearch} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import SuperAdminSidebar from "../../components/super-admin/Sidebar";
-import SuperAdminHeader from "../../components/super-admin/Header";
 import BranchTable from "../../components/admin/BranchTable";
 import Button from "../../components/admin/Button";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, setAuthToken, logout } from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
+import { connectSocket } from "../../services/socket";
 import Spinner from "../../components/super-admin/Spinner";
 
 
@@ -17,10 +16,11 @@ const HEADER_HEIGHT = 64;
 
 const BranchManagement = () => {
   const [branches, setBranches] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [searchQuery,setSearchQuery]=useState("");
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
-  const { user } = useAuth();
+  
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -32,13 +32,44 @@ const BranchManagement = () => {
     fetchBranches();
   }, [navigate]);
 
+  // Realtime branch updates (created / updated / deleted)
+  useEffect(() => {
+    const socket = connectSocket();
+
+    const handleCreated = (branch) => {
+      setBranches((prev) => [branch, ...prev]);
+    };
+
+    const handleUpdated = (branch) => {
+      setBranches((prev) => prev.map((b) => (b.B_id === branch.B_id ? branch : b)));
+    };
+
+    const handleDeleted = (payload) => {
+      const id = payload?.B_id ?? payload?.b_id ?? payload?.id ?? null;
+      if (id == null) return;
+      setBranches((prev) => prev.filter((b) => Number(b.B_id) !== Number(id)));
+    };
+
+    socket.on("branch:created", handleCreated);
+    socket.on("branch:updated", handleUpdated);
+    socket.on("branch:deleted", handleDeleted);
+
+    return () => {
+      socket.off("branch:created", handleCreated);
+      socket.off("branch:updated", handleUpdated);
+      socket.off("branch:deleted", handleDeleted);
+    };
+  }, []);
+
   const fetchBranches = async () => {
     try {
       setLoading(true);
+
       const data = await getBranches();
       setBranches(data);
     } catch (err) {
       console.error("fetchBranches error:", err);
+
       if (err.response?.status === 401) {
         logout();
         navigate("/login");
@@ -47,6 +78,16 @@ const BranchManagement = () => {
       setLoading(false);
     }
   };
+
+
+const filteredBranches = branches.filter((branch) => {
+  if (!searchQuery.trim()) return true; // If filter is empty/whitespace, show everything
+  const companyName = branch.com_name || "";
+  const branchName = branch.B_name || "";
+  
+  return companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+         branchName.toLowerCase().includes(searchQuery.toLowerCase());
+});
 
   const addButtonStyle = {
   padding: "10px 18px",
@@ -58,10 +99,10 @@ const BranchManagement = () => {
 
   return (
     <div style={{ display: "flex",minHeight: "100vh", background: "#F4F6F9" }}>
-      {user?.role_id === 6 ? <SuperAdminSidebar /> : <Sidebar />}
+      <Sidebar />
 
       <div style={{ flex: 1, marginLeft: "240px" }}>
-        {user?.role_id === 6 ? <SuperAdminHeader /> : <Header />}
+        <Header />
 
         <div style={{ padding: "20px" }}>
           <div
@@ -75,12 +116,41 @@ const BranchManagement = () => {
             <Button label="+ New Branch" onClick={() => setShowModal(true)} />
           </div>
 
+          <div style={{ position: "relative", width: "100%", maxWidth: "300px", marginBottom: "20px" }}>
+           <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm" />
+            <input
+              type="text"
+              placeholder="Search here..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{
+                width: "100%",
+                maxWidth: "300px",
+                padding: "10px 14px 10px 36px",
+                borderRadius: "8px",
+                border: "1px solid #D1D5DB",
+                fontSize: "14px",
+                outline: "none",
+                boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+              }}
+            />
+          </div>
+
           {loading ? (
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "200px", marginTop: "24px", background: "#ffffff", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)" }}>
               <Spinner size={36} />
             </div>
-          ) : (
-            <BranchTable branches={branches} />
+          ) : filteredBranches.length === 0 ? (
+          <div style={{ textAlign: "center", padding: "40px 20px", marginTop: "24px", background: "#ffffff", borderRadius: "16px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.05)", color: "#6B7280" }}>
+            <p style={{ fontSize: "16px", fontWeight: "500", margin: 0 }}>
+              No records match "{searchQuery}"
+            </p>
+            <p style={{ fontSize: "14px", marginTop: "4px", color: "#9CA3AF" }}>
+             Try checking your spelling or using a different search term.
+             </p>
+          </div>
+        ):(
+            <BranchTable branches={filteredBranches} />
           )}
         </div>
       </div>

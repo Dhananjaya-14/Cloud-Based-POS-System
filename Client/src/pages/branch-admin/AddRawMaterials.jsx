@@ -325,18 +325,18 @@ const AddRawMaterials = () => {
       <Sidebar />
       {toast.show && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
       <div style={{ flex: 1, marginLeft: "240px" }}>
-        <Header title="Raw Ingredients" role="Branch Admin" email={user?.email || "branchadmin@gmail.com"} />
+        <Header title="Inventory Items" role="Branch Admin" email={user?.email || "branchadmin@gmail.com"} />
         <div style={containerStyle}>
-          <h2 style={{ color: "#101828", fontWeight: '700', fontSize: '24px', marginBottom: '20px' }}>Add Raw Materials</h2>
+          <h2 style={{ color: "#101828", fontWeight: '700', fontSize: '24px', marginBottom: '20px' }}>Add Inventory Items</h2>
 
           <div style={sectionStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 20, color: primaryTeal }}>📦</span>
-                <h3 style={{ margin: 0, color: primaryBlue, fontSize: 18, fontWeight: 600 }}>1. Incoming Raw Ingredients</h3>
+                <h3 style={{ margin: 0, color: primaryBlue, fontSize: 18, fontWeight: 600 }}>1. Incoming Inventory Items</h3>
               </div>
               <button onClick={addMaterialRow} style={{ background: 'none', border: `1px solid ${primaryTeal}`, padding: '8px 16px', borderRadius: '8px', color: primaryTeal, cursor: 'pointer', fontWeight: '600' }}>
-                + Add Another Ingredient
+                + Add Another Item
               </button>
             </div>
             {materials.map((m, idx) => (

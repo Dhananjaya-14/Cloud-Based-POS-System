@@ -1,5 +1,10 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import {
+  emitSocketEvent,
+  getCashierSocketRoom,
+  KITCHEN_SOCKET_ROOM,
+} from "../utils/socket.js";
 import { adjustStockForOrderItem } from "./orderItemController.js";
 
 // ─────────────────────────────────────────────
@@ -313,6 +318,8 @@ export const createOrder = async (req, res) => {
         table_id ?? null,
       ],
     );
+
+    emitSocketEvent("order:created", rows[0]);
 
     res.status(201).json({ success: true, data: rows[0] });
   } catch (err) {
@@ -681,6 +688,18 @@ export const updateOrderStatus = async (req, res) => {
       `UPDATE "ORDER" SET or_status = $1 WHERE or_id = $2 RETURNING *`,
       [status, id],
     );
+
+    emitSocketEvent(
+      "order:updated",
+      rows[0],
+      { room: KITCHEN_SOCKET_ROOM },
+    );
+
+    if (status === "completed") {
+      emitSocketEvent("order:ready", rows[0], {
+        room: getCashierSocketRoom(rows[0].u_id),
+      });
+    }
 
     res.status(200).json({ success: true, data: rows[0] });
   } catch (err) {

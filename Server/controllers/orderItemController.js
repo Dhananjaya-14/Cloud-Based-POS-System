@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { emitSocketEvent, KITCHEN_SOCKET_ROOM } from "../utils/socket.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
@@ -80,110 +81,16 @@ function guardOrderStatus(or_status, roleId) {
 }
 
 /**
- * Converts a recipe quantity into the raw material stock unit.
- */
-function convertQuantity(recipeQty, recipeUnit, stockUnit) {
-  const rUnit = String(recipeUnit || "").toLowerCase().trim();
-  const sUnit = String(stockUnit || "").toLowerCase().trim();
-
-  if (rUnit === sUnit || !rUnit || !sUnit) {
-    return recipeQty;
-  }
-
-  // Mass conversions
-  if (rUnit === "g" && sUnit === "kg") return recipeQty / 1000;
-  if (rUnit === "mg" && sUnit === "g") return recipeQty / 1000;
-  if (rUnit === "mg" && sUnit === "kg") return recipeQty / 1000000;
-  if (rUnit === "kg" && sUnit === "g") return recipeQty * 1000;
-
-  // Volume conversions
-  if (rUnit === "ml" && sUnit === "l") return recipeQty / 1000;
-  if (rUnit === "l" && sUnit === "ml") return recipeQty * 1000;
-
-  // Count/dozen conversions
-  if (rUnit === "pcs" && sUnit === "dozen") return recipeQty / 12;
-  if (rUnit === "units" && sUnit === "dozen") return recipeQty / 12;
-
-  return recipeQty;
-}
-
-/**
  * Transaction-safe stock adjuster for order items.
- * Finds all mapped recipes and updates branch-scoped raw material stock levels.
  *
- * Fixes:
- *  1. Branch isolation — UPDATE is scoped to the branch's b_id so only the
- *     correct branch row is touched (global rows where b_id IS NULL still work).
- *  2. Low-stock warning — logs insufficient stock and clamps deducted stock to zero.
- *  3. FOR UPDATE — row-level lock prevents race conditions under concurrent orders.
+ * These are pre-made products — raw material ingredients are consumed at
+ * prep time when the branch admin adds the product batch (via Recipe Mapper).
+ * At POS sale time only the branch showcase quantity is decremented.
+ * Raw materials and base product stock are NOT touched here.
  */
 export async function adjustStockForOrderItem(client, Bpro_id, quantity, operation) {
-  const stockWarnings = [];
-
-  // Lock raw material rows for this branch product to prevent concurrent overselling
-  const recipesResult = await client.query(
-    `SELECT
-       r."rawmaterial_ID" AS "rawmaterial_id",
-       r."quantity_req",
-       COALESCE(r."unit", rm."unit") AS "recipe_unit",
-       rm."unit"       AS "stock_unit",
-       rm."stock_qty",
-       rm."rm_name",
-       bp."B_id"       AS "b_id"
-     FROM public."Branch_Product" bp
-     JOIN public."RECIPE"        r  ON r."pro_id"      = bp."pro_id"
-     JOIN public."Raw_Material"  rm ON rm."rm_id"      = r."rawmaterial_ID"
-     WHERE bp."Bpro_id" = $1
-     FOR UPDATE OF rm`,
-    [Bpro_id]
-  );
-
-  for (const recipe of recipesResult.rows) {
-    const totalRecipeQty = recipe.quantity_req * quantity;
-    const convertedQty   = convertQuantity(totalRecipeQty, recipe.recipe_unit, recipe.stock_unit);
-
-    // ── Negative-stock guard (subtract only) ──────────────────────────────────
-    if (operation === "subtract") {
-      const currentStock = parseFloat(recipe.stock_qty);
-      if (convertedQty > currentStock) {
-        const warningMessage =
-          `Insufficient stock for "${recipe.rm_name}": ` +
-          `need ${convertedQty.toFixed(3)} ${recipe.stock_unit}, ` +
-          `only ${currentStock} ${recipe.stock_unit} available in this branch`;
-        stockWarnings.push({
-          rawMaterialName: recipe.rm_name,
-          needed: Number(convertedQty.toFixed(3)),
-          available: currentStock,
-          unit: recipe.stock_unit,
-          message: warningMessage,
-        });
-        console.warn(warningMessage);
-      }
-    }
-
-    const stockExpression =
-      operation === "subtract"
-        ? "GREATEST(0, stock_qty - $1)"
-        : "stock_qty + $1";
-
-    // ── Branch-scoped Raw_Material UPDATE ────────────────────────────────────
-    // Raw materials with a specific b_id are branch-level; those with b_id IS NULL
-    // are company-wide. Both cases are handled by the OR condition below.
-    await client.query(
-      `UPDATE "Raw_Material"
-         SET stock_qty = ${stockExpression}
-       WHERE rm_id = $2
-         AND (
-           b_id = $3
-           OR (b_id IS NULL AND $3::integer IS NULL)
-         )`,
-      [convertedQty, recipe.rawmaterial_id, recipe.b_id ?? null]
-    );
-  }
-
-  // ── Branch_Product.pro_quantity UPDATE ───────────────────────────────────────
-  // This is the stock count shown on the Branch Admin and Admin product dashboards.
-  // GREATEST(0, ...) ensures pro_quantity never goes below zero on subtract.
+  // Only update the branch product's showcase quantity.
+  // Recipe / raw-material deduction happens in branchProductController at prep time.
   await client.query(
     `UPDATE public."Branch_Product"
        SET "pro_quantity" = GREATEST(0, "pro_quantity" ${operation === "subtract" ? "-" : "+"} $1)
@@ -191,25 +98,7 @@ export async function adjustStockForOrderItem(client, Bpro_id, quantity, operati
     [quantity, Bpro_id]
   );
 
-  // ── Product.pro_qty UPDATE ───────────────────────────────────────────────────
-  // Also adjust the base/global product stock quantity to keep it in sync
-  const bpResult = await client.query(
-    `SELECT "pro_id" FROM public."Branch_Product" WHERE "Bpro_id" = $1`,
-    [Bpro_id]
-  );
-  if (bpResult.rows.length > 0) {
-    const proId = bpResult.rows[0].pro_id;
-    if (proId) {
-      await client.query(
-        `UPDATE public."Product"
-         SET "pro_qty" = GREATEST(0, "pro_qty" ${operation === "subtract" ? "-" : "+"} $1)
-         WHERE "pro_id" = $2`,
-        [quantity, proId]
-      );
-    }
-  }
-
-  return stockWarnings;
+  return []; // No raw-material warnings at sale time
 }
 
 // ─────────────────────────────────────────────
@@ -370,6 +259,11 @@ export const createOrderItem = async (req, res) => {
        RETURNING *`,
       [Bpro_id, qty, price, total_price, parsedOrderId],
     );
+
+    emitSocketEvent("order:created", {
+      orderId: parsedOrderId,
+      orderItem: result.rows[0],
+    });
 
     await client.query("COMMIT");
 

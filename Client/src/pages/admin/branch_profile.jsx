@@ -3,10 +3,7 @@ import { FaArrowLeft, FaEdit, FaTrashAlt } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import SuperAdminSidebar from "../../components/super-admin/Sidebar";
-import SuperAdminHeader from "../../components/super-admin/Header";
 import { deleteBranchById, getBranchById, getUserById } from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
 
 const inputBase = {
   width: "100%",
@@ -27,11 +24,27 @@ const labelBase = {
   fontSize: "1rem",
 };
 
+const normalizeStatus = (value) => {
+  if (typeof value === "boolean") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    return normalized === "active" || normalized === "true" || normalized === "1";
+  }
+
+  if (typeof value === "number") {
+    return value === 1;
+  }
+
+  return true;
+};
+
 const BranchProfile = () => {
   const { branchId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
-  const { user } = useAuth();
 
   const [branch, setBranch] = useState(location.state?.branch || null);
   const [manager, setManager] = useState(null);
@@ -100,9 +113,21 @@ const BranchProfile = () => {
     return full || "Not assigned";
   }, [manager]);
 
+  const username = useMemo(() => {
+    if (!manager?.u_email) {
+      return "-";
+    }
+    return manager.u_email.split("@")[0];
+  }, [manager]);
+
   const branchInitial = useMemo(() => {
     const name = branch?.B_name || "B";
     return name.charAt(0).toUpperCase();
+  }, [branch]);
+
+  const branchStatusLabel = useMemo(() => {
+    const isActive = normalizeStatus(branch?.status ?? branch?.B_status ?? branch?.branch_status);
+    return isActive ? "Active" : "Inactive";
   }, [branch]);
 
   const handleDeleteClick = () => {
@@ -134,10 +159,10 @@ const BranchProfile = () => {
   return (
     <>
       <div style={{ display: "flex", background: "#eff1f5", minHeight: "100vh" }}>
-        {user?.role_id === 6 ? <SuperAdminSidebar /> : <Sidebar />}
+        <Sidebar />
 
         <div style={{ flex: 1, marginLeft: "240px" }}>
-          {user?.role_id === 6 ? <SuperAdminHeader title="Branch Management" /> : <Header title="Branch Management" />}
+          <Header />
 
           <div style={{ padding: "0 20px 20px" }}>
             <div
@@ -238,11 +263,11 @@ const BranchProfile = () => {
                     <Field label="Branch Name" value={branch?.B_name} />
                     <Field label="Branch Admin Name" value={managerName} />
                     <Field label="Email" value={branch?.B_email} />
-                    <Field label="Company" value={branch?.com_name} />
+                    <Field label="Username" value={username} />
                     <Field label="Address" value={branch?.B_address} />
                     <Field label="Password" value="**********" />
                     <Field label="Contact Number" value={branch?.B_conNo} />
-                    <Field label="Status" value={branch?.B_status !== false ? "Active" : "Inactive"} />
+                    <Field label="Status" value={branchStatusLabel} />
                   </div>
                 </div>
 
