@@ -5,7 +5,12 @@ import 'forgot_password_screen.dart';
 import 'signup_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  final String selectedLanguage;
+
+  const LoginScreen({
+    super.key,
+    this.selectedLanguage = "EN",
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -18,6 +23,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool hidePassword = true;
   bool rememberMe = false;
   String errorMessage = "";
+  late String selectedLanguage;
 
   late Timer timer;
   DateTime now = DateTime.now();
@@ -25,6 +31,8 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+
+    selectedLanguage = widget.selectedLanguage;
 
     timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -39,6 +47,10 @@ class _LoginScreenState extends State<LoginScreen> {
     usernameController.dispose();
     passwordController.dispose();
     super.dispose();
+  }
+
+  String text(String en, String sin) {
+    return selectedLanguage == "EN" ? en : sin;
   }
 
   String getFormattedDate() {
@@ -84,7 +96,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (username.isEmpty || password.isEmpty) {
       setState(() {
-        errorMessage = "Please enter username and password";
+        errorMessage = text(
+          "Please enter username and password",
+          "කරුණාකර username සහ password ඇතුළත් කරන්න",
+        );
       });
       return;
     }
@@ -98,12 +113,17 @@ class _LoginScreenState extends State<LoginScreen> {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (context) => const DashboardScreen(),
+          builder: (context) => DashboardScreen(
+            selectedLanguage: selectedLanguage,
+          ),
         ),
       );
     } else {
       setState(() {
-        errorMessage = "Invalid username/email or password";
+        errorMessage = text(
+          "Invalid username/email or password",
+          "Username/email හෝ password වැරදියි",
+        );
       });
     }
   }
@@ -112,7 +132,9 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const ForgotPasswordScreen(),
+        builder: (context) => ForgotPasswordScreen(
+          selectedLanguage: selectedLanguage,
+        ),
       ),
     );
   }
@@ -121,7 +143,9 @@ class _LoginScreenState extends State<LoginScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => const SignUpScreen(),
+        builder: (context) => SignUpScreen(
+          selectedLanguage: selectedLanguage,
+        ),
       ),
     );
   }
@@ -129,7 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void socialLogin(String provider) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text("$provider login clicked"),
+        content: Text("$provider ${text("login clicked", "login click කළා")}"),
         backgroundColor: const Color(0xFF0284C7),
       ),
     );
@@ -148,6 +172,12 @@ class _LoginScreenState extends State<LoginScreen> {
             LoginTopBar(
               dateText: dateText,
               timeText: timeText,
+              selectedLanguage: selectedLanguage,
+              onLanguageChanged: (lang) {
+                setState(() {
+                  selectedLanguage = lang;
+                });
+              },
             ),
             Expanded(
               child: Center(
@@ -184,8 +214,10 @@ class _LoginScreenState extends State<LoginScreen> {
                               child: buildLoginForm(),
                             ),
                           ),
-                          const Expanded(
-                            child: WelcomePanel(),
+                          Expanded(
+                            child: WelcomePanel(
+                              selectedLanguage: selectedLanguage,
+                            ),
                           ),
                         ],
                       ),
@@ -233,9 +265,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         const SizedBox(height: 24),
 
-        const Text(
-          "Login",
-          style: TextStyle(
+        Text(
+          text("Login", "පිවිසෙන්න"),
+          style: const TextStyle(
             color: Color(0xFF202124),
             fontSize: 27,
             fontWeight: FontWeight.w900,
@@ -244,9 +276,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
         const SizedBox(height: 10),
 
-        const Text(
-          "Welcome back! Please login to your account.",
-          style: TextStyle(
+        Text(
+          text(
+            "Welcome back! Please login to your account.",
+            "ආයුබෝවන්! කරුණාකර ඔබගේ ගිණුමට පිවිසෙන්න.",
+          ),
+          style: const TextStyle(
             color: Color(0xFF6B7280),
             fontSize: 13,
             fontWeight: FontWeight.w500,
@@ -255,9 +290,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         const SizedBox(height: 28),
 
-        const Text(
-          "Username or Email",
-          style: TextStyle(
+        Text(
+          text("Username or Email", "Username හෝ Email"),
+          style: const TextStyle(
             color: Color(0xFF202124),
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -269,7 +304,10 @@ class _LoginScreenState extends State<LoginScreen> {
         TextField(
           controller: usernameController,
           decoration: InputDecoration(
-            hintText: "Enter your username or email",
+            hintText: text(
+              "Enter your username or email",
+              "Username හෝ email ඇතුළත් කරන්න",
+            ),
             hintStyle: const TextStyle(
               color: Color(0xFF9CA3AF),
               fontSize: 13,
@@ -295,9 +333,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         const SizedBox(height: 18),
 
-        const Text(
-          "Password",
-          style: TextStyle(
+        Text(
+          text("Password", "මුරපදය"),
+          style: const TextStyle(
             color: Color(0xFF202124),
             fontSize: 12,
             fontWeight: FontWeight.w800,
@@ -310,7 +348,10 @@ class _LoginScreenState extends State<LoginScreen> {
           controller: passwordController,
           obscureText: hidePassword,
           decoration: InputDecoration(
-            hintText: "Enter your password",
+            hintText: text(
+              "Enter your password",
+              "මුරපදය ඇතුළත් කරන්න",
+            ),
             hintStyle: const TextStyle(
               color: Color(0xFF9CA3AF),
               fontSize: 13,
@@ -367,9 +408,9 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ),
             const SizedBox(width: 9),
-            const Text(
-              "Remember Me",
-              style: TextStyle(
+            Text(
+              text("Remember Me", "මතක තබාගන්න"),
+              style: const TextStyle(
                 fontSize: 12,
                 color: Color(0xFF6B7280),
                 fontWeight: FontWeight.w500,
@@ -378,9 +419,9 @@ class _LoginScreenState extends State<LoginScreen> {
             const Spacer(),
             GestureDetector(
               onTap: openForgotPassword,
-              child: const Text(
-                "Forgot Password?",
-                style: TextStyle(
+              child: Text(
+                text("Forgot Password?", "මුරපදය අමතකද?"),
+                style: const TextStyle(
                   fontSize: 12,
                   color: Color(0xFF0369A1),
                   fontWeight: FontWeight.w800,
@@ -418,9 +459,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
-            child: const Text(
-              "Login",
-              style: TextStyle(
+            child: Text(
+              text("Login", "පිවිසෙන්න"),
+              style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w900,
               ),
@@ -438,11 +479,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 thickness: 1,
               ),
             ),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 11),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 11),
               child: Text(
-                "New Here?",
-                style: TextStyle(
+                text("New Here?", "අලුත්ද?"),
+                style: const TextStyle(
                   fontSize: 12,
                   color: Color(0xFF9CA3AF),
                 ),
@@ -450,9 +491,9 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
             GestureDetector(
               onTap: openSignUp,
-              child: const Text(
-                "Sign Up",
-                style: TextStyle(
+              child: Text(
+                text("Sign Up", "ලියාපදිංචි වන්න"),
+                style: const TextStyle(
                   fontSize: 12,
                   color: Color(0xFF0369A1),
                   fontWeight: FontWeight.w900,
@@ -512,11 +553,15 @@ class _LoginScreenState extends State<LoginScreen> {
 class LoginTopBar extends StatelessWidget {
   final String dateText;
   final String timeText;
+  final String selectedLanguage;
+  final Function(String) onLanguageChanged;
 
   const LoginTopBar({
     super.key,
     required this.dateText,
     required this.timeText,
+    required this.selectedLanguage,
+    required this.onLanguageChanged,
   });
 
   @override
@@ -550,18 +595,55 @@ class LoginTopBar extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
+
           const Spacer(),
+
           Text(dateText, style: topBarTextStyle),
+
           const SizedBox(width: 28),
+
           Text(timeText, style: topBarTextStyle),
+
           const SizedBox(width: 28),
-          Text(timeText, style: topBarTextStyle),
-          const SizedBox(width: 28),
-          const Text("EN", style: topBarTextStyle),
+
+          GestureDetector(
+            onTap: () => onLanguageChanged("EN"),
+            child: Text(
+              "EN",
+              style: topBarTextStyle.copyWith(
+                color: selectedLanguage == "EN"
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.55),
+                fontWeight: selectedLanguage == "EN"
+                    ? FontWeight.w900
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+
           const SizedBox(width: 24),
-          const Text("SIN", style: topBarTextStyle),
+
+          GestureDetector(
+            onTap: () => onLanguageChanged("SIN"),
+            child: Text(
+              "SIN",
+              style: topBarTextStyle.copyWith(
+                color: selectedLanguage == "SIN"
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.55),
+                fontWeight: selectedLanguage == "SIN"
+                    ? FontWeight.w900
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+
           const SizedBox(width: 24),
-          const Text("Help", style: topBarTextStyle),
+
+          Text(
+            selectedLanguage == "EN" ? "Help" : "උදව්",
+            style: topBarTextStyle,
+          ),
         ],
       ),
     );
@@ -575,7 +657,16 @@ const TextStyle topBarTextStyle = TextStyle(
 );
 
 class WelcomePanel extends StatelessWidget {
-  const WelcomePanel({super.key});
+  final String selectedLanguage;
+
+  const WelcomePanel({
+    super.key,
+    required this.selectedLanguage,
+  });
+
+  String text(String en, String sin) {
+    return selectedLanguage == "EN" ? en : sin;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -595,38 +686,41 @@ class WelcomePanel extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Column(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            "Welcome Back.",
-            style: TextStyle(
+            text("Welcome Back.", "නැවත සාදරයෙන් පිළිගනිමු."),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 32,
               fontWeight: FontWeight.w900,
               letterSpacing: 1.2,
             ),
           ),
-          SizedBox(height: 18),
+          const SizedBox(height: 18),
           Text(
-            "To the Management System,",
-            style: TextStyle(
+            text(
+              "To the Management System,",
+              "කළමනාකරණ පද්ධතියට,",
+            ),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 15,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
-            "Please log in.",
-            style: TextStyle(
+            text("Please log in.", "කරුණාකර පිවිසෙන්න."),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w800,
             ),
           ),
-          SizedBox(height: 31),
-          Row(
+          const SizedBox(height: 31),
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               FeatureChip(text: "🔒 Secure Login"),

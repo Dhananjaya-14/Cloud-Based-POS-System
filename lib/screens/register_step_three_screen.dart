@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 
@@ -9,6 +10,7 @@ class RegisterStepThreeScreen extends StatefulWidget {
   final String fullName;
   final String address;
   final String contactNumber;
+  final String selectedLanguage;
 
   const RegisterStepThreeScreen({
     super.key,
@@ -19,6 +21,7 @@ class RegisterStepThreeScreen extends StatefulWidget {
     required this.fullName,
     required this.address,
     required this.contactNumber,
+    this.selectedLanguage = "EN",
   });
 
   @override
@@ -34,6 +37,72 @@ class _RegisterStepThreeScreenState extends State<RegisterStepThreeScreen> {
   bool hidePassword = true;
   bool hideConfirmPassword = true;
   String errorMessage = "";
+  late String selectedLanguage;
+
+  late Timer timer;
+  DateTime now = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+
+    selectedLanguage = widget.selectedLanguage;
+
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        now = DateTime.now();
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    timer.cancel();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  String text(String en, String sin) {
+    return selectedLanguage == "EN" ? en : sin;
+  }
+
+  String getFormattedDate() {
+    const months = [
+      "JAN",
+      "FEB",
+      "MAR",
+      "APR",
+      "MAY",
+      "JUN",
+      "JUL",
+      "AUG",
+      "SEP",
+      "OCT",
+      "NOV",
+      "DEC",
+    ];
+
+    final day = now.day.toString().padLeft(2, "0");
+    final month = months[now.month - 1];
+    final year = now.year;
+
+    return "$day $month $year";
+  }
+
+  String getFormattedTime() {
+    int hour = now.hour;
+    final minute = now.minute.toString().padLeft(2, "0");
+    final period = hour >= 12 ? "PM" : "AM";
+
+    if (hour == 0) {
+      hour = 12;
+    } else if (hour > 12) {
+      hour -= 12;
+    }
+
+    return "${hour.toString().padLeft(2, "0")}:$minute $period";
+  }
 
   void handleRegister() {
     final password = passwordController.text.trim();
@@ -41,21 +110,30 @@ class _RegisterStepThreeScreenState extends State<RegisterStepThreeScreen> {
 
     if (password.isEmpty || confirmPassword.isEmpty) {
       setState(() {
-        errorMessage = "Please enter password and confirm password";
+        errorMessage = text(
+          "Please enter password and confirm password",
+          "කරුණාකර password සහ confirm password ඇතුළත් කරන්න",
+        );
       });
       return;
     }
 
     if (password.length < 4) {
       setState(() {
-        errorMessage = "Password must be at least 4 characters";
+        errorMessage = text(
+          "Password must be at least 4 characters",
+          "Password එක අවම වශයෙන් characters 4ක් විය යුතුයි",
+        );
       });
       return;
     }
 
     if (password != confirmPassword) {
       setState(() {
-        errorMessage = "Passwords do not match";
+        errorMessage = text(
+          "Passwords do not match",
+          "Passwords දෙක ගැලපෙන්නේ නැහැ",
+        );
       });
       return;
     }
@@ -65,26 +143,26 @@ class _RegisterStepThreeScreenState extends State<RegisterStepThreeScreen> {
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Account registered successfully"),
-        backgroundColor: Color(0xFF16A34A),
+      SnackBar(
+        content: Text(
+          text(
+            "Account registered successfully",
+            "ගිණුම සාර්ථකව ලියාපදිංචි විය",
+          ),
+        ),
+        backgroundColor: const Color(0xFF16A34A),
       ),
     );
 
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
+        builder: (context) => LoginScreen(
+          selectedLanguage: selectedLanguage,
+        ),
       ),
       (route) => false,
     );
-  }
-
-  @override
-  void dispose() {
-    passwordController.dispose();
-    confirmPasswordController.dispose();
-    super.dispose();
   }
 
   OutlineInputBorder inputBorder({
@@ -153,153 +231,291 @@ class _RegisterStepThreeScreenState extends State<RegisterStepThreeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final dateText = getFormattedDate();
+    final timeText = getFormattedTime();
+
     return Scaffold(
       backgroundColor: const Color(0xFFEFF6FB),
       body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Container(
-                height: 600,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.08),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: RegisterSidePanel(),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(42, 38, 42, 34),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const HotelBadge(),
-
-                            const SizedBox(height: 22),
-
-                            const Text(
-                              "Create Your Account",
-                              style: TextStyle(
-                                color: Color(0xFF202124),
-                                fontSize: 27,
-                                fontWeight: FontWeight.w900,
+        child: Column(
+          children: [
+            RegisterTopBar(
+              dateText: dateText,
+              timeText: timeText,
+              selectedLanguage: selectedLanguage,
+              onLanguageChanged: (lang) {
+                setState(() {
+                  selectedLanguage = lang;
+                });
+              },
+            ),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 900),
+                    child: Container(
+                      height: 650,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(15),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: RegisterSidePanel(
+                              selectedLanguage: selectedLanguage,
+                            ),
+                          ),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              padding: const EdgeInsets.fromLTRB(
+                                42,
+                                38,
+                                42,
+                                34,
                               ),
-                            ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const HotelBadge(),
 
-                            const SizedBox(height: 8),
+                                  const SizedBox(height: 22),
 
-                            const Text(
-                              "All fields are required to create your account",
-                              style: TextStyle(
-                                color: Color(0xFF6B7280),
-                                fontSize: 12,
-                              ),
-                            ),
-
-                            const SizedBox(height: 34),
-
-                            const StepIndicator(currentStep: 3),
-
-                            const SizedBox(height: 34),
-
-                            buildPasswordField(
-                              label: "Password",
-                              controller: passwordController,
-                              hidden: hidePassword,
-                              onToggle: () {
-                                setState(() {
-                                  hidePassword = !hidePassword;
-                                });
-                              },
-                            ),
-
-                            const SizedBox(height: 22),
-
-                            buildPasswordField(
-                              label: "Confirm Password",
-                              controller: confirmPasswordController,
-                              hidden: hideConfirmPassword,
-                              onToggle: () {
-                                setState(() {
-                                  hideConfirmPassword = !hideConfirmPassword;
-                                });
-                              },
-                            ),
-
-                            if (errorMessage.isNotEmpty) ...[
-                              const SizedBox(height: 12),
-                              Text(
-                                errorMessage,
-                                style: const TextStyle(
-                                  color: Color(0xFFDC2626),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-
-                            const Spacer(),
-
-                            Row(
-                              children: [
-                                TextButton(
-                                  onPressed: () {
-                                    Navigator.pop(context);
-                                  },
-                                  child: const Text("‹ Back"),
-                                ),
-                                const Spacer(),
-                                SizedBox(
-                                  width: 160,
-                                  height: 44,
-                                  child: ElevatedButton(
-                                    onPressed: handleRegister,
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Color(0xFF0067B1),
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.all(
-                                          Radius.circular(6),
-                                        ),
-                                      ),
+                                  Text(
+                                    text(
+                                      "Create Your Account",
+                                      "ඔබගේ ගිණුම සාදන්න",
                                     ),
-                                    child: const Text(
-                                      "Register",
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                    style: const TextStyle(
+                                      color: Color(0xFF202124),
+                                      fontSize: 27,
+                                      fontWeight: FontWeight.w900,
                                     ),
                                   ),
-                                ),
-                              ],
+
+                                  const SizedBox(height: 8),
+
+                                  Text(
+                                    text(
+                                      "All fields are required to create your account",
+                                      "ගිණුම සෑදීමට සියලුම fields අවශ්‍ය වේ",
+                                    ),
+                                    style: const TextStyle(
+                                      color: Color(0xFF6B7280),
+                                      fontSize: 12,
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 34),
+
+                                  const StepIndicator(currentStep: 3),
+
+                                  const SizedBox(height: 34),
+
+                                  buildPasswordField(
+                                    label: text("Password", "මුරපදය"),
+                                    controller: passwordController,
+                                    hidden: hidePassword,
+                                    onToggle: () {
+                                      setState(() {
+                                        hidePassword = !hidePassword;
+                                      });
+                                    },
+                                  ),
+
+                                  const SizedBox(height: 22),
+
+                                  buildPasswordField(
+                                    label: text(
+                                      "Confirm Password",
+                                      "මුරපදය නැවත ඇතුළත් කරන්න",
+                                    ),
+                                    controller: confirmPasswordController,
+                                    hidden: hideConfirmPassword,
+                                    onToggle: () {
+                                      setState(() {
+                                        hideConfirmPassword =
+                                            !hideConfirmPassword;
+                                      });
+                                    },
+                                  ),
+
+                                  if (errorMessage.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      errorMessage,
+                                      style: const TextStyle(
+                                        color: Color(0xFFDC2626),
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+
+                                  const SizedBox(height: 38),
+
+                                  Row(
+                                    children: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pop(context);
+                                        },
+                                        child: Text(text("‹ Back", "‹ ආපසු")),
+                                      ),
+                                      const Spacer(),
+                                      SizedBox(
+                                        width: 160,
+                                        height: 44,
+                                        child: ElevatedButton(
+                                          onPressed: handleRegister,
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor:
+                                                const Color(0xFF0067B1),
+                                            foregroundColor: Colors.white,
+                                            elevation: 0,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            text("Register", "ලියාපදිංචි වන්න"),
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 }
+
+class RegisterTopBar extends StatelessWidget {
+  final String dateText;
+  final String timeText;
+  final String selectedLanguage;
+  final Function(String) onLanguageChanged;
+
+  const RegisterTopBar({
+    super.key,
+    required this.dateText,
+    required this.timeText,
+    required this.selectedLanguage,
+    required this.onLanguageChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 34,
+      padding: const EdgeInsets.symmetric(horizontal: 26),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF0284C7),
+            Color(0xFF16A34A),
+          ],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.storefront_outlined,
+            size: 14,
+            color: Colors.white,
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            "pos",
+            style: topBarTextStyle,
+          ),
+
+          const Spacer(),
+
+          Text(dateText, style: topBarTextStyle),
+
+          const SizedBox(width: 28),
+
+          Text(timeText, style: topBarTextStyle),
+
+          const SizedBox(width: 28),
+
+          GestureDetector(
+            onTap: () => onLanguageChanged("EN"),
+            child: Text(
+              "EN",
+              style: topBarTextStyle.copyWith(
+                color: selectedLanguage == "EN"
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.55),
+                fontWeight: selectedLanguage == "EN"
+                    ? FontWeight.w900
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 24),
+
+          GestureDetector(
+            onTap: () => onLanguageChanged("SIN"),
+            child: Text(
+              "SIN",
+              style: topBarTextStyle.copyWith(
+                color: selectedLanguage == "SIN"
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.55),
+                fontWeight: selectedLanguage == "SIN"
+                    ? FontWeight.w900
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 24),
+
+          Text(
+            selectedLanguage == "EN" ? "Help" : "උදව්",
+            style: topBarTextStyle,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+const TextStyle topBarTextStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 10,
+  fontWeight: FontWeight.w700,
+);
 
 class HotelBadge extends StatelessWidget {
   const HotelBadge({super.key});
@@ -329,7 +545,16 @@ class HotelBadge extends StatelessWidget {
 }
 
 class RegisterSidePanel extends StatelessWidget {
-  const RegisterSidePanel({super.key});
+  final String selectedLanguage;
+
+  const RegisterSidePanel({
+    super.key,
+    required this.selectedLanguage,
+  });
+
+  String text(String en, String sin) {
+    return selectedLanguage == "EN" ? en : sin;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -349,27 +574,30 @@ class RegisterSidePanel extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
       ),
-      child: const Column(
+      child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            "Welcome",
-            style: TextStyle(
+            text("Welcome", "සාදරයෙන් පිළිගනිමු"),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 31,
               fontWeight: FontWeight.w900,
             ),
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
-            "Enter your details to get started.",
-            style: TextStyle(
+            text(
+              "Enter your details to get started.",
+              "ආරම්භ කිරීමට ඔබගේ විස්තර ඇතුළත් කරන්න.",
+            ),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
             ),
           ),
-          SizedBox(height: 34),
-          Row(
+          const SizedBox(height: 34),
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SmallChip(text: "🔒 Secure Login"),

@@ -3,7 +3,12 @@ import 'package:flutter/material.dart';
 import 'register_step_two_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
-  const SignUpScreen({super.key});
+  final String selectedLanguage;
+
+  const SignUpScreen({
+    super.key,
+    this.selectedLanguage = "EN",
+  });
 
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
@@ -15,6 +20,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   String selectedBusinessType = "Hotel";
   String errorMessage = "";
+  late String selectedLanguage;
 
   late Timer timer;
   DateTime now = DateTime.now();
@@ -22,6 +28,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
   @override
   void initState() {
     super.initState();
+
+    selectedLanguage = widget.selectedLanguage;
 
     timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
@@ -36,6 +44,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
     businessNameController.dispose();
     emailController.dispose();
     super.dispose();
+  }
+
+  String text(String en, String sin) {
+    return selectedLanguage == "EN" ? en : sin;
   }
 
   String getFormattedDate() {
@@ -81,14 +93,20 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     if (businessName.isEmpty || email.isEmpty) {
       setState(() {
-        errorMessage = "Please fill business name and email";
+        errorMessage = text(
+          "Please fill business name and email",
+          "කරුණාකර ව්‍යාපාර නාමය සහ email ඇතුළත් කරන්න",
+        );
       });
       return;
     }
 
     if (!email.contains("@")) {
       setState(() {
-        errorMessage = "Please enter a valid email address";
+        errorMessage = text(
+          "Please enter a valid email address",
+          "කරුණාකර වලංගු email ලිපිනයක් ඇතුළත් කරන්න",
+        );
       });
       return;
     }
@@ -104,6 +122,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           businessName: businessName,
           businessType: selectedBusinessType,
           email: email,
+          selectedLanguage: selectedLanguage,
         ),
       ),
     );
@@ -122,6 +141,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
             RegisterTopBar(
               dateText: dateText,
               timeText: timeText,
+              selectedLanguage: selectedLanguage,
+              onLanguageChanged: (lang) {
+                setState(() {
+                  selectedLanguage = lang;
+                });
+              },
             ),
             Expanded(
               child: Center(
@@ -147,8 +172,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                       child: Row(
                         children: [
-                          const Expanded(
-                            child: RegisterWelcomePanel(),
+                          Expanded(
+                            child: RegisterWelcomePanel(
+                              selectedLanguage: selectedLanguage,
+                            ),
                           ),
                           Expanded(
                             child: SingleChildScrollView(
@@ -202,9 +229,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
         const SizedBox(height: 22),
 
-        const Text(
-          "Create Your Account",
-          style: TextStyle(
+        Text(
+          text("Create Your Account", "ඔබගේ ගිණුම සාදන්න"),
+          style: const TextStyle(
             color: Color(0xFF202124),
             fontSize: 27,
             fontWeight: FontWeight.w900,
@@ -213,9 +240,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
         const SizedBox(height: 8),
 
-        const Text(
-          "Join thousands of users who trust our platform",
-          style: TextStyle(
+        Text(
+          text(
+            "Join thousands of users who trust our platform",
+            "අපගේ platform එක භාවිතා කරන පරිශීලකයින් සමඟ එකතු වන්න",
+          ),
+          style: const TextStyle(
             color: Color(0xFF6B7280),
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -232,7 +262,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           children: [
             Expanded(
               child: buildTextField(
-                label: "Business Name",
+                label: text("Business Name", "ව්‍යාපාර නාමය"),
                 controller: businessNameController,
                 hintText: "",
               ),
@@ -247,7 +277,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         const SizedBox(height: 22),
 
         buildTextField(
-          label: "Email",
+          label: text("Email", "ඊමේල්"),
           controller: emailController,
           hintText: "",
         ),
@@ -279,9 +309,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
-            child: const Text(
-              "Continue",
-              style: TextStyle(
+            child: Text(
+              text("Continue", "ඉදිරියට"),
+              style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w800,
               ),
@@ -337,9 +367,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Business Type",
-          style: TextStyle(
+        Text(
+          text("Business Type", "ව්‍යාපාර වර්ගය"),
+          style: const TextStyle(
             color: Color(0xFF202124),
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -408,11 +438,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
 class RegisterTopBar extends StatelessWidget {
   final String dateText;
   final String timeText;
+  final String selectedLanguage;
+  final Function(String) onLanguageChanged;
 
   const RegisterTopBar({
     super.key,
     required this.dateText,
     required this.timeText,
+    required this.selectedLanguage,
+    required this.onLanguageChanged,
   });
 
   @override
@@ -447,17 +481,53 @@ class RegisterTopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
+
           Text(dateText, style: topBarTextStyle),
+
           const SizedBox(width: 28),
+
           Text(timeText, style: topBarTextStyle),
+
           const SizedBox(width: 28),
-          Text(timeText, style: topBarTextStyle),
-          const SizedBox(width: 28),
-          const Text("EN", style: topBarTextStyle),
+
+          GestureDetector(
+            onTap: () => onLanguageChanged("EN"),
+            child: Text(
+              "EN",
+              style: topBarTextStyle.copyWith(
+                color: selectedLanguage == "EN"
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.55),
+                fontWeight: selectedLanguage == "EN"
+                    ? FontWeight.w900
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+
           const SizedBox(width: 24),
-          const Text("SIN", style: topBarTextStyle),
+
+          GestureDetector(
+            onTap: () => onLanguageChanged("SIN"),
+            child: Text(
+              "SIN",
+              style: topBarTextStyle.copyWith(
+                color: selectedLanguage == "SIN"
+                    ? Colors.white
+                    : Colors.white.withOpacity(0.55),
+                fontWeight: selectedLanguage == "SIN"
+                    ? FontWeight.w900
+                    : FontWeight.w600,
+              ),
+            ),
+          ),
+
           const SizedBox(width: 24),
-          const Text("Help", style: topBarTextStyle),
+
+          Text(
+            selectedLanguage == "EN" ? "Help" : "උදව්",
+            style: topBarTextStyle,
+          ),
         ],
       ),
     );
@@ -471,7 +541,16 @@ const TextStyle topBarTextStyle = TextStyle(
 );
 
 class RegisterWelcomePanel extends StatelessWidget {
-  const RegisterWelcomePanel({super.key});
+  final String selectedLanguage;
+
+  const RegisterWelcomePanel({
+    super.key,
+    required this.selectedLanguage,
+  });
+
+  String text(String en, String sin) {
+    return selectedLanguage == "EN" ? en : sin;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -495,9 +574,9 @@ class RegisterWelcomePanel extends StatelessWidget {
         children: [
           const Spacer(),
 
-          const Text(
-            "Welcome",
-            style: TextStyle(
+          Text(
+            text("Welcome", "සාදරයෙන් පිළිගනිමු"),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 31,
               fontWeight: FontWeight.w900,
@@ -507,9 +586,12 @@ class RegisterWelcomePanel extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          const Text(
-            "Enter your details to get started.",
-            style: TextStyle(
+          Text(
+            text(
+              "Enter your details to get started.",
+              "ආරම්භ කිරීමට ඔබගේ විස්තර ඇතුළත් කරන්න.",
+            ),
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 14,
               fontWeight: FontWeight.w500,
@@ -535,18 +617,21 @@ class RegisterWelcomePanel extends StatelessWidget {
             onTap: () {
               Navigator.pop(context);
             },
-            child: const Text.rich(
+            child: Text.rich(
               TextSpan(
-                text: "Already have an Account?  ",
-                style: TextStyle(
+                text: text(
+                  "Already have an Account?  ",
+                  "දැනටමත් ගිණුමක් තියෙනවාද?  ",
+                ),
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
                 children: [
                   TextSpan(
-                    text: "Sign In",
-                    style: TextStyle(
+                    text: text("Sign In", "පිවිසෙන්න"),
+                    style: const TextStyle(
                       fontWeight: FontWeight.w900,
                     ),
                   ),
