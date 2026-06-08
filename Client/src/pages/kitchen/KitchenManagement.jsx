@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FaSearch, FaClock } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
@@ -11,47 +11,54 @@ import {
 } from "../../services/api";
 
 const statCards = [
-	{
-		key: "pending",
-		title: "Pending",
-		subtitle: "Items waiting",
-		tone: "from-amber-100 to-yellow-200",
-		accent: "text-amber-600",
-		border: "border-amber-300",
-	},
-	{
-		key: "preparing",
-		title: "Preparing",
-		subtitle: "In progress",
-		tone: "from-orange-100 to-orange-200",
-		accent: "text-orange-600",
-		border: "border-orange-300",
-	},
-	{
-		key: "ready",
-		title: "Ready",
-		subtitle: "Ready to serve",
-		tone: "from-emerald-100 to-emerald-200",
-		accent: "text-emerald-600",
-		border: "border-emerald-300",
-	},
-	{
-		key: "active",
-		title: "Active Orders",
-		subtitle: "Total orders",
-		tone: "from-sky-100 to-indigo-100",
-		accent: "text-indigo-600",
-		border: "border-indigo-300",
-	},
+    {
+        key: "pending",
+        title: "Pending",
+        subtitle: "Items waiting",
+        tone: "from-amber-100 to-yellow-200",
+        accent: "text-amber-600",
+        border: "border-amber-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+        subtitleStyles: "font-sans font-semibold text-[12px] text-slate-500",
+    },
+    {
+        key: "preparing",
+        title: "Preparing",
+        subtitle: "In progress",
+        tone: "from-orange-100 to-orange-200",
+        accent: "text-orange-600",
+        border: "border-orange-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase", 
+        subtitleStyles: "font-sans font-semibold text-[12px] text-slate-500",
+    },
+    {
+        key: "ready",
+        title: "Ready",
+        subtitle: "Ready to serve",
+        tone: "from-emerald-100 to-emerald-200",
+        accent: "text-emerald-600",
+        border: "border-emerald-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+    },
+    {
+        key: "active",
+        title: "Active Orders",
+        subtitle: "Total orders",
+        tone: "from-sky-100 to-indigo-100",
+        accent: "text-indigo-600",
+        border: "border-indigo-300",
+        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+    },
 ];
 
 const statusPalette = {
-	Pending: "bg-slate-100 text-slate-700 border-slate-200",
-	Preparing: "bg-orange-100 text-orange-700 border-orange-200",
-	Completed: "bg-emerald-100 text-emerald-700 border-emerald-200",
-	Declined: "bg-rose-100 text-rose-700 border-rose-200",
+	Pending: "bg-slate-100 text-[12px] font-semibold text-slate-700 border-slate-200",
+	Preparing: "bg-orange-100 text-[12px] font-semibold text-orange-700 border-orange-200",
+	Completed: "bg-emerald-100 text-[12px] font-semibold text-emerald-700 border-emerald-200",
+	Declined: "bg-rose-100 text-[12px] font-semibold text-rose-700 border-rose-200",
 };
-
 
 const KitchenManagement = () => {
 	const { user } = useAuth();
@@ -115,30 +122,31 @@ const KitchenManagement = () => {
 
 	useEffect(() => {
 		let isMounted = true;
-		let refreshTimer;
+		let refreshTimer = null;
+		const socket = connectSocket();
 
-		const scheduleRefresh = () => {
-			window.clearTimeout(refreshTimer);
-			refreshTimer = window.setTimeout(() => {
-				if (isMounted) {
-					loadKitchenData(true);
-				}
-			}, 250);
+		const loadData = async (silent = false) => {
+			if (!isMounted) return;
+			await loadKitchenData(silent);
 		};
 
-		loadKitchenData(false);
+		const scheduleRefresh = (silent = true) => {
+			if (refreshTimer) window.clearTimeout(refreshTimer);
+			refreshTimer = window.setTimeout(() => loadData(silent), 1000);
+		};
 
-		const socket = connectSocket();
-		socket.on("order:created", scheduleRefresh);
-		socket.on("order:updated", scheduleRefresh);
-		socket.on("order:deleted", scheduleRefresh);
+		loadData(false);
+
+		socket.on("order:created", () => scheduleRefresh(true));
+		socket.on("order:updated", () => scheduleRefresh(true));
+		socket.on("order:deleted", () => scheduleRefresh(true));
 
 		return () => {
 			isMounted = false;
-			window.clearTimeout(refreshTimer);
-			socket.off("order:created", scheduleRefresh);
-			socket.off("order:updated", scheduleRefresh);
-			socket.off("order:deleted", scheduleRefresh);
+			if (refreshTimer) window.clearTimeout(refreshTimer);
+			socket.off("order:created");
+			socket.off("order:updated");
+			socket.off("order:deleted");
 		};
 	}, [loadKitchenData]);
 
@@ -151,18 +159,34 @@ const KitchenManagement = () => {
 
 	const itemsByOrderId = useMemo(() => {
 		return orderItems.reduce((acc, item) => {
+			const product = branchProductMap[item.Bpro_id];
+			const stations = product?.stations || {};
+
+			// --- THE FIX FOR PREMADE FOODS ---
+			// 1. If Kitchen is explicitly false, hide it.
+			// 2. If the item is marked for Bar and NOT explicitly Kitchen, hide it.
+			if (stations.Kitchen === false) return acc;
+			if (stations.Bar === true && stations.Kitchen !== true) return acc;
+
 			const orderId = item.order_id;
 			if (!acc[orderId]) acc[orderId] = [];
 			acc[orderId].push(item);
 			return acc;
 		}, {});
-	}, [orderItems]);
+	}, [orderItems, branchProductMap]);
 
 	const filteredOrders = useMemo(() => {
 		const query = searchTerm.trim().toLowerCase();
-		if (!query) return orders;
 
-		return orders.filter((order) => {
+		// Only show orders that have items requiring kitchen preparation
+		const withKitchenPrep = orders.filter((order) => {
+			const items = itemsByOrderId[order.or_id] || [];
+			return items.length > 0;
+		});
+
+		if (!query) return withKitchenPrep;
+
+		return withKitchenPrep.filter((order) => {
 			if (String(order.or_id ?? "").includes(query)) return true;
 
 			const items = itemsByOrderId[order.or_id] || [];
@@ -178,7 +202,7 @@ const KitchenManagement = () => {
 	const statusCounts = useMemo(() => {
 		const counts = { pending: 0, preparing: 0, ready: 0 };
 
-		orders.forEach((order) => {
+		filteredOrders.forEach((order) => {
 			if (order.or_status === "pending") counts.pending += 1;
 			if (order.or_status === "preparing") counts.preparing += 1;
 			if (order.or_status === "completed") counts.ready += 1;
@@ -190,7 +214,7 @@ const KitchenManagement = () => {
 			ready: counts.ready,
 			active: counts.pending + counts.preparing,
 		};
-	}, [orders]);
+	}, [filteredOrders]);
 
 	const sortedOrders = useMemo(() => {
 		const toTimestamp = (order) => {
@@ -253,8 +277,8 @@ const KitchenManagement = () => {
 							<div className="text-sm font-semibold text-slate-900">
 								ORD{String(order.or_id).padStart(5, "0")}
 							</div>
-							<div className="text-[11px] text-slate-500">
-								{order.or_type || "Dine in"} | {order.or_time || "--:--"}
+							<div className="text-[12px] font-semibold text-slate-500">
+								{order.or_type || "Dine in"} | {order.or_time?.slice(0, 5) || "--:--"}
 							</div>
 						</div>
 
@@ -264,9 +288,9 @@ const KitchenManagement = () => {
 							>
 								{statusLabel}
 							</span>
-							<span className="text-[10px] text-slate-400 flex items-center gap-1">
+							<span className="text-[12px] text-slate-400 flex items-center gap-1">
 								<FaClock />
-								<span>{order.or_time || "--:--"}</span>
+								<span>{order.or_time?.slice(0, 5) || "--:--"}</span>
 							</span>
 						</div>
 					</div>
@@ -281,14 +305,14 @@ const KitchenManagement = () => {
 								<button
 									onClick={() => updateStatus(order.or_id, "preparing")}
 									disabled={updatingOrderId === order.or_id}
-									className="px-3 py-1.5 rounded-lg border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold cursor-pointer"
+									className="px-5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-100 text-emerald-700 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-emerald-300 hover:text-emerald-800 hover:border-emerald-300"
 								>
 									Accept
 								</button>
 								<button
 									onClick={() => updateStatus(order.or_id, "cancelled")}
 									disabled={updatingOrderId === order.or_id}
-									className="px-3 py-1.5 rounded-lg border border-rose-200 bg-rose-50 text-rose-600 text-xs font-semibold cursor-pointer"
+									className="px-5 py-1.5 rounded-lg border border-rose-200 bg-rose-100 text-rose-600 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-rose-300 hover:text-rose-800 hover:border-rose-300"
 								>
 									Decline
 								</button>
@@ -332,18 +356,35 @@ const KitchenManagement = () => {
 
 	const updateStatus = async (orderId, nextStatus) => {
 		if (!orderId || updatingOrderId) return;
+
+		// Store previous state for rollback
+		const previousOrders = [...orders];
+
+		// Optimistic Update
+		setOrders((prev) =>
+			prev.map((order) =>
+				order.or_id === orderId ? { ...order, or_status: nextStatus } : order,
+			),
+		);
+
 		setUpdatingOrderId(orderId);
+		setError("");
 
 		try {
 			const updated = await updateOrderStatus(orderId, nextStatus);
-			setOrders((prev) =>
-				prev.map((order) =>
-					order.or_id === orderId
-						? { ...order, or_status: updated?.or_status || nextStatus }
-						: order,
-				),
-			);
+			// Update with actual server response if needed (e.g. status might be slightly different)
+			if (updated) {
+				setOrders((prev) =>
+					prev.map((order) =>
+						order.or_id === orderId
+							? { ...order, or_status: updated.or_status }
+							: order,
+					),
+				);
+			}
 		} catch (err) {
+			// Rollback on error
+			setOrders(previousOrders);
 			setError(
 				err?.response?.data?.error ||
 					err?.response?.data?.message ||
@@ -360,7 +401,6 @@ const KitchenManagement = () => {
 		if (order.or_status === "cancelled") return "Declined";
 		return "Pending";
 	};
-
 
 	const renderOrderItems = (orderId) => {
 		const items = itemsByOrderId[orderId] || [];
@@ -394,10 +434,6 @@ const KitchenManagement = () => {
 						<div className="text-sm font-semibold text-slate-900">{name}</div>
 						<div className="text-[11px] text-slate-500">Qty: {quantity}</div>
 					</div>
-					<div className="text-[10px] text-slate-400 flex items-center gap-1">
-						<FaClock />
-						<span>-- min</span>
-					</div>
 				</div>
 			);
 		});
@@ -428,13 +464,13 @@ const KitchenManagement = () => {
 								key={card.key}
 								className={`rounded-2xl border ${card.border} bg-gradient-to-br ${card.tone} p-4 shadow-sm`}
 							>
-								<div className="text-[11px] uppercase tracking-wide text-slate-500">
+								<div className={card.titleStyles || "text-[11px] uppercase tracking-wide text-slate-500"}>
 									{card.title}
 								</div>
-								<div className={`text-2xl font-semibold ${card.accent} mt-2`}>
+								<div className={`text-1xl font-semibold ${card.accent} mt-2`}>
 									{statusCounts[card.key]}
 								</div>
-								<div className="text-[11px] text-slate-500 mt-1">
+								<div className={card.subtitleStyles || "text-[11px] text-slate-500 mt-1"}>
 									{card.subtitle}
 								</div>
 							</div>

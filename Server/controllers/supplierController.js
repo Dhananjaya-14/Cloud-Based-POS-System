@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "../middleware/authMiddleware.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -61,11 +62,19 @@ function validateSupplierName(sup_name) {
 // ─── GET /api/suppliers ───────────────────────────────────────────────────────
 export async function getSuppliers(req, res, next) {
   try {
-    const result = await pool.query(
-      `SELECT sup_id, sup_name, sup_email, sup_contact, sup_address
-       FROM "SUPPLIER"
-       ORDER BY sup_name ASC`,
-    );
+    const { role_id, com_id } = req.user;
+    let query = `SELECT sup_id, sup_name, sup_email, sup_contact, sup_address
+       FROM "SUPPLIER"`;
+    const params = [];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` WHERE "Com_id" = $1`;
+      params.push(com_id);
+    }
+
+    query += ` ORDER BY sup_name ASC`;
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     next(err);
@@ -76,13 +85,19 @@ export async function getSuppliers(req, res, next) {
 export async function getSupplierById(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "sup_id");
+    const { role_id, com_id } = req.user;
 
-    const result = await pool.query(
-      `SELECT sup_id, sup_name, sup_email, sup_contact, sup_address
+    let query = `SELECT sup_id, sup_name, sup_email, sup_contact, sup_address
        FROM "SUPPLIER"
-       WHERE sup_id = $1`,
-      [id],
-    );
+       WHERE sup_id = $1`;
+    const params = [id];
+
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      query += ` AND "Com_id" = $2`;
+      params.push(com_id);
+    }
+
+    const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       res.status(404);
@@ -160,41 +175,54 @@ export async function createSupplier(req, res, next) {
       }
     }
 
+    let resolvedComId = null;
+    let dupEmailQuery = `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1)`;
+    let dupNameQuery = `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1)`;
+    let dupContactQuery = `SELECT sup_id FROM "SUPPLIER" WHERE sup_contact = $1`;
+
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      resolvedComId = req.user.com_id;
+      dupEmailQuery += ` AND "Com_id" = $2`;
+      dupNameQuery += ` AND "Com_id" = $2`;
+      dupContactQuery += ` AND "Com_id" = $2`;
+    } else {
+      resolvedComId = req.body.com_id || req.body.Com_id || null;
+      if (resolvedComId) {
+        dupEmailQuery += ` AND "Com_id" = $2`;
+        dupNameQuery += ` AND "Com_id" = $2`;
+        dupContactQuery += ` AND "Com_id" = $2`;
+      }
+    }
+
     // ── Duplicate email check ──
-    const dupEmail = await pool.query(
-      `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1)`,
-      [sup_email],
-    );
+    const dupEmailParams = resolvedComId ? [sup_email, resolvedComId] : [sup_email];
+    const dupEmail = await pool.query(dupEmailQuery, dupEmailParams);
     if (dupEmail.rows.length > 0) {
       res.status(409);
       throw new Error("A supplier with this email already exists");
     }
 
     // ── Duplicate name check ──
-    const dupName = await pool.query(
-      `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1)`,
-      [sup_name],
-    );
+    const dupNameParams = resolvedComId ? [sup_name, resolvedComId] : [sup_name];
+    const dupName = await pool.query(dupNameQuery, dupNameParams);
     if (dupName.rows.length > 0) {
       res.status(409);
       throw new Error(`A supplier named "${sup_name}" already exists`);
     }
 
-    // ── NEW: duplicate contact check ──
-    const dupContact = await pool.query(
-      `SELECT sup_id FROM "SUPPLIER" WHERE sup_contact = $1`,
-      [sup_contact],
-    );
+    // ── Duplicate contact check ──
+    const dupContactParams = resolvedComId ? [sup_contact, resolvedComId] : [sup_contact];
+    const dupContact = await pool.query(dupContactQuery, dupContactParams);
     if (dupContact.rows.length > 0) {
       res.status(409);
       throw new Error("A supplier with this contact number already exists");
     }
 
     const result = await pool.query(
-      `INSERT INTO "SUPPLIER" (sup_name, sup_email, sup_contact, sup_address)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO "SUPPLIER" (sup_name, sup_email, sup_contact, sup_address, "Com_id")
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING sup_id, sup_name, sup_email, sup_contact, sup_address`,
-      [sup_name, sup_email.toLowerCase(), sup_contact, sup_address || null],
+      [sup_name, sup_email.toLowerCase(), sup_contact, sup_address || null, resolvedComId],
     );
 
     res.status(201).json(result.rows[0]);
@@ -228,24 +256,32 @@ export async function updateSupplier(req, res, next) {
 
     const { sup_name, sup_email, sup_contact, sup_address } = body;
 
-    // ── Existence check ──
-    const existing = await pool.query(
-      `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`,
-      [id],
-    );
+    // ── Existence & Scoping check ──
+    let existQuery = `SELECT sup_id, "Com_id" FROM "SUPPLIER" WHERE sup_id = $1`;
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND "Com_id" = $2`;
+      existParams.push(req.user.com_id);
+    }
+    const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
       res.status(404);
       throw new Error("Supplier not found");
     }
 
+    const resolvedComId = existing.rows[0].Com_id;
+
     // ── Name validation ──
     if (sup_name !== undefined) {
       validateSupplierName(sup_name);
 
-      const dupName = await pool.query(
-        `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1) AND sup_id <> $2`,
-        [sup_name, id],
-      );
+      let dupNameQuery = `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_name) = LOWER($1) AND sup_id <> $2`;
+      const dupNameParams = [sup_name, id];
+      if (resolvedComId) {
+        dupNameQuery += ` AND "Com_id" = $3`;
+        dupNameParams.push(resolvedComId);
+      }
+      const dupName = await pool.query(dupNameQuery, dupNameParams);
       if (dupName.rows.length > 0) {
         res.status(409);
         throw new Error(`A supplier named "${sup_name}" already exists`);
@@ -266,10 +302,14 @@ export async function updateSupplier(req, res, next) {
         res.status(400);
         throw new Error("sup_email cannot exceed 150 characters");
       }
-      const dupEmail = await pool.query(
-        `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1) AND sup_id <> $2`,
-        [sup_email, id],
-      );
+
+      let dupEmailQuery = `SELECT sup_id FROM "SUPPLIER" WHERE LOWER(sup_email) = LOWER($1) AND sup_id <> $2`;
+      const dupEmailParams = [sup_email, id];
+      if (resolvedComId) {
+        dupEmailQuery += ` AND "Com_id" = $3`;
+        dupEmailParams.push(resolvedComId);
+      }
+      const dupEmail = await pool.query(dupEmailQuery, dupEmailParams);
       if (dupEmail.rows.length > 0) {
         res.status(409);
         throw new Error("A supplier with this email already exists");
@@ -289,10 +329,13 @@ export async function updateSupplier(req, res, next) {
         );
       }
       // ── NEW: duplicate contact check (exclude current record) ──
-      const dupContact = await pool.query(
-        `SELECT sup_id FROM "SUPPLIER" WHERE sup_contact = $1 AND sup_id <> $2`,
-        [sup_contact, id],
-      );
+      let dupContactQuery = `SELECT sup_id FROM "SUPPLIER" WHERE sup_contact = $1 AND sup_id <> $2`;
+      const dupContactParams = [sup_contact, id];
+      if (resolvedComId) {
+        dupContactQuery += ` AND "Com_id" = $3`;
+        dupContactParams.push(resolvedComId);
+      }
+      const dupContact = await pool.query(dupContactQuery, dupContactParams);
       if (dupContact.rows.length > 0) {
         res.status(409);
         throw new Error("A supplier with this contact number already exists");
@@ -340,6 +383,19 @@ export async function deleteSupplier(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "sup_id");
 
+    // ── Existence & Scoping check ──
+    let existQuery = `SELECT sup_id FROM "SUPPLIER" WHERE sup_id = $1`;
+    const existParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND "Com_id" = $2`;
+      existParams.push(req.user.com_id);
+    }
+    const existCheck = await pool.query(existQuery, existParams);
+    if (existCheck.rows.length === 0) {
+      res.status(404);
+      throw new Error("Supplier not found");
+    }
+
     const poCheck = await pool.query(
       `SELECT po_id FROM purchase_order WHERE sup_id = $1 LIMIT 1`,
       [id],
@@ -355,11 +411,6 @@ export async function deleteSupplier(req, res, next) {
       `DELETE FROM "SUPPLIER" WHERE sup_id = $1 RETURNING sup_id`,
       [id],
     );
-
-    if (result.rows.length === 0) {
-      res.status(404);
-      throw new Error("Supplier not found");
-    }
 
     res.status(204).send();
   } catch (err) {

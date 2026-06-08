@@ -9,6 +9,7 @@ import SuperAdminHotelManagement from './pages/super-admin/HotelManagement';
 import SuperAdminUserManagement from './pages/super-admin/UserManagement';
 import SuperAdminUserDetails from './pages/super-admin/UserDetails';
 import SuperAdminAddUser from './pages/super-admin/AddUser';
+import SuperAdminBranchManagement from './pages/super-admin/BranchManagement';
 import BranchManagement from './pages/admin/BranchManagement';
 import AddUser from './pages/admin/AddUser';
 import EditUser from './pages/admin/EditUser';
@@ -33,6 +34,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminStatistics from './pages/admin/AdminStatistics';
 import AdminTransactions from './pages/admin/Transactions';
 import BranchAdminTransactions from './pages/branch-admin/Transactions';
+import Promotions from './pages/admin/Promotions';
 
 // Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
 // send them to Product Management instead of showing Branch Profile.
@@ -106,6 +108,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[6]}>
             <SuperAdminUserDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/branches"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminBranchManagement />
           </ProtectedRoute>
         }
       />
@@ -204,7 +215,7 @@ function App() {
       <Route
         path="/admin/products"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminProductManagement />
           </ProtectedRoute>
         }
@@ -213,7 +224,7 @@ function App() {
       <Route
         path="/admin/products/add"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminAddProduct />
           </ProtectedRoute>
         }
@@ -222,7 +233,7 @@ function App() {
       <Route
         path="/admin/products/:productId"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminProductDetails />
           </ProtectedRoute>
         }
@@ -231,7 +242,7 @@ function App() {
       <Route
         path="/admin/products/:productId/edit"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminProductDetails />
           </ProtectedRoute>
         }
@@ -240,7 +251,7 @@ function App() {
       <Route
         path="/admin/products/:productId/delete"
         element={
-          <ProtectedRoute allowedRoles={[2]}>
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminProductDetails />
           </ProtectedRoute>
         }
@@ -405,7 +416,7 @@ function App() {
         <Route
           path="/admin/dashboard"
           element={
-            <ProtectedRoute allowedRoles={[2]}>
+            <ProtectedRoute allowedRoles={[2, 6]}>
               <AdminDashboard />
             </ProtectedRoute>
         }
@@ -414,7 +425,7 @@ function App() {
         <Route
           path="/admin/statistics"
           element={
-            <ProtectedRoute allowedRoles={[2]}>
+            <ProtectedRoute allowedRoles={[2, 6]}>
               <AdminStatistics />
             </ProtectedRoute>
        }
@@ -431,7 +442,7 @@ function App() {
         <Route
            path="/admin/transactions"
           element={
-            <ProtectedRoute allowedRoles={[2]}>
+            <ProtectedRoute allowedRoles={[2, 6]}>
               <AdminTransactions  />
             </ProtectedRoute>
           }
@@ -445,6 +456,23 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+            path="/admin/promotions"
+            element={
+              <ProtectedRoute allowedRoles={[2, 6]}>
+                <Promotions />
+              </ProtectedRoute>
+            }
+          />
+
+        <Route
+            path="/branch-admin/promotions"
+          element={
+            <ProtectedRoute allowedRoles={[1 , 2, 6]}>
+                    <Promotions />
+                    </ProtectedRoute>
+  }
+/>
 
       <Route path="*" element={<Navigate to="/" />} />
       

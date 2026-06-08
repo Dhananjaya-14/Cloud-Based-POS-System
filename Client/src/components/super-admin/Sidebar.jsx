@@ -4,8 +4,8 @@ import {
   FaTachometerAlt,
   FaStore,
   FaUsers,
-  FaCog,
   FaSignOutAlt,
+  FaCodeBranch,
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -67,11 +67,11 @@ const Sidebar = () => {
           {menuItem(<FaTachometerAlt />, "Dashboard", "/dashboard")}
           {menuItem(<FaStore />, "Company Management", "/super-admin/hotels")}
           {menuItem(<FaUsers />, "User Management", "/super-admin/users")}
+          {menuItem(<FaCodeBranch />, "Branch Management", "/super-admin/branches")}
         </div>
       </div>
 
       <div>
-        {menuItem(<FaCog />, "Settings", "/settings")}
         {menuItem(<FaSignOutAlt />, "Log Out", "/logout")}
       </div>
     </div>

@@ -1,9 +1,11 @@
 import React from "react";
-import { FaHotel, FaMapMarkerAlt, FaPhoneAlt, FaEnvelope, FaExternalLinkAlt } from "react-icons/fa";
+import { FaHotel, FaMapMarkerAlt, FaPhoneAlt, FaEnvelope, FaExternalLinkAlt, FaBuilding } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const BranchTable = ({ branches }) => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   return (
     <div
@@ -20,6 +22,7 @@ const BranchTable = ({ branches }) => {
         <thead>
           <tr style={{ textAlign: "left" }}>
             <th style={headerStyle}>Branch Details</th>
+            {user?.role_id === 6 && <th style={headerStyle}>Company</th>}
             <th style={headerStyle}>Location</th>
             <th style={headerStyle}>Contact</th>
             <th style={headerStyle}>Email</th>
@@ -39,6 +42,16 @@ const BranchTable = ({ branches }) => {
                   {b.B_name}
                 </div>
               </td>
+
+              {/* Company (Super Admin only) */}
+              {user?.role_id === 6 && (
+                <td style={{ ...cellStyle, color: "#666" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                    <FaBuilding size={12} color="#999" />
+                    {b.com_name || "N/A"}
+                  </div>
+                </td>
+              )}
 
               {/* Address with icon */}
               <td style={{ ...cellStyle, color: "#666" }}>

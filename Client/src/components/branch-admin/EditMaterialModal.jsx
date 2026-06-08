@@ -38,17 +38,30 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
     ));
     onClose(); 
 
-    try {
-      const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      if (!response.ok) throw new Error();
-      onSuccess(); 
-    } catch (err) {
-      onSuccess(); 
+    const token =
+      localStorage.getItem('token') ||
+      localStorage.getItem('authToken');
+
+  try{
+    const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(formData),
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message);
     }
+
+    onSuccess();
+    onClose();
+   } catch (err) {
+    console.error(err);
+    alert(err.message);
+   }   
   };
 
   const confirmDelete = async () => {

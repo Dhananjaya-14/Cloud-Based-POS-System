@@ -73,7 +73,20 @@ const ProductItemsTable = ({
           <tbody>
             {products.map((item) => (
               <tr key={item.id} style={{ borderTop: "1px solid #EEF2F7" }}>
-                <td style={{ padding: "10px 14px", fontSize: "28px" }}>{item.image}</td>
+                <td style={{ padding: "10px 14px" }}>
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.imageAlt || "Product"}
+                      style={{ width: "42px", height: "42px", objectFit: "cover", borderRadius: "10px" }}
+                      onError={(e) => {
+                        e.currentTarget.style.display = "none";
+                      }}
+                    />
+                  ) : (
+                    <span style={{ fontSize: "12px", color: "#9CA3AF" }}>No image</span>
+                  )}
+                </td>
                 <td style={{ padding: "10px 14px" }}>
                   <button
                     type="button"
