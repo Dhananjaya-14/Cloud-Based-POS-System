@@ -1,10 +1,16 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ToastMessage from "../../components/branch-admin/ToastMessage";
 import CashierHeader from "../../components/cashier/Header";
+import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders } from "../../services/api";
 import { connectSocket } from "../../services/socket";
+import {
+  addOrderReadyAlert,
+  dismissOrderReadyAlert,
+  loadOrderReadyAlerts,
+  saveOrderReadyAlerts,
+} from "../../utils/orderReadyAlerts";
 
 const statCards = [
   {
@@ -46,11 +52,7 @@ const CashierDashboard = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState({ revenue: 0, transactions: 0 });
   const [activities, setActivities] = useState([]);
-  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
-
-  const showToast = useCallback((message, type = "success") => {
-    setToast({ show: true, message, type });
-  }, []);
+  const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
   const loadTodayOrders = useCallback(async () => {
     try {
@@ -93,6 +95,15 @@ const CashierDashboard = () => {
   }, [loadTodayOrders]);
 
   useEffect(() => {
+    if (!user?.u_id) {
+      setOrderReadyAlerts([]);
+      return;
+    }
+
+    setOrderReadyAlerts(loadOrderReadyAlerts(user.u_id));
+  }, [user?.u_id]);
+
+  useEffect(() => {
     const socket = connectSocket();
 
     const handleOrderReady = (order) => {
@@ -101,8 +112,11 @@ const CashierDashboard = () => {
         return;
       }
 
-      const orderNumber = String(order.or_id).padStart(5, "0");
-      showToast(`Order #${orderNumber} is ready for pickup.`, "success");
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = addOrderReadyAlert(currentAlerts, order);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
 
       setActivities((current) => {
         const nextItem = {
@@ -127,17 +141,23 @@ const CashierDashboard = () => {
     return () => {
       socket.off("order:ready", handleOrderReady);
     };
-  }, [loadTodayOrders, showToast, user?.b_id]);
+  }, [loadTodayOrders, user?.u_id]);
+
+  const handleDismissOrderReady = useCallback(
+    (orderId) => {
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = dismissOrderReadyAlert(currentAlerts, orderId);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+    },
+    [user?.u_id],
+  );
+
   return (
     <div className="min-h-screen bg-[#F4F7FB] flex flex-col">
       <CashierHeader />
-      {toast.show && (
-        <ToastMessage
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast((current) => ({ ...current, show: false }))}
-        />
-      )}
+      <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
 
       <main className="flex-1">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">

@@ -233,14 +233,10 @@ export const createOrderItem = async (req, res) => {
       [Bpro_id, qty, price, total_price, parsedOrderId],
     );
 
-    emitSocketEvent(
-      "order:created",
-      {
-        orderId: parsedOrderId,
-        orderItem: result.rows[0],
-      },
-      { room: KITCHEN_SOCKET_ROOM },
-    );
+    emitSocketEvent("order:created", {
+      orderId: parsedOrderId,
+      orderItem: result.rows[0],
+    });
 
     res.status(201).json({ success: true, data: result.rows[0] });
   } catch (err) {

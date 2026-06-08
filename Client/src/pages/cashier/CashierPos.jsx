@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaBed,
@@ -28,6 +28,14 @@ import {
   updateOrder,
   deleteOrderItem,
 } from "../../services/api";
+import { connectSocket } from "../../services/socket";
+import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
+import {
+  addOrderReadyAlert,
+  dismissOrderReadyAlert,
+  loadOrderReadyAlerts,
+  saveOrderReadyAlerts,
+} from "../../utils/orderReadyAlerts";
 
 const categories = [
   { label: "All Items", icon: FaStore, active: true },
@@ -64,6 +72,7 @@ const CashierPos = () => {
   const [waiterOrders, setWaiterOrders] = useState([]);
   const [showWaiterOrdersModal, setShowWaiterOrdersModal] = useState(false);
   const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
+  const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
   const fetchWaiterOrders = async () => {
     try {
@@ -122,6 +131,49 @@ const CashierPos = () => {
 
     loadPosData();
   }, [user?.b_id, user?.B_id]);
+
+  useEffect(() => {
+    if (!user?.u_id) {
+      setOrderReadyAlerts([]);
+      return;
+    }
+
+    setOrderReadyAlerts(loadOrderReadyAlerts(user.u_id));
+  }, [user?.u_id]);
+
+  useEffect(() => {
+    const socket = connectSocket();
+
+    const handleOrderReady = (order) => {
+      if (!order) return;
+      if (user?.u_id && order.u_id && Number(order.u_id) !== Number(user.u_id)) {
+        return;
+      }
+
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = addOrderReadyAlert(currentAlerts, order);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+    };
+
+    socket.on("order:ready", handleOrderReady);
+
+    return () => {
+      socket.off("order:ready", handleOrderReady);
+    };
+  }, [user?.u_id]);
+
+  const handleDismissOrderReady = useCallback(
+    (orderId) => {
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = dismissOrderReadyAlert(currentAlerts, orderId);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+    },
+    [user?.u_id],
+  );
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -422,6 +474,7 @@ const CashierPos = () => {
 
   return (
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
+      <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
       <header className="border-b border-black/5 bg-linear-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)]">
         <div className="mx-auto flex max-w-350 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
