@@ -6,6 +6,9 @@ let io;
 
 const BRANCH_UPDATE_ROOM = "branch-updates";
 const KITCHEN_UPDATE_ROOM = "kitchen-updates";
+export const ADMIN_PAYMENT_ROOM = "admin-payments";
+export const ADMIN_SUPPLIER_PAYMENT_ROOM = "admin-supplier-payments";
+export const ADMIN_PURCHASE_ORDER_ROOM = "admin-purchase-orders";
 
 export const getCashierSocketRoom = (userId) => `cashier-updates:${userId}`;
 
@@ -134,4 +137,5 @@ export const emitSocketEvent = (eventName, payload, options = {}) => {
 };
 
 export const BRANCH_SOCKET_ROOM = BRANCH_UPDATE_ROOM;
+
 export const KITCHEN_SOCKET_ROOM = KITCHEN_UPDATE_ROOM;
