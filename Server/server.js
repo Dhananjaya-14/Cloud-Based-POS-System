@@ -57,9 +57,10 @@ import deliveryRoutes from "./routes/deliveryRoutes.js";
 import terminalRoutes from "./routes/terminalRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 
-
-
+//stats
 import statsRoutes from "./routes/statsRoutes.js";
+
+import dashboardRoutes from "./routes/dashboardRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
@@ -134,6 +135,9 @@ app.use("/api/discounts", discountRoutes);
 app.use("/api/deliveries", deliveryRoutes);
 app.use("/api/terminals", terminalRoutes);
 
+
+//Cashier  Dashboard Stats
+app.use("/api/dashboard", dashboardRoutes);
 
 // Stats
 app.use("/api/stats", statsRoutes);
