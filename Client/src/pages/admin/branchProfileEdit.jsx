@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaSave, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import Sidebar from "../../components/admin/Sidebar";
-import Header from "../../components/admin/Header";
+import AdminSidebar from "../../components/admin/Sidebar";
+import AdminHeader from "../../components/admin/Header";
+import SuperAdminSidebar from "../../components/super-admin/Sidebar";
+import SuperAdminHeader from "../../components/super-admin/Header";
 import StatusToggle from "../../components/admin/StatusToggle";
 import { getBranchById, getUserById, updateBranch, updateUser } from "../../services/api";
 
@@ -79,6 +81,12 @@ const BranchProfileEdit = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Conditionally use super-admin layout when role_id === 6
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const isSuperAdmin = storedUser?.role_id === 6;
+  const Sidebar = isSuperAdmin ? SuperAdminSidebar : AdminSidebar;
+  const Header = isSuperAdmin ? SuperAdminHeader : AdminHeader;
+
   const [branch, setBranch] = useState(location.state?.branch || null);
   const [manager, setManager] = useState(location.state?.manager || null);
   const [loading, setLoading] = useState(true);
@@ -137,7 +145,7 @@ const BranchProfileEdit = () => {
           managerName: fullName,
           username: managerData?.u_email ? managerData.u_email.split("@")[0] : "",
           password: "",
-          status: normalizeStatus(branchData?.status ?? branchData?.B_status ?? branchData?.branch_status),
+          status: normalizeStatus(branchData?.B_status ?? branchData?.status ?? branchData?.branch_status),
         });
       } catch (err) {
         if (mounted) {
@@ -212,7 +220,7 @@ const BranchProfileEdit = () => {
         B_email: form.B_email.trim(),
         B_address: form.B_address.trim(),
         B_conNo: form.B_conNo.trim(),
-        status: form.status,
+        B_status: form.status,
       };
 
       const updatedBranch = await updateBranch(branchId, branchPayload);
@@ -261,7 +269,7 @@ const BranchProfileEdit = () => {
       <Sidebar />
 
       <div style={{ flex: 1, marginLeft: "240px" }}>
-        <Header />
+        {isSuperAdmin ? <Header title="Branch Management" /> : <Header />}
 
         <div style={{ padding: "0 20px 20px" }}>
           <div

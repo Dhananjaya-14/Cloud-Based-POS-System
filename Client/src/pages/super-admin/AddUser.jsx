@@ -252,7 +252,7 @@ const AddUser = () => {
                 <div style={{ display: "flex", gap: 20 }}>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Email</label>
-                    <input name="email" value={formData.email} onChange={handleChange} style={inputStyle} type="email" />
+                    <input name="email" value={formData.email} onChange={handleChange} style={inputStyle} type="email" autoComplete="off" />
                   </div>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Contact Number</label>
@@ -340,7 +340,9 @@ const AddUser = () => {
                     <div style={{ position: "relative" }}>
                       <input
                         name="password" value={formData.password} onChange={handleChange}
-                        style={pwdInputStyle} type={showPassword ? "text" : "password"}
+                        style={pwdInputStyle}
+                        type={showPassword ? "text" : "password"}
+                        autoComplete="new-password"
                       />
                       <button
                         type="button" onClick={() => setShowPassword(!showPassword)}
@@ -356,7 +358,9 @@ const AddUser = () => {
                     <div style={{ position: "relative" }}>
                       <input
                         name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
-                        style={pwdInputStyle} type={showConfirmPassword ? "text" : "password"}
+                        style={pwdInputStyle}
+                        type={showConfirmPassword ? "text" : "password"}
+                        autoComplete="new-password"
                       />
                       <button
                         type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}

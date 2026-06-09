@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import { createProduct, getCompanies, getCategories } from "../../services/api";
+import { createProduct, getCategories } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
 const cardStyle = {
@@ -106,21 +106,15 @@ const AddProduct = () => {
     let isMounted = true;
 
     const loadCompany = async () => {
-      try {
-        if (user?.com_id != null) {
-          if (!isMounted) return;
-          setForm((prev) => ({ ...prev, com_id: String(user.com_id) }));
-          return;
-        }
-
-        const companies = await getCompanies();
-        const firstCompanyId = companies?.[0]?.com_id ?? 1;
+      // For regular admins, always use com_id from the user profile — never call /api/companies
+      if (user?.com_id != null) {
         if (!isMounted) return;
-        setForm((prev) => ({ ...prev, com_id: String(firstCompanyId) }));
-      } catch {
-        if (!isMounted) return;
-        setForm((prev) => ({ ...prev, com_id: "1" }));
+        setForm((prev) => ({ ...prev, com_id: String(user.com_id) }));
+        return;
       }
+      // Fallback: default to 1 if no com_id in profile (Super Admin flow handled separately)
+      if (!isMounted) return;
+      setForm((prev) => ({ ...prev, com_id: "1" }));
     };
 
     loadCompany();

@@ -6,6 +6,7 @@ import { getCompanies, createCompany, updateCompany, deleteCompany, getCurrentUs
 import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
+import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
 const StatusBadge = ({ status }) => {
   const statusStr = String(status || "").toLowerCase();
@@ -42,6 +43,7 @@ const HotelManagement = () => {
   const [deleteError, setDeleteError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [togglingId, setTogglingId] = useState(null);
+  const { toasts, removeToast, toast } = useToast();
   const [formData, setFormData] = useState({
     id: null,
     name: "",
@@ -159,14 +161,14 @@ const HotelManagement = () => {
 
       if (modalMode === "add") {
         await createCompany(payload);
-        setSuccessMessage("Company successfully added!");
+        toast.success("Company Created", `"${formData.name}" was successfully added.`);
       } else {
         await updateCompany(formData.id, payload);
-        setSuccessMessage("Company details updated!");
+        toast.success("Company Updated", `"${formData.name}" details were saved.`);
       }
       
       setIsModalOpen(false);
-      fetchData(); // Refresh list
+      fetchData();
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Error saving company:", err);
@@ -207,8 +209,7 @@ const HotelManagement = () => {
       await deleteCompany(companyToDelete.com_id);
       setIsDeleteModalOpen(false);
       fetchData();
-      setSuccessMessage("Company successfully deleted!");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      toast.success("Company Deleted", `"${companyToDelete?.com_name}" was removed.`);
     } catch (err) {
       console.error("Error deleting company:", err);
       setDeleteError(err.response?.data?.message || err.message || "Failed to delete company.");
@@ -465,7 +466,7 @@ const HotelManagement = () => {
         </div>
       </div>
 
-      {/* Modal */}
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
       {isModalOpen && (
         <div style={{
           position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
