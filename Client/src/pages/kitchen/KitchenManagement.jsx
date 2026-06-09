@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FaSearch, FaClock } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
@@ -60,10 +60,9 @@ const statusPalette = {
 	Declined: "bg-rose-100 text-[12px] font-semibold text-rose-700 border-rose-200",
 };
 
-
-
 const KitchenManagement = () => {
 	const { user } = useAuth();
+	const branchId = user?.b_id ?? user?.B_id;
 	const [orders, setOrders] = useState([]);
 	const [orderItems, setOrderItems] = useState([]);
 	const [branchProducts, setBranchProducts] = useState([]);
@@ -72,6 +71,55 @@ const KitchenManagement = () => {
 	const [error, setError] = useState("");
 	const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
+	const loadKitchenData = useCallback(async (silent = false) => {
+		if (!silent) {
+			setLoading(true);
+		}
+		setError("");
+
+		try {
+			const params = {};
+			if (branchId) params.b_id = branchId;
+
+			const [ordersData, itemsResult, productsResult] =
+				await Promise.allSettled([
+					getOrders(params),
+					getOrderItems(),
+					getBranchProducts(),
+				]);
+
+			if (ordersData.status === "fulfilled") {
+				setOrders(Array.isArray(ordersData.value) ? ordersData.value : []);
+			} else {
+				setOrders([]);
+				setError("Failed to load orders.");
+			}
+
+			if (itemsResult.status === "fulfilled") {
+				setOrderItems(Array.isArray(itemsResult.value) ? itemsResult.value : []);
+			} else {
+				setOrderItems([]);
+			}
+
+			if (productsResult.status === "fulfilled") {
+				setBranchProducts(
+					Array.isArray(productsResult.value) ? productsResult.value : [],
+				);
+			} else {
+				setBranchProducts([]);
+			}
+		} catch (err) {
+			setOrders([]);
+			setOrderItems([]);
+			setBranchProducts([]);
+			setError("Failed to load kitchen data.");
+		} finally {
+			if (!silent) {
+				setLoading(false);
+			}
+		}
+	}, [branchId]);
+
 	useEffect(() => {
 		let isMounted = true;
 		let refreshTimer = null;
@@ -79,49 +127,7 @@ const KitchenManagement = () => {
 
 		const loadData = async (silent = false) => {
 			if (!isMounted) return;
-			if (!silent) setLoading(true);
-			setError("");
-
-			try {
-				const params = {};
-				if (user?.b_id) params.b_id = user.b_id;
-
-				const [ordersData, itemsResult, productsResult] =
-					await Promise.allSettled([
-						getOrders(params),
-						getOrderItems(),
-						getBranchProducts(),
-					]);
-
-				if (!isMounted) return;
-
-				if (ordersData.status === "fulfilled") {
-					setOrders(Array.isArray(ordersData.value) ? ordersData.value : []);
-				} else if (!silent) {
-					setOrders([]);
-					setError("Failed to load orders.");
-				}
-
-				if (itemsResult.status === "fulfilled") {
-					setOrderItems(Array.isArray(itemsResult.value) ? itemsResult.value : []);
-				}
-
-				if (productsResult.status === "fulfilled") {
-					setBranchProducts(
-						Array.isArray(productsResult.value) ? productsResult.value : [],
-					);
-				}
-			} catch (err) {
-				if (!isMounted) return;
-				if (!silent) {
-					setOrders([]);
-					setOrderItems([]);
-					setBranchProducts([]);
-					setError("Failed to load kitchen data.");
-				}
-			} finally {
-				if (isMounted && !silent) setLoading(false);
-			}
+			await loadKitchenData(silent);
 		};
 
 		const scheduleRefresh = (silent = true) => {
@@ -142,7 +148,7 @@ const KitchenManagement = () => {
 			socket.off("order:updated");
 			socket.off("order:deleted");
 		};
-	}, [user]);
+	}, [loadKitchenData]);
 
 	const branchProductMap = useMemo(() => {
 		return branchProducts.reduce((acc, product) => {
@@ -395,7 +401,6 @@ const KitchenManagement = () => {
 		if (order.or_status === "cancelled") return "Declined";
 		return "Pending";
 	};
-
 
 	const renderOrderItems = (orderId) => {
 		const items = itemsByOrderId[orderId] || [];

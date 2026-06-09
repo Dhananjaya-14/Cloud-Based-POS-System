@@ -8,6 +8,7 @@ import {
   FaSearch,
   FaShoppingCart,
   FaTrashAlt,
+  FaBell,
 } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
@@ -18,6 +19,7 @@ import {
   getProducts,
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
 
 const pageStyle = {
   display: "flex",
@@ -133,6 +135,22 @@ const cardButtonStyle = {
   boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
 };
 
+const toastStyle = {
+  position: "fixed",
+  top: "20px",
+  right: "20px",
+  background: "#0E6DCF",
+  color: "#FFFFFF",
+  padding: "12px 20px",
+  borderRadius: "12px",
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
+  zIndex: 10000,
+  animation: "slideIn 0.3s ease-out",
+};
+
 const toShortName = (name) => {
   if (!name) return "";
   return name
@@ -176,48 +194,82 @@ const AddProduct = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedItems, setSelectedItems] = useState({});
   const [branchId, setBranchId] = useState(null);
+  const [showNewProductToast, setShowNewProductToast] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
 
+  // Load initial data
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const myBranchId = user?.b_id ?? null;
+      setBranchId(myBranchId);
+
+      const [allProducts, currentBranchProducts, categoryList] = await Promise.all([
+        getProducts(),
+        myBranchId ? getBranchProducts(myBranchId) : [],
+        getCategories().catch(() => []),
+      ]);
+
+      setProducts(Array.isArray(allProducts) ? allProducts : []);
+      setBranchProducts(Array.isArray(currentBranchProducts) ? currentBranchProducts : []);
+      setCategories(Array.isArray(categoryList) ? categoryList : []);
+
+      const firstCategory = Array.isArray(categoryList) && categoryList.length > 0 ? categoryList[0] : null;
+      setSelectedCategoryId(String(firstCategory?.cat_id ?? 1));
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load products");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Setup WebSocket listeners
   useEffect(() => {
-    let mounted = true;
+    const socket = getSocket();
+    
+    // Connect socket if not connected
+    if (!socket.connected) {
+      connectSocket();
+    }
 
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError("");
+    // Join branch room if branchId is available
+    if (branchId && socket.connected) {
+      socket.emit(SOCKET_EVENTS.JOIN_BRANCH_ROOM, branchId);
+    }
 
-        // Use b_id directly from the JWT token — no need to re-fetch all branches
-        const myBranchId = user?.b_id ?? null;
-
-        if (mounted) setBranchId(myBranchId);
-
-        const [allProducts, currentBranchProducts, categoryList] = await Promise.all([
-          getProducts(),
-          myBranchId ? getBranchProducts(myBranchId) : [],
-          getCategories().catch(() => []),
-        ]);
-
-        if (!mounted) return;
-
-        setProducts(Array.isArray(allProducts) ? allProducts : []);
-        setBranchProducts(Array.isArray(currentBranchProducts) ? currentBranchProducts : []);
-        setCategories(Array.isArray(categoryList) ? categoryList : []);
-
-        const firstCategory = Array.isArray(categoryList) && categoryList.length > 0 ? categoryList[0] : null;
-        setSelectedCategoryId(String(firstCategory?.cat_id ?? 1));
-      } catch (err) {
-        if (!mounted) return;
-        setError(err?.response?.data?.message || "Failed to load products");
-      } finally {
-        if (mounted) setLoading(false);
-      }
+    // Listen for new products
+    const handleNewProduct = (data) => {
+      console.log("New product received:", data);
+      
+      // Add the new product to the products list
+      setProducts((prevProducts) => {
+        // Check if product already exists
+        const exists = prevProducts.some(p => p.pro_id === data.product.pro_id);
+        if (!exists) {
+          setNewProductName(data.product.pro_name);
+          setShowNewProductToast(true);
+          setTimeout(() => setShowNewProductToast(false), 3000);
+          return [data.product, ...prevProducts];
+        }
+        return prevProducts;
+      });
     };
 
-    loadData();
+    socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
 
     return () => {
-      mounted = false;
+      socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
+      if (branchId && socket.connected) {
+        socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, branchId);
+      }
     };
-  }, []);
+  }, [branchId]);
+
+  useEffect(() => {
+    loadData();
+  }, [user?.b_id]);
 
   const branchProductIds = useMemo(() => {
     return new Set(branchProducts.map((item) => Number(item.pro_id)));
@@ -364,11 +416,7 @@ const AddProduct = () => {
         <div style={shellStyle}>
           <div style={heroStyle}>
             <div>
-              {/* <h1 style={titleStyle}>Add products from the catalog</h1> */}
-              {/* <p style={subtitleStyle}>
-                Pick items from the Product table, keep anything already in Branch_Product out of the list,
-                and build a batch order on the right before saving it into the branch catalog.
-              </p> */}
+              {/* Title removed as requested */}
             </div>
 
             <button
@@ -785,6 +833,29 @@ const AddProduct = () => {
           </div>
         </div>
       </div>
+
+      {/* Toast notification for new products */}
+      {showNewProductToast && (
+        <div style={toastStyle}>
+          <FaBell size={18} />
+          <span>New product "{newProductName}" is now available!</span>
+        </div>
+      )}
+
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };

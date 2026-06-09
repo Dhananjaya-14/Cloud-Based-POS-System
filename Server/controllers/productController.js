@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { getIO, SOCKET_EVENTS } from "../utils/socket.js";
 
 function normalizeComId(body) {
   // Support both `com_id` (API-friendly) and `Com_id` (exact DB column).
@@ -138,8 +139,38 @@ export async function createProduct(req, res, next) {
       : [pro_name, pro_qty, pro_price, pro_image, com_id, finalAddOns, finalStations];
 
     const result = await pool.query(insertQuery, insertParams);
+    const newProduct = result.rows[0];
+    
+    // Emit socket event for new product
+    const io = getIO();
+    if (io) {
+      // Also fetch category name for the product if category exists
+      let categoryName = null;
+      if (resolvedCatId) {
+        const catResult = await pool.query(
+          'SELECT "cat_name" FROM "public"."category" WHERE "cat_id" = $1',
+          [resolvedCatId]
+        );
+        if (catResult.rows.length > 0) {
+          categoryName = catResult.rows[0].cat_name;
+        }
+      }
+      
+      io.to(`company_${com_id}`).emit(SOCKET_EVENTS.NEW_PRODUCT_ADDED, {
+        product: {
+          ...newProduct,
+          cat_name: categoryName,
+          add_ons: add_ons || { Cheese: true, Bacon: true },
+          stations: stations || { Kitchen: true, Bar: true }
+        },
+        company_id: com_id,
+        timestamp: new Date()
+      });
+      
+      console.log(`Socket event emitted: New product ${newProduct.pro_name} added to company ${com_id}`);
+    }
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(newProduct);
   } catch (err) {
     if (err?.code === "23505") {
       res.status(400);
@@ -201,7 +232,7 @@ export async function updateProduct(req, res, next) {
       throw new Error("You do not have permission to assign this product to another company.");
     }
 
-    let checkQuery = 'SELECT "pro_id" FROM "public"."Product" WHERE "pro_id" = $1';
+    let checkQuery = 'SELECT "pro_id", "Com_id" FROM "public"."Product" WHERE "pro_id" = $1';
     let checkParams = [id];
     if (role_id !== ROLES.SUPER_ADMIN) {
       checkQuery += ' AND "Com_id" = $2';
@@ -212,6 +243,8 @@ export async function updateProduct(req, res, next) {
       res.status(404);
       throw new Error("Product not found");
     }
+    
+    const originalComId = existing.rows[0].Com_id;
 
     const resolvedCatId = cat_id !== undefined ? (cat_id != null && isPositiveInt(cat_id) ? Number(cat_id) : null) : undefined;
     const finalAddOns = add_ons !== undefined ? (add_ons != null ? JSON.stringify(add_ons) : null) : undefined;
@@ -244,7 +277,22 @@ export async function updateProduct(req, res, next) {
       id,
     ]);
 
-    res.json(result.rows[0]);
+    const updatedProduct = result.rows[0];
+    
+    // Emit socket event for product update
+    const io = getIO();
+    if (io && updatedProduct) {
+      const targetComId = com_id || originalComId;
+      io.to(`company_${targetComId}`).emit(SOCKET_EVENTS.PRODUCT_UPDATED, {
+        product: updatedProduct,
+        company_id: targetComId,
+        timestamp: new Date()
+      });
+      
+      console.log(`Socket event emitted: Product ${updatedProduct.pro_name} updated in company ${targetComId}`);
+    }
+
+    res.json(updatedProduct);
   } catch (err) {
     if (err?.code === "23503") {
       res.status(400);
@@ -265,6 +313,25 @@ export async function deleteProduct(req, res, next) {
     }
 
     const { role_id, com_id } = req.user;
+    
+    // First get the product to know which company to notify
+    let getQuery = 'SELECT "pro_id", "pro_name", "Com_id" FROM "public"."Product" WHERE "pro_id" = $1';
+    let getParams = [id];
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      getQuery += ' AND "Com_id" = $2';
+      getParams.push(com_id);
+    }
+    
+    const productToDelete = await pool.query(getQuery, getParams);
+    if (productToDelete.rows.length === 0) {
+      res.status(404);
+      throw new Error("Product not found");
+    }
+    
+    const deletedProduct = productToDelete.rows[0];
+    const targetComId = deletedProduct.Com_id;
+    const productName = deletedProduct.pro_name;
+    
     let deleteQuery = 'DELETE FROM "public"."Product" WHERE "pro_id" = $1';
     let deleteParams = [id];
     if (role_id !== ROLES.SUPER_ADMIN) {
@@ -278,10 +345,22 @@ export async function deleteProduct(req, res, next) {
       res.status(404);
       throw new Error("Product not found");
     }
+    
+    // Emit socket event for product deletion
+    const io = getIO();
+    if (io) {
+      io.to(`company_${targetComId}`).emit(SOCKET_EVENTS.PRODUCT_DELETED, {
+        pro_id: Number(id),
+        pro_name: productName,
+        company_id: targetComId,
+        timestamp: new Date()
+      });
+      
+      console.log(`Socket event emitted: Product ${productName} deleted from company ${targetComId}`);
+    }
 
     res.status(204).send();
   } catch (err) {
     next(err);
   }
 }
-

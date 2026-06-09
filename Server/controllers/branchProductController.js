@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { getIO } from "../utils/socket.js";
 
 function fieldOrNull(value) {
   // Convert `undefined` -> null (so COALESCE keeps the existing DB value).
@@ -75,13 +76,13 @@ function convertQty(recipeQty, recipeUnit, stockUnit) {
   const rUnit = String(recipeUnit || "").toLowerCase().trim();
   const sUnit = String(stockUnit || "").toLowerCase().trim();
   if (rUnit === sUnit || !rUnit || !sUnit) return recipeQty;
-  if (rUnit === "g"     && sUnit === "kg")    return recipeQty / 1000;
-  if (rUnit === "mg"    && sUnit === "g")     return recipeQty / 1000;
-  if (rUnit === "mg"    && sUnit === "kg")    return recipeQty / 1_000_000;
-  if (rUnit === "kg"    && sUnit === "g")     return recipeQty * 1000;
-  if (rUnit === "ml"    && sUnit === "l")     return recipeQty / 1000;
-  if (rUnit === "l"     && sUnit === "ml")    return recipeQty * 1000;
-  if (rUnit === "pcs"   && sUnit === "dozen") return recipeQty / 12;
+  if (rUnit === "g" && sUnit === "kg") return recipeQty / 1000;
+  if (rUnit === "mg" && sUnit === "g") return recipeQty / 1000;
+  if (rUnit === "mg" && sUnit === "kg") return recipeQty / 1_000_000;
+  if (rUnit === "kg" && sUnit === "g") return recipeQty * 1000;
+  if (rUnit === "ml" && sUnit === "l") return recipeQty / 1000;
+  if (rUnit === "l" && sUnit === "ml") return recipeQty * 1000;
+  if (rUnit === "pcs" && sUnit === "dozen") return recipeQty / 12;
   if (rUnit === "units" && sUnit === "dozen") return recipeQty / 12;
   return recipeQty;
 }
@@ -111,9 +112,9 @@ async function adjustRecipeIngredients(client, pro_id, b_id, quantity, operation
   );
 
   for (const recipe of recipesResult.rows) {
-    const totalQty     = recipe.quantity_req * quantity;
+    const totalQty = recipe.quantity_req * quantity;
     const convertedQty = convertQty(totalQty, recipe.recipe_unit, recipe.stock_unit);
-    const stockExpr    = operation === "subtract"
+    const stockExpr = operation === "subtract"
       ? "GREATEST(0, stock_qty - $1)"
       : "stock_qty + $1";
 
@@ -380,6 +381,19 @@ export async function createBranchProduct(req, res, next) {
     await adjustRecipeIngredients(client, Number(pro_id), Number(B_id), neededQty, "subtract");
 
     await client.query("COMMIT");
+
+    // Emit socket event for new branch product to cashier POS
+    const io = getIO();
+    if (io) {
+      const newProduct = toResponseRow(result.rows[0]);
+      io.to(`branch_${B_id}`).emit("new_branch_product_added", {
+        product: newProduct,
+        branch_id: B_id,
+        timestamp: new Date()
+      });
+      console.log(`🔔 Socket event emitted: New branch product "${pro_name}" added to branch ${B_id}`);
+    }
+
     res.status(201).json(toResponseRow(result.rows[0]));
   } catch (err) {
     await client.query("ROLLBACK");
@@ -475,8 +489,8 @@ export async function updateBranchProduct(req, res, next) {
     }
 
     const oldBranchQty = Number(existing.rows[0].pro_quantity ?? 0);
-    const baseProId    = existing.rows[0].pro_id;
-    const branchId     = existing.rows[0].B_id;
+    const baseProId = existing.rows[0].pro_id;
+    const branchId = existing.rows[0].B_id;
 
     if (pro_quantity !== undefined) {
       const newBranchQty = Number(pro_quantity);
@@ -566,6 +580,19 @@ export async function updateBranchProduct(req, res, next) {
     );
 
     await client.query("COMMIT");
+
+    // Emit socket event for updated branch product
+    const io = getIO();
+    if (io) {
+      const updatedProduct = toResponseRow(result.rows[0]);
+      io.to(`branch_${branchId}`).emit("branch_product_updated", {
+        product: updatedProduct,
+        branch_id: branchId,
+        timestamp: new Date()
+      });
+      console.log(`🔔 Socket event emitted: Branch product "${updatedProduct.pro_name}" updated in branch ${branchId}`);
+    }
+
     res.json(toResponseRow(result.rows[0]));
   } catch (err) {
     await client.query("ROLLBACK");
@@ -594,7 +621,7 @@ export async function deleteBranchProduct(req, res, next) {
     await client.query("BEGIN");
 
     let checkQuery = `
-      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id"
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id", bp."pro_name"
       FROM "public"."Branch_Product" bp
     `;
     let checkParams = [id];
@@ -611,8 +638,10 @@ export async function deleteBranchProduct(req, res, next) {
     }
 
     const remainingQty = Number(existing.rows[0].pro_quantity ?? 0);
-    const baseProId    = existing.rows[0].pro_id;
-    const branchBId    = existing.rows[0].B_id;
+    const baseProId = existing.rows[0].pro_id;
+    const branchBId = existing.rows[0].B_id;
+    const productName = existing.rows[0].pro_name;
+    const Bpro_id = existing.rows[0].Bpro_id;
 
     if (remainingQty > 0) {
       // Return remaining stock to the base product
@@ -635,6 +664,19 @@ export async function deleteBranchProduct(req, res, next) {
     }
 
     await client.query("COMMIT");
+
+    // Emit socket event for deleted branch product
+    const io = getIO();
+    if (io) {
+      io.to(`branch_${branchBId}`).emit("branch_product_deleted", {
+        Bpro_id: Bpro_id,
+        pro_name: productName,
+        branch_id: branchBId,
+        timestamp: new Date()
+      });
+      console.log(`🔔 Socket event emitted: Branch product "${productName}" deleted from branch ${branchBId}`);
+    }
+
     res.status(204).send();
   } catch (err) {
     await client.query("ROLLBACK");

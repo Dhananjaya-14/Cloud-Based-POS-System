@@ -71,27 +71,3 @@ const Header = ({ title = "Branch Management" }) => {
 
 export default Header;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
