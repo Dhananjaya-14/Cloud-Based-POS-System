@@ -7,6 +7,15 @@ const SOCKET_URL =
 
 let socket;
 
+// Socket event names
+export const SOCKET_EVENTS = {
+  NEW_PRODUCT_ADDED: "new_product_added",
+  PRODUCT_UPDATED: "product_updated",
+  PRODUCT_DELETED: "product_deleted",
+  JOIN_BRANCH_ROOM: "join_branch_room",
+  LEAVE_BRANCH_ROOM: "leave_branch_room",
+};
+
 export const getSocket = () => {
   if (!socket) {
     socket = io(SOCKET_URL, {

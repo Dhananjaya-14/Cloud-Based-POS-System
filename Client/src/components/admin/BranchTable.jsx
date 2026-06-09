@@ -159,16 +159,3 @@ const buttonStyle = {
 export default BranchTable;
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
