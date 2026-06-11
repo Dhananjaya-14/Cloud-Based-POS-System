@@ -14,6 +14,12 @@ export const SOCKET_EVENTS = {
   PRODUCT_DELETED: "product_deleted",
   JOIN_BRANCH_ROOM: "join_branch_room",
   LEAVE_BRANCH_ROOM: "leave_branch_room",
+  // User management events
+  USER_CREATED: "user_created",
+  USER_UPDATED: "user_updated",
+  USER_DELETED: "user_deleted",
+  JOIN_BRANCH_USER_ROOM: "join_branch_user_room",
+  LEAVE_BRANCH_USER_ROOM: "leave_branch_user_room",
 };
 
 export const getSocket = () => {
@@ -71,3 +77,19 @@ export const disconnectSocket = () => {
 };
 
 export const getSocketUrl = () => SOCKET_URL;
+
+// Helper function to join branch user room
+export const joinBranchUserRoom = (branchId) => {
+  const socket = getSocket();
+  if (socket && socket.connected && branchId) {
+    socket.emit(SOCKET_EVENTS.JOIN_BRANCH_USER_ROOM, branchId);
+  }
+};
+
+// Helper function to leave branch user room
+export const leaveBranchUserRoom = (branchId) => {
+  const socket = getSocket();
+  if (socket && socket.connected && branchId) {
+    socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_USER_ROOM, branchId);
+  }
+};

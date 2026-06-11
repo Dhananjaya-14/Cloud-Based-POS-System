@@ -20,6 +20,7 @@ import {
   getRoles,
   getUsers,
 } from "../../services/api";
+import { connectSocket, getSocket, joinBranchUserRoom, SOCKET_EVENTS } from "../../services/socket";
 
 const UserManagement = () => {
   const navigate = useNavigate();
@@ -33,6 +34,7 @@ const UserManagement = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [currentUserBranch, setCurrentUserBranch] = useState(null);
 
   const accessibleRoles = useMemo(() => {
     return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
@@ -49,7 +51,72 @@ const UserManagement = () => {
 
   useEffect(() => {
     fetchData();
+    setupSocketConnection();
+    
+    return () => {
+      // Cleanup socket listeners when component unmounts
+      const socket = getSocket();
+      if (socket) {
+        socket.off(SOCKET_EVENTS.USER_CREATED);
+        socket.off(SOCKET_EVENTS.USER_UPDATED);
+        socket.off(SOCKET_EVENTS.USER_DELETED);
+      }
+    };
   }, []);
+
+  const setupSocketConnection = () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Connect socket
+    const socket = connectSocket();
+    
+    // Get user info from token (you might need to decode the token)
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const userData = JSON.parse(window.atob(base64));
+      const branchId = userData.b_id;
+      
+      if (branchId) {
+        setCurrentUserBranch(branchId);
+        // Join branch user room for real-time updates
+        joinBranchUserRoom(branchId);
+        
+        // Listen for user creation events
+        socket.on(SOCKET_EVENTS.USER_CREATED, (newUserData) => {
+          console.log("New user created:", newUserData);
+          setUsers((prevUsers) => {
+            // Check if user already exists
+            if (prevUsers.some(u => u.u_id === newUserData.u_id)) {
+              return prevUsers;
+            }
+            return [...prevUsers, newUserData];
+          });
+        });
+        
+        // Listen for user update events
+        socket.on(SOCKET_EVENTS.USER_UPDATED, (updatedUserData) => {
+          console.log("User updated:", updatedUserData);
+          setUsers((prevUsers) => 
+            prevUsers.map((user) => 
+              user.u_id === updatedUserData.u_id ? updatedUserData : user
+            )
+          );
+        });
+        
+        // Listen for user deletion events
+        socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id }) => {
+          console.log("User deleted:", u_id);
+          setUsers((prevUsers) => 
+            prevUsers.filter((user) => user.u_id !== u_id)
+          );
+        });
+      }
+    } catch (error) {
+      console.error("Error setting up socket connection:", error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -160,7 +227,7 @@ const UserManagement = () => {
         role_id: accessibleRoles?.[0]?.role_id ? String(accessibleRoles[0].role_id) : "",
       });
 
-      fetchData();
+      // No need to call fetchData() as socket event will update the list
     } catch (err) {
       window.alert(err?.response?.data?.message || "Failed to create user.");
     }
@@ -175,7 +242,7 @@ const UserManagement = () => {
       setIsDeleting(true);
       await deleteUserById(deleteTargetUser.u_id);
       setDeleteTargetUser(null);
-      fetchData();
+      // No need to call fetchData() as socket event will update the list
     } catch (err) {
       window.alert(err?.response?.data?.message || "Failed to delete user.");
     } finally {
@@ -215,7 +282,7 @@ const UserManagement = () => {
             </h1>
             <button
               type="button"
-              onClick={() => navigate("/branch-admin/users/add")}
+              onClick={() => setIsAddModalOpen(true)}
               style={{
                 border: "none",
                 background: "#0b61b5",
@@ -271,7 +338,7 @@ const UserManagement = () => {
                 <input
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by branch"
+                  placeholder="Search by name, email, role, or branch"
                   style={{
                     width: "100%",
                     height: "34px",
@@ -356,7 +423,7 @@ const UserManagement = () => {
                       const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim() || "Unknown User";
                       const initials = `${(user.u_fname || "U").charAt(0)}${(user.u_lname || "S").charAt(0)}`.toUpperCase();
                       const roleName = roleMap[String(user.role_id)] || "Unknown";
-                      const branchName = branchMapByUser[String(user.u_id)] || "-";
+                      const branchName = branchMapByUser[String(user.u_id)] || user.branch_name || "-";
 
                       return (
                         <tr key={user.u_id}>

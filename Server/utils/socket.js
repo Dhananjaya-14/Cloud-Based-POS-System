@@ -16,6 +16,12 @@ export const SOCKET_EVENTS = {
   PRODUCT_DELETED: "product_deleted",
   JOIN_BRANCH_ROOM: "join_branch_room",
   LEAVE_BRANCH_ROOM: "leave_branch_room",
+  // User management events
+  USER_CREATED: "user_created",
+  USER_UPDATED: "user_updated",
+  USER_DELETED: "user_deleted",
+  JOIN_BRANCH_USER_ROOM: "join_branch_user_room",
+  LEAVE_BRANCH_USER_ROOM: "leave_branch_user_room",
 };
 
 function extractSocketToken(socket) {
@@ -36,6 +42,18 @@ function extractSocketToken(socket) {
 
   return null;
 }
+
+// Helper function to get branch user room name
+export const getBranchUserRoom = (branchId) => `branch_users_${branchId}`;
+
+// Helper function to emit user events to branch
+export const emitUserEventToBranch = (branchId, eventName, userData) => {
+  if (!io) return false;
+  const room = getBranchUserRoom(branchId);
+  io.to(room).emit(eventName, userData);
+  console.log(`Emitted ${eventName} to room ${room}`, userData);
+  return true;
+};
 
 export const initializeSocket = (httpServer) => {
   if (io) {
@@ -73,10 +91,18 @@ export const initializeSocket = (httpServer) => {
 
   io.on("connection", (socket) => {
     const roleId = Number(socket.user?.role_id);
+    const branchId = socket.user?.b_id;
 
     // Join existing rooms based on role
     if ([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.BRANCH_ADMIN].includes(roleId)) {
       socket.join(BRANCH_UPDATE_ROOM);
+      
+      // For branch admins, join their specific branch user room
+      if (roleId === ROLES.BRANCH_ADMIN && branchId) {
+        const branchUserRoom = getBranchUserRoom(branchId);
+        socket.join(branchUserRoom);
+        console.log(`Branch admin ${socket.user?.u_id} joined user room: ${branchUserRoom}`);
+      }
     }
 
     if (roleId === ROLES.CASHIER && socket.user?.u_id) {
@@ -103,12 +129,30 @@ export const initializeSocket = (httpServer) => {
       }
     });
 
+    // Join branch user room (for real-time user updates)
+    socket.on(SOCKET_EVENTS.JOIN_BRANCH_USER_ROOM, (branchId) => {
+      if (branchId) {
+        const branchUserRoom = getBranchUserRoom(branchId);
+        socket.join(branchUserRoom);
+        console.log(`Socket ${socket.id} joined user room: ${branchUserRoom}`);
+      }
+    });
+
     // Leave branch-specific room
     socket.on(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, (branchId) => {
       if (branchId) {
         const branchRoom = `branch_${branchId}`;
         socket.leave(branchRoom);
         console.log(`Socket ${socket.id} left branch room: ${branchRoom}`);
+      }
+    });
+
+    // Leave branch user room
+    socket.on(SOCKET_EVENTS.LEAVE_BRANCH_USER_ROOM, (branchId) => {
+      if (branchId) {
+        const branchUserRoom = getBranchUserRoom(branchId);
+        socket.leave(branchUserRoom);
+        console.log(`Socket ${socket.id} left user room: ${branchUserRoom}`);
       }
     });
 
