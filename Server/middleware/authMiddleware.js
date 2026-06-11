@@ -74,9 +74,10 @@ export const ROLES = {
 // ─────────────────────────────────────────────
 export function requireRole(allowedRoles, label) {
   return (req, res, next) => {
-    const roleId = req.user?.role_id;
+    // Coerce to Number in case JWT decoded role_id as a string
+    const roleId = req.user?.role_id != null ? Number(req.user.role_id) : undefined;
 
-    if (roleId === undefined || roleId === null) {
+    if (roleId === undefined || roleId === null || isNaN(roleId)) {
       return res.status(403).json({
         message:
           "Your account doesn't have a role assigned yet. Please contact your administrator.",

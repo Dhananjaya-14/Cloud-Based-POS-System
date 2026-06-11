@@ -16,7 +16,22 @@ if (existingToken) {
   ] = `Bearer ${existingToken}`;
 }
 
-// Auth helpers
+// Global response interceptor — only clears token and redirects on 401 (expired/invalid token)
+// A 403 (permission denied) means the user IS authenticated — do NOT log them out
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      console.warn("[AUTH] 401 — token expired or invalid. Clearing session and redirecting to login.");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      delete api.defaults.headers.common["Authorization"];
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const setAuthToken = (token) => {
   if (token) {
     api.defaults.headers.common["Authorization"] = `Bearer ${token}`;

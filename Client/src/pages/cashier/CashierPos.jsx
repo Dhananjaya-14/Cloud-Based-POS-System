@@ -15,6 +15,7 @@ import {
   FaUtensils,
   FaUserCircle,
   FaWineGlassAlt,
+  FaBell,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -28,7 +29,7 @@ import {
   updateOrder,
   deleteOrderItem,
 } from "../../services/api";
-import { connectSocket } from "../../services/socket";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import {
   addOrderReadyAlert,
@@ -44,6 +45,22 @@ const categories = [
   { label: "Room Service", icon: FaBed },
   { label: "Front Desk", icon: FaDesktop },
 ];
+
+const toastStyle = {
+  position: "fixed",
+  top: "20px",
+  right: "20px",
+  background: "#0E6DCF",
+  color: "#FFFFFF",
+  padding: "12px 20px",
+  borderRadius: "12px",
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+  boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
+  zIndex: 10000,
+  animation: "slideIn 0.3s ease-out",
+};
 
 const CashierPos = () => {
   const navigate = useNavigate();
@@ -74,6 +91,10 @@ const CashierPos = () => {
   const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
+  // Toast notification for new products
+  const [showNewProductToast, setShowNewProductToast] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+
   const fetchWaiterOrders = async () => {
     try {
       setLoadingWaiterOrders(true);
@@ -97,38 +118,119 @@ const CashierPos = () => {
     setShowWaiterOrdersModal(true);
   };
 
-  useEffect(() => {
-    const loadPosData = async () => {
-      try {
-        setLoading(true);
-        setError("");
+  // Load initial POS data
+  const loadPosData = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        const branchId = user?.b_id ?? user?.B_id ?? null;
+      const branchIdValue = user?.b_id ?? user?.B_id ?? null;
 
-        if (!branchId) {
-          setError("No branch is assigned to your account.");
-          setLoading(false);
-          return;
-        }
-
-        const branch = await getBranchById(branchId);
-        const name = branch?.B_name ?? branch?.data?.B_name ?? "Selected branch";
-        setBranchId(branchId);
-        setBranchName(name);
-
-        const branchProductList = await getBranchProducts(branchId);
-        setProducts(branchProductList);
-      } catch (loadError) {
-        setError(
-          loadError?.response?.data?.message ||
-          loadError.message ||
-          "Failed to load POS data",
-        );
-      } finally {
+      if (!branchIdValue) {
+        setError("No branch is assigned to your account.");
         setLoading(false);
+        return;
       }
+
+      const branch = await getBranchById(branchIdValue);
+      const name = branch?.B_name ?? branch?.data?.B_name ?? "Selected branch";
+      setBranchId(branchIdValue);
+      setBranchName(name);
+
+      const branchProductList = await getBranchProducts(branchIdValue);
+      setProducts(branchProductList);
+    } catch (loadError) {
+      setError(
+        loadError?.response?.data?.message ||
+        loadError.message ||
+        "Failed to load POS data",
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Setup WebSocket listeners for real-time product updates
+  useEffect(() => {
+    if (!branchId) return;
+
+    const socket = getSocket();
+
+    // Connect socket if not connected
+    if (!socket.connected) {
+      connectSocket();
+    }
+
+    // Join branch room
+    if (socket.connected) {
+      socket.emit(SOCKET_EVENTS.JOIN_BRANCH_ROOM, branchId);
+    }
+
+    // Listen for new branch products added by branch admin
+    const handleNewBranchProduct = (data) => {
+      console.log("New branch product received in Cashier POS:", data);
+
+      // Check if this product belongs to the current branch
+      if (data.branch_id && String(data.branch_id) !== String(branchId)) {
+        return;
+      }
+
+      // Add the new product to the products list
+      setProducts((prevProducts) => {
+        // Check if product already exists
+        const exists = prevProducts.some(p => p.Bpro_id === data.product.Bpro_id);
+        if (!exists) {
+          setNewProductName(data.product.pro_name);
+          setShowNewProductToast(true);
+          setTimeout(() => setShowNewProductToast(false), 3000);
+          return [data.product, ...prevProducts];
+        }
+        return prevProducts;
+      });
     };
 
+    // Listen for product updates
+    const handleProductUpdate = (data) => {
+      console.log("Product update received in Cashier POS:", data);
+
+      setProducts((prevProducts) => {
+        return prevProducts.map(product =>
+          product.Bpro_id === data.product.Bpro_id
+            ? { ...product, ...data.product }
+            : product
+        );
+      });
+    };
+
+    // Listen for product deletions
+    const handleProductDelete = (data) => {
+      console.log("Product deletion received in Cashier POS:", data);
+
+      setProducts((prevProducts) => {
+        return prevProducts.filter(product => product.Bpro_id !== data.Bpro_id);
+      });
+
+      // Also remove from cart if present
+      setCart((prevCart) => {
+        return prevCart.filter(item => item.Bpro_id !== data.Bpro_id);
+      });
+    };
+
+    socket.on("new_branch_product_added", handleNewBranchProduct);
+    socket.on("branch_product_updated", handleProductUpdate);
+    socket.on("branch_product_deleted", handleProductDelete);
+
+    return () => {
+      socket.off("new_branch_product_added", handleNewBranchProduct);
+      socket.off("branch_product_updated", handleProductUpdate);
+      socket.off("branch_product_deleted", handleProductDelete);
+      if (socket.connected) {
+        socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, branchId);
+      }
+    };
+  }, [branchId]);
+
+  useEffect(() => {
     loadPosData();
   }, [user?.b_id, user?.B_id]);
 
@@ -307,7 +409,7 @@ const CashierPos = () => {
           cust_id: null,
           u_id: user.u_id,
           b_id: branchId,
-          table_id: null, // Depending on Waiter order, this might have a table. We could preserve it if we had it, but for Cashier checkout we assume paid at counter.
+          table_id: null,
         });
 
         // Fetch existing items to delete them
@@ -391,7 +493,7 @@ const CashierPos = () => {
     try {
       setLoadingWaiterOrders(true);
       const items = await getOrderItemsByOrderId(ao.or_id);
-      
+
       const newCart = items.map((item) => ({
         Bpro_id: item.Bpro_id,
         pro_name: item.pro_name,
@@ -400,7 +502,7 @@ const CashierPos = () => {
       }));
 
       setCart(newCart);
-      setOrderType(ao.or_type || "takeaway"); // Maintain their type or adjust according to edits
+      setOrderType(ao.or_type || "takeaway");
       setNotes(ao.or_notes || "");
       setEditingOrderId(ao.or_id);
       setShowWaiterOrdersModal(false);
@@ -426,7 +528,7 @@ const CashierPos = () => {
       serviceFee
     };
     setHeldOrders((prev) => [...prev, newHeldOrder]);
-    
+
 
     // Reset form
     setCart([]);
@@ -444,8 +546,6 @@ const CashierPos = () => {
     if (!orderToResume) return;
 
     if (cart.length > 0) {
-      // Prompt user or hold current order?
-      // Pushing current to hold array to avoid losing it.
       handleHoldOrder();
     }
 
@@ -517,11 +617,6 @@ const CashierPos = () => {
           </nav>
 
           <div className="flex items-center gap-3">
-            {/* <div className="hidden rounded-xl bg-white/15 px-3 py-2 text-left sm:block">
-              <div className="text-[11px] font-semibold leading-none">Samantha</div>
-              <div className="mt-0.5 text-[11px] text-white/80">Cashier · Kandy</div>
-            </div> */}
-
             <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/15 px-3 py-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#0A5BAE]">
                 <FaUserCircle className="h-5 w-5" />
@@ -580,8 +675,8 @@ const CashierPos = () => {
                     key={label}
                     onClick={() => setSelectedCategory(label)}
                     className={`inline-flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium transition ${active && selectedCategory === label
-                        ? "border-sky-500 bg-linear-to-r from-[#0A5BAE] to-[#19A4E5] text-white shadow-md shadow-sky-200"
-                        : "border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50"
+                      ? "border-sky-500 bg-linear-to-r from-[#0A5BAE] to-[#19A4E5] text-white shadow-md shadow-sky-200"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-sky-200 hover:bg-sky-50"
                       }`}
                   >
                     <Icon className="h-4 w-4" />
@@ -790,8 +885,8 @@ const CashierPos = () => {
                     type="button"
                     onClick={() => setOrderType("takeaway")}
                     className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${orderType === "takeaway"
-                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
-                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                      ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                      : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
                   >
                     Takeaway
@@ -800,8 +895,8 @@ const CashierPos = () => {
                     type="button"
                     onClick={() => setOrderType("dine-in")}
                     className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${orderType === "dine-in"
-                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
-                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                      ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                      : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
                   >
                     Dine-in
@@ -816,8 +911,8 @@ const CashierPos = () => {
                     type="button"
                     onClick={() => setPaymentMethod("Cash")}
                     className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Cash"
-                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
-                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                      ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                      : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
                   >
                     <span
@@ -829,8 +924,8 @@ const CashierPos = () => {
                     type="button"
                     onClick={() => setPaymentMethod("Card")}
                     className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Card"
-                        ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
-                        : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
+                      ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
+                      : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
                   >
                     <span
@@ -871,14 +966,14 @@ const CashierPos = () => {
           <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
               <h2 className="text-xl font-bold text-slate-800">Held Orders ({heldOrders.length})</h2>
-              <button 
+              <button
                 onClick={() => setShowHeldOrdersModal(false)}
                 className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
               >
                 ✕
               </button>
             </div>
-            
+
             <div className="flex flex-col gap-4">
               {heldOrders.length === 0 ? (
                 <div className="text-center py-6 text-slate-500">No held orders available.</div>
@@ -948,9 +1043,9 @@ const CashierPos = () => {
                         <div className="flex justify-between items-start mb-2">
                           <div className="font-semibold text-slate-800 text-lg">Order #{ao.or_id}</div>
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${ao.or_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                              ao.or_status === 'sent_to_kitchen' ? 'bg-orange-100 text-orange-700' :
-                                ao.or_status === 'sent_to_bar' ? 'bg-purple-100 text-purple-700' :
-                                  'bg-slate-100 text-slate-700'
+                            ao.or_status === 'sent_to_kitchen' ? 'bg-orange-100 text-orange-700' :
+                              ao.or_status === 'sent_to_bar' ? 'bg-purple-100 text-purple-700' :
+                                'bg-slate-100 text-slate-700'
                             }`}>
                             {ao.or_status?.replace(/_/g, ' ')}
                           </span>
@@ -995,6 +1090,29 @@ const CashierPos = () => {
           </div>
         </div>
       )}
+
+      {/* Toast notification for new products */}
+      {showNewProductToast && (
+        <div style={toastStyle}>
+          <FaBell size={18} />
+          <span>New product "{newProductName}" is now available!</span>
+        </div>
+      )}
+
+      <style>
+        {`
+          @keyframes slideIn {
+            from {
+              transform: translateX(100%);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(0);
+              opacity: 1;
+            }
+          }
+        `}
+      </style>
     </div>
   );
 };

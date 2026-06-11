@@ -1,44 +1,19 @@
 import React, { useEffect, useState } from "react";
 import { FaBell, FaUserCircle } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
-import { getCompanies } from "../../services/api";
 
 const Header = ({ title = "Branch Management" }) => {
   const { user } = useAuth();
   const [companyName, setCompanyName] = useState("");
 
   useEffect(() => {
-    let mounted = true;
-
-    const loadCompany = async () => {
-      if (!user) {
-        if (mounted) setCompanyName("");
-        return;
-      }
-
-      const uCompany = user?.com_name ?? user?.companyName ?? user?.company?.com_name ?? "";
-      if (uCompany) {
-        if (mounted) setCompanyName(uCompany);
-        return;
-      }
-
-      if (user?.com_id) {
-        try {
-          const companies = await getCompanies();
-          const found = Array.isArray(companies)
-            ? companies.find((c) => Number(c.com_id) === Number(user.com_id))
-            : null;
-          if (mounted) setCompanyName(found?.com_name || "");
-        } catch {
-          if (mounted) setCompanyName("");
-        }
-      }
-    };
-
-    loadCompany();
-    return () => {
-      mounted = false;
-    };
+    if (!user) {
+      setCompanyName("");
+      return;
+    }
+    // Read company name purely from the user's auth profile — no API call needed
+    const uCompany = user?.com_name ?? user?.companyName ?? user?.company?.com_name ?? "";
+    setCompanyName(uCompany);
   }, [user]);
 
   const fullName =
@@ -95,28 +70,4 @@ const Header = ({ title = "Branch Management" }) => {
 };
 
 export default Header;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

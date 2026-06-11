@@ -49,7 +49,7 @@ function validateBranchFields({
   return errors;
 }
 
-const BRANCH_COLS = `"B_id", "B_name", "B_email", "B_conNo", "B_address", "com_id"`;
+const BRANCH_COLS = `"B_id", "B_name", "B_email", "B_conNo", "B_address", "com_id", "B_status"`;
 
 // GET /api/branches
 export async function getBranches(req, res, next) {
@@ -57,10 +57,12 @@ export async function getBranches(req, res, next) {
     const { role_id, com_id, b_id } = req.user;
 
     let query = `
-      SELECT b.*, c."com_name"
+      SELECT b.*, c."com_name",
+             (SELECT u."u_id"   FROM "User" u WHERE u."B_id" = b."B_id" AND u."role_id" = 1 LIMIT 1) AS "U_id",
+             (SELECT u."u_fname" FROM "User" u WHERE u."B_id" = b."B_id" AND u."role_id" = 1 LIMIT 1) AS "u_fname",
+             (SELECT u."u_lname" FROM "User" u WHERE u."B_id" = b."B_id" AND u."role_id" = 1 LIMIT 1) AS "u_lname"
       FROM "Branch" b
-      LEFT JOIN "Company" c
-      ON b."com_id" = c."com_id"
+      LEFT JOIN "Company" c ON b."com_id" = c."com_id"
     `;
 
     const params = [];
@@ -112,10 +114,12 @@ export async function getBranchById(req, res, next) {
 
     // Build query with optional company filter for admin
     let query = `
-      SELECT b.*, c."com_name"
+      SELECT b.*, c."com_name",
+             (SELECT u."u_id"   FROM "User" u WHERE u."B_id" = b."B_id" AND u."role_id" = 1 LIMIT 1) AS "U_id",
+             (SELECT u."u_fname" FROM "User" u WHERE u."B_id" = b."B_id" AND u."role_id" = 1 LIMIT 1) AS "u_fname",
+             (SELECT u."u_lname" FROM "User" u WHERE u."B_id" = b."B_id" AND u."role_id" = 1 LIMIT 1) AS "u_lname"
       FROM "Branch" b
-      LEFT JOIN "Company" c
-      ON b."com_id" = c."com_id"
+      LEFT JOIN "Company" c ON b."com_id" = c."com_id"
       WHERE b."B_id" = $1
     `;
 
@@ -224,16 +228,14 @@ export async function updateBranch(req, res, next) {
       throw new Error("Invalid branch ID.");
     }
 
-    const { B_name, B_email, B_conNo, B_address, com_id } = req.body;
+    const { B_name, B_email, B_conNo, B_address, com_id, status, B_status } = req.body;
+    // Accept both 'status' and 'B_status' from the client
+    const newStatus = B_status !== undefined ? B_status : status;
 
     // Must send at least one field
     const hasAnyField = [
-      B_name,
-      B_email,
-      B_conNo,
-      B_address,
-      com_id,
-    ].some((v) => v !== undefined && v !== null && v !== "");
+      B_name, B_email, B_conNo, B_address, com_id,
+    ].some((v) => v !== undefined && v !== null && v !== "") || newStatus !== undefined;
 
     if (!hasAnyField) {
       return res.status(400).json({
@@ -303,7 +305,8 @@ export async function updateBranch(req, res, next) {
         "B_email"   = COALESCE($2, "B_email"),
         "B_conNo"   = COALESCE($3, "B_conNo"),
         "B_address" = COALESCE($4, "B_address"),
-        "com_id"    = COALESCE($5, "com_id")
+        "com_id"    = COALESCE($5, "com_id"),
+        "B_status"  = CASE WHEN $7::boolean IS NOT NULL THEN $7::boolean ELSE "B_status" END
       WHERE "B_id" = $6
       RETURNING ${BRANCH_COLS}
       `,
@@ -314,6 +317,7 @@ export async function updateBranch(req, res, next) {
         B_address ? sanitizeStr(B_address) : null,
         com_id ? Number(com_id) : null,
         id,
+        newStatus !== undefined ? Boolean(newStatus) : null,
       ],
     );
 

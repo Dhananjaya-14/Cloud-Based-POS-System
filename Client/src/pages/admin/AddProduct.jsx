@@ -3,8 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import { createProduct, getCompanies, getCategories } from "../../services/api";
+import { createProduct, getCategories } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
 
 const cardStyle = {
   border: "1px solid #C9DDF3",
@@ -106,26 +107,17 @@ const AddProduct = () => {
     let isMounted = true;
 
     const loadCompany = async () => {
-      try {
-        if (user?.com_id != null) {
-          if (!isMounted) return;
-          setForm((prev) => ({ ...prev, com_id: String(user.com_id) }));
-          return;
-        }
-
-        const companies = await getCompanies();
-        const firstCompanyId = companies?.[0]?.com_id ?? 1;
+      if (user?.com_id != null) {
         if (!isMounted) return;
-        setForm((prev) => ({ ...prev, com_id: String(firstCompanyId) }));
-      } catch {
-        if (!isMounted) return;
-        setForm((prev) => ({ ...prev, com_id: "1" }));
+        setForm((prev) => ({ ...prev, com_id: String(user.com_id) }));
+        return;
       }
+      if (!isMounted) return;
+      setForm((prev) => ({ ...prev, com_id: "1" }));
     };
 
     loadCompany();
 
-    // Fetch categories
     getCategories()
       .then((cats) => {
         if (!Array.isArray(cats) || cats.length === 0) return;
@@ -133,6 +125,12 @@ const AddProduct = () => {
         setForm((prev) => ({ ...prev, cat_id: String(cats[0].cat_id) }));
       })
       .catch(() => {});
+
+    // Initialize socket connection for admin
+    const socket = getSocket();
+    if (!socket.connected) {
+      connectSocket();
+    }
 
     return () => {
       isMounted = false;
@@ -164,7 +162,9 @@ const AddProduct = () => {
         stations: form.stations,
       };
 
-      await createProduct(payload);
+      const response = await createProduct(payload);
+      
+      // Socket event will be emitted from server, so we just show success
       setShowSuccessToast(true);
       setForm((prev) => ({
         ...prev,
@@ -662,7 +662,7 @@ const AddProduct = () => {
                 cursor: "pointer",
               }}
             >
-              Countinue
+              Continue
             </button>
           </div>
         </div>

@@ -12,6 +12,15 @@ export const ADMIN_PURCHASE_ORDER_ROOM = "admin-purchase-orders";
 
 export const getCashierSocketRoom = (userId) => `cashier-updates:${userId}`;
 
+// Socket event names
+export const SOCKET_EVENTS = {
+  NEW_PRODUCT_ADDED: "new_product_added",
+  PRODUCT_UPDATED: "product_updated",
+  PRODUCT_DELETED: "product_deleted",
+  JOIN_BRANCH_ROOM: "join_branch_room",
+  LEAVE_BRANCH_ROOM: "leave_branch_room",
+};
+
 function extractSocketToken(socket) {
   const authToken = socket.handshake.auth?.token;
   if (typeof authToken === "string" && authToken.length > 0) {
@@ -40,6 +49,7 @@ export const initializeSocket = (httpServer) => {
     cors: {
       origin: process.env.CLIENT_URL || "*",
       credentials: true,
+      methods: ["GET", "POST"],
     },
   });
 
@@ -67,6 +77,7 @@ export const initializeSocket = (httpServer) => {
   io.on("connection", (socket) => {
     const roleId = Number(socket.user?.role_id);
 
+    // Join existing rooms based on role
     if ([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.BRANCH_ADMIN].includes(roleId)) {
       socket.join(BRANCH_UPDATE_ROOM);
     }
@@ -78,6 +89,31 @@ export const initializeSocket = (httpServer) => {
     if (roleId === ROLES.KITCHEN_STAFF) {
       socket.join(KITCHEN_UPDATE_ROOM);
     }
+
+    // Join company-specific room
+    if (socket.user?.com_id) {
+      const companyRoom = `company_${socket.user.com_id}`;
+      socket.join(companyRoom);
+      console.log(`Socket ${socket.id} joined room: ${companyRoom}`);
+    }
+
+    // Join branch-specific room (for branch admins)
+    socket.on(SOCKET_EVENTS.JOIN_BRANCH_ROOM, (branchId) => {
+      if (branchId) {
+        const branchRoom = `branch_${branchId}`;
+        socket.join(branchRoom);
+        console.log(`Socket ${socket.id} joined branch room: ${branchRoom}`);
+      }
+    });
+
+    // Leave branch-specific room
+    socket.on(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, (branchId) => {
+      if (branchId) {
+        const branchRoom = `branch_${branchId}`;
+        socket.leave(branchRoom);
+        console.log(`Socket ${socket.id} left branch room: ${branchRoom}`);
+      }
+    });
 
     socket.emit("socket:ready", {
       message: "WebSocket connection established",
@@ -98,6 +134,10 @@ export const initializeSocket = (httpServer) => {
 
       socket.emit("socket:pong", response);
     });
+
+    socket.on("disconnect", () => {
+      console.log(`User disconnected: ${socket.id}`);
+    });
   });
 
   return io;
@@ -108,6 +148,13 @@ export const getSocketIO = () => {
     throw new Error("Socket.IO has not been initialized yet.");
   }
 
+  return io;
+};
+
+export const getIO = () => {
+  if (!io) {
+    throw new Error("Socket.io not initialized");
+  }
   return io;
 };
 
