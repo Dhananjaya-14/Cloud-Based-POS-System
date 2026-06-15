@@ -22,6 +22,20 @@ export const SOCKET_EVENTS = {
   USER_DELETED: "user_deleted",
   JOIN_BRANCH_USER_ROOM: "join_branch_user_room",
   LEAVE_BRANCH_USER_ROOM: "leave_branch_user_room",
+  // Inventory events
+  INVENTORY_CREATED: "inventory:created",
+  INVENTORY_UPDATED: "inventory:updated",
+  INVENTORY_DELETED: "inventory:deleted",
+  // Recipe events
+  RECIPE_CREATED: "recipe:created",
+  RECIPE_BULK_CREATED: "recipe:bulk_created",
+  RECIPE_UPDATED: "recipe:updated",
+  RECIPE_DELETED: "recipe:deleted",
+  RECIPE_PRODUCT_CLEARED: "recipe:product_cleared",
+  // Supplier events
+  SUPPLIER_CREATED: "supplier:created",
+  SUPPLIER_UPDATED: "supplier:updated",
+  SUPPLIER_DELETED: "supplier:deleted",
 };
 
 function extractSocketToken(socket) {
@@ -102,6 +116,11 @@ export const initializeSocket = (httpServer) => {
         const branchUserRoom = getBranchUserRoom(branchId);
         socket.join(branchUserRoom);
         console.log(`Branch admin ${socket.user?.u_id} joined user room: ${branchUserRoom}`);
+        
+        // Also auto-join inventory room for branch admins
+        const branchRoom = `branch_${branchId}`;
+        socket.join(branchRoom);
+        console.log(`Branch admin ${socket.user?.u_id} auto-joined inventory room: ${branchRoom}`);
       }
     }
 
@@ -117,15 +136,16 @@ export const initializeSocket = (httpServer) => {
     if (socket.user?.com_id) {
       const companyRoom = `company_${socket.user.com_id}`;
       socket.join(companyRoom);
-      console.log(`Socket ${socket.id} joined room: ${companyRoom}`);
+      console.log(`Socket ${socket.id} joined company room: ${companyRoom}`);
     }
 
-    // Join branch-specific room (for branch admins)
+    // Listen for joining branch-specific rooms for inventory
     socket.on(SOCKET_EVENTS.JOIN_BRANCH_ROOM, (branchId) => {
       if (branchId) {
         const branchRoom = `branch_${branchId}`;
         socket.join(branchRoom);
-        console.log(`Socket ${socket.id} joined branch room: ${branchRoom}`);
+        console.log(`Socket ${socket.id} joined inventory room: ${branchRoom}`);
+        socket.emit("branch_room_joined", { branchId, room: branchRoom });
       }
     });
 
@@ -143,7 +163,8 @@ export const initializeSocket = (httpServer) => {
       if (branchId) {
         const branchRoom = `branch_${branchId}`;
         socket.leave(branchRoom);
-        console.log(`Socket ${socket.id} left branch room: ${branchRoom}`);
+        console.log(`Socket ${socket.id} left inventory room: ${branchRoom}`);
+        socket.emit("branch_room_left", { branchId, room: branchRoom });
       }
     });
 
