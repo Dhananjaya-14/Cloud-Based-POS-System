@@ -78,11 +78,9 @@ const UserManagement = () => {
     }, {});
   }, [roles]);
 
-  const branchMapByUser = useMemo(() => {
+  const branchMap = useMemo(() => {
     return branches.reduce((acc, branch) => {
-      if (branch.U_id) {
-        acc[String(branch.U_id)] = branch.B_name;
-      }
+      acc[String(branch.B_id)] = branch.B_name;
       return acc;
     }, {});
   }, [branches]);
@@ -95,7 +93,7 @@ const UserManagement = () => {
       const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim().toLowerCase();
       const email = (user.u_email || "").toLowerCase();
       const roleName = (roleMap[String(user.role_id)] || "Unknown").toLowerCase();
-      const branchName = (branchMapByUser[String(user.u_id)] || "-").toLowerCase();
+      const branchName = (branchMap[String(user.b_id)] || "-").toLowerCase();
 
       const matchesSearch =
         !normalizedSearch ||
@@ -108,7 +106,7 @@ const UserManagement = () => {
 
       return matchesSearch && matchesRole;
     });
-  }, [users, searchTerm, roleFilter, roleMap, branchMapByUser]);
+  }, [users, searchTerm, roleFilter, roleMap, branchMap]);
 
   // UX Fix: Removed itemsPerPage limitations so all matching records show at once
   const visibleUsers = filteredUsers;
@@ -341,7 +339,7 @@ const UserManagement = () => {
                       const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim() || "Unknown User";
                       const initials = `${(user.u_fname || "U").charAt(0)}${(user.u_lname || "S").charAt(0)}`.toUpperCase();
                       const roleName = roleMap[String(user.role_id)] || "Unknown";
-                      const branchName = branchMapByUser[String(user.u_id)] || "-";
+                      const branchName = branchMap[String(user.b_id)] || "-";
 
                       return (
                         <tr key={user.u_id}>
