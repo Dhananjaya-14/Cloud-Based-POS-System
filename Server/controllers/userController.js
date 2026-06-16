@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { emitUserEventToBranch, SOCKET_EVENTS } from "../utils/socket.js";
 
 // Helper to hash password when provided
 async function hashPassword(password) {
@@ -71,6 +72,7 @@ export async function getUsers(req, res, next) {
     next(err);
   }
 }
+
 //single user by id
 // GET /api/users/:id
 export async function getUserById(req, res, next) {
@@ -200,8 +202,28 @@ export async function createUser(req, res, next) {
     ];
 
     const result = await pool.query(insertQuery, params);
+    const newUser = result.rows[0];
 
-    res.status(201).json(result.rows[0]);
+    // Emit socket event to notify branch admins about new user
+    if (B_id) {
+      // Get branch name for the user
+      const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [B_id]);
+      const branchName = branchRes.rows[0]?.B_name || null;
+      
+      // Get role name
+      const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [role_id]);
+      const roleName = roleRes.rows[0]?.role_name || "Unknown";
+      
+      const userWithDetails = {
+        ...newUser,
+        branch_name: branchName,
+        role_name: roleName,
+      };
+      
+      emitUserEventToBranch(B_id, SOCKET_EVENTS.USER_CREATED, userWithDetails);
+    }
+
+    res.status(201).json(newUser);
   } catch (err) {
     next(err);
   }
@@ -232,6 +254,8 @@ export async function updateUser(req, res, next) {
       res.status(404);
       throw new Error("User not found");
     }
+
+    const oldBranchId = existingUser.rows[0].B_id;
 
     // Determine target role (use provided role_id, fallback to existing role_id)
     const targetRoleId = role_id !== undefined ? Number(role_id) : Number(existingUser.rows[0].role_id);
@@ -324,8 +348,33 @@ export async function updateUser(req, res, next) {
     ];
 
     const result = await pool.query(updateQuery, params);
+    const updatedUser = result.rows[0];
 
-    res.json(result.rows[0]);
+    // Emit socket events for user updates
+    // Get branch name and role name for the updated user
+    const finalBranchId = B_id || oldBranchId;
+    
+    if (finalBranchId) {
+      const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [finalBranchId]);
+      const branchName = branchRes.rows[0]?.B_name || null;
+      
+      const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [targetRoleId]);
+      const roleName = roleRes.rows[0]?.role_name || "Unknown";
+      
+      const userWithDetails = {
+        ...updatedUser,
+        branch_name: branchName,
+        role_name: roleName,
+      };
+      
+      // If branch changed, notify both old and new branches
+      if (oldBranchId && oldBranchId !== finalBranchId) {
+        emitUserEventToBranch(oldBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id) });
+      }
+      emitUserEventToBranch(finalBranchId, SOCKET_EVENTS.USER_UPDATED, userWithDetails);
+    }
+
+    res.json(updatedUser);
   } catch (err) {
     next(err);
   }
@@ -338,12 +387,30 @@ export async function deleteUser(req, res, next) {
     ensureBranchAdminHasBranch(req, res);
     const { id } = req.params;
     const scopedBranchId = getScopedBranchId(req);
-    const params = [id];
+    
+    // Get user branch before deletion
+    const getUserParams = [id];
     let branchFilter = "";
-
+    if (scopedBranchId) {
+      getUserParams.push(Number(scopedBranchId));
+      branchFilter = `AND "B_id" = $2`;
+    }
+    
+    const userToDelete = await pool.query(
+      `SELECT u_id, "B_id" FROM "User" WHERE u_id = $1 ${branchFilter}`,
+      getUserParams
+    );
+    
+    if (userToDelete.rows.length === 0) {
+      res.status(404);
+      throw new Error("User not found");
+    }
+    
+    const userBranchId = userToDelete.rows[0].B_id;
+    
+    const params = [id];
     if (scopedBranchId) {
       params.push(Number(scopedBranchId));
-      branchFilter = `AND "B_id" = $2`;
     }
 
     const result = await pool.query(
@@ -356,9 +423,13 @@ export async function deleteUser(req, res, next) {
       throw new Error("User not found");
     }
 
+    // Emit socket event to notify branch admins about user deletion
+    if (userBranchId) {
+      emitUserEventToBranch(userBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id) });
+    }
+
     res.status(204).send();
   } catch (err) {
     next(err);
   }
 }
-
