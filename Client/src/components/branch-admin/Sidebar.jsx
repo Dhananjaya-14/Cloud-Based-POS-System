@@ -11,7 +11,7 @@ import {
   FaCog,
   FaSignOutAlt,
   FaUsers,
-  
+  FaFileAlt,
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -27,16 +27,22 @@ const Sidebar = () => {
     "/branch-admin/cashier-performance",
     "/branch-admin/inventory-stats",
   ];
+  const reportPaths = [
+    "/branch-admin/reports/sales",
+    "/branch-admin/reports/product-sales",
+  ];
 
   const isExactActive = (path) => location.pathname === path;
   const isAnyActive = (paths) => paths.some((path) => location.pathname === path);
 
   const inventoryActive = isAnyActive(inventoryPaths);
   const statisticsActive = isAnyActive(statisticsPaths);
+  const reportsActive = isAnyActive(reportPaths);
   const productActive = location.pathname.startsWith("/branch-admin/products");
 
   const [isInventoryOpen, setIsInventoryOpen] = useState(inventoryActive);
   const [isStatisticsOpen, setIsStatisticsOpen] = useState(statisticsActive);
+  const [isReportsOpen, setIsReportsOpen] = useState(reportsActive);
 
   useEffect(() => {
     if (inventoryActive) {
@@ -49,6 +55,12 @@ const Sidebar = () => {
       setIsStatisticsOpen(true);
     }
   }, [statisticsActive]);
+
+  useEffect(() => {
+    if (reportsActive) {
+      setIsReportsOpen(true);
+    }
+  }, [reportsActive]);
 
   const menuItem = (icon, label, path, active = false) => (
     <Link
@@ -195,6 +207,20 @@ const Sidebar = () => {
             "Transactions",
             "/branch-admin/transactions",
             isExactActive("/branch-admin/transactions")
+          )}
+
+          {groupLabel(
+            <FaFileAlt />,
+            "Analytical Reports",
+            reportsActive,
+            isReportsOpen,
+            () => setIsReportsOpen((prev) => !prev)
+          )}
+          {isReportsOpen && (
+            <>
+              {subItem("Sales Summary ", "/branch-admin/summary-sales")}
+              {subItem("Product Sales ", "/branch-admin/summary-productsales")}
+            </>
           )}
           
         </div>
