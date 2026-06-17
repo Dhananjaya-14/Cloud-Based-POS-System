@@ -1,3 +1,4 @@
+// Client/src/pages/admin/AddProduct.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
@@ -61,6 +62,11 @@ const AddProduct = () => {
     },
   });
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [newAddOn, setNewAddOn] = useState("");
+  const [newStation, setNewStation] = useState("");
 
   const toggleCheckbox = (group, key) => {
     setForm((prev) => ({
@@ -71,8 +77,6 @@ const AddProduct = () => {
       },
     }));
   };
-  const [newAddOn, setNewAddOn] = useState("");
-  const [newStation, setNewStation] = useState("");
 
   const handleAddAddOn = () => {
     if (!newAddOn.trim()) return;
@@ -99,9 +103,6 @@ const AddProduct = () => {
     }));
     setNewStation("");
   };
-  const [error, setError] = useState("");
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -200,17 +201,34 @@ const AddProduct = () => {
             Add New Product
           </h1>
 
+          {error && (
+            <div style={{ 
+              background: "#FEE2E2", 
+              color: "#991B1B", 
+              padding: "12px", 
+              borderRadius: "8px",
+              marginBottom: "20px"
+            }}>
+              {error}
+            </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "1.06fr 1fr", gap: "22px", alignItems: "start" }}>
             <div>
               <div style={cardStyle}>
                 <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: "12px", marginBottom: "10px" }}>
                   <div>
                     <label style={labelStyle}>Product Name</label>
-                    <input style={inputStyle} value={form.pro_name} onChange={handleChange("pro_name")} />
+                    <input 
+                      style={inputStyle} 
+                      value={form.pro_name} 
+                      onChange={handleChange("pro_name")} 
+                      placeholder="Enter product name"
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>Short Name</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="Short name" />
                   </div>
                 </div>
 
@@ -260,6 +278,7 @@ const AddProduct = () => {
                       style={inputStyle}
                       value={form.pro_qty}
                       onChange={handleChange("pro_qty")}
+                      placeholder="0"
                     />
                   </div>
                 </div>
@@ -300,6 +319,7 @@ const AddProduct = () => {
                       resize: "none",
                       paddingTop: "8px",
                     }}
+                    placeholder="Product description"
                   />
                 </div>
               </div>
@@ -317,6 +337,7 @@ const AddProduct = () => {
                       style={inputStyle}
                       value={form.pro_price}
                       onChange={handleChange("pro_price")}
+                      placeholder="0.00"
                     />
                   </div>
                   <div>
@@ -331,7 +352,7 @@ const AddProduct = () => {
                           paddingRight: "30px",
                         }}
                       >
-                        <option></option>
+                        <option>None</option>
                       </select>
                       <FaChevronDown
                         size={10}
@@ -351,17 +372,17 @@ const AddProduct = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
                   <div>
                     <label style={labelStyle}>Cost Price</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="0.00" />
                   </div>
                   <div>
                     <label style={labelStyle}>Product Code</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="Auto-generated" />
                   </div>
                 </div>
 
                 <div style={{ width: "calc(50% - 6px)" }}>
                   <label style={labelStyle}>Discount</label>
-                  <input style={inputStyle} />
+                  <input style={inputStyle} placeholder="0%" />
                 </div>
               </div>
             </div>
@@ -534,11 +555,11 @@ const AddProduct = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px" }}>
                   <div>
                     <label style={{ ...labelStyle, marginBottom: "6px" }}>Current stock</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="0" />
                   </div>
                   <div>
                     <label style={{ ...labelStyle, marginBottom: "6px" }}>Low stock</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="10" />
                   </div>
                 </div>
               </div>
@@ -582,12 +603,12 @@ const AddProduct = () => {
                   {submitting ? "Saving..." : "Save Product"}
                 </button>
               </div>
-              {error && <div style={{ marginTop: "12px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>}
             </div>
           </div>
         </div>
       </div>
 
+      {/* Success Toast */}
       {showSuccessToast && (
         <div
           style={{

@@ -1,3 +1,4 @@
+// Client/src/pages/branch-admin/ProductManagement.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,6 +14,13 @@ import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getBranchProducts, updateBranchProduct } from "../../services/api";
+import { 
+	getSocket, 
+	connectSocket, 
+	SOCKET_EVENTS,
+	joinBranchInventoryRoom,
+	leaveBranchInventoryRoom
+} from "../../services/socket";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -97,6 +105,8 @@ const mapApiProductToTableItem = (product) => {
 		discount: "0%",
 		stock: quantity,
 		status: getStockStatus(quantity),
+		// Store original product data for updates
+		_original: product
 	};
 };
 
@@ -110,7 +120,77 @@ const ProductManagement = () => {
 	const [updatingStockId, setUpdatingStockId] = useState(null);
 	const [currentPage, setCurrentPage] = useState(1);
 	const itemsPerPage = 4;
+	const branchId = user?.b_id;
 
+	// Setup WebSocket listeners for branch products
+	useEffect(() => {
+		if (!branchId) return;
+
+		const socket = getSocket();
+		
+		// Connect socket if not connected
+		if (!socket.connected) {
+			connectSocket();
+		}
+
+		// Join branch room for inventory updates
+		if (socket.connected) {
+			joinBranchInventoryRoom(branchId);
+		}
+
+		// Handler for branch product added
+		const handleBranchProductAdded = (data) => {
+			console.log("Branch product added via WebSocket:", data);
+			if (data.branch_product && data.branch_id === branchId) {
+				// Check if product already exists in the list
+				setProducts(prev => {
+					const exists = prev.some(p => p.Bpro_id === data.branch_product.Bpro_id);
+					if (exists) return prev;
+					return [...prev, data.branch_product];
+				});
+			}
+		};
+
+		// Handler for branch product updated
+		const handleBranchProductUpdated = (data) => {
+			console.log("Branch product updated via WebSocket:", data);
+			if (data.branch_product && data.branch_id === branchId) {
+				setProducts(prev =>
+					prev.map(p =>
+						p.Bpro_id === data.branch_product.Bpro_id
+							? { ...p, ...data.branch_product }
+							: p
+					)
+				);
+			}
+		};
+
+		// Handler for branch product deleted
+		const handleBranchProductDeleted = (data) => {
+			console.log("Branch product deleted via WebSocket:", data);
+			if (data.Bpro_id && data.branch_id === branchId) {
+				setProducts(prev =>
+					prev.filter(p => p.Bpro_id !== data.Bpro_id)
+				);
+			}
+		};
+
+		// Subscribe to branch product events
+		socket.on("branch_product_added", handleBranchProductAdded);
+		socket.on("branch_product_updated", handleBranchProductUpdated);
+		socket.on("branch_product_deleted", handleBranchProductDeleted);
+
+		return () => {
+			socket.off("branch_product_added", handleBranchProductAdded);
+			socket.off("branch_product_updated", handleBranchProductUpdated);
+			socket.off("branch_product_deleted", handleBranchProductDeleted);
+			if (socket.connected) {
+				leaveBranchInventoryRoom(branchId);
+			}
+		};
+	}, [branchId]);
+
+	// Load initial products
 	useEffect(() => {
 		let isMounted = true;
 
@@ -118,7 +198,6 @@ const ProductManagement = () => {
 			try {
 				setLoading(true);
 				setError("");
-				// Use b_id directly from the JWT token — no need to re-fetch all branches
 				const myBranchId = user?.b_id ?? null;
 				
 				const response = myBranchId ? await getBranchProducts(myBranchId) : [];
@@ -139,7 +218,7 @@ const ProductManagement = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, [user?.u_id]);
+	}, [user?.u_id, user?.b_id]);
 
 	const tableProducts = useMemo(() => {
 		const mapped = products.map(mapApiProductToTableItem);
@@ -338,6 +417,8 @@ const ProductManagement = () => {
 							<input
 								type="text"
 								placeholder="Search by Name or Code"
+								value={searchTerm}
+								onChange={(e) => setSearchTerm(e.target.value)}
 								style={{ border: "none", outline: "none", width: "100%", fontSize: "14px" }}
 							/>
 						</div>

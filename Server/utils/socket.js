@@ -1,3 +1,4 @@
+// Server/utils/socket.js
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import { ROLES } from "../middleware/authMiddleware.js";
@@ -36,6 +37,10 @@ export const SOCKET_EVENTS = {
   SUPPLIER_CREATED: "supplier:created",
   SUPPLIER_UPDATED: "supplier:updated",
   SUPPLIER_DELETED: "supplier:deleted",
+  // Branch product events
+  BRANCH_PRODUCT_ADDED: "branch_product_added",
+  BRANCH_PRODUCT_UPDATED: "branch_product_updated",
+  BRANCH_PRODUCT_DELETED: "branch_product_deleted",
 };
 
 function extractSocketToken(socket) {
@@ -59,6 +64,18 @@ function extractSocketToken(socket) {
 
 // Helper function to get branch user room name
 export const getBranchUserRoom = (branchId) => `branch_users_${branchId}`;
+
+// Helper function to get branch inventory room name
+export const getBranchInventoryRoom = (branchId) => `branch_${branchId}`;
+
+// Helper function to emit branch product events
+export const emitBranchProductEvent = (branchId, eventName, data) => {
+  if (!io) return false;
+  const room = getBranchInventoryRoom(branchId);
+  io.to(room).emit(eventName, data);
+  console.log(`Emitted ${eventName} to room ${room}`, data);
+  return true;
+};
 
 // Helper function to emit user events to branch
 export const emitUserEventToBranch = (branchId, eventName, userData) => {
@@ -106,6 +123,7 @@ export const initializeSocket = (httpServer) => {
   io.on("connection", (socket) => {
     const roleId = Number(socket.user?.role_id);
     const branchId = socket.user?.b_id;
+    const companyId = socket.user?.com_id;
 
     // Join existing rooms based on role
     if ([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.BRANCH_ADMIN].includes(roleId)) {
@@ -118,7 +136,7 @@ export const initializeSocket = (httpServer) => {
         console.log(`Branch admin ${socket.user?.u_id} joined user room: ${branchUserRoom}`);
         
         // Also auto-join inventory room for branch admins
-        const branchRoom = `branch_${branchId}`;
+        const branchRoom = getBranchInventoryRoom(branchId);
         socket.join(branchRoom);
         console.log(`Branch admin ${socket.user?.u_id} auto-joined inventory room: ${branchRoom}`);
       }
@@ -139,10 +157,20 @@ export const initializeSocket = (httpServer) => {
       console.log(`Socket ${socket.id} joined company room: ${companyRoom}`);
     }
 
+    // Listen for explicit join company room requests
+    socket.on("join_company_room", (companyId) => {
+      if (companyId) {
+        const companyRoom = `company_${companyId}`;
+        socket.join(companyRoom);
+        console.log(`Socket ${socket.id} explicitly joined company room: ${companyRoom}`);
+        socket.emit("company_room_joined", { companyId, room: companyRoom });
+      }
+    });
+
     // Listen for joining branch-specific rooms for inventory
     socket.on(SOCKET_EVENTS.JOIN_BRANCH_ROOM, (branchId) => {
       if (branchId) {
-        const branchRoom = `branch_${branchId}`;
+        const branchRoom = getBranchInventoryRoom(branchId);
         socket.join(branchRoom);
         console.log(`Socket ${socket.id} joined inventory room: ${branchRoom}`);
         socket.emit("branch_room_joined", { branchId, room: branchRoom });
@@ -161,7 +189,7 @@ export const initializeSocket = (httpServer) => {
     // Leave branch-specific room
     socket.on(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, (branchId) => {
       if (branchId) {
-        const branchRoom = `branch_${branchId}`;
+        const branchRoom = getBranchInventoryRoom(branchId);
         socket.leave(branchRoom);
         console.log(`Socket ${socket.id} left inventory room: ${branchRoom}`);
         socket.emit("branch_room_left", { branchId, room: branchRoom });

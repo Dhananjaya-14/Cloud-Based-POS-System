@@ -1,3 +1,4 @@
+// Client/src/pages/admin/ProductManagement.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -12,6 +13,13 @@ import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getProducts, updateProduct } from "../../services/api";
+import { 
+  connectSocket, 
+  getSocket, 
+  SOCKET_EVENTS,
+  joinCompanyRoom,
+  subscribeToProductUpdates 
+} from "../../services/socket";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -95,6 +103,8 @@ const mapApiProductToTableItem = (product) => {
     discount: "0%",
     stock: quantity,
     status: getStockStatus(quantity),
+    // Store original product data for updates
+    _original: product
   };
 };
 
@@ -107,7 +117,117 @@ const ProductManagement = () => {
   const [updatingStockId, setUpdatingStockId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
+  const [userCompanyId, setUserCompanyId] = useState(null);
 
+  // Connect to socket and join company room
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Get user data from token or store
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (userData.com_id) {
+        setUserCompanyId(userData.com_id);
+      }
+    } catch (e) {
+      console.error("Failed to parse user data", e);
+    }
+
+    // Connect socket
+    const socket = connectSocket();
+    
+    // Set up auth for socket
+    socket.auth = { token };
+
+    // Handle socket connection
+    const handleConnect = () => {
+      console.log("Socket connected for product management");
+      
+      // Join company room if we have company ID
+      if (userCompanyId) {
+        joinCompanyRoom(userCompanyId);
+        console.log(`Joined company room: ${userCompanyId}`);
+      }
+    };
+
+    socket.on("connect", handleConnect);
+
+    // If socket is already connected, join room immediately
+    if (socket.connected && userCompanyId) {
+      joinCompanyRoom(userCompanyId);
+    }
+
+    return () => {
+      socket.off("connect", handleConnect);
+    };
+  }, [userCompanyId]);
+
+  // Subscribe to product updates
+  useEffect(() => {
+    if (!userCompanyId) return;
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    // Handler for new product added
+    const handleNewProduct = (data) => {
+      console.log("New product added via socket:", data);
+      if (data.product && data.company_id === userCompanyId) {
+        setProducts(prev => {
+          // Check if product already exists
+          const exists = prev.some(p => p.pro_id === data.product.pro_id);
+          if (exists) return prev;
+          return [...prev, data.product];
+        });
+        
+        // Show notification or toast
+        if (data.product.pro_name) {
+          console.log(`📦 New product added: ${data.product.pro_name}`);
+        }
+      }
+    };
+
+    // Handler for product updated
+    const handleProductUpdated = (data) => {
+      console.log("Product updated via socket:", data);
+      if (data.product && data.company_id === userCompanyId) {
+        setProducts(prev => 
+          prev.map(p => 
+            p.pro_id === data.product.pro_id 
+              ? { ...p, ...data.product }
+              : p
+          )
+        );
+        console.log(`✏️ Product updated: ${data.product.pro_name}`);
+      }
+    };
+
+    // Handler for product deleted
+    const handleProductDeleted = (data) => {
+      console.log("Product deleted via socket:", data);
+      if (data.pro_id && data.company_id === userCompanyId) {
+        setProducts(prev => 
+          prev.filter(p => p.pro_id !== data.pro_id)
+        );
+        console.log(`🗑️ Product deleted: ${data.pro_name || data.pro_id}`);
+      }
+    };
+
+    // Subscribe to events
+    socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
+    socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
+    socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+
+    // Cleanup
+    return () => {
+      socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
+      socket.off(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
+      socket.off(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+    };
+  }, [userCompanyId]);
+
+  // Load initial products
   useEffect(() => {
     let isMounted = true;
 

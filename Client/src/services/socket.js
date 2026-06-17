@@ -93,6 +93,18 @@ export const disconnectSocket = () => {
 
 export const getSocketUrl = () => SOCKET_URL;
 
+// Helper function to join company room
+export const joinCompanyRoom = (companyId) => {
+  const socket = getSocket();
+  if (socket && socket.connected && companyId) {
+    // Company room is automatically joined on connection based on user.com_id
+    // This function is for explicit joining if needed
+    console.log(`Company room ${companyId} should be auto-joined`);
+    // Actually join the company room explicitly
+    socket.emit("join_company_room", companyId);
+  }
+};
+
 // Helper function to join branch user room
 export const joinBranchUserRoom = (branchId) => {
   const socket = getSocket();
@@ -129,14 +141,44 @@ export const leaveBranchInventoryRoom = (branchId) => {
   }
 };
 
-// Helper function to join company room (for recipe and supplier updates)
-export const joinCompanyRoom = (companyId) => {
+// Helper function to listen for product updates
+export const subscribeToProductUpdates = (companyId, callbacks) => {
   const socket = getSocket();
-  if (socket && socket.connected && companyId) {
-    // Company room is automatically joined on connection based on user.com_id
-    // This function is for explicit joining if needed
-    console.log(`Company room ${companyId} should be auto-joined`);
+  if (!socket) return () => {};
+
+  const {
+    onProductAdded,
+    onProductUpdated,
+    onProductDeleted
+  } = callbacks;
+
+  // Join company room first
+  if (companyId) {
+    joinCompanyRoom(companyId);
   }
+
+  if (onProductAdded) {
+    socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, onProductAdded);
+  }
+  if (onProductUpdated) {
+    socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, onProductUpdated);
+  }
+  if (onProductDeleted) {
+    socket.on(SOCKET_EVENTS.PRODUCT_DELETED, onProductDeleted);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onProductAdded) {
+      socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, onProductAdded);
+    }
+    if (onProductUpdated) {
+      socket.off(SOCKET_EVENTS.PRODUCT_UPDATED, onProductUpdated);
+    }
+    if (onProductDeleted) {
+      socket.off(SOCKET_EVENTS.PRODUCT_DELETED, onProductDeleted);
+    }
+  };
 };
 
 // Helper function to listen for recipe events
