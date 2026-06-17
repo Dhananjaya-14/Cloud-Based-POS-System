@@ -220,6 +220,18 @@ export const createOrder = async (orderData) => {
   return response.data;
 };
 
+export const createPayment = async (paymentData) => {
+  const res = await api.post("/payments", paymentData);
+  return res.data;
+};
+
+// Update a payment (used to change status to 'paid')
+export const updatePayment = async (paymentId, payload) => {
+  const res = await api.put(`/payments/${paymentId}`, payload);
+  return res.data;
+};
+
+
 export const updateOrder = async (orderId, orderData) => {
   const response = await api.put(
     `/orders/${orderId}`,

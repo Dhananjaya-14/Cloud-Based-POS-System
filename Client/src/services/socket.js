@@ -14,6 +14,10 @@ export const SOCKET_EVENTS = {
   PRODUCT_DELETED: "product_deleted",
   JOIN_BRANCH_ROOM: "join_branch_room",
   LEAVE_BRANCH_ROOM: "leave_branch_room",
+  ORDER_CREATED: "order:created",
+  PAYMENT_COMPLETED: "payment:completed",
+  ORDER_UPDATED: "order:updated",
+  LOW_STOCK_ALERT: "low_stock_alert",
 };
 
 export const getSocket = () => {

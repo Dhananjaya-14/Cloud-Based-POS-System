@@ -42,7 +42,7 @@ export async function login(req, res, next) {
       passwordOk = false;
     }
 
-    
+
     // (and auto-migrate to bcrypt on successful login)
     if (!passwordOk && user.u_pw === u_pw) {
       passwordOk = true;
@@ -64,7 +64,7 @@ export async function login(req, res, next) {
     }
     let b_id = user.B_id ?? null;
     let com_id = user.com_id ?? null;
- 
+
     if (user.role_id === ROLES.SUPER_ADMIN) {
       b_id = null;
       com_id = null;
@@ -75,7 +75,7 @@ export async function login(req, res, next) {
 
     b_id = user.B_id ?? null;
     com_id = user.com_id ?? null;
- 
+
     if (user.role_id === ROLES.SUPER_ADMIN) {
       b_id = null;
       com_id = null;
@@ -83,16 +83,7 @@ export async function login(req, res, next) {
       const bRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [b_id]);
       com_id = bRes.rows[0]?.com_id ?? null;
     }
-    if (!com_id) {
-      const uRes = await pool.query('SELECT com_id, "B_id" FROM "Branch" WHERE "u_id" = $1 LIMIT 1', [user.u_id]);
-      if (uRes.rows.length > 0) {
-        com_id = uRes.rows[0].com_id;
-        // If they are a Branch Admin without a B_id, use the B_id they manage
-        if (!b_id && user.role_id === ROLES.BRANCH_ADMIN) {
-          b_id = uRes.rows[0].B_id;
-        }
-      }
-    }
+
     //token creation
     const token = signToken({
       u_id: user.u_id,

@@ -691,8 +691,7 @@ export const updateOrderStatus = async (req, res) => {
 
     emitSocketEvent(
       "order:updated",
-      rows[0],
-      { room: KITCHEN_SOCKET_ROOM },
+      rows[0]
     );
 
     if (status === "completed") {

@@ -1,6 +1,7 @@
 // controllers/paymentController.js
 import { body, param, query, validationResult } from "express-validator";
 import pool from "../config/database.js";
+import { emitSocketEvent, ADMIN_PAYMENT_ROOM } from "../utils/socket.js";
 
 // ─── DB-Aligned Constants ─────────────────────────────────────────────────────
 // Adjust these to match your Payment table CHECK constraints if you have them
@@ -340,6 +341,11 @@ export async function createPayment(req, res, next) {
       [pay_method, pay_status, pay_date, pay_amount, or_id],
     );
 
+    // Emit socket event for payment completion if status is paid or refunded
+    if (rows[0].pay_status === "paid" || rows[0].pay_status === "refunded") {
+      emitSocketEvent("payment:completed", rows[0], { room: ADMIN_PAYMENT_ROOM });
+    }
+
     res.status(201).json({ success: true, data: rows[0] });
   } catch (err) {
     handleDbError(err, res, next);
@@ -452,6 +458,13 @@ export async function updatePayment(req, res, next) {
     const { id } = req.params;
     const { pay_method, pay_status, pay_date, pay_amount, or_id } = req.body;
 
+    // Retrieve current status to detect transition
+    const { rows: prevRows } = await pool.query(
+      'SELECT pay_status FROM "Payment" WHERE p_id = $1',
+      [id]
+    );
+    const prevStatus = prevRows[0]?.pay_status;
+
     const { rows } = await pool.query(
       `UPDATE "Payment"
        SET pay_method = $1,
@@ -468,6 +481,11 @@ export async function updatePayment(req, res, next) {
       return res
         .status(404)
         .json({ success: false, message: "Payment not found" });
+    }
+
+    // Emit socket event if payment moved to paid or refunded
+    if ((pay_status === "paid" || pay_status === "refunded") && prevStatus !== pay_status) {
+      emitSocketEvent("payment:completed", rows[0], { room: ADMIN_PAYMENT_ROOM });
     }
 
     res.json({ success: true, data: rows[0] });

@@ -80,6 +80,8 @@ export const initializeSocket = (httpServer) => {
     // Join existing rooms based on role
     if ([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.BRANCH_ADMIN].includes(roleId)) {
       socket.join(BRANCH_UPDATE_ROOM);
+      // Admins should also receive real‑time payment updates
+      socket.join(ADMIN_PAYMENT_ROOM);
     }
 
     if (roleId === ROLES.CASHIER && socket.user?.u_id) {
