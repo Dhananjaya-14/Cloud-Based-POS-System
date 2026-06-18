@@ -211,7 +211,7 @@ const Sidebar = () => {
 
           {groupLabel(
             <FaFileAlt />,
-            "Analytical Reports",
+            "Reports",
             reportsActive,
             isReportsOpen,
             () => setIsReportsOpen((prev) => !prev)
@@ -220,6 +220,8 @@ const Sidebar = () => {
             <>
               {subItem("Sales Summary ", "/branch-admin/summary-sales")}
               {subItem("Product Sales ", "/branch-admin/summary-productsales")}
+              {subItem("Raw Material Stock", "/branch-admin/raw-material-stock")}
+              {subItem("Raw Material Consumption", "/branch-admin/raw-material-consumption")}
             </>
           )}
           
