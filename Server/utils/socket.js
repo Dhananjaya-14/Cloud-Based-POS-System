@@ -125,6 +125,8 @@ export const initializeSocket = (httpServer) => {
     const branchId = socket.user?.b_id;
     const companyId = socket.user?.com_id;
 
+    console.log(`Socket connected: ${socket.id}, Role: ${roleId}, Branch: ${branchId}, Company: ${companyId}`);
+
     // Join existing rooms based on role
     if ([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.BRANCH_ADMIN].includes(roleId)) {
       socket.join(BRANCH_UPDATE_ROOM);

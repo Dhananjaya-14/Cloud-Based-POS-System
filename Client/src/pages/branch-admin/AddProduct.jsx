@@ -1,3 +1,4 @@
+// Client/src/pages/branch-admin/AddProduct.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,7 +20,7 @@ import {
   getProducts,
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
-import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
+import { getSocket, connectSocket, SOCKET_EVENTS, joinCompanyRoom } from "../../services/socket";
 
 const pageStyle = {
   display: "flex",
@@ -196,6 +197,7 @@ const AddProduct = () => {
   const [branchId, setBranchId] = useState(null);
   const [showNewProductToast, setShowNewProductToast] = useState(false);
   const [newProductName, setNewProductName] = useState("");
+  const companyId = user?.com_id;
 
   // Load initial data
   const loadData = async () => {
@@ -225,7 +227,7 @@ const AddProduct = () => {
     }
   };
 
-  // Setup WebSocket listeners
+  // Setup WebSocket listeners for new products (from main product catalog)
   useEffect(() => {
     const socket = getSocket();
     
@@ -234,20 +236,20 @@ const AddProduct = () => {
       connectSocket();
     }
 
-    // Join branch room if branchId is available
-    if (branchId && socket.connected) {
-      socket.emit(SOCKET_EVENTS.JOIN_BRANCH_ROOM, branchId);
+    // Join company room for product updates
+    if (companyId && socket.connected) {
+      joinCompanyRoom(companyId);
     }
 
-    // Listen for new products
+    // Listen for new products added to the main catalog
     const handleNewProduct = (data) => {
       console.log("New product received:", data);
       
       // Add the new product to the products list
       setProducts((prevProducts) => {
         // Check if product already exists
-        const exists = prevProducts.some(p => p.pro_id === data.product.pro_id);
-        if (!exists) {
+        const exists = prevProducts.some(p => p.pro_id === data.product?.pro_id);
+        if (!exists && data.product) {
           setNewProductName(data.product.pro_name);
           setShowNewProductToast(true);
           setTimeout(() => setShowNewProductToast(false), 3000);
@@ -261,11 +263,8 @@ const AddProduct = () => {
 
     return () => {
       socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
-      if (branchId && socket.connected) {
-        socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, branchId);
-      }
     };
-  }, [branchId]);
+  }, [companyId]);
 
   useEffect(() => {
     loadData();

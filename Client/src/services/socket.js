@@ -7,6 +7,8 @@ const SOCKET_URL =
   "http://localhost:5000";
 
 let socket;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 // Socket event names
 export const SOCKET_EVENTS = {
@@ -35,20 +37,31 @@ export const SOCKET_EVENTS = {
   SUPPLIER_CREATED: "supplier:created",
   SUPPLIER_UPDATED: "supplier:updated",
   SUPPLIER_DELETED: "supplier:deleted",
+  // Branch product events
+  BRANCH_PRODUCT_ADDED: "branch_product_added",
+  BRANCH_PRODUCT_UPDATED: "branch_product_updated",
+  BRANCH_PRODUCT_DELETED: "branch_product_deleted",
 };
 
 export const getSocket = () => {
   if (!socket) {
+    const token = localStorage.getItem("token");
+    
     socket = io(SOCKET_URL, {
       autoConnect: false,
       auth: {
-        token: localStorage.getItem("token") || null,
+        token: token || null,
       },
+      transports: ['websocket', 'polling'],
+      reconnection: true,
+      reconnectionAttempts: MAX_RECONNECT_ATTEMPTS,
+      reconnectionDelay: 1000,
     });
 
     if (import.meta.env.MODE !== "production") {
       socket.on("connect", () => {
         console.debug("socket connected", socket.id);
+        reconnectAttempts = 0;
       });
 
       socket.on("disconnect", (reason) => {
@@ -57,6 +70,10 @@ export const getSocket = () => {
 
       socket.on("connect_error", (err) => {
         console.debug("socket connect_error", err.message || err);
+        reconnectAttempts++;
+        if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+          console.error("Max reconnection attempts reached");
+        }
       });
 
       socket.onAny((event, ...args) => {
@@ -71,8 +88,10 @@ export const getSocket = () => {
 export const connectSocket = () => {
   const activeSocket = getSocket();
 
+  // Update auth token before connecting
+  const token = localStorage.getItem("token");
   activeSocket.auth = {
-    token: localStorage.getItem("token") || null,
+    token: token || null,
   };
 
   if (!activeSocket.connected) {
@@ -97,11 +116,8 @@ export const getSocketUrl = () => SOCKET_URL;
 export const joinCompanyRoom = (companyId) => {
   const socket = getSocket();
   if (socket && socket.connected && companyId) {
-    // Company room is automatically joined on connection based on user.com_id
-    // This function is for explicit joining if needed
-    console.log(`Company room ${companyId} should be auto-joined`);
-    // Actually join the company room explicitly
     socket.emit("join_company_room", companyId);
+    console.log(`Joined company room ${companyId}`);
   }
 };
 
@@ -301,6 +317,60 @@ export const subscribeToInventoryUpdates = (branchId, callbacks) => {
     }
     if (onInventoryDeleted) {
       socket.off(SOCKET_EVENTS.INVENTORY_DELETED, onInventoryDeleted);
+    }
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+    }
+  };
+};
+
+// Helper function to listen for branch product events (specifically for branch admins)
+export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const {
+    onBranchProductAdded,
+    onBranchProductUpdated,
+    onBranchProductDeleted
+  } = callbacks;
+
+  // Join the branch room first
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+  }
+
+  // Also join company room for cross-branch updates
+  const token = localStorage.getItem("token");
+  if (token) {
+    try {
+      // Parse JWT to get company_id (or get from auth context)
+      // For simplicity, we'll listen on branch room only
+    } catch (e) {
+      console.warn("Could not parse JWT for company room join");
+    }
+  }
+
+  if (onBranchProductAdded) {
+    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, onBranchProductAdded);
+  }
+  if (onBranchProductUpdated) {
+    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, onBranchProductUpdated);
+  }
+  if (onBranchProductDeleted) {
+    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, onBranchProductDeleted);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onBranchProductAdded) {
+      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, onBranchProductAdded);
+    }
+    if (onBranchProductUpdated) {
+      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, onBranchProductUpdated);
+    }
+    if (onBranchProductDeleted) {
+      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, onBranchProductDeleted);
     }
     if (branchId) {
       leaveBranchInventoryRoom(branchId);

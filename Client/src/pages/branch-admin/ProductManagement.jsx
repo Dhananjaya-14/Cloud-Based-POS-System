@@ -2,11 +2,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-	FaBell,
-	FaBoxOpen,
-	FaChevronDown,
-	FaExclamationTriangle,
-	FaSearch,
+  FaBell,
+  FaBoxOpen,
+  FaChevronDown,
+  FaExclamationTriangle,
+  FaSearch,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import Sidebar from "../../components/branch-admin/Sidebar";
@@ -15,468 +15,453 @@ import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getBranchProducts, updateBranchProduct } from "../../services/api";
 import { 
-	getSocket, 
-	connectSocket, 
-	SOCKET_EVENTS,
-	joinBranchInventoryRoom,
-	leaveBranchInventoryRoom
+  getSocket, 
+  connectSocket, 
+  SOCKET_EVENTS,
+  joinBranchInventoryRoom,
+  leaveBranchInventoryRoom,
+  subscribeToBranchProductUpdates
 } from "../../services/socket";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
 
 const cardBaseStyle = {
-	flex: "0 1 calc((100% - 60px) / 3)",
-	borderRadius: "18px",
-	padding: "25px 18px",
-	display: "flex",
-	alignItems: "center",
-	gap: "2px",
-	minHeight: "98px",
+  flex: "0 1 calc((100% - 60px) / 3)",
+  borderRadius: "18px",
+  padding: "25px 18px",
+  display: "flex",
+  alignItems: "center",
+  gap: "2px",
+  minHeight: "98px",
 };
 
 const statIconWrapStyle = {
-	width: "30px",
-	height: "30px",
-	borderRadius: "8px",
-	display: "grid",
-	placeItems: "center",
-	flexShrink: 0,
-	transform: "translateX(2px)",
+  width: "30px",
+  height: "30px",
+  borderRadius: "8px",
+  display: "grid",
+  placeItems: "center",
+  flexShrink: 0,
+  transform: "translateX(2px)",
 };
 
 const statTextWrapStyle = {
-	flex: 1,
-	display: "flex",
-	flexDirection: "column",
-	alignItems: "center",
-	justifyContent: "center",
-	marginLeft: "-6px",
+  flex: 1,
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  marginLeft: "-6px",
 };
 
 const statRightSpacerStyle = {
-	width: "18px",
-	flexShrink: 0,
+  width: "18px",
+  flexShrink: 0,
 };
 
 const statTitleStyle = {
-	fontSize: "24px",
-	fontWeight: "700",
-	color: "#101828",
-	lineHeight: 1,
-	textAlign: "center",
+  fontSize: "24px",
+  fontWeight: "700",
+  color: "#101828",
+  lineHeight: 1,
+  textAlign: "center",
 };
 
 const statValueStyle = {
-	fontSize: "24px",
-	fontWeight: "700",
-	lineHeight: 1.1,
-	textAlign: "center",
+  fontSize: "24px",
+  fontWeight: "700",
+  lineHeight: 1.1,
+  textAlign: "center",
 };
 
 const getStockStatus = (quantity) => {
-	if (quantity <= 0) return "Out of stock";
-	if (quantity <= 10) return "Low stock";
-	return "In stock";
+  if (quantity <= 0) return "Out of stock";
+  if (quantity <= 10) return "Low stock";
+  return "In stock";
 };
 
 const resolveProductImage = (value) => {
-	if (!value) return "";
-	const trimmed = String(value).trim();
-	if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
-	if (/^data:/i.test(trimmed)) return trimmed;
-	if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
-	return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed || trimmed.toLowerCase() === "n/a") return "";
+  if (/^data:/i.test(trimmed)) return trimmed;
+  if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
+  return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
 };
 
 const mapApiProductToTableItem = (product) => {
-	const quantity = Number(product.pro_quantity ?? 0);
-	const price = Number(product.pro_price ?? 0);
-	const imageUrl = resolveProductImage(product.pro_image);
+  const quantity = Number(product.pro_quantity ?? 0);
+  const price = Number(product.pro_price ?? 0);
+  const imageUrl = resolveProductImage(product.pro_image);
 
-	return {
-		id: product.Bpro_id,
-		imageUrl,
-		imageAlt: product.pro_name || "Product",
-		name: product.pro_name,
-		sku: `SKU: BPRD-${String(product.Bpro_id).padStart(3, "0")}`,
-		category: product.cat_name || "General",
-		price: `$${price.toFixed(2)}`,
-		discount: "0%",
-		stock: quantity,
-		status: getStockStatus(quantity),
-		// Store original product data for updates
-		_original: product
-	};
+  return {
+    id: product.Bpro_id,
+    imageUrl,
+    imageAlt: product.pro_name || "Product",
+    name: product.pro_name,
+    sku: `SKU: BPRD-${String(product.Bpro_id).padStart(3, "0")}`,
+    category: product.cat_name || "General",
+    price: `$${price.toFixed(2)}`,
+    discount: "0%",
+    stock: quantity,
+    status: getStockStatus(quantity),
+    // Store original product data for updates
+    _original: product
+  };
 };
 
 const ProductManagement = () => {
-	const navigate = useNavigate();
-	const { user } = useAuth();
-	const [searchTerm, setSearchTerm] = useState("");
-	const [products, setProducts] = useState([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
-	const [updatingStockId, setUpdatingStockId] = useState(null);
-	const [currentPage, setCurrentPage] = useState(1);
-	const itemsPerPage = 4;
-	const branchId = user?.b_id;
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState("");
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [updatingStockId, setUpdatingStockId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 4;
+  const branchId = user?.b_id;
+  const companyId = user?.com_id;
 
-	// Setup WebSocket listeners for branch products
-	useEffect(() => {
-		if (!branchId) return;
+  // Setup WebSocket listeners for branch products
+  useEffect(() => {
+    if (!branchId) return;
 
-		const socket = getSocket();
-		
-		// Connect socket if not connected
-		if (!socket.connected) {
-			connectSocket();
-		}
+    // Connect socket if not connected
+    const socket = getSocket();
+    if (!socket.connected) {
+      connectSocket();
+    }
 
-		// Join branch room for inventory updates
-		if (socket.connected) {
-			joinBranchInventoryRoom(branchId);
-		}
+    // Subscribe to branch product updates
+    const unsubscribe = subscribeToBranchProductUpdates(branchId, {
+      onBranchProductAdded: (data) => {
+        console.log("Branch product added via WebSocket:", data);
+        if (data.branch_product && data.branch_id === branchId) {
+          // Check if product already exists in the list
+          setProducts(prev => {
+            const exists = prev.some(p => p.Bpro_id === data.branch_product.Bpro_id);
+            if (exists) return prev;
+            // Add the new product to the list
+            return [data.branch_product, ...prev];
+          });
+        }
+      },
+      onBranchProductUpdated: (data) => {
+        console.log("Branch product updated via WebSocket:", data);
+        if (data.branch_product && data.branch_id === branchId) {
+          setProducts(prev =>
+            prev.map(p =>
+              p.Bpro_id === data.branch_product.Bpro_id
+                ? { ...p, ...data.branch_product }
+                : p
+            )
+          );
+        }
+      },
+      onBranchProductDeleted: (data) => {
+        console.log("Branch product deleted via WebSocket:", data);
+        if (data.Bpro_id && data.branch_id === branchId) {
+          setProducts(prev =>
+            prev.filter(p => p.Bpro_id !== data.Bpro_id)
+          );
+        }
+      }
+    });
 
-		// Handler for branch product added
-		const handleBranchProductAdded = (data) => {
-			console.log("Branch product added via WebSocket:", data);
-			if (data.branch_product && data.branch_id === branchId) {
-				// Check if product already exists in the list
-				setProducts(prev => {
-					const exists = prev.some(p => p.Bpro_id === data.branch_product.Bpro_id);
-					if (exists) return prev;
-					return [...prev, data.branch_product];
-				});
-			}
-		};
+    return () => {
+      unsubscribe();
+    };
+  }, [branchId]);
 
-		// Handler for branch product updated
-		const handleBranchProductUpdated = (data) => {
-			console.log("Branch product updated via WebSocket:", data);
-			if (data.branch_product && data.branch_id === branchId) {
-				setProducts(prev =>
-					prev.map(p =>
-						p.Bpro_id === data.branch_product.Bpro_id
-							? { ...p, ...data.branch_product }
-							: p
-					)
-				);
-			}
-		};
+  // Load initial products
+  useEffect(() => {
+    let isMounted = true;
 
-		// Handler for branch product deleted
-		const handleBranchProductDeleted = (data) => {
-			console.log("Branch product deleted via WebSocket:", data);
-			if (data.Bpro_id && data.branch_id === branchId) {
-				setProducts(prev =>
-					prev.filter(p => p.Bpro_id !== data.Bpro_id)
-				);
-			}
-		};
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const myBranchId = user?.b_id ?? null;
+        
+        const response = myBranchId ? await getBranchProducts(myBranchId) : [];
+        
+        if (!isMounted) return;
+        setProducts(Array.isArray(response) ? response : []);
+      } catch (err) {
+        if (!isMounted) return;
+        setError(err?.response?.data?.message || "Failed to load products");
+        setProducts([]);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
 
-		// Subscribe to branch product events
-		socket.on("branch_product_added", handleBranchProductAdded);
-		socket.on("branch_product_updated", handleBranchProductUpdated);
-		socket.on("branch_product_deleted", handleBranchProductDeleted);
+    loadProducts();
 
-		return () => {
-			socket.off("branch_product_added", handleBranchProductAdded);
-			socket.off("branch_product_updated", handleBranchProductUpdated);
-			socket.off("branch_product_deleted", handleBranchProductDeleted);
-			if (socket.connected) {
-				leaveBranchInventoryRoom(branchId);
-			}
-		};
-	}, [branchId]);
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.u_id, user?.b_id]);
 
-	// Load initial products
-	useEffect(() => {
-		let isMounted = true;
+  const tableProducts = useMemo(() => {
+    const mapped = products.map(mapApiProductToTableItem);
+    const query = searchTerm.trim().toLowerCase();
 
-		const loadProducts = async () => {
-			try {
-				setLoading(true);
-				setError("");
-				const myBranchId = user?.b_id ?? null;
-				
-				const response = myBranchId ? await getBranchProducts(myBranchId) : [];
-				
-				if (!isMounted) return;
-				setProducts(Array.isArray(response) ? response : []);
-			} catch (err) {
-				if (!isMounted) return;
-				setError(err?.response?.data?.message || "Failed to load products");
-				setProducts([]);
-			} finally {
-				if (isMounted) setLoading(false);
-			}
-		};
+    if (!query) return mapped;
 
-		loadProducts();
+    return mapped.filter((item) => {
+      return (
+        item.name.toLowerCase().includes(query) ||
+        item.sku.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
+      );
+    });
+  }, [products, searchTerm]);
 
-		return () => {
-			isMounted = false;
-		};
-	}, [user?.u_id, user?.b_id]);
+  const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
 
-	const tableProducts = useMemo(() => {
-		const mapped = products.map(mapApiProductToTableItem);
-		const query = searchTerm.trim().toLowerCase();
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
-		if (!query) return mapped;
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
-		return mapped.filter((item) => {
-			return (
-				item.name.toLowerCase().includes(query) ||
-				item.sku.toLowerCase().includes(query) ||
-				item.category.toLowerCase().includes(query)
-			);
-		});
-	}, [products, searchTerm]);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return tableProducts.slice(startIndex, startIndex + itemsPerPage);
+  }, [tableProducts, currentPage]);
 
-	const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
+  const pageStart = tableProducts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+  const pageEnd = Math.min(currentPage * itemsPerPage, tableProducts.length);
 
-	useEffect(() => {
-		setCurrentPage(1);
-	}, [searchTerm]);
+  const totalItems = products.length;
+  const lowStockCount = products.filter((item) => {
+    const quantity = Number(item.pro_quantity ?? 0);
+    return quantity > 0 && quantity <= 10;
+  }).length;
+  const outOfStockCount = products.filter((item) => Number(item.pro_quantity ?? 0) <= 0).length;
 
-	useEffect(() => {
-		if (currentPage > totalPages) {
-			setCurrentPage(totalPages);
-		}
-	}, [currentPage, totalPages]);
+  const handleAdjustStock = async (productId, delta) => {
+    if (updatingStockId !== null) return;
 
-	const paginatedProducts = useMemo(() => {
-		const startIndex = (currentPage - 1) * itemsPerPage;
-		return tableProducts.slice(startIndex, startIndex + itemsPerPage);
-	}, [tableProducts, currentPage]);
+    const existing = products.find((item) => item.Bpro_id === productId);
+    if (!existing) return;
 
-	const pageStart = tableProducts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-	const pageEnd = Math.min(currentPage * itemsPerPage, tableProducts.length);
+    const currentQty = Number(existing.pro_quantity ?? 0);
+    const nextQty = Math.max(0, currentQty + delta);
+    if (nextQty === currentQty) return;
 
-	const totalItems = products.length;
-	const lowStockCount = products.filter((item) => {
-		const quantity = Number(item.pro_quantity ?? 0);
-		return quantity > 0 && quantity <= 10;
-	}).length;
-	const outOfStockCount = products.filter((item) => Number(item.pro_quantity ?? 0) <= 0).length;
+    try {
+      setUpdatingStockId(productId);
+      setError("");
+      const updated = await updateBranchProduct(productId, { pro_quantity: nextQty });
 
-	const handleAdjustStock = async (productId, delta) => {
-		if (updatingStockId !== null) return;
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.Bpro_id === productId
+            ? {
+                ...item,
+                ...updated,
+                pro_quantity: Number(updated?.pro_quantity ?? nextQty),
+              }
+            : item
+        )
+      );
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to update stock quantity");
+    } finally {
+      setUpdatingStockId(null);
+    }
+  };
 
-		const existing = products.find((item) => item.Bpro_id === productId);
-		if (!existing) return;
+  return (
+    <div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
+      <Sidebar />
 
-		const currentQty = Number(existing.pro_quantity ?? 0);
-		const nextQty = Math.max(0, currentQty + delta);
-		if (nextQty === currentQty) return;
+      <div style={{ flex: 1, marginLeft: "240px" }}>
+        <Header
+          title="Branch Product Management"
+          role="Branch Admin"
+          email="branchadmin@gmail.com"
+          showAddUserIcon
+        />
 
-		try {
-			setUpdatingStockId(productId);
-			setError("");
-			const updated = await updateBranchProduct(productId, { pro_quantity: nextQty });
+        <div
+          style={{
+            padding: "22px 20px",
+            marginTop: "20px",
+            minHeight: "calc(100vh - 70px)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: "28px",
+            }}
+          >
+            <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#0F172A" }}>
+              Branch Product Management
+            </h1>
 
-			setProducts((prev) =>
-				prev.map((item) =>
-					item.Bpro_id === productId
-						? {
-							...item,
-							...updated,
-							pro_quantity: Number(updated?.pro_quantity ?? nextQty),
-						}
-						: item
-				)
-			);
-		} catch (err) {
-			setError(err?.response?.data?.message || "Failed to update stock quantity");
-		} finally {
-			setUpdatingStockId(null);
-		}
-	};
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+              <Button
+                label="+  Add Product"
+                onClick={() => navigate("/branch-admin/products/add")}
+                style={{
+                  background: "#0E6DCF",
+                  borderRadius: "3px",
+                  padding: "10px 18px",
+                  fontWeight: "600",
+                }}
+              />
+            </div>
+          </div>
 
-	return (
-		<div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
-			<Sidebar />
+          <div style={{ display: "flex", gap: "15px", marginBottom: "30px" }}>
+            <div style={{ ...cardBaseStyle, background: "#BEE8C4" }}>
+              <div
+                style={{
+                  ...statIconWrapStyle,
+                  background: "#22C55E",
+                }}
+              >
+                <FaBoxOpen color="#0B3F1D" size={12} />
+              </div>
+              <div style={statTextWrapStyle}>
+                <div style={statTitleStyle}>Total Items</div>
+                <div style={statValueStyle}>{totalItems}</div>
+              </div>
+              <div style={statRightSpacerStyle} />
+            </div>
 
-			<div style={{ flex: 1, marginLeft: "240px" }}>
-				<Header
-					title="Branch Product Management"
-					role="Branch Admin"
-					email="branchadmin@gmail.com"
-					showAddUserIcon
-				/>
+            <div style={{ ...cardBaseStyle, background: "#F3C8DA" }}>
+              <div
+                style={{
+                  ...statIconWrapStyle,
+                  background: "#F87171",
+                }}
+              >
+                <FaBell color="#7F1D1D" size={12} />
+              </div>
+              <div style={statTextWrapStyle}>
+                <div style={statTitleStyle}>Low Stock</div>
+                <div style={statValueStyle}>{lowStockCount}</div>
+              </div>
+              <div style={statRightSpacerStyle} />
+            </div>
 
-				<div
-					style={{
-						padding: "22px 20px",
-						marginTop: "20px",
-						minHeight: "calc(100vh - 70px)",
-					}}
-				>
-					<div
-						style={{
-							display: "flex",
-							justifyContent: "space-between",
-							alignItems: "center",
-							marginBottom: "28px",
-						}}
-					>
-						<h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#0F172A" }}>
-							Branch Product Management
-						</h1>
+            <div style={{ ...cardBaseStyle, background: "#C8E0EC" }}>
+              <div
+                style={{
+                  ...statIconWrapStyle,
+                  background: "#38BDF8",
+                }}
+              >
+                <FaExclamationTriangle color="#0C4A6E" size={12} />
+              </div>
+              <div style={statTextWrapStyle}>
+                <div style={statTitleStyle}>Out Of Stock</div>
+                <div style={statValueStyle}>{outOfStockCount}</div>
+              </div>
+              <div style={statRightSpacerStyle} />
+            </div>
+          </div>
 
-						<div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-							<Button
-								label="+  Add Product"
-								onClick={() => navigate("/branch-admin/products/add")}
-								style={{
-									background: "#0E6DCF",
-									borderRadius: "3px",
-									padding: "10px 18px",
-									fontWeight: "600",
-								}}
-							/>
-						</div>
-					</div>
+          {loading && (
+            <div style={{ marginBottom: "14px", color: "#475569", fontSize: "14px" }}>
+              Loading products...
+            </div>
+          )}
 
-					<div style={{ display: "flex", gap: "15px", marginBottom: "30px" }}>
-						<div style={{ ...cardBaseStyle, background: "#BEE8C4" }}>
-							<div
-								style={{
-									...statIconWrapStyle,
-									background: "#22C55E",
-								}}
-							>
-								<FaBoxOpen color="#0B3F1D" size={12} />
-							</div>
-							<div style={statTextWrapStyle}>
-								<div style={statTitleStyle}>Total Items</div>
-								<div style={statValueStyle}>{totalItems}</div>
-							</div>
-							<div style={statRightSpacerStyle} />
-						</div>
+          {error && (
+            <div style={{ marginBottom: "14px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>
+          )}
 
-						<div style={{ ...cardBaseStyle, background: "#F3C8DA" }}>
-							<div
-								style={{
-									...statIconWrapStyle,
-									background: "#F87171",
-								}}
-							>
-								<FaBell color="#7F1D1D" size={12} />
-							</div>
-							<div style={statTextWrapStyle}>
-								<div style={statTitleStyle}>Low Stock</div>
-								<div style={statValueStyle}>{lowStockCount}</div>
-							</div>
-							<div style={statRightSpacerStyle} />
-						</div>
+          <div style={{ display: "flex", gap: "14px", marginBottom: "24px" }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                background: "#fff",
+                borderRadius: "12px",
+                boxShadow: "0 2px 5px rgba(0,0,0,0.18)",
+                padding: "8px 12px",
+                flex: 1,
+              }}
+            >
+              <FaSearch color="#9CA3AF" size={14} />
+              <input
+                type="text"
+                placeholder="Search by Name or Code"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ border: "none", outline: "none", width: "100%", fontSize: "14px" }}
+              />
+            </div>
 
-						<div style={{ ...cardBaseStyle, background: "#C8E0EC" }}>
-							<div
-								style={{
-									...statIconWrapStyle,
-									background: "#38BDF8",
-								}}
-							>
-								<FaExclamationTriangle color="#0C4A6E" size={12} />
-							</div>
-							<div style={statTextWrapStyle}>
-								<div style={statTitleStyle}>Out Of Stock</div>
-								<div style={statValueStyle}>{outOfStockCount}</div>
-							</div>
-							<div style={statRightSpacerStyle} />
-						</div>
-					</div>
+            {["Category : All", "Status : All", "Stock Level : All"].map((option) => (
+              <div key={option} style={{ position: "relative", width: "182px" }}>
+                <select
+                  style={{
+                    width: "100%",
+                    height: "36px",
+                    background: "#fff",
+                    borderRadius: "13px",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
+                    border: "1px solid #D9DCE1",
+                    padding: "0 34px 0 14px",
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    color: "#4B5563",
+                    outline: "none",
+                    appearance: "none",
+                    WebkitAppearance: "none",
+                    MozAppearance: "none",
+                  }}
+                >
+                  <option>{option}</option>
+                </select>
+                <FaChevronDown
+                  size={11}
+                  color="#111827"
+                  style={{
+                    position: "absolute",
+                    right: "17px",
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
 
-					{loading && (
-						<div style={{ marginBottom: "14px", color: "#475569", fontSize: "14px" }}>
-							Loading products...
-						</div>
-					)}
-
-					{error && (
-						<div style={{ marginBottom: "14px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>
-					)}
-
-					<div style={{ display: "flex", gap: "14px", marginBottom: "24px" }}>
-						<div
-							style={{
-								display: "flex",
-								alignItems: "center",
-								gap: "8px",
-								background: "#fff",
-								borderRadius: "12px",
-								boxShadow: "0 2px 5px rgba(0,0,0,0.18)",
-								padding: "8px 12px",
-								flex: 1,
-							}}
-						>
-							<FaSearch color="#9CA3AF" size={14} />
-							<input
-								type="text"
-								placeholder="Search by Name or Code"
-								value={searchTerm}
-								onChange={(e) => setSearchTerm(e.target.value)}
-								style={{ border: "none", outline: "none", width: "100%", fontSize: "14px" }}
-							/>
-						</div>
-
-						{["Category : All", "Status : All", "Stock Level : All"].map((option) => (
-							<div key={option} style={{ position: "relative", width: "182px" }}>
-								<select
-									style={{
-										width: "100%",
-										height: "36px",
-										background: "#fff",
-										borderRadius: "13px",
-										boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-										border: "1px solid #D9DCE1",
-										padding: "0 34px 0 14px",
-										fontSize: "13px",
-										fontWeight: "500",
-										color: "#4B5563",
-										outline: "none",
-										appearance: "none",
-										WebkitAppearance: "none",
-										MozAppearance: "none",
-									}}
-								>
-									<option>{option}</option>
-								</select>
-								<FaChevronDown
-									size={11}
-									color="#111827"
-									style={{
-										position: "absolute",
-										right: "17px",
-										top: "50%",
-										transform: "translateY(-50%)",
-										pointerEvents: "none",
-									}}
-								/>
-							</div>
-						))}
-					</div>
-
-					<ProductItemsTable
-						products={paginatedProducts}
-						onDecreaseStock={(id) => handleAdjustStock(id, -1)}
-						onIncreaseStock={(id) => handleAdjustStock(id, 1)}
-						updatingStockId={updatingStockId}
-						showActions={false}
-						currentPage={currentPage}
-						totalPages={totalPages}
-						totalItems={tableProducts.length}
-						pageStart={pageStart}
-						pageEnd={pageEnd}
-						onPageChange={setCurrentPage}
-					/>
-				</div>
-			</div>
-		</div>
-	);
+          <ProductItemsTable
+            products={paginatedProducts}
+            onDecreaseStock={(id) => handleAdjustStock(id, -1)}
+            onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+            updatingStockId={updatingStockId}
+            showActions={false}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={tableProducts.length}
+            pageStart={pageStart}
+            pageEnd={pageEnd}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default ProductManagement;
