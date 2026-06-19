@@ -61,16 +61,13 @@ export const getSalesSummaryReport = async (req, res) => {
     const params = [b_id];
 
     if (
-      ["weekly", "monthly", "custom"].includes(filterType) &&
-      fromDate &&
-      toDate
+      ["weekly", "monthly", "custom"].includes(filterType) &&fromDate &&toDate
     ) {
       query += `
         AND p."pay_date"
         BETWEEN $${params.length + 1}
         AND $${params.length + 2}
       `;
-
       params.push(fromDate);
       params.push(toDate);
     }
@@ -90,12 +87,7 @@ export const getSalesSummaryReport = async (req, res) => {
 
     const grandTotal =
       result.rows.reduce(
-        (sum, row) =>
-          sum +
-          Number(
-            row.totalCostWtax || 0
-          ),
-        0
+        (sum, row) =>sum +Number(row.totalCostWtax || 0),0
       );
 
     res.status(200).json({
@@ -108,8 +100,7 @@ export const getSalesSummaryReport = async (req, res) => {
     console.error(error);
 
     res.status(500).json({
-      message:
-        "Failed to generate report",
+      message:"Failed to generate report",
       error: error.message,
     });
 
@@ -217,10 +208,7 @@ export const getProductSalesReport = async (req, res) => {
     );
 
     const grandTotal = result.rows.reduce(
-      (sum, row) =>
-        sum + Number(row.total_sale || 0),
-      0
-    );
+      (sum, row) =>sum + Number(row.total_sale || 0),0);
 
     res.status(200).json({
       data: result.rows,
@@ -233,6 +221,329 @@ export const getProductSalesReport = async (req, res) => {
     res.status(500).json({
       message:
         "Failed to generate product sales report",
+      error: error.message,
+    });
+  }
+};
+
+export const getRawMaterialStockReport = async (req, res) => {
+  try {
+    const {
+      b_id,
+      stockFilter = "all",
+      columns,
+    } = req.body;
+
+    if (!b_id) {
+      return res.status(400).json({
+        message: "Branch ID is required",
+      });
+    }
+
+    const columnMap = {
+      rm_name: 'rm."rm_name"',
+      unit: 'rm."unit"',
+      stock_qty: 'rm."stock_qty"',
+      status: `
+        CASE
+          WHEN rm."stock_qty" = 0
+            THEN 'Out of Stock'
+          WHEN rm."stock_qty" <= rm."record_level"
+            THEN 'Low Stock'
+          ELSE 'In Stock'
+        END
+      `,
+    };
+
+    const selectedColumns =
+      columns && columns.length > 0
+        ? columns
+            .filter((col) => columnMap[col])
+            .map(
+              (col) =>
+                `${columnMap[col]} AS "${col}"`
+            )
+            .join(", ")
+        : `
+          rm."rm_name" AS rm_name,
+          rm."unit" AS unit,
+          rm."stock_qty" AS stock_qty,
+
+          CASE
+            WHEN rm."stock_qty" = 0
+              THEN 'Out of Stock'
+            WHEN rm."stock_qty" <= rm."record_level"
+              THEN 'Low Stock'
+            ELSE 'In Stock'
+          END AS status
+        `;
+
+    let query = `
+      SELECT
+        ${selectedColumns}
+
+      FROM "Raw_Material" rm
+
+      WHERE rm."b_id" = $1
+    `;
+
+    const params = [b_id];
+
+    if (stockFilter === "low") {
+      query += `
+        AND rm."stock_qty" > 0
+        AND rm."stock_qty"
+            <= rm."record_level"
+      `;
+    }
+
+    if (stockFilter === "out") {
+      query += `
+        AND rm."stock_qty" = 0
+      `;
+    }
+
+    query += `
+      ORDER BY rm."rm_name"
+    `;
+
+    const result =
+      await pool.query(query, params);
+
+    res.status(200).json({
+      data: result.rows,
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      message:
+        "Failed to generate Raw Material Stock Report",
+      error: error.message,
+    });
+
+  }
+};
+
+
+export const getRawMaterialConsumptionReport = async (req,res) => {
+  try {
+    const {
+      b_id,
+      filterType = "daily",
+      fromDate,
+      toDate,
+      columns,
+    } = req.body;
+
+    if (!b_id) {
+      return res.status(400).json({
+        message: "Branch ID is required",
+      });
+    }
+
+    const columnMap = {
+      report_date: 'o."or_date"',
+
+      rm_name: 'rm."rm_name"',
+
+      unit: 'rm."unit"',
+
+      quantity: `
+        SUM(
+          CASE
+            WHEN LOWER(r."unit") IN ('g','ml')
+            THEN (
+              oi."pro_quantity" *
+              r."quantity_req"
+            ) / 1000.0
+
+            ELSE (
+              oi."pro_quantity" *
+              r."quantity_req"
+            )
+          END
+        )
+      `,
+
+      unit_cost: `
+        COALESCE(
+          MAX(pi."unit_price"),
+          0
+        )
+      `,
+
+      total_cost: `
+        SUM(
+          CASE
+            WHEN LOWER(r."unit") IN ('g','ml')
+            THEN (
+              oi."pro_quantity" *
+              r."quantity_req"
+            ) / 1000.0
+
+            ELSE (
+              oi."pro_quantity" *
+              r."quantity_req"
+            )
+          END
+        )
+        *
+        COALESCE(
+          MAX(pi."unit_price"),
+          0
+        )
+      `,
+    };
+
+    const selectedColumns =
+      columns && columns.length > 0
+        ? columns
+            .filter(
+              (col) => columnMap[col]
+            )
+            .map(
+              (col) =>
+                `${columnMap[col]} AS "${col}"`
+            )
+            .join(", ")
+        : `
+          o."or_date" AS report_date,
+
+          rm."rm_name" AS rm_name,
+
+          rm."unit" AS unit,
+
+          SUM(
+            CASE
+              WHEN LOWER(r."unit") IN ('g','ml')
+              THEN (
+                oi."pro_quantity" *
+                r."quantity_req"
+              ) / 1000.0
+
+              ELSE (
+                oi."pro_quantity" *
+                r."quantity_req"
+              )
+              END
+            ) AS quantity,
+
+          COALESCE(
+            MAX(pi."unit_price"),
+            0
+          ) AS unit_cost,
+
+          SUM(
+            CASE
+              WHEN LOWER(r."unit") IN ('g','ml')
+              THEN (
+                oi."pro_quantity" *
+                r."quantity_req"
+              ) / 1000.0
+
+              ELSE (
+                oi."pro_quantity" *
+                r."quantity_req"
+              )
+            END
+          )
+          *
+          COALESCE(
+            COALESCE(pi."unit_price", 0)
+          ) AS total_cost `;
+
+    let query = `
+      SELECT
+        ${selectedColumns}
+
+      FROM "ORDER" o
+
+      INNER JOIN "ORDER_ITEM" oi
+        ON oi."order_id" = o."or_id"
+
+      INNER JOIN "Branch_Product" bp
+        ON bp."Bpro_id" = oi."Bpro_id"
+
+      INNER JOIN "RECIPE" r
+        ON r."pro_id" = bp."pro_id"
+
+      INNER JOIN "Raw_Material" rm
+        ON rm."rm_id" = r."rawmaterial_ID"
+
+     LEFT JOIN (
+        SELECT
+          "rm_id",
+          MAX("unit_price") AS unit_price
+        FROM "purchase_item"
+        GROUP BY "rm_id"
+      ) pi
+      ON pi."rm_id" = rm."rm_id"
+      WHERE o."b_id" = $1
+
+      AND o."or_status" IN (
+        'preparing',
+        'completed'
+      )
+    `;
+
+    const params = [b_id];
+
+    if (filterType === "daily") {
+      query += `
+        AND o."or_date" = CURRENT_DATE
+      `;
+    }
+    if (
+      ["weekly", "monthly", "custom"].includes(
+        filterType
+      ) &&
+      fromDate &&
+      toDate
+    ) {
+      query += `
+        AND o."or_date"
+        BETWEEN $${params.length + 1}
+        AND $${params.length + 2}
+      `;
+
+      params.push(fromDate);
+      params.push(toDate);
+    }
+
+    query += `
+      GROUP BY
+        pi."unit_price",
+        o."or_date",
+        rm."rm_name",
+        rm."unit"
+
+      ORDER BY
+        o."or_date" DESC,
+        rm."rm_name"
+    `;
+
+    const result = await pool.query(
+      query,
+      params
+    );
+
+    const grandTotal =
+      result.rows.reduce(
+        (sum, row) => sum + Number(row.total_cost || 0),0);
+
+    res.status(200).json({
+      data: result.rows,
+      grandTotal,
+    });
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).json({
+      message:
+        "Failed to generate raw material consumption report",
       error: error.message,
     });
   }
