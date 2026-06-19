@@ -37,8 +37,9 @@ import BranchAdminTransactions from './pages/branch-admin/Transactions';
 import Promotions from './pages/admin/Promotions';
 import SalesSummaryReport from './pages/branch-admin/SalesSummaryReport';
 import ProductSalesReport from './pages/branch-admin/ProductSalesReport';
-// Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
-// send them to Product Management instead of showing Branch Profile.
+import RawMaterialStockReport from './pages/branch-admin/RawMaterialStockReport';
+import RawMaterialConsumptionReport from './pages/branch-admin/RawMaterialConsumptionReport';
+
 const BranchProfileRouter = () => {
   const { user } = useAuth();
 
@@ -485,7 +486,17 @@ function App() {
         path="/branch-admin/summary-productsales"
         element={<ProductSalesReport/>}
       />
-      
+
+      <Route
+        path="/branch-admin/raw-material-stock"
+        element={<RawMaterialStockReport/>}
+      />
+
+      <Route
+        path="/branch-admin/raw-material-consumption"
+        element={<RawMaterialConsumptionReport/>}
+      />
+
     </Routes>
   );
 }

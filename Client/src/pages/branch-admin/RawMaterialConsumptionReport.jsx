@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getProductSalesReport,getBranchById} from "../../services/api";
+import { getRawMaterialConsumptionReport,getBranchById } from "../../services/api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -11,28 +11,32 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 
 const availableColumns = [
   {
-    key: "pay_date",
+    key: "report_date",
     label: "Date",
   },
   {
-    key: "prod_name",
-    label: "Product Name",
+    key: "rm_name",
+    label: "Raw Material Name",
+  },
+  {
+    key: "unit",
+    label: "Unit",
   },
   {
     key: "quantity",
-    label: "Quantity Sold",
+    label: "Quantity Consumed",
   },
   {
-    key: "unit_price",
-    label: "Unit Price",
+    key: "unit_cost",
+    label: "Unit Cost",
   },
   {
-    key: "total_sale",
-    label: "Total Sale",
+    key: "total_cost",
+    label: "Total Cost",
   },
 ];
 
-export default function ProductSalesReport() {
+export default function RawMaterialConsumptionReport() {
   const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [grandTotal, setGrandTotal] = useState(0);
@@ -97,13 +101,18 @@ export default function ProductSalesReport() {
       }
 
       setActiveRange({ from: finalFromDate, to: finalToDate });
+      const orderedColumns = availableColumns
+  .filter((col) =>
+    selectedColumns.includes(col.key)
+  )
+  .map((col) => col.key);
 
-      const response = await getProductSalesReport({
+      const response = await getRawMaterialConsumptionReport({
         b_id: user?.b_id,
         filterType: filters.filterType,
         fromDate: finalFromDate,
         toDate: finalToDate,
-        columns: selectedColumns,
+        columns: orderedColumns,
       });
 
       setRows(response.data || []);
@@ -153,27 +162,74 @@ export default function ProductSalesReport() {
 
   // Excel export logic
   const exportExcel = () => {
-    const formattedRows = rows.map((row) => {
+  const formattedRows = rows.map(
+    (row) => {
       const dataRow = {};
-      
-      if (selectedColumns.includes("pay_date")) {
-        dataRow["Payment Date"] = row.pay_date;
+
+      if (
+        selectedColumns.includes(
+          "report_date"
+        )
+      ) {
+        dataRow["Date"] =
+          row.report_date;
       }
-      if (selectedColumns.includes("pay_method")) {
-        dataRow["Payment Method"] = row.pay_method;
+
+      if (
+        selectedColumns.includes(
+          "rm_name"
+        )
+      ) {
+        dataRow[
+          "Raw Material"
+        ] = row.rm_name;
       }
-      if (selectedColumns.includes("cust_name")) {
-        dataRow["Customer Name"] = row.cust_name;
+
+      if (
+        selectedColumns.includes(
+          "unit"
+        )
+      ) {
+        dataRow["Unit"] =
+          row.unit;
       }
-      if (selectedColumns.includes("total_cost")) {
-        dataRow["Total Cost (Rs.)"] = row.total_cost ? parseFloat(row.total_cost) : 0.00;
+
+      if (
+        selectedColumns.includes(
+          "quantity"
+        )
+      ) {
+        dataRow[
+          "Quantity Consumed"
+        ] = Number(
+          row.quantity || 0
+        ).toFixed(2);
       }
-      if (selectedColumns.includes("tax")) {
-        dataRow["Tax (Rs.)"] = row.tax ? parseFloat(row.tax) : 0.00;
+
+      if (
+        selectedColumns.includes(
+          "unit_cost"
+        )
+      ) {
+        dataRow[
+          "Unit Cost (Rs.)"
+        ] = Number(
+          row.unit_cost || 0
+        ).toFixed(2);
       }
-      if (selectedColumns.includes("totalCostWtax")) {
-        dataRow["Total Cost With Tax (Rs.)"] = row.totalCostWtax ? parseFloat(row.totalCostWtax) : 0.00;
+
+      if (
+        selectedColumns.includes(
+          "total_cost"
+        )
+      ) {
+        dataRow[
+          "Total Cost (Rs.)"
+        ] = Number(
+          row.total_cost || 0
+        ).toFixed(2);
       }
+
       return dataRow;
     });
 
@@ -185,9 +241,10 @@ export default function ProductSalesReport() {
         totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "GRAND TOTAL";
       }
       
-      if (selectedColumns.includes("totalCostWtax")) {
-        totalRow["Total Cost With Tax (Rs.)"] = parseFloat(grandTotal);
-      }
+      if (selectedColumns.includes("total_cost")) {
+          totalRow["Total Cost (Rs.)"] =
+            Number(grandTotal).toFixed(2);
+        }
       
       formattedRows.push(totalRow);
     }
@@ -205,9 +262,9 @@ export default function ProductSalesReport() {
     worksheet["!cols"] = maxColumnWidths.map(w => ({ wch: w }));
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Summary Statement");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Raw Material Consumption Report");
     const timestamp = new Date().toISOString().split("T")[0];
-    XLSX.writeFile(workbook, `Sales_Summary_Report_${timestamp}.xlsx`);
+    XLSX.writeFile(workbook, `Raw_Material_Consumption_Report_${timestamp}.xlsx`);
   };
 
   const exportPDF = () => {
@@ -215,11 +272,12 @@ export default function ProductSalesReport() {
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
     const generatedTime = reportDate.toLocaleTimeString();
+    const orderedColumns = availableColumns.filter((col) => selectedColumns.includes(col.key));
     
     // HEADER
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
-    doc.text("Sales Summary Report", 14, 20);
+    doc.text("Raw Material Consumption Report", 14, 20);
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated: ${generatedDate} ${generatedTime}`, 14, 28);
@@ -243,36 +301,57 @@ export default function ProductSalesReport() {
 
     // TABLE
     autoTable(doc, {
-      startY: 55,
-      head: [
-        availableColumns
-          .filter((col) => selectedColumns.includes(col.key))
-          .map((col) => col.label),
-      ],
-      body: rows.map((row) =>
-        selectedColumns.map((col) => {
-          if (col === "total_cost" || col === "tax" || col === "totalCostWtax") {
-            return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
-          }
-          if (col === "pay_time") {
-            return row[col]?.slice(0, 8);
-          }
-          return row[col] ?? "";
-        })
+    startY: 55,
+
+    head: [
+      orderedColumns.map(
+        (col) => col.label
       ),
-      theme: "striped",
-      headStyles: {
-        fillColor: [0, 82, 168],
-        fontSize: 10,
-        align: "center",
-      },
-      bodyStyles: {
-        fontSize: 9,
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 250],
-      },
-    });
+    ],
+
+   body: rows.map((row) =>
+  orderedColumns.map((col) => {
+    const key = col.key;
+    const value = row[key];
+
+        if (key === "report_date") {
+          return value?.includes("T")
+            ? value.split("T")[0]
+            : value;
+        }
+
+        if (key === "quantity") {
+          return Number(
+            value || 0
+          ).toFixed(2);
+        }
+
+        if (
+          key === "unit_cost" ||
+          key === "total_cost"
+        ) {
+          return `Rs. ${Number(
+            value || 0
+          ).toFixed(2)}`;
+        }
+
+        
+        return value ?? "";
+      })
+    ),
+
+  theme: "striped",
+
+  headStyles: {
+    fillColor: [0, 82, 168],
+    fontSize: 10,
+    align: "center",
+  },
+
+  bodyStyles: {
+    fontSize: 9,
+  },
+});
     
     const finalY = doc.lastAutoTable.finalY + 12;
 
@@ -291,7 +370,7 @@ export default function ProductSalesReport() {
       doc.setTextColor(120);
       doc.text(`Page ${i} of ${pageCount}`, 170, 290);
     }
-    doc.save(`Sales_Report_${generatedDate}.pdf`);
+    doc.save(`Raw_Material_Consumption_Report_${generatedDate}.pdf`);
   };
 
   return (
@@ -299,11 +378,9 @@ export default function ProductSalesReport() {
       <Sidebar />
       <div className="flex flex-1 flex-col" style={{ marginLeft: 240 }}>
         <Header title="Analytical Report" />
-
         <h1 className="text-2xl px-5 py-2 font-bold tracking-tight text-gray-600 ">
-            Products Sales Report
+          Raw Material Consumption Report
         </h1>
-
         {/* Export Buttons */}
         <div className="absolute top-18 right-6 flex gap-2.5 ">
           <button
@@ -318,7 +395,7 @@ export default function ProductSalesReport() {
             className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150"
           >
             <FaFilePdf className="text-base" />
-            Export PDF
+             Export PDF
           </button>
         </div>
 
@@ -488,83 +565,120 @@ export default function ProductSalesReport() {
                         Please wait...
                 </span>
             </div>
-            ) : (
-            <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
-                <table className="w-full min-w-max">
-                <thead className="bg-gray-100">
-                    <tr>
-                    {/* Filter headers properly */}
-                    {availableColumns
-                        .filter((col) => selectedColumns.includes(col.key))
-                        .map((col) => (
-                        <th key={col.key} className="p-3 text-left font-semibold text-sm text-gray-700">
-                            {col.label}
-                        </th>
-                        ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {rows.length === 0 ? (
-                    <tr>
-                        <td 
-                        colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length} 
-                        className="text-center py-12 text-gray-400 font-medium"
-                        >
-                        No matching sales data captured. Adjust your filters and reload.
-                        </td>
-                    </tr>
-                    ) : (
-                    rows.map((row, rowIndex) => (
-                        <tr key={rowIndex} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
-                        {/* ALWAYS map row elements using the active available headers list to prevent shifting */}
-                        {availableColumns
-                            .filter((col) => selectedColumns.includes(col.key))
-                            .map((col) => {
-                            const cellValue = row[col.key];
-
-                            // Format currency columns safely
-                            if (col.key === "total_cost" || col.key === "tax" || col.key === "total_cost_with_tax" || col.key === "totalCostWtax") {
-                                return (
-                                <td key={col.key} className="p-4 text-sm text-gray-600">
-                                    Rs. {Number(cellValue || 0).toFixed(2)}
-                                </td>
-                                );
-                            }
-
-                            if (col.key === "pay_date" && cellValue) {
-                                return (
-                                <td key={col.key} className="p-4 text-sm text-gray-600">
-                                    {cellValue.includes("T") ? cellValue.split("T")[0] : cellValue}
-                                </td>
-                                );
-                            }
-
-                            return (
-                                <td key={col.key} className="p-4 text-sm text-gray-600">
-                                {String(cellValue ?? "")}
-                                </td>
-                            );
-                            })}
-                        </tr>
-                    ))
-                    )}
-                </tbody>
-                <tfoot>
-                    <tr className="bg-gray-50 font-bold text-sm text-gray-700">
+        ) : (
+          <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
+            <table className="w-full min-w-max">
+              <thead className="bg-gray-100">
+                <tr>
+                  {/* Filter headers properly */}
+                  {availableColumns
+                    .filter((col) => selectedColumns.includes(col.key))
+                    .map((col) => (
+                      <th key={col.key} className="p-3 text-left font-semibold text-sm text-gray-700">
+                        {col.label}
+                      </th>
+                    ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 ? (
+                  <tr>
                     <td 
-                        colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
-                        className="p-4 text-right"
+                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length} 
+                      className="text-center py-12 text-gray-400 font-medium"
                     >
-                        Grand Total
+                      No matching sales data captured. Adjust your filters and reload.
                     </td>
-                    <td className="p-4 text-green-600 text-base">
-                        Rs. {Number(grandTotal).toFixed(2)}
-                    </td>
+                  </tr>
+                ) : (
+                  rows.map((row, rowIndex) => (
+                    <tr key={rowIndex} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
+                      {/* ALWAYS map row elements using the active available headers list to prevent shifting */}
+                      {availableColumns
+                        .filter((col) => selectedColumns.includes(col.key))
+                        .map((col) => {
+                          const cellValue = row[col.key];
+
+                          // Format currency columns safely
+                          if (
+                              col.key === "quantity"
+                            ) {
+                              return (
+                                <td
+                                  key={col.key}
+                                  className="p-4 text-sm text-gray-600"
+                                >
+                                  {Number(
+                                    cellValue || 0
+                                  ).toFixed(2)}
+                                </td>
+                              );
+                            }
+
+                            if (
+                              col.key === "unit_cost" ||
+                              col.key === "total_cost"
+                            ) {
+                              return (
+                                <td
+                                  key={col.key}
+                                  className="p-4 text-sm text-gray-600"
+                                >
+                                  Rs.{" "}
+                                  {Number(
+                                    cellValue || 0
+                                  ).toFixed(2)}
+                                </td>
+                              );
+                            }
+
+                            if (
+                              col.key === "report_date"
+                            ) {
+                              return (
+                                <td
+                                  key={col.key}
+                                  className="p-4 text-sm text-gray-600"
+                                >
+                                  {cellValue?.includes(
+                                    "T"
+                                  )
+                                    ? cellValue.split(
+                                        "T"
+                                      )[0]
+                                    : cellValue}
+                                </td>
+                              );
+                            }
+
+                          // Default text columns
+                          return (
+                            <td key={col.key} className="p-4 text-sm text-gray-600">
+                              {String(cellValue ?? "")}
+                            </td>
+                          );
+                        })}
                     </tr>
-                </tfoot>
-                </table>
-            </div>
-            )}
+                  ))
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="bg-gray-50 font-bold text-sm text-gray-700">
+                  <td 
+                    colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
+                    className="p-4 text-right"
+                  >
+                    Grand Total
+                  </td>
+                  <td className="p-4 text-green-600 text-base">
+                    Rs. {Number(grandTotal).toFixed(2)}
+                  </td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+
         <button
           onClick={() => window.history.back()}
           className="fixed bottom-6 right-6 inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-lg hover:shadow-xl active:scale-95 transition-all duration-150 z-50 group border border-slate-700 cursor-pointer"

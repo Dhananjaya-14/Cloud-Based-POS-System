@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getSalesSummaryReport } from "../../services/api";
+import { getSalesSummaryReport,getBranchById } from "../../services/api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -23,6 +23,7 @@ export default function SalesSummaryReport() {
   const [rows, setRows] = useState([]);
   const [grandTotal, setGrandTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [branchName, setBranchName] = useState("");
   
   // Track computed active ranges for the Excel/PDF headers to avoid scoping crashes
   const [activeRange, setActiveRange] = useState({ from: "", to: "" });
@@ -107,6 +108,35 @@ export default function SalesSummaryReport() {
     }
   }, [user?.b_id]);
 
+  useEffect(() => {
+        let mounted = true;
+    
+        const loadBranch = async () => {
+          const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
+          if (fromUser) {
+            if (mounted) setBranchName(fromUser);
+            return;
+          }
+    
+          if (user?.b_id) {
+            try {
+              const res = await getBranchById(user.b_id);
+              const branch = res?.data ?? res;
+              if (mounted) setBranchName(branch?.B_name ?? branch?.b_name ?? "");
+            } catch {
+              if (mounted) setBranchName("");
+            }
+          } else {
+            if (mounted) setBranchName("");
+          }
+        };
+    
+        loadBranch();
+        return () => {
+          mounted = false;
+        };
+      }, [user]);
+
   // Excel export logic
   const exportExcel = () => {
     const formattedRows = rows.map((row) => {
@@ -179,7 +209,7 @@ export default function SalesSummaryReport() {
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated: ${generatedDate} ${generatedTime}`, 14, 28);
-    doc.text(`Branch: ${user?.b_name || "Current Branch"}`, 14, 34);
+    doc.text(`Branch: ${branchName || "Current Branch"}`, 14, 34);
     doc.line(14, 38, 196, 38);
 
     // FILTER INFO - Safely reading from state instead of crashed block scope references
@@ -220,7 +250,7 @@ export default function SalesSummaryReport() {
       headStyles: {
         fillColor: [0, 82, 168],
         fontSize: 10,
-        halign: "center",
+        align: "center",
       },
       bodyStyles: {
         fontSize: 9,
@@ -251,15 +281,13 @@ export default function SalesSummaryReport() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased">
+    <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
       <Sidebar />
       <div className="flex flex-1 flex-col" style={{ marginLeft: 240 }}>
         <Header title="Analytical Report" />
-
         <h1 className="text-2xl px-5 py-2 font-bold tracking-tight text-gray-600 ">
           Sales Summary Report
         </h1>
-
         {/* Export Buttons */}
         <div className="absolute top-18 right-6 flex gap-2.5 ">
           <button
@@ -274,7 +302,7 @@ export default function SalesSummaryReport() {
             className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150"
           >
             <FaFilePdf className="text-base" />
-            Export PDF
+             Export PDF
           </button>
         </div>
 
@@ -434,9 +462,16 @@ export default function SalesSummaryReport() {
         
         {/* Table & Data Handling */}
         {loading ? (
-          <div className="flex justify-center py-10">
-            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          </div>
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+                <div className="flex items-center gap-1.5 h-6">
+                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+                <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
+                </div>
+                <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
+                        Please wait...
+                </span>
+            </div>
         ) : (
           <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
             <table className="w-full min-w-max">
