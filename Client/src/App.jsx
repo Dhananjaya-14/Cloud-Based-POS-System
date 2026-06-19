@@ -35,7 +35,8 @@ import AdminStatistics from './pages/admin/AdminStatistics';
 import AdminTransactions from './pages/admin/Transactions';
 import BranchAdminTransactions from './pages/branch-admin/Transactions';
 import Promotions from './pages/admin/Promotions';
-
+import SalesSummaryReport from './pages/branch-admin/SalesSummaryReport';
+import ProductSalesReport from './pages/branch-admin/ProductSalesReport';
 // Route wrapper: if logged-in user is a Branch Admin (role_id = 1),
 // send them to Product Management instead of showing Branch Profile.
 const BranchProfileRouter = () => {
@@ -475,6 +476,15 @@ function App() {
 />
 
       <Route path="*" element={<Navigate to="/" />} />
+      <Route
+        path="/branch-admin/summary-sales"
+        element={<SalesSummaryReport/>}
+      />
+
+      <Route
+        path="/branch-admin/summary-productsales"
+        element={<ProductSalesReport/>}
+      />
       
     </Routes>
   );

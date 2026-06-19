@@ -410,7 +410,28 @@ export const getPayments = async (params = {}) => {
 };
 
 
+//Cashier Dashboard stats
+export const getDashboardStats = async (b_id) => {
+  const response = await api.get("/dashboard/stats", {
+    params: { b_id },
+  });
 
+  return response.data;
+};
+
+
+//Sales summery Reports
+export const getSalesSummaryReport =async (payload) => { 
+  const response =await api.post("/reports/sales", payload);
+  return response.data;
+};
+
+
+//product sales report
+export const getProductSalesReport=async (payload)=>{
+  const response=await api.post("/reports/productsales",payload);
+  return response.data;
+}
 
 
 
