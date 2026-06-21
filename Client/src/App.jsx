@@ -39,6 +39,7 @@ import SalesSummaryReport from './pages/branch-admin/SalesSummaryReport';
 import ProductSalesReport from './pages/branch-admin/ProductSalesReport';
 import RawMaterialStockReport from './pages/branch-admin/RawMaterialStockReport';
 import RawMaterialConsumptionReport from './pages/branch-admin/RawMaterialConsumptionReport';
+import SalesDetailsReport from './pages/cashier/SalesDetailsReport';
 
 const BranchProfileRouter = () => {
   const { user } = useAuth();
@@ -59,6 +60,7 @@ import KitchenManagement from './pages/kitchen/KitchenManagement';
 import RecipeMapper from './pages/branch-admin/RecipeMapper';
 import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
 import WaiterPos from './pages/waiter/WaiterPos';
+
 
 function App() {
   return (
@@ -495,6 +497,11 @@ function App() {
       <Route
         path="/branch-admin/raw-material-consumption"
         element={<RawMaterialConsumptionReport/>}
+      />
+
+      <Route
+        path="/cashier/sales-summary"
+        element={<SalesDetailsReport/>}
       />
 
     </Routes>

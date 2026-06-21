@@ -3,7 +3,8 @@ import {
     getSalesSummaryReport,
     getProductSalesReport,
     getRawMaterialStockReport,
-    getRawMaterialConsumptionReport
+    getRawMaterialConsumptionReport,
+    getSalesDetailsReport
 } from "../controllers/reportController.js";
 
 const router = express.Router();
@@ -12,5 +13,6 @@ router.post("/sales", getSalesSummaryReport);
 router.post("/productsales",getProductSalesReport);
 router.post("/rawmaterialstock", getRawMaterialStockReport);
 router.post("/rawmaterialconsumption", getRawMaterialConsumptionReport);
+router.post("/salesdetails",getSalesDetailsReport);
 
 export default router;

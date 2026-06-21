@@ -445,6 +445,12 @@ export const getRawMaterialConsumptionReport=async (payload)=>{
   return response.data;
 }
 
+//Cashier sales details report
+export const getSalesDetailsReport=async (payload)=>{
+  const response=await api.post("/reports/salesdetails",payload);
+  return response.data;
+}
+
 
 
 

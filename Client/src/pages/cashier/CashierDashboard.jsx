@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import CashierHeader from "../../components/cashier/Header";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import { useAuth } from "../../context/AuthContext";
-import { getOrders,getDashboardStats } from "../../services/api";
+import { getOrders,getDashboardStats,getSalesDetailsReport} from "../../services/api";
 import { connectSocket } from "../../services/socket";
 import {
   addOrderReadyAlert,
@@ -179,7 +179,6 @@ console.log(user);
 
       <main className="flex-1">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          {/* Welcome area */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center px-4 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-medium mb-4 border border-sky-100">
               <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2" />
@@ -192,14 +191,22 @@ console.log(user);
             <p className="mt-3 text-sm sm:text-base text-slate-500 max-w-xl mx-auto">
               Ready to start your day? Let&apos;s make it productive.
             </p>
-
+          <div className="mt-6 flex flex-wrap justify-center items-center gap-4">
             <button
               onClick={() => navigate("/cashier/pos")}
               className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
             >
               <span>Open POS System</span>
             </button>
+
+            <button
+              onClick={() => navigate("/cashier/sales-summary")} 
+              className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
+            >
+              <span>View Sales Report</span>
+          </button>
           </div>
+        </div>
 
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
