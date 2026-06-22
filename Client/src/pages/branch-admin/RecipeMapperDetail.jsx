@@ -43,6 +43,7 @@ const RecipeMapperDetail = () => {
   const [saving, setSaving] = useState(false);
   const [savingMapping, setSavingMapping] = useState(false);
   const [notice, setNotice] = useState("");
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -209,14 +210,14 @@ const RecipeMapperDetail = () => {
 
       await createRecipeBulk(payload);
 
-      const refreshed = await getRecipesByProduct(productId);
-      const ingredients = Array.isArray(refreshed?.ingredients)
-        ? refreshed.ingredients
-        : Array.isArray(refreshed)
-          ? refreshed
-          : [];
-      setRecipeItems(ingredients);
-      setNotice("Ingredients mapping saved.");
+const refreshed = await getRecipesByProduct(productId);
+const ingredients = Array.isArray(refreshed?.ingredients)
+  ? refreshed.ingredients
+  : Array.isArray(refreshed)
+    ? refreshed
+    : [];
+setRecipeItems(ingredients);
+setShowSuccessPopup(true); // ← show popup instead ✅
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save ingredients mapping");
     } finally {
@@ -331,20 +332,7 @@ const RecipeMapperDetail = () => {
             </div>
           )}
 
-          {notice && (
-            <div
-              style={{
-                background: "#ECFDF3",
-                color: "#027A48",
-                padding: "10px 14px",
-                borderRadius: "10px",
-                fontSize: "13px",
-                marginBottom: "18px",
-              }}
-            >
-              {notice}
-            </div>
-          )}
+          
 
           <div
             style={{
@@ -515,6 +503,79 @@ const RecipeMapperDetail = () => {
           </div>
         </div>
       </div>
+    {showSuccessPopup && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              width: "min(92vw, 430px)",
+              background: "#EBEBEB",
+              borderRadius: "22px",
+              padding: "32px 20px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "62px",
+                height: "62px",
+                borderRadius: "50%",
+                background: "#0E5BA8",
+                margin: "0 auto 16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ color: "#fff", fontSize: "28px" }}>✓</span>
+            </div>
+
+            <h2
+              style={{
+                margin: "0 0 20px",
+                fontSize: "18px",
+                lineHeight: 1.4,
+                fontWeight: "600",
+                color: "#0E5BA8",
+              }}
+            >
+              Ingredients mapping
+              <br />
+              saved Successfully!
+            </h2>
+
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              style={{
+                width: "100%",
+                height: "52px",
+                border: "none",
+                borderRadius: "12px",
+                background: "#0E5BA8",
+                color: "#fff",
+                fontSize: "15px",
+                fontWeight: "500",
+                cursor: "pointer",
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

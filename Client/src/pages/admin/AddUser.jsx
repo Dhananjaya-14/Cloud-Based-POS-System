@@ -11,6 +11,22 @@ import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { createUser, getBranches, getRoles } from "../../services/api";
 import {Link} from 'react-router-dom';
+const PHONE_RE = /^07[0-9]{8}$/;
+
+
+function getComIdFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const userData = JSON.parse(window.atob(base64));
+    return userData.com_id || null;
+  } catch {
+    return null;
+  }
+}
+
 const AddUser = () => {
 	const [formData, setFormData] = useState({
 		firstName: "",
@@ -28,7 +44,13 @@ const AddUser = () => {
 	const [isLoadingOptions, setIsLoadingOptions] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
+	const [phoneError, setPhoneError] = useState("");
 	const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+	const isAdminRole = roles.find(r => String(r.role_id) === String(formData.role))
+                         ?.role_name?.toLowerCase().includes("admin") &&
+                    !roles.find(r => String(r.role_id) === String(formData.role))
+                         ?.role_name?.toLowerCase().includes("branch");
 
 	const updateField = (field, value) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -90,9 +112,15 @@ const AddUser = () => {
 	const handleSubmit = async (event) => {
 		event.preventDefault();
 		setErrorMessage("");
+		setPhoneError("");
 
 		if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
 			setErrorMessage("First name, last name, email and password are required");
+			return;
+		}
+
+		if (formData.contactNumber && !PHONE_RE.test(formData.contactNumber.trim())) {
+			setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
 			return;
 		}
 
@@ -108,15 +136,29 @@ const AddUser = () => {
 
 		try {
 			setIsSubmitting(true);
-			await createUser({
-				u_fname: formData.firstName,
-				u_lname: formData.lastName,
-				u_email: formData.email,
-				u_pw: formData.password,
-				u_connumber: formData.contactNumber || null,
-				role_id: Number(formData.role),
-				b_id: formData.branch ? Number(formData.branch) : null,
-			});
+			const payload = {
+  u_fname: formData.firstName,
+  u_lname: formData.lastName,
+  u_email: formData.email,
+  u_pw: formData.password,
+  u_connumber: formData.contactNumber || null,
+  role_id: Number(formData.role),
+};
+
+			// If Admin role → send com_id automatically from token
+			if (isAdminRole) {
+			const com_id = getComIdFromToken();
+			if (!com_id) {
+				setErrorMessage("Could not determine company. Please re-login.");
+				return;
+			}
+			payload.com_id = com_id;
+			} else {
+			// Other roles → send branch id
+			payload.b_id = formData.branch ? Number(formData.branch) : null;
+			}
+
+			await createUser(payload);
 
 			setShowSuccessToast(true);
 			setFormData((prev) => ({
@@ -247,39 +289,52 @@ const AddUser = () => {
 										value={formData.email}
 										onChange={(event) => updateField("email", event.target.value)}
 									/>
-									<FormField
-										label="Contact Number"
-										value={formData.contactNumber}
-										onChange={(event) => updateField("contactNumber", event.target.value)}
-									/>
+									<div>
+										<FormField
+											label="Contact Number"
+											placeholder="07XXXXXXXX"
+											value={formData.contactNumber}
+											onChange={(event) => {
+												const digitsOnly = event.target.value.replace(/[^0-9]/g, "");
+												updateField("contactNumber", digitsOnly);
+												setPhoneError("");
+											}}
+										/>
+										{phoneError && (
+											<p style={{ margin: "4px 0 0", color: "#C62828", fontSize: "13px" }}>
+												{phoneError}
+											</p>
+										)}
+									</div>
 								</div>
 
 								<div
 									style={{
 										display: "grid",
-										gridTemplateColumns: "1fr 1fr 190px",
+										gridTemplateColumns: isAdminRole ? "1fr 190px" : "1fr 1fr 190px",
 										gap: "20px",
 										alignItems: "start",
 									}}
-								>
+									>
 									<FormSelect
 										label="User Role"
 										value={formData.role}
 										onChange={(event) => updateField("role", event.target.value)}
 										options={roleOptions}
 									/>
-									<FormSelect
+									{!isAdminRole && (
+										<FormSelect
 										label="Assigned Branch"
 										value={formData.branch}
 										onChange={(event) => updateField("branch", event.target.value)}
 										options={branchOptions}
-									/>
+										/>
+									)}
 									<StatusToggle
 										checked={formData.isActive}
 										onChange={(event) => updateField("isActive", event.target.checked)}
 									/>
-								</div>
-
+									</div>
 								<PasswordField
 									label="Password"
 									value={formData.password}

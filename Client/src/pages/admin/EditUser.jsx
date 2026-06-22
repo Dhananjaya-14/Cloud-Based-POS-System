@@ -12,6 +12,19 @@ import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { getBranches, getRoles, getUserById, updateUser } from "../../services/api";
 
+function getComIdFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const userData = JSON.parse(window.atob(base64));
+    return userData.com_id || null;
+  } catch {
+    return null;
+  }
+}
+
 const EditUser = () => {
     const { userId } = useParams();
     const navigate = useNavigate();
@@ -107,6 +120,11 @@ const EditUser = () => {
                 value: String(roleItem.role_id),
             }));
     }, [roles]);
+        const isAdminRole = useMemo(() => {
+    const selectedRole = roles.find(r => String(r.role_id) === String(formData.role));
+    const roleName = selectedRole?.role_name?.toLowerCase() || "";
+    return roleName.includes("admin") && !roleName.includes("branch");
+    }, [roles, formData.role]);
 
     const branchOptions = useMemo(() => {
         if (!branches.length) {
@@ -154,8 +172,20 @@ const EditUser = () => {
                 u_email: formData.email,
                 u_connumber: formData.contactNumber || null,
                 role_id: Number(formData.role),
-                b_id: formData.branch ? Number(formData.branch) : null,
-            };
+                };
+
+                // If Admin role → send com_id automatically
+                if (isAdminRole) {
+                const com_id = getComIdFromToken();
+                if (!com_id) {
+                    setErrorMessage("Could not determine company. Please re-login.");
+                    return;
+                }
+                payload.com_id = com_id;
+                payload.b_id = null; // clear branch for Admin
+                } else {
+                payload.b_id = formData.branch ? Number(formData.branch) : null;
+                }
 
             if (formData.password) {
                 payload.u_pw = formData.password;
@@ -334,12 +364,14 @@ const EditUser = () => {
                                             onChange={(event) => updateField("role", event.target.value)}
                                             options={roleOptions}
                                         />
+                                        {!isAdminRole && (
                                         <FormSelect
                                             label="Assigned Branch"
                                             value={formData.branch}
                                             onChange={(event) => updateField("branch", event.target.value)}
                                             options={branchOptions}
                                         />
+                                        )}
                                         <StatusToggle
                                             checked={formData.isActive}
                                             onChange={(event) => updateField("isActive", event.target.checked)}
