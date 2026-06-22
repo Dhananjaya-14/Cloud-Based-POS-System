@@ -61,6 +61,7 @@ import productRoutes from "./routes/productRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
@@ -141,6 +142,9 @@ app.use("/api/dashboard", dashboardRoutes);
 
 // Stats
 app.use("/api/stats", statsRoutes);
+
+//Reports
+app.use("/api/reports", reportRoutes);
 
 // ─────────────────────────────────────────────
 // ERROR HANDLING (must be last)

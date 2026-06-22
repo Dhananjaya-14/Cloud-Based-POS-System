@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import CashierHeader from "../../components/cashier/Header";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import { useAuth } from "../../context/AuthContext";
-import { getOrders } from "../../services/api";
+import { getOrders,getDashboardStats } from "../../services/api";
 import { connectSocket } from "../../services/socket";
 import {
   addOrderReadyAlert,
@@ -50,7 +50,12 @@ const statCards = [
 const CashierDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ revenue: 0, transactions: 0 });
+  const [stats, setStats] = useState({
+    revenue: 0,
+    transactions: 0,
+    productsSold: 0,
+    totalCustomers: 0,
+  });
   const [activities, setActivities] = useState([]);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
@@ -65,16 +70,7 @@ const CashierDashboard = () => {
 
       const orders = await getOrders(params);
 
-      let revenue = 0;
-      orders.forEach((order) => {
-        const total = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
-        if (!Number.isNaN(total)) revenue += total;
-      });
 
-      setStats({
-        revenue,
-        transactions: orders.length,
-      });
 
       const recent = orders.slice(0, 5).map((order) => ({
         orderId: order.or_id,
@@ -154,6 +150,28 @@ const CashierDashboard = () => {
     [user?.u_id],
   );
 
+  const loadDashboardStats = useCallback(async () => {
+  try {
+    const data = await getDashboardStats(user.b_id);
+
+    setStats({
+      revenue: Number(data.revenue),
+      transactions: Number(data.transactions),
+      productsSold: Number(data.products_sold),
+      totalCustomers: Number(data.total_customers),
+    });
+  } catch (error) {
+    console.error("Failed to load dashboard stats", error);
+  }
+}, [user?.b_id]);
+
+  useEffect(() => {
+  if (user?.b_id) {
+    loadDashboardStats();
+  }
+}, [loadDashboardStats, user?.b_id]);
+console.log(user);
+
   return (
     <div className="min-h-screen bg-[#F4F7FB] flex flex-col">
       <CashierHeader />
@@ -186,11 +204,27 @@ const CashierDashboard = () => {
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {statCards.map((card) => {
-              let displayValue = card.value;
-              if (card.label === "Today's Revenue") {
-                displayValue = `$${stats.revenue.toFixed(2)}`;
-              } else if (card.label === "Transactions") {
-                displayValue = String(stats.transactions);
+              let displayValue;
+
+              switch (card.label) {
+                case "Today's Revenue":
+                  displayValue = `$${stats.revenue.toFixed(2)}`;
+                  break;
+
+                case "Transactions":
+                  displayValue = stats.transactions;
+                  break;
+
+                case "Products Sold":
+                  displayValue = stats.productsSold;
+                  break;
+
+                case "Total Customers":
+                  displayValue = stats.totalCustomers;
+                  break;
+
+                default:
+                  displayValue = card.value;
               }
 
               return (
