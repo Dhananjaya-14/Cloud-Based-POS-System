@@ -1,3 +1,4 @@
+// Client/src/pages/cashier/CashierPos.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -29,7 +30,14 @@ import {
   updateOrder,
   deleteOrderItem,
 } from "../../services/api";
-import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
+import { 
+  connectSocket, 
+  getSocket, 
+  SOCKET_EVENTS,
+  joinBranchInventoryRoom,
+  leaveBranchInventoryRoom,
+  subscribeToBranchProductUpdates
+} from "../../services/socket";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import {
   addOrderReadyAlert,
@@ -154,79 +162,108 @@ const CashierPos = () => {
   useEffect(() => {
     if (!branchId) return;
 
-    const socket = getSocket();
-
     // Connect socket if not connected
+    const socket = getSocket();
     if (!socket.connected) {
       connectSocket();
     }
 
-    // Join branch room
-    if (socket.connected) {
-      socket.emit(SOCKET_EVENTS.JOIN_BRANCH_ROOM, branchId);
-    }
+    // Join branch inventory room
+    joinBranchInventoryRoom(branchId);
 
-    // Listen for new branch products added by branch admin
-    const handleNewBranchProduct = (data) => {
-      console.log("New branch product received in Cashier POS:", data);
-
-      // Check if this product belongs to the current branch
-      if (data.branch_id && String(data.branch_id) !== String(branchId)) {
-        return;
-      }
-
-      // Add the new product to the products list
-      setProducts((prevProducts) => {
-        // Check if product already exists
-        const exists = prevProducts.some(p => p.Bpro_id === data.product.Bpro_id);
-        if (!exists) {
-          setNewProductName(data.product.pro_name);
-          setShowNewProductToast(true);
-          setTimeout(() => setShowNewProductToast(false), 3000);
-          return [data.product, ...prevProducts];
+    // Subscribe to branch product updates
+    const unsubscribe = subscribeToBranchProductUpdates(branchId, {
+      onBranchProductAdded: (data) => {
+        console.log("New branch product received in Cashier POS:", data);
+        
+        // Check if this product belongs to the current branch
+        if (data.branch_id && String(data.branch_id) !== String(branchId)) {
+          return;
         }
-        return prevProducts;
-      });
+
+        // Get the product data
+        const productData = data.branch_product || data.product || data;
+        
+        setProducts((prevProducts) => {
+          // Check if product already exists
+          const exists = prevProducts.some(p => p.Bpro_id === productData.Bpro_id);
+          if (!exists) {
+            // Show toast notification
+            setNewProductName(productData.pro_name || "New Product");
+            setShowNewProductToast(true);
+            setTimeout(() => setShowNewProductToast(false), 3000);
+            
+            // Add the new product to the list
+            return [productData, ...prevProducts];
+          }
+          return prevProducts;
+        });
+      },
+      onBranchProductUpdated: (data) => {
+        console.log("Product update received in Cashier POS:", data);
+        
+        const productData = data.branch_product || data.product || data;
+        
+        setProducts((prevProducts) => {
+          return prevProducts.map(product =>
+            product.Bpro_id === productData.Bpro_id
+              ? { ...product, ...productData }
+              : product
+          );
+        });
+      },
+      onBranchProductDeleted: (data) => {
+        console.log("Product deletion received in Cashier POS:", data);
+        
+        const deletedId = data.Bpro_id || data.branch_product?.Bpro_id;
+        
+        setProducts((prevProducts) => {
+          return prevProducts.filter(product => product.Bpro_id !== deletedId);
+        });
+
+        // Also remove from cart if present
+        setCart((prevCart) => {
+          return prevCart.filter(item => item.Bpro_id !== deletedId);
+        });
+      }
+    });
+
+    // Also listen for company-level product events as fallback
+    const handleCompanyProductAdded = (data) => {
+      console.log("Company product added event received:", data);
+      // If we already got it via branch event, skip
+      if (data.product && !data.branch_id) {
+        // This is a company-level event, we need to check if this branch has this product
+        // Since it's a company product, it should be available to all branches
+        setProducts((prevProducts) => {
+          const exists = prevProducts.some(p => p.pro_id === data.product.pro_id);
+          if (!exists) {
+            // Map product to branch product format
+            const branchProduct = {
+              ...data.product,
+              Bpro_id: data.product.pro_id,
+              branch_id: branchId,
+              pro_quantity: data.product.pro_qty || 0
+            };
+            setNewProductName(data.product.pro_name || "New Product");
+            setShowNewProductToast(true);
+            setTimeout(() => setShowNewProductToast(false), 3000);
+            return [branchProduct, ...prevProducts];
+          }
+          return prevProducts;
+        });
+      }
     };
 
-    // Listen for product updates
-    const handleProductUpdate = (data) => {
-      console.log("Product update received in Cashier POS:", data);
-
-      setProducts((prevProducts) => {
-        return prevProducts.map(product =>
-          product.Bpro_id === data.product.Bpro_id
-            ? { ...product, ...data.product }
-            : product
-        );
-      });
-    };
-
-    // Listen for product deletions
-    const handleProductDelete = (data) => {
-      console.log("Product deletion received in Cashier POS:", data);
-
-      setProducts((prevProducts) => {
-        return prevProducts.filter(product => product.Bpro_id !== data.Bpro_id);
-      });
-
-      // Also remove from cart if present
-      setCart((prevCart) => {
-        return prevCart.filter(item => item.Bpro_id !== data.Bpro_id);
-      });
-    };
-
-    socket.on("new_branch_product_added", handleNewBranchProduct);
-    socket.on("branch_product_updated", handleProductUpdate);
-    socket.on("branch_product_deleted", handleProductDelete);
+    const socketInstance = getSocket();
+    socketInstance.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleCompanyProductAdded);
 
     return () => {
-      socket.off("new_branch_product_added", handleNewBranchProduct);
-      socket.off("branch_product_updated", handleProductUpdate);
-      socket.off("branch_product_deleted", handleProductDelete);
-      if (socket.connected) {
-        socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, branchId);
+      unsubscribe();
+      if (socketInstance) {
+        socketInstance.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleCompanyProductAdded);
       }
+      leaveBranchInventoryRoom(branchId);
     };
   }, [branchId]);
 
