@@ -451,6 +451,10 @@ export const getSalesDetailsReport=async (payload)=>{
   return response.data;
 }
 
+export const getBranchWiseSalesReport=async (payload)=>{
+  const response=await api.post("/reports/branchsales",payload);
+  return response.data;
+}
 
 
 

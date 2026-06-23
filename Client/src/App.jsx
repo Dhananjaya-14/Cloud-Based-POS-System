@@ -60,6 +60,7 @@ import KitchenManagement from './pages/kitchen/KitchenManagement';
 import RecipeMapper from './pages/branch-admin/RecipeMapper';
 import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
 import WaiterPos from './pages/waiter/WaiterPos';
+import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
 
 
 function App() {
@@ -503,6 +504,12 @@ function App() {
         path="/cashier/sales-summary"
         element={<SalesDetailsReport/>}
       />
+
+      <Route
+        path="/admin/sales-details"
+        element={<BranchWiseSalesReport/>}
+      />
+
 
     </Routes>
   );
