@@ -93,7 +93,6 @@ const AddRawMaterials = () => {
   useEffect(() => {
     fetchSuppliers();
     fetchBranches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchSuppliers = async () => {
@@ -174,7 +173,6 @@ const AddRawMaterials = () => {
         throw new Error("Please fill in required Supplier Details (Name, Email, Contact)");
       }
 
-      // pick branch id: prefer logged-in user's branch, then any branch returned by the API
       const branchCandidate = Array.isArray(branches) && branches.length > 0 ? branches[0] : null;
       const branchId =
         user?.b_id ??
@@ -211,14 +209,13 @@ const AddRawMaterials = () => {
         });
         const parsed = await parseBody(supRes);
         if (!parsed.ok) {
-          console.error("Supplier creation failed response:", parsed);
           throw new Error(parsed.body?.message || `Supplier creation failed (${parsed.status})`);
         }
         finalSupId = parsed.body.sup_id;
         fetchSuppliers();
       }
 
-      // 2) create purchase order (pending) — do NOT include payment details here
+      // 2) create purchase order (pending)
       const poPayload = {
         sup_id: finalSupId,
         B_id: Number(branchId),
@@ -249,39 +246,57 @@ const AddRawMaterials = () => {
           throw new Error(`Quantity for "${normalizedName}" must be a positive number`);
         }
 
-        // try to create raw material (recover on duplicate 409)
         let rmData = null;
-        const createRmRes = await fetchWithAuth("/api/raw-materials", {
+        const materialPayload = {
+          rm_name: normalizedName,
+          unit: item.unit,
+          stock_qty: qty,
+          record_level: Number(item.record_level) || 0,
+          B_id: Number(branchId),
+          com_id: user?.com_id ?? undefined,
+        };
+
+        let createRmRes = await fetchWithAuth("/api/raw-materials", {
           method: "POST",
-          body: JSON.stringify({
-            rm_name: normalizedName,
-            unit: item.unit,
-            stock_qty: qty,
-            record_level: Number(item.record_level) || 0,
-            B_id: Number(branchId),
-            com_id: user?.com_id ?? undefined,
-          }),
+          body: JSON.stringify(materialPayload),
         });
-        const createRmParsed = await parseBody(createRmRes);
+        let createRmParsed = await parseBody(createRmRes);
 
         if (createRmParsed.ok) {
           rmData = createRmParsed.body;
         } else if (createRmParsed.status === 409) {
-          const listRes = await fetchWithAuth("/api/raw-materials", { method: "GET" });
-          const listParsed = await parseBody(listRes);
-          if (!listParsed.ok) throw new Error("Failed to recover existing raw material after duplicate error");
-          const listArray = Array.isArray(listParsed.body) ? listParsed.body : extractArray(listParsed.body);
-          const found = listArray.find(
-            (r) =>
-              r.rm_name &&
-              r.rm_name.trim().toLowerCase() === normalizedName.toLowerCase() &&
-              (r.B_id == null || String(r.B_id) === String(branchId))
-          );
-          if (!found) throw new Error(`Duplicate error but existing material "${normalizedName}" not found`);
-          rmData = found;
-        } else {
-          throw new Error(createRmParsed.body?.message || `Failed to create ${normalizedName} (${createRmParsed.status})`);
-        }
+          // --- RESTORE FLOW IMPLEMENTATION ---
+    
+            if (createRmParsed.body?.isInactive) {
+              const restoreRes = await fetchWithAuth("/api/raw-materials", {
+                method: "POST",
+                body: JSON.stringify({ ...materialPayload, restore: true }),
+              });
+              const restoreParsed = await parseBody(restoreRes);
+              if (restoreParsed.ok) {
+                rmData = restoreParsed.body;
+              } else {
+                throw new Error(restoreParsed.body?.message || `Failed to restore ${normalizedName}`);
+              }
+            } else {
+              throw new Error(` \"${normalizedName}\" already exists in the list.`);
+            }
+          } else {
+            // Active duplication handler fallback recovery logic
+            const listRes = await fetchWithAuth("/api/raw-materials", { method: "GET" });
+            const listParsed = await parseBody(listRes);
+            if (!listParsed.ok) throw new Error("Failed to recover existing raw material after duplicate error");
+            const listArray = Array.isArray(listParsed.body) ? listParsed.body : extractArray(listParsed.body);
+            const found = listArray.find(
+              (r) =>
+                r.rm_name &&
+                r.rm_name.trim().toLowerCase() === normalizedName.toLowerCase() &&
+                (r.B_id == null || String(r.B_id) === String(branchId))
+            );
+            if (!found) throw new Error(`Duplicate error but existing material "${normalizedName}" not found`);
+            rmData = found;
+          }
+       
 
         const unitPrice = Number(item.unit_price) || 0;
         const piRes = await fetchWithAuth("/api/purchase-items", {
@@ -300,12 +315,12 @@ const AddRawMaterials = () => {
         }
       }
 
-      // NOTE: do NOT mark PO as received here. Let user mark it received later (with payment) via Supplier UI.
-      showToast("Purchase order created (pending). Mark as received in Purchase History.", "success");
+      showToast("Inventory Items Added Successfully", "success");
 
-      // Reset form
+      // Reset form fields
       setSupplier({ sup_name: "", sup_email: "", sup_contact: "", sup_address: "" });
       setMaterials([{ rm_name: "", unit: "", stock_qty: "", record_level: "", unit_price: "" }]);
+      setIsNewSupplier(false);
       fetchSuppliers();
     } catch (err) {
       console.error("Workflow Error:", err);
@@ -421,46 +436,3 @@ const AddRawMaterials = () => {
 };
 
 export default AddRawMaterials;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

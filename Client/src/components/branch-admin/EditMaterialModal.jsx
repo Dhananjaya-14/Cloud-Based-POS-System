@@ -5,7 +5,7 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
     rm_name: material.rm_name,
     unit: material.unit,
     record_level: material.record_level,
-    stock_qty: material.stock_qty, // Added stock_qty to initial state
+    stock_qty: material.stock_qty, 
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -13,8 +13,6 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
 
   // --- OPTIMIZED DELETE CLICK HANDLER ---
   const handleDeleteInitialClick = () => {
-    // Instant Frontend Check: 
-    // If stock is > 0, show the error immediately without calling the API
     if (parseFloat(material.stock_qty) > 0) {
       setDeleteError(`Cannot delete raw material while it still has stock. Set stock to 0 first.`);
       return;
@@ -66,23 +64,39 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
 
   const confirmDelete = async () => {
     try {
-      const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
-        method: 'DELETE',
-      });
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("authToken");
 
-      if (response.ok) {
-        onSuccess();
-        onClose();
-      } else {
-        const error = await response.json();
-        setDeleteError(error.message || "Cannot delete this item.");
-        setShowDeleteConfirm(false);
-      }
-    } catch (err) {
-      setDeleteError("A network error occurred.");
+      const response = await fetch(
+        `/api/raw-materials/${material.rm_id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+
+    if (response.ok) {
+      onSuccess();
+    setMaterials((prev) =>
+        prev.filter(
+          (item) => item.rm_id !== material.rm_id
+        )
+      );
+
+      onClose();
+      return;
     }
-  };
 
+    const error = await response.json();
+    setDeleteError(error.message);
+  } catch (err) {
+    setDeleteError("Network error");
+  }
+};
   return (
     <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 transition-all">
       <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/20 relative overflow-hidden">
