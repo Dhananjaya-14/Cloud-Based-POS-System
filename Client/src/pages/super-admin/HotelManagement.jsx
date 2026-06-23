@@ -178,6 +178,12 @@ if (!PHONE_RE.test(formData.phone.trim())) {
   setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
   return;
 }
+const today = new Date().toISOString().slice(0, 10);
+if (modalMode === "add" && formData.date < today) {
+  setModalError("Registered date cannot be in the past.");
+  return;
+}
+setIsSaving(true);
 
     setIsSaving(true);
     setModalError("");
@@ -566,7 +572,8 @@ if (!PHONE_RE.test(formData.phone.trim())) {
               </div>
               <div>
                 <label style={labelStyle}>Registered Date</label>
-                <input type="date" style={inputStyle} value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                <input type="date" style={inputStyle} value={formData.date}  min={new Date().toISOString().slice(0, 10)} 
+                onChange={e => setFormData({...formData, date: e.target.value})} />
               </div>
               <div>
                 <label style={labelStyle}>Status</label>
