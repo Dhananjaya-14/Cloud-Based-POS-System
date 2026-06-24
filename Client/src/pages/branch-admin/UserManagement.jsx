@@ -189,7 +189,7 @@ const UserManagement = () => {
     });
   }, [users, searchTerm, roleFilter, roleMap, branchMap, accessibleRoleIds]);
 
-  const visibleUsers = useMemo(() => filteredUsers.slice(0, 5), [filteredUsers]);
+  const visibleUsers = useMemo(() => filteredUsers, [filteredUsers]);
 
   const totalUsers = filteredUsers.length;
   const branchAdminCount = filteredUsers.filter((u) => !String(roleMap[String(u.role_id)] || "").toLowerCase().includes("cashier")).length;
@@ -404,7 +404,7 @@ const UserManagement = () => {
             ) : error ? (
               <p style={{ textAlign: "center", color: "#cf3e3e", margin: "22px 0" }}>{error}</p>
             ) : (
-              <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <thead>
                     <tr>
