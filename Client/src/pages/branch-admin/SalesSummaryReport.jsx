@@ -500,7 +500,7 @@ export default function SalesSummaryReport() {
                         .map((col) => {
                           const cellValue = row[col.key];
 
-                          // Format currency columns safely
+                          
                           if (col.key === "total_cost" || col.key === "tax" || col.key === "total_cost_with_tax" || col.key === "totalCostWtax") {
                             return (
                               <td key={col.key} className="p-4 text-sm text-gray-600">

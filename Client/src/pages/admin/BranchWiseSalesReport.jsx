@@ -263,7 +263,6 @@ export default function BranchWiseSalesReport() {
             Branch Sales Report
           </h1>
 
-          {/* Clean Action Buttons (Safe from relative overlay traps) */}
           <div className="flex gap-2.5">
             <button
               onClick={exportExcel}
