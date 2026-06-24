@@ -20,7 +20,7 @@ import {
   SOCKET_EVENTS,
   joinBranchInventoryRoom,
   leaveBranchInventoryRoom,
-  subscribeToBranchProductUpdates
+  joinCompanyRoom,
 } from "../../services/socket";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -110,7 +110,7 @@ const mapApiProductToTableItem = (product) => {
   };
 };
 
-const ProductManagement = () => {
+const BranchProductManagement = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
@@ -121,10 +121,10 @@ const ProductManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
   const branchId = user?.b_id;
-  const socketRef = useRef(null);
+  const companyId = user?.com_id;
   const isSubscribedRef = useRef(false);
 
-  // State for real-time notifications - stored as an array in sessionStorage
+  // State for real-time notifications
   const [notifications, setNotifications] = useState(() => {
     const savedNotifications = sessionStorage.getItem('branchProductNotifications');
     if (savedNotifications) {
@@ -150,7 +150,7 @@ const ProductManagement = () => {
     return [];
   });
 
-  // Save notifications to sessionStorage whenever they change
+  // Save notifications to sessionStorage
   useEffect(() => {
     if (notifications.length > 0) {
       sessionStorage.setItem('branchProductNotifications', JSON.stringify(notifications));
@@ -159,27 +159,53 @@ const ProductManagement = () => {
     }
   }, [notifications]);
 
-  // Setup WebSocket listeners for branch products
+  // Setup WebSocket listeners
   useEffect(() => {
-    if (!branchId) return;
+    if (!branchId || isSubscribedRef.current) return;
+    isSubscribedRef.current = true;
 
-    // Connect socket if not connected
     const socket = getSocket();
-    socketRef.current = socket;
-    
     if (!socket.connected) {
       connectSocket();
     }
 
-    // Only subscribe once
-    if (isSubscribedRef.current) return;
-    isSubscribedRef.current = true;
-
     // Join the branch inventory room
     joinBranchInventoryRoom(branchId);
+    
+    // Also join company room to receive product notifications from admin
+    if (companyId) {
+      joinCompanyRoom(companyId);
+      console.log(`Branch admin joined company room: ${companyId}`);
+    }
 
-    // Define event handlers
-    const handleProductAdded = (data) => {
+    // Handler for new product added by admin (from company room)
+    const handleAdminProductAdded = (data) => {
+      console.log("New product added by admin via socket (branch):", data);
+      if (data.product && data.company_id === companyId) {
+        // Show notification to branch admin that a new product is available
+        setNotifications(prev => {
+          const productName = data.product.pro_name || 'Product';
+          const existingNotif = prev.find(n => 
+            n.type === 'admin_add' && 
+            n.productName === productName && 
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
+          if (existingNotif) return prev;
+          
+          return [...prev, {
+            id: Date.now() + Math.random(),
+            type: 'admin_add',
+            message: `📢 New product available for branch: "${productName}"`,
+            timestamp: new Date().toISOString(),
+            productName: productName,
+            productId: data.product.pro_id
+          }];
+        });
+      }
+    };
+
+    // Handler for new branch product added
+    const handleBranchProductAdded = (data) => {
       console.log("Branch product added via WebSocket:", data);
       if (data.branch_product && data.branch_id === branchId) {
         setProducts(prev => {
@@ -188,7 +214,6 @@ const ProductManagement = () => {
           return [data.branch_product, ...prev];
         });
         
-        // Add notification only if not already present
         setNotifications(prev => {
           const productName = data.branch_product.pro_name || 'Product';
           const existingNotif = prev.find(n => 
@@ -201,7 +226,7 @@ const ProductManagement = () => {
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'add',
-            message: `📦 New product added: "${productName}"`,
+            message: `📦 New branch product added: "${productName}"`,
             timestamp: new Date().toISOString(),
             productName: productName
           }];
@@ -209,7 +234,8 @@ const ProductManagement = () => {
       }
     };
 
-    const handleProductUpdated = (data) => {
+    // Handler for product updated in branch
+    const handleBranchProductUpdated = (data) => {
       console.log("Branch product updated via WebSocket:", data);
       if (data.branch_product && data.branch_id === branchId) {
         setProducts(prev =>
@@ -220,7 +246,6 @@ const ProductManagement = () => {
           )
         );
         
-        // Add notification only if not already present
         setNotifications(prev => {
           const productName = data.branch_product.pro_name || 'Product';
           const existingNotif = prev.find(n => 
@@ -233,7 +258,7 @@ const ProductManagement = () => {
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'update',
-            message: `✏️ Product updated: "${productName}"`,
+            message: `✏️ Branch product updated: "${productName}"`,
             timestamp: new Date().toISOString(),
             productName: productName
           }];
@@ -241,17 +266,17 @@ const ProductManagement = () => {
       }
     };
 
-    const handleProductDeleted = (data) => {
+    // Handler for product deleted from branch
+    const handleBranchProductDeleted = (data) => {
       console.log("Branch product deleted via WebSocket:", data);
       if (data.Bpro_id && data.branch_id === branchId) {
         const deletedProduct = products.find(p => p.Bpro_id === data.Bpro_id);
-        const productName = deletedProduct?.pro_name || 'Product';
+        const productName = deletedProduct?.pro_name || data.pro_name || 'Product';
         
         setProducts(prev =>
           prev.filter(p => p.Bpro_id !== data.Bpro_id)
         );
         
-        // Add notification only if not already present
         setNotifications(prev => {
           const existingNotif = prev.find(n => 
             n.type === 'delete' && 
@@ -263,7 +288,7 @@ const ProductManagement = () => {
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'delete',
-            message: `🗑️ Product deleted: "${productName}"`,
+            message: `🗑️ Branch product deleted: "${productName}"`,
             timestamp: new Date().toISOString(),
             productName: productName
           }];
@@ -272,19 +297,20 @@ const ProductManagement = () => {
     };
 
     // Subscribe to events
-    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleProductAdded);
-    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleProductUpdated);
-    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, handleProductDeleted);
+    socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleAdminProductAdded);
+    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleBranchProductAdded);
+    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleBranchProductUpdated);
+    socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, handleBranchProductDeleted);
 
-    // Cleanup
     return () => {
       isSubscribedRef.current = false;
       leaveBranchInventoryRoom(branchId);
-      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleProductAdded);
-      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleProductUpdated);
-      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, handleProductDeleted);
+      socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleAdminProductAdded);
+      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleBranchProductAdded);
+      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleBranchProductUpdated);
+      socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, handleBranchProductDeleted);
     };
-  }, [branchId, products]);
+  }, [branchId, companyId, products]);
 
   // Load initial products
   useEffect(() => {
@@ -415,7 +441,7 @@ const ProductManagement = () => {
             minHeight: "calc(100vh - 70px)",
           }}
         >
-          {/* Notification Container - Shows all active notifications */}
+          {/* Notification Container */}
           {notifications.length > 0 && (
             <div
               style={{
@@ -439,8 +465,10 @@ const ProductManagement = () => {
                   key={notification.id}
                   style={{
                     backgroundColor: notification.type === 'delete' ? '#FEE2E2' : 
+                                    notification.type === 'admin_add' ? '#FEF3C7' :
                                     notification.type === 'update' ? '#DBEAFE' : '#D1FAE5',
                     borderLeft: `4px solid ${notification.type === 'delete' ? '#EF4444' : 
+                                    notification.type === 'admin_add' ? '#F59E0B' :
                                     notification.type === 'update' ? '#3B82F6' : '#22C55E'}`,
                     borderRadius: '8px',
                     padding: '16px 20px',
@@ -459,6 +487,7 @@ const ProductManagement = () => {
                       marginBottom: '4px'
                     }}>
                       {notification.type === 'delete' ? '❌ Product Deleted' :
+                       notification.type === 'admin_add' ? '📢 New Product Available' :
                        notification.type === 'update' ? '📝 Product Updated' : '✅ New Product Added'}
                     </div>
                     <div style={{ 
@@ -482,6 +511,7 @@ const ProductManagement = () => {
                     onClick={() => dismissNotification(notification.id)}
                     style={{
                       background: notification.type === 'delete' ? '#EF4444' :
+                                notification.type === 'admin_add' ? '#F59E0B' :
                                 notification.type === 'update' ? '#3B82F6' : '#22C55E',
                       color: 'white',
                       border: 'none',
@@ -672,7 +702,6 @@ const ProductManagement = () => {
         </div>
       </div>
 
-      {/* Add animation styles */}
       <style>{`
         @keyframes slideInRight {
           from {
@@ -685,7 +714,6 @@ const ProductManagement = () => {
           }
         }
         
-        /* Custom scrollbar for notifications container */
         .notifications-container::-webkit-scrollbar {
           width: 4px;
         }
@@ -703,4 +731,4 @@ const ProductManagement = () => {
   );
 };
 
-export default ProductManagement;
+export default BranchProductManagement;

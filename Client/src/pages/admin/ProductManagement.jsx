@@ -1,6 +1,5 @@
-
 // Client/src/pages/admin/ProductManagement.jsx
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaBell,
@@ -19,7 +18,6 @@ import {
   getSocket, 
   SOCKET_EVENTS,
   joinCompanyRoom,
-  subscribeToProductUpdates 
 } from "../../services/socket";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -104,7 +102,6 @@ const mapApiProductToTableItem = (product) => {
     discount: "0%",
     stock: quantity,
     status: getStockStatus(quantity),
-    // Store original product data for updates
     _original: product
   };
 };
@@ -119,15 +116,14 @@ const ProductManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
   const [userCompanyId, setUserCompanyId] = useState(null);
+  const isSubscribedRef = useRef(false);
   
   // State for real-time notifications - stored as an array in sessionStorage
   const [notifications, setNotifications] = useState(() => {
-    // Try to load notifications from sessionStorage on component mount
-    const savedNotifications = sessionStorage.getItem('productNotifications');
+    const savedNotifications = sessionStorage.getItem('adminProductNotifications');
     if (savedNotifications) {
       try {
         const parsed = JSON.parse(savedNotifications);
-        // Filter out notifications older than 1 hour
         const now = new Date();
         const validNotifications = parsed.filter(notif => {
           const timestamp = new Date(notif.timestamp);
@@ -137,11 +133,11 @@ const ProductManagement = () => {
         if (validNotifications.length > 0) {
           return validNotifications;
         } else {
-          sessionStorage.removeItem('productNotifications');
+          sessionStorage.removeItem('adminProductNotifications');
           return [];
         }
       } catch (e) {
-        sessionStorage.removeItem('productNotifications');
+        sessionStorage.removeItem('adminProductNotifications');
         return [];
       }
     }
@@ -151,9 +147,9 @@ const ProductManagement = () => {
   // Save notifications to sessionStorage whenever they change
   useEffect(() => {
     if (notifications.length > 0) {
-      sessionStorage.setItem('productNotifications', JSON.stringify(notifications));
+      sessionStorage.setItem('adminProductNotifications', JSON.stringify(notifications));
     } else {
-      sessionStorage.removeItem('productNotifications');
+      sessionStorage.removeItem('adminProductNotifications');
     }
   }, [notifications]);
 
@@ -162,7 +158,6 @@ const ProductManagement = () => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
-    // Get user data from token or store
     try {
       const userData = JSON.parse(localStorage.getItem("user") || "{}");
       if (userData.com_id) {
@@ -172,17 +167,11 @@ const ProductManagement = () => {
       console.error("Failed to parse user data", e);
     }
 
-    // Connect socket
     const socket = connectSocket();
-    
-    // Set up auth for socket
     socket.auth = { token };
 
-    // Handle socket connection
     const handleConnect = () => {
-      console.log("Socket connected for product management");
-      
-      // Join company room if we have company ID
+      console.log("Socket connected for admin product management");
       if (userCompanyId) {
         joinCompanyRoom(userCompanyId);
         console.log(`Joined company room: ${userCompanyId}`);
@@ -191,7 +180,6 @@ const ProductManagement = () => {
 
     socket.on("connect", handleConnect);
 
-    // If socket is already connected, join room immediately
     if (socket.connected && userCompanyId) {
       joinCompanyRoom(userCompanyId);
     }
@@ -203,35 +191,45 @@ const ProductManagement = () => {
 
   // Subscribe to product updates
   useEffect(() => {
-    if (!userCompanyId) return;
+    if (!userCompanyId || isSubscribedRef.current) return;
+    isSubscribedRef.current = true;
 
     const socket = getSocket();
     if (!socket) return;
 
     // Handler for new product added
     const handleNewProduct = (data) => {
-      console.log("New product added via socket:", data);
+      console.log("New product added via socket (admin):", data);
       if (data.product && data.company_id === userCompanyId) {
         setProducts(prev => {
-          // Check if product already exists
           const exists = prev.some(p => p.pro_id === data.product.pro_id);
           if (exists) return prev;
           return [...prev, data.product];
         });
         
-        // Add new notification to the queue
-        setNotifications(prev => [...prev, {
-          id: Date.now() + Math.random(), // Unique ID for each notification
-          type: 'add',
-          message: `📦 New product added: "${data.product.pro_name || 'Product'}"`,
-          timestamp: new Date().toISOString()
-        }]);
+        setNotifications(prev => {
+          const productName = data.product.pro_name || 'Product';
+          const existingNotif = prev.find(n => 
+            n.type === 'add' && 
+            n.productName === productName && 
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
+          if (existingNotif) return prev;
+          
+          return [...prev, {
+            id: Date.now() + Math.random(),
+            type: 'add',
+            message: `📦 New product added: "${productName}"`,
+            timestamp: new Date().toISOString(),
+            productName: productName
+          }];
+        });
       }
     };
 
     // Handler for product updated
     const handleProductUpdated = (data) => {
-      console.log("Product updated via socket:", data);
+      console.log("Product updated via socket (admin):", data);
       if (data.product && data.company_id === userCompanyId) {
         setProducts(prev => 
           prev.map(p => 
@@ -241,46 +239,67 @@ const ProductManagement = () => {
           )
         );
         
-        // Add new notification to the queue
-        setNotifications(prev => [...prev, {
-          id: Date.now() + Math.random(),
-          type: 'update',
-          message: `✏️ Product updated: "${data.product.pro_name || 'Product'}"`,
-          timestamp: new Date().toISOString()
-        }]);
+        setNotifications(prev => {
+          const productName = data.product.pro_name || 'Product';
+          const existingNotif = prev.find(n => 
+            n.type === 'update' && 
+            n.productName === productName && 
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
+          if (existingNotif) return prev;
+          
+          return [...prev, {
+            id: Date.now() + Math.random(),
+            type: 'update',
+            message: `✏️ Product updated: "${productName}"`,
+            timestamp: new Date().toISOString(),
+            productName: productName
+          }];
+        });
       }
     };
 
     // Handler for product deleted
     const handleProductDeleted = (data) => {
-      console.log("Product deleted via socket:", data);
+      console.log("Product deleted via socket (admin):", data);
       if (data.pro_id && data.company_id === userCompanyId) {
+        const deletedProduct = products.find(p => p.pro_id === data.pro_id);
+        const productName = deletedProduct?.pro_name || data.pro_name || 'Product';
+        
         setProducts(prev => 
           prev.filter(p => p.pro_id !== data.pro_id)
         );
         
-        // Add new notification to the queue
-        setNotifications(prev => [...prev, {
-          id: Date.now() + Math.random(),
-          type: 'delete',
-          message: `🗑️ Product deleted: "${data.pro_name || 'Product'}"`,
-          timestamp: new Date().toISOString()
-        }]);
+        setNotifications(prev => {
+          const existingNotif = prev.find(n => 
+            n.type === 'delete' && 
+            n.productName === productName && 
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
+          if (existingNotif) return prev;
+          
+          return [...prev, {
+            id: Date.now() + Math.random(),
+            type: 'delete',
+            message: `🗑️ Product deleted: "${productName}"`,
+            timestamp: new Date().toISOString(),
+            productName: productName
+          }];
+        });
       }
     };
 
-    // Subscribe to events
     socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
     socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
     socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
 
-    // Cleanup
     return () => {
+      isSubscribedRef.current = false;
       socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
       socket.off(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
       socket.off(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
     };
-  }, [userCompanyId]);
+  }, [userCompanyId, products]);
 
   // Load initial products
   useEffect(() => {
@@ -397,7 +416,6 @@ const ProductManagement = () => {
     navigate(`/admin/products/${productId}/delete`);
   };
 
-  // Dismiss a specific notification
   const dismissNotification = (notificationId) => {
     setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
   };
@@ -416,7 +434,7 @@ const ProductManagement = () => {
             minHeight: "calc(100vh - 70px)",
           }}
         >
-          {/* Notification Container - Shows all active notifications */}
+          {/* Notification Container */}
           {notifications.length > 0 && (
             <div
               style={{
@@ -433,6 +451,7 @@ const ProductManagement = () => {
                 overflowY: 'auto',
                 paddingRight: '4px',
               }}
+              className="notifications-container"
             >
               {notifications.map((notification) => (
                 <div
@@ -698,8 +717,7 @@ const ProductManagement = () => {
         </div>
       </div>
 
-      {/* Add animation styles */}
-      <style jsx>{`
+      <style>{`
         @keyframes slideInRight {
           from {
             transform: translateX(100%);
@@ -711,7 +729,6 @@ const ProductManagement = () => {
           }
         }
         
-        /* Custom scrollbar for notifications container */
         .notifications-container::-webkit-scrollbar {
           width: 4px;
         }
