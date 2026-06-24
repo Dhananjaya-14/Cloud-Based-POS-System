@@ -96,7 +96,9 @@ const EditUser = () => {
                     branch: defaultBranchValue,
                     password: "",
                     confirmPassword: "",
-                    isActive: true,
+                    isActive: userData?.u_status === true || 
+            String(userData?.u_status).toLowerCase() === "true" ||
+            String(userData?.u_status).toLowerCase() === "active",
                 });
             } catch (error) {
                 setErrorMessage(error?.response?.data?.message || "Failed to load user details");
@@ -171,7 +173,8 @@ const EditUser = () => {
                 u_email: formData.email,
                 u_connumber: formData.contactNumber || null,
                 role_id: Number(formData.role),
-            };
+                u_status: formData.isActive, // ← ADD THIS ✅
+                };
 
             if (formData.password) {
                 payload.u_pw = formData.password;

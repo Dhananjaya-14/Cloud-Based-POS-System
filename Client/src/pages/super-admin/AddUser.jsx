@@ -5,6 +5,8 @@ import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import { getRoles, getBranches, getCompanies, createUser, setAuthToken, logout } from "../../services/api";
 import Spinner from "../../components/super-admin/Spinner";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^07[0-9]{8}$/;
 
 const AddUser = () => {
   const navigate = useNavigate();
@@ -15,6 +17,8 @@ const AddUser = () => {
   const [profileImage, setProfileImage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
 
   const [roles, setRoles] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -91,8 +95,21 @@ const AddUser = () => {
 
   const handleSaveChanges = async () => {
     setErrorMessage("");
+    setEmailError("");
+    setPhoneError("");
+
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.userRole || !formData.password) {
       setErrorMessage("Please fill in all required fields.");
+      return;
+    }
+
+    if (!EMAIL_RE.test(formData.email.trim())) {
+      setEmailError("Please enter a valid email address (e.g. name@example.com).");
+      return;
+    }
+
+    if (formData.contactNumber && !PHONE_RE.test(formData.contactNumber.trim())) {
+      setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
       return;
     }
 
@@ -252,11 +269,33 @@ const AddUser = () => {
                 <div style={{ display: "flex", gap: 20 }}>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Email</label>
-                    <input name="email" value={formData.email} onChange={handleChange} style={inputStyle} type="email" autoComplete="off" />
+                    <input
+                      name="email"
+                      value={formData.email}
+                      onChange={(e) => { handleChange(e); setEmailError(""); }}
+                      style={{ ...inputStyle, borderColor: emailError ? "#EF4444" : "#D1D5DB" }}
+                      type="email"
+                      autoComplete="off"
+                    />
+                    {emailError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{emailError}</p>}
                   </div>
+                  
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>Contact Number</label>
-                    <input name="contactNumber" value={formData.contactNumber} onChange={handleChange} style={inputStyle} type="text" />
+                    <input
+                      name="contactNumber"
+                      value={formData.contactNumber}
+                      onChange={(e) => {
+                        const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+                        setFormData((prev) => ({ ...prev, contactNumber: digitsOnly }));
+                        setPhoneError("");
+                      }}
+                      style={{ ...inputStyle, borderColor: phoneError ? "#EF4444" : "#D1D5DB" }}
+                      type="text"
+                      placeholder="07XXXXXXXX"
+                      maxLength={10}
+                    />
+                    {phoneError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{phoneError}</p>}
                   </div>
                 </div>
 

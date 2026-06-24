@@ -52,8 +52,6 @@ const AddProduct = () => {
     com_id: "",
     cat_id: "",
     add_ons: {
-      Cheese: true,
-      Bacon: true,
     },
     stations: {
       Kitchen: true,
@@ -173,8 +171,6 @@ const AddProduct = () => {
         pro_price: "",
         pro_image: "",
         add_ons: {
-          Cheese: true,
-          Bacon: true,
         },
         stations: {
           Kitchen: true,

@@ -11,7 +11,6 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
-  // --- OPTIMIZED DELETE CLICK HANDLER ---
   const handleDeleteInitialClick = () => {
     if (parseFloat(material.stock_qty) > 0) {
       setDeleteError(`Cannot delete raw material while it still has stock. Set stock to 0 first.`);
@@ -138,26 +137,36 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Stock Quantity</label>
               <input 
-                type="number"
-                step="0.001"
-                className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.stock_qty}
-                onChange={(e) => setFormData({...formData, stock_qty: e.target.value})}
-                required
-              />
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.stock_qty}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val < 0) return;
+                    setFormData({...formData, stock_qty: val});
+                  }}
+                  required
+/>
             </div>
           </div>
 
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Reorder Level</label>
             <input 
-              type="number"
-              step="0.001"
-              className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-              value={formData.record_level}
-              onChange={(e) => setFormData({...formData, record_level: e.target.value})}
-              required
-            />
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.record_level}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val < 0) return;
+                    setFormData({...formData, record_level: val});
+                  }}
+                  required
+/>
           </div>
 
           <div className="pt-4 flex flex-col gap-3">
