@@ -1,3 +1,4 @@
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -36,6 +37,41 @@ const UserManagement = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentUserBranch, setCurrentUserBranch] = useState(null);
 
+  // State for real-time notifications - stored as an array in sessionStorage
+  const [notifications, setNotifications] = useState(() => {
+    const savedNotifications = sessionStorage.getItem('branchUserNotifications');
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        const now = new Date();
+        const validNotifications = parsed.filter(notif => {
+          const timestamp = new Date(notif.timestamp);
+          const diffMinutes = (now - timestamp) / (1000 * 60);
+          return diffMinutes < 60;
+        });
+        if (validNotifications.length > 0) {
+          return validNotifications;
+        } else {
+          sessionStorage.removeItem('branchUserNotifications');
+          return [];
+        }
+      } catch (e) {
+        sessionStorage.removeItem('branchUserNotifications');
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Save notifications to sessionStorage whenever they change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      sessionStorage.setItem('branchUserNotifications', JSON.stringify(notifications));
+    } else {
+      sessionStorage.removeItem('branchUserNotifications');
+    }
+  }, [notifications]);
+
   const accessibleRoles = useMemo(() => {
     return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
   }, [roles]);
@@ -71,7 +107,7 @@ const UserManagement = () => {
     // Connect socket
     const socket = connectSocket();
     
-    // Get user info from token (you might need to decode the token)
+    // Get user info from token
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -87,11 +123,29 @@ const UserManagement = () => {
         socket.on(SOCKET_EVENTS.USER_CREATED, (newUserData) => {
           console.log("New user created:", newUserData);
           setUsers((prevUsers) => {
-            // Check if user already exists
             if (prevUsers.some(u => u.u_id === newUserData.u_id)) {
               return prevUsers;
             }
             return [...prevUsers, newUserData];
+          });
+          
+          // Add notification
+          const fullName = `${newUserData.u_fname || ''} ${newUserData.u_lname || ''}`.trim() || 'User';
+          setNotifications(prev => {
+            const existingNotif = prev.find(n => 
+              n.type === 'add' && 
+              n.userName === fullName && 
+              (new Date() - new Date(n.timestamp)) < 5000
+            );
+            if (existingNotif) return prev;
+            
+            return [...prev, {
+              id: Date.now() + Math.random(),
+              type: 'add',
+              message: `👤 New user added: "${fullName}"`,
+              timestamp: new Date().toISOString(),
+              userName: fullName
+            }];
           });
         });
         
@@ -103,19 +157,67 @@ const UserManagement = () => {
               user.u_id === updatedUserData.u_id ? updatedUserData : user
             )
           );
+          
+          // Add notification
+          const fullName = `${updatedUserData.u_fname || ''} ${updatedUserData.u_lname || ''}`.trim() || 'User';
+          setNotifications(prev => {
+            const existingNotif = prev.find(n => 
+              n.type === 'update' && 
+              n.userName === fullName && 
+              (new Date() - new Date(n.timestamp)) < 5000
+            );
+            if (existingNotif) return prev;
+            
+            return [...prev, {
+              id: Date.now() + Math.random(),
+              type: 'update',
+              message: `✏️ User updated: "${fullName}"`,
+              timestamp: new Date().toISOString(),
+              userName: fullName
+            }];
+          });
         });
         
         // Listen for user deletion events
-        socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id }) => {
+        socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id, userName }) => {
           console.log("User deleted:", u_id);
+          // Find user name before removal
+          const deletedUser = users.find(u => u.u_id === u_id);
+          const fullName = deletedUser ? 
+            `${deletedUser.u_fname || ''} ${deletedUser.u_lname || ''}`.trim() || 'User' : 
+            userName || 'User';
+          
           setUsers((prevUsers) => 
             prevUsers.filter((user) => user.u_id !== u_id)
           );
+          
+          // Add notification
+          setNotifications(prev => {
+            const existingNotif = prev.find(n => 
+              n.type === 'delete' && 
+              n.userName === fullName && 
+              (new Date() - new Date(n.timestamp)) < 5000
+            );
+            if (existingNotif) return prev;
+            
+            return [...prev, {
+              id: Date.now() + Math.random(),
+              type: 'delete',
+              message: `🗑️ User deleted: "${fullName}"`,
+              timestamp: new Date().toISOString(),
+              userName: fullName
+            }];
+          });
         });
       }
     } catch (error) {
       console.error("Error setting up socket connection:", error);
     }
+  };
+
+  // Dismiss a specific notification
+  const dismissNotification = (notificationId) => {
+    setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
   };
 
   const fetchData = async () => {
@@ -274,6 +376,101 @@ const UserManagement = () => {
             gap: "14px",
           }}
         >
+          {/* Notification Container - Shows all active notifications */}
+          {notifications.length > 0 && (
+            <div
+              style={{
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                zIndex: 9999,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                maxWidth: '420px',
+                minWidth: '320px',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+                paddingRight: '4px',
+              }}
+              className="notifications-container"
+            >
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  style={{
+                    backgroundColor: notification.type === 'delete' ? '#FEE2E2' : 
+                                    notification.type === 'update' ? '#DBEAFE' : '#D1FAE5',
+                    borderLeft: `4px solid ${notification.type === 'delete' ? '#EF4444' : 
+                                    notification.type === 'update' ? '#3B82F6' : '#22C55E'}`,
+                    borderRadius: '8px',
+                    padding: '16px 20px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    animation: 'slideInRight 0.3s ease-out',
+                  }}
+                >
+                  <div>
+                    <div style={{ 
+                      fontWeight: '600', 
+                      fontSize: '15px',
+                      color: '#1F2937',
+                      marginBottom: '4px'
+                    }}>
+                      {notification.type === 'delete' ? '❌ User Deleted' :
+                       notification.type === 'update' ? '📝 User Updated' : '✅ New User Added'}
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#4B5563',
+                      fontWeight: '500',
+                      lineHeight: '1.5'
+                    }}>
+                      {notification.message}
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#9CA3AF',
+                      marginTop: '4px',
+                      fontWeight: '400'
+                    }}>
+                      {new Date(notification.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => dismissNotification(notification.id)}
+                    style={{
+                      background: notification.type === 'delete' ? '#EF4444' :
+                                notification.type === 'update' ? '#3B82F6' : '#22C55E',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      alignSelf: 'flex-end',
+                      minWidth: '70px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '0.85';
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h1 style={{ fontSize: "30px", margin: 0, fontWeight: 700, color: "#2f3d72", letterSpacing: "0.3px", lineHeight: 1 }}>
               User Management
@@ -550,6 +747,34 @@ const UserManagement = () => {
           loading={isDeleting}
         />
       )}
+
+      {/* Add animation styles */}
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        /* Custom scrollbar for notifications container */
+        .notifications-container::-webkit-scrollbar {
+          width: 4px;
+        }
+        
+        .notifications-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .notifications-container::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };
