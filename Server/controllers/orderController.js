@@ -204,6 +204,10 @@ export const createOrder = async (req, res) => {
       u_id,
       b_id,
       table_id,
+      or_notes = null,
+      or_addons = null,
+      or_addons_price = 0,
+      or_allergies = null,
     } = req.body;
 
     // ── Required fields ──
@@ -303,8 +307,8 @@ export const createOrder = async (req, res) => {
 
     const { rows } = await pool.query(
       `INSERT INTO "ORDER"
-         (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type, cust_id, u_id, b_id, table_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type, cust_id, u_id, b_id, table_id, or_notes, or_addons, or_addons_price, or_allergies)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         parseFloat(or_tax),
@@ -316,6 +320,10 @@ export const createOrder = async (req, res) => {
         u_id,
         b_id,
         table_id ?? null,
+        or_notes,
+        or_addons,
+        parseFloat(or_addons_price),
+        or_allergies,
       ],
     );
 
@@ -366,6 +374,10 @@ export const updateOrder = async (req, res) => {
       u_id,
       b_id,
       table_id,
+      or_notes = null,
+      or_addons = null,
+      or_addons_price = 0,
+      or_allergies = null,
     } = req.body;
 
     // ── Required fields for full update ──
@@ -450,8 +462,12 @@ export const updateOrder = async (req, res) => {
          cust_id            = $6,
          u_id               = $7,
          b_id               = $8,
-         table_id           = $9
-       WHERE or_id = $10
+         table_id           = $9,
+         or_notes           = $10,
+         or_addons          = $11,
+         or_addons_price    = $12,
+         or_allergies       = $13
+       WHERE or_id = $14
        RETURNING *`,
       [
         parseFloat(or_tax),
@@ -463,6 +479,10 @@ export const updateOrder = async (req, res) => {
         u_id,
         b_id,
         table_id ?? null,
+        or_notes,
+        or_addons,
+        parseFloat(or_addons_price),
+        or_allergies,
         id,
       ],
     );
@@ -510,6 +530,10 @@ export const patchOrder = async (req, res) => {
       "u_id",
       "b_id",
       "table_id",
+      "or_notes",
+      "or_addons",
+      "or_addons_price",
+      "or_allergies",
     ];
 
     // Filter to only fields present in the request body
@@ -606,7 +630,7 @@ export const patchOrder = async (req, res) => {
     for (const key of Object.keys(incoming)) {
       const col = key === "or_totalCostWtax" ? `"or_totalCostWtax"` : key;
       updates.push(`${col} = $${i++}`);
-      const numericFields = ["or_tax", "or_totalcost", "or_totalCostWtax"];
+      const numericFields = ["or_tax", "or_totalcost", "or_totalCostWtax", "or_addons_price"];
       values.push(
         numericFields.includes(key) ? parseFloat(incoming[key]) : incoming[key],
       );

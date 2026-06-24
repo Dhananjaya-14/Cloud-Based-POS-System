@@ -343,12 +343,6 @@ export async function createPayment(req, res, next) {
       [pay_method, pay_status, pay_date, pay_amount, or_id],
     );
 
-    await client.query(
-      `UPDATE "ORDER" 
-       SET or_status = 'completed' 
-       WHERE or_id = $1`,
-      [or_id]
-    );
 
     await client.query('COMMIT');
 
