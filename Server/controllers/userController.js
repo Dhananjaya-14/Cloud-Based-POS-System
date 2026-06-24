@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
-import { emitUserEventToBranch, SOCKET_EVENTS } from "../utils/socket.js";
+import { emitUserEventToBranch, emitSocketEvent, SOCKET_EVENTS, getBranchUserRoom } from "../utils/socket.js";
 
 // Helper to hash password when provided
 async function hashPassword(password) {
@@ -204,23 +204,30 @@ export async function createUser(req, res, next) {
     const result = await pool.query(insertQuery, params);
     const newUser = result.rows[0];
 
+    // Get role name for the new user
+    const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [role_id || newUser.role_id]);
+    const roleName = roleRes.rows[0]?.role_name || "Unknown";
+
+    // Prepare user with details
+    const userWithDetails = {
+      ...newUser,
+      role_name: roleName,
+    };
+
     // Emit socket event to notify branch admins about new user
     if (B_id) {
       // Get branch name for the user
       const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [B_id]);
       const branchName = branchRes.rows[0]?.B_name || null;
-      
-      // Get role name
-      const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [role_id]);
-      const roleName = roleRes.rows[0]?.role_name || "Unknown";
-      
-      const userWithDetails = {
-        ...newUser,
-        branch_name: branchName,
-        role_name: roleName,
-      };
+      userWithDetails.branch_name = branchName;
       
       emitUserEventToBranch(B_id, SOCKET_EVENTS.USER_CREATED, userWithDetails);
+    }
+
+    // Also emit to company room for company admins
+    if (com_id) {
+      const companyRoom = `company_${com_id}`;
+      emitSocketEvent(SOCKET_EVENTS.USER_CREATED, userWithDetails, { room: companyRoom });
     }
 
     res.status(201).json(newUser);
@@ -256,6 +263,7 @@ export async function updateUser(req, res, next) {
     }
 
     const oldBranchId = existingUser.rows[0].B_id;
+    const oldComId = existingUser.rows[0].com_id;
 
     // Determine target role (use provided role_id, fallback to existing role_id)
     const targetRoleId = role_id !== undefined ? Number(role_id) : Number(existingUser.rows[0].role_id);
@@ -350,28 +358,34 @@ export async function updateUser(req, res, next) {
     const result = await pool.query(updateQuery, params);
     const updatedUser = result.rows[0];
 
+    // Get role name for the updated user
+    const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [targetRoleId]);
+    const roleName = roleRes.rows[0]?.role_name || "Unknown";
+
+    const userWithDetails = {
+      ...updatedUser,
+      role_name: roleName,
+    };
+
     // Emit socket events for user updates
-    // Get branch name and role name for the updated user
     const finalBranchId = B_id || oldBranchId;
     
     if (finalBranchId) {
       const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [finalBranchId]);
       const branchName = branchRes.rows[0]?.B_name || null;
-      
-      const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [targetRoleId]);
-      const roleName = roleRes.rows[0]?.role_name || "Unknown";
-      
-      const userWithDetails = {
-        ...updatedUser,
-        branch_name: branchName,
-        role_name: roleName,
-      };
+      userWithDetails.branch_name = branchName;
       
       // If branch changed, notify both old and new branches
       if (oldBranchId && oldBranchId !== finalBranchId) {
         emitUserEventToBranch(oldBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id) });
       }
       emitUserEventToBranch(finalBranchId, SOCKET_EVENTS.USER_UPDATED, userWithDetails);
+    }
+
+    // Emit to company room if company changed
+    if (com_id && oldComId !== com_id) {
+      const companyRoom = `company_${com_id}`;
+      emitSocketEvent(SOCKET_EVENTS.USER_UPDATED, userWithDetails, { room: companyRoom });
     }
 
     res.json(updatedUser);
@@ -397,7 +411,7 @@ export async function deleteUser(req, res, next) {
     }
     
     const userToDelete = await pool.query(
-      `SELECT u_id, "B_id" FROM "User" WHERE u_id = $1 ${branchFilter}`,
+      `SELECT u_id, "B_id", "com_id", u_fname, u_lname FROM "User" WHERE u_id = $1 ${branchFilter}`,
       getUserParams
     );
     
@@ -407,6 +421,8 @@ export async function deleteUser(req, res, next) {
     }
     
     const userBranchId = userToDelete.rows[0].B_id;
+    const userComId = userToDelete.rows[0].com_id;
+    const userName = `${userToDelete.rows[0].u_fname || ''} ${userToDelete.rows[0].u_lname || ''}`.trim() || 'User';
     
     const params = [id];
     if (scopedBranchId) {
@@ -425,7 +441,13 @@ export async function deleteUser(req, res, next) {
 
     // Emit socket event to notify branch admins about user deletion
     if (userBranchId) {
-      emitUserEventToBranch(userBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id) });
+      emitUserEventToBranch(userBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName });
+    }
+
+    // Emit to company room
+    if (userComId) {
+      const companyRoom = `company_${userComId}`;
+      emitSocketEvent(SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName }, { room: companyRoom });
     }
 
     res.status(204).send();
