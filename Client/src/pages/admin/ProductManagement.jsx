@@ -1,3 +1,4 @@
+
 // Client/src/pages/admin/ProductManagement.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -118,6 +119,43 @@ const ProductManagement = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
   const [userCompanyId, setUserCompanyId] = useState(null);
+  
+  // State for real-time notifications - stored as an array in sessionStorage
+  const [notifications, setNotifications] = useState(() => {
+    // Try to load notifications from sessionStorage on component mount
+    const savedNotifications = sessionStorage.getItem('productNotifications');
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        // Filter out notifications older than 1 hour
+        const now = new Date();
+        const validNotifications = parsed.filter(notif => {
+          const timestamp = new Date(notif.timestamp);
+          const diffMinutes = (now - timestamp) / (1000 * 60);
+          return diffMinutes < 60;
+        });
+        if (validNotifications.length > 0) {
+          return validNotifications;
+        } else {
+          sessionStorage.removeItem('productNotifications');
+          return [];
+        }
+      } catch (e) {
+        sessionStorage.removeItem('productNotifications');
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Save notifications to sessionStorage whenever they change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      sessionStorage.setItem('productNotifications', JSON.stringify(notifications));
+    } else {
+      sessionStorage.removeItem('productNotifications');
+    }
+  }, [notifications]);
 
   // Connect to socket and join company room
   useEffect(() => {
@@ -181,10 +219,13 @@ const ProductManagement = () => {
           return [...prev, data.product];
         });
         
-        // Show notification or toast
-        if (data.product.pro_name) {
-          console.log(`📦 New product added: ${data.product.pro_name}`);
-        }
+        // Add new notification to the queue
+        setNotifications(prev => [...prev, {
+          id: Date.now() + Math.random(), // Unique ID for each notification
+          type: 'add',
+          message: `📦 New product added: "${data.product.pro_name || 'Product'}"`,
+          timestamp: new Date().toISOString()
+        }]);
       }
     };
 
@@ -199,7 +240,14 @@ const ProductManagement = () => {
               : p
           )
         );
-        console.log(`✏️ Product updated: ${data.product.pro_name}`);
+        
+        // Add new notification to the queue
+        setNotifications(prev => [...prev, {
+          id: Date.now() + Math.random(),
+          type: 'update',
+          message: `✏️ Product updated: "${data.product.pro_name || 'Product'}"`,
+          timestamp: new Date().toISOString()
+        }]);
       }
     };
 
@@ -210,7 +258,14 @@ const ProductManagement = () => {
         setProducts(prev => 
           prev.filter(p => p.pro_id !== data.pro_id)
         );
-        console.log(`🗑️ Product deleted: ${data.pro_name || data.pro_id}`);
+        
+        // Add new notification to the queue
+        setNotifications(prev => [...prev, {
+          id: Date.now() + Math.random(),
+          type: 'delete',
+          message: `🗑️ Product deleted: "${data.pro_name || 'Product'}"`,
+          timestamp: new Date().toISOString()
+        }]);
       }
     };
 
@@ -342,6 +397,11 @@ const ProductManagement = () => {
     navigate(`/admin/products/${productId}/delete`);
   };
 
+  // Dismiss a specific notification
+  const dismissNotification = (notificationId) => {
+    setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+  };
+
   return (
     <div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
       <Sidebar />
@@ -356,6 +416,100 @@ const ProductManagement = () => {
             minHeight: "calc(100vh - 70px)",
           }}
         >
+          {/* Notification Container - Shows all active notifications */}
+          {notifications.length > 0 && (
+            <div
+              style={{
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                zIndex: 9999,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                maxWidth: '420px',
+                minWidth: '320px',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+                paddingRight: '4px',
+              }}
+            >
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  style={{
+                    backgroundColor: notification.type === 'delete' ? '#FEE2E2' : 
+                                    notification.type === 'update' ? '#DBEAFE' : '#D1FAE5',
+                    borderLeft: `4px solid ${notification.type === 'delete' ? '#EF4444' : 
+                                    notification.type === 'update' ? '#3B82F6' : '#22C55E'}`,
+                    borderRadius: '8px',
+                    padding: '16px 20px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    animation: 'slideInRight 0.3s ease-out',
+                  }}
+                >
+                  <div>
+                    <div style={{ 
+                      fontWeight: '600', 
+                      fontSize: '15px',
+                      color: '#1F2937',
+                      marginBottom: '4px'
+                    }}>
+                      {notification.type === 'delete' ? '❌ Product Deleted' :
+                       notification.type === 'update' ? '📝 Product Updated' : '✅ New Product Added'}
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#4B5563',
+                      fontWeight: '500',
+                      lineHeight: '1.5'
+                    }}>
+                      {notification.message}
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#9CA3AF',
+                      marginTop: '4px',
+                      fontWeight: '400'
+                    }}>
+                      {new Date(notification.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => dismissNotification(notification.id)}
+                    style={{
+                      background: notification.type === 'delete' ? '#EF4444' :
+                                notification.type === 'update' ? '#3B82F6' : '#22C55E',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      alignSelf: 'flex-end',
+                      minWidth: '70px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '0.85';
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div
             style={{
               display: "flex",
@@ -543,6 +697,34 @@ const ProductManagement = () => {
           />
         </div>
       </div>
+
+      {/* Add animation styles */}
+      <style jsx>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        /* Custom scrollbar for notifications container */
+        .notifications-container::-webkit-scrollbar {
+          width: 4px;
+        }
+        
+        .notifications-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .notifications-container::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };
