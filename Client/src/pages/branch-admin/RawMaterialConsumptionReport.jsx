@@ -42,8 +42,6 @@ export default function RawMaterialConsumptionReport() {
   const [grandTotal, setGrandTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [branchName, setBranchName] = useState("");
-  
-  // Track computed active ranges for the Excel/PDF headers to avoid scoping crashes
   const [activeRange, setActiveRange] = useState({ from: "", to: "" });
 
   const today = new Date().toISOString().split("T")[0];
@@ -68,13 +66,11 @@ export default function RawMaterialConsumptionReport() {
       let finalFromDate = filters.fromDate;
       let finalToDate = filters.toDate;
 
-      // 1. DAILY INTERVAL
       if (filters.filterType === "daily") {
         finalFromDate = today;
         finalToDate = today;
       }
 
-      // 2. WEEKLY INTERVAL
       if (filters.filterType === "weekly") {
         const [year, month] = filters.selectedMonth.split("-").map(Number);
         const week = Number(filters.selectedWeek);
@@ -82,7 +78,7 @@ export default function RawMaterialConsumptionReport() {
 
         const daysInMonth = new Date(year, month, 0).getDate();
         const startDay = (week - 1) * 7 + 1;
-        const endDay = startDay + 6;
+        let  endDay = startDay + 6;
 
         if (week === 5 || endDay > daysInMonth) {
           endDay = daysInMonth;
@@ -92,7 +88,6 @@ export default function RawMaterialConsumptionReport() {
         finalToDate = `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`;
       }
 
-      // 3. MONTHLY INTERVAL
       if (filters.filterType === "monthly") {
         const [year, month] = filters.selectedMonth.split("-");
         finalFromDate = `${year}-${month}-01`;
@@ -284,7 +279,7 @@ export default function RawMaterialConsumptionReport() {
     doc.text(`Branch: ${branchName || "Current Branch"}`, 14, 34);
     doc.line(14, 38, 196, 38);
 
-    // FILTER INFO - Safely reading from state instead of crashed block scope references
+    // FILTER INFO 
     let filterLabel = "Daily";
     if (filters.filterType === "weekly") {
        filterLabel = `Week: ${activeRange.from} to ${activeRange.to}`;
@@ -355,7 +350,6 @@ export default function RawMaterialConsumptionReport() {
     
     const finalY = doc.lastAutoTable.finalY + 12;
 
-    // GRAND TOTAL BOX
     doc.setFillColor(240, 248, 255);
     doc.rect(120, finalY - 6, 70, 12, "F");
     doc.setFontSize(12);
@@ -593,13 +587,11 @@ export default function RawMaterialConsumptionReport() {
                 ) : (
                   rows.map((row, rowIndex) => (
                     <tr key={rowIndex} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
-                      {/* ALWAYS map row elements using the active available headers list to prevent shifting */}
                       {availableColumns
                         .filter((col) => selectedColumns.includes(col.key))
                         .map((col) => {
                           const cellValue = row[col.key];
 
-                          // Format currency columns safely
                           if (
                               col.key === "quantity"
                             ) {
@@ -608,9 +600,7 @@ export default function RawMaterialConsumptionReport() {
                                   key={col.key}
                                   className="p-4 text-sm text-gray-600"
                                 >
-                                  {Number(
-                                    cellValue || 0
-                                  ).toFixed(2)}
+                                  {Number(  cellValue || 0 ).toFixed(2)}
                                 </td>
                               );
                             }
@@ -625,9 +615,7 @@ export default function RawMaterialConsumptionReport() {
                                   className="p-4 text-sm text-gray-600"
                                 >
                                   Rs.{" "}
-                                  {Number(
-                                    cellValue || 0
-                                  ).toFixed(2)}
+                                  {Number( cellValue || 0).toFixed(2)}
                                 </td>
                               );
                             }
@@ -640,18 +628,11 @@ export default function RawMaterialConsumptionReport() {
                                   key={col.key}
                                   className="p-4 text-sm text-gray-600"
                                 >
-                                  {cellValue?.includes(
-                                    "T"
-                                  )
-                                    ? cellValue.split(
-                                        "T"
-                                      )[0]
-                                    : cellValue}
+                                  {cellValue?.includes( "T"  )? cellValue.split( "T" )[0] : cellValue}
                                 </td>
                               );
                             }
 
-                          // Default text columns
                           return (
                             <td key={col.key} className="p-4 text-sm text-gray-600">
                               {String(cellValue ?? "")}
