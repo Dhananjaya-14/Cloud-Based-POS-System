@@ -20,6 +20,7 @@ import {
   getRoles,
   getUsers,
 } from "../../services/api";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 
 const UserManagement = () => {
   const navigate = useNavigate();
@@ -34,6 +35,41 @@ const UserManagement = () => {
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // State for real-time notifications - stored as an array in sessionStorage
+  const [notifications, setNotifications] = useState(() => {
+    const savedNotifications = sessionStorage.getItem('adminUserNotifications');
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        const now = new Date();
+        const validNotifications = parsed.filter(notif => {
+          const timestamp = new Date(notif.timestamp);
+          const diffMinutes = (now - timestamp) / (1000 * 60);
+          return diffMinutes < 60;
+        });
+        if (validNotifications.length > 0) {
+          return validNotifications;
+        } else {
+          sessionStorage.removeItem('adminUserNotifications');
+          return [];
+        }
+      } catch (e) {
+        sessionStorage.removeItem('adminUserNotifications');
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Save notifications to sessionStorage whenever they change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      sessionStorage.setItem('adminUserNotifications', JSON.stringify(notifications));
+    } else {
+      sessionStorage.removeItem('adminUserNotifications');
+    }
+  }, [notifications]);
+
   const [newUser, setNewUser] = useState({
     u_fname: "",
     u_lname: "",
@@ -45,7 +81,122 @@ const UserManagement = () => {
 
   useEffect(() => {
     fetchData();
+    setupSocketConnection();
+    
+    return () => {
+      // Cleanup socket listeners when component unmounts
+      const socket = getSocket();
+      if (socket) {
+        socket.off(SOCKET_EVENTS.USER_CREATED);
+        socket.off(SOCKET_EVENTS.USER_UPDATED);
+        socket.off(SOCKET_EVENTS.USER_DELETED);
+      }
+    };
   }, []);
+
+  const setupSocketConnection = () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    // Connect socket
+    const socket = connectSocket();
+    
+    // Listen for user creation events
+    socket.on(SOCKET_EVENTS.USER_CREATED, (newUserData) => {
+      console.log("New user created (admin):", newUserData);
+      setUsers((prevUsers) => {
+        if (prevUsers.some(u => u.u_id === newUserData.u_id)) {
+          return prevUsers;
+        }
+        return [...prevUsers, newUserData];
+      });
+      
+      // Add notification
+      const fullName = `${newUserData.u_fname || ''} ${newUserData.u_lname || ''}`.trim() || 'User';
+      setNotifications(prev => {
+        const existingNotif = prev.find(n => 
+          n.type === 'add' && 
+          n.userName === fullName && 
+          (new Date() - new Date(n.timestamp)) < 5000
+        );
+        if (existingNotif) return prev;
+        
+        return [...prev, {
+          id: Date.now() + Math.random(),
+          type: 'add',
+          message: `👤 New user added: "${fullName}"`,
+          timestamp: new Date().toISOString(),
+          userName: fullName
+        }];
+      });
+    });
+    
+    // Listen for user update events
+    socket.on(SOCKET_EVENTS.USER_UPDATED, (updatedUserData) => {
+      console.log("User updated (admin):", updatedUserData);
+      setUsers((prevUsers) => 
+        prevUsers.map((user) => 
+          user.u_id === updatedUserData.u_id ? updatedUserData : user
+        )
+      );
+      
+      // Add notification
+      const fullName = `${updatedUserData.u_fname || ''} ${updatedUserData.u_lname || ''}`.trim() || 'User';
+      setNotifications(prev => {
+        const existingNotif = prev.find(n => 
+          n.type === 'update' && 
+          n.userName === fullName && 
+          (new Date() - new Date(n.timestamp)) < 5000
+        );
+        if (existingNotif) return prev;
+        
+        return [...prev, {
+          id: Date.now() + Math.random(),
+          type: 'update',
+          message: `✏️ User updated: "${fullName}"`,
+          timestamp: new Date().toISOString(),
+          userName: fullName
+        }];
+      });
+    });
+    
+    // Listen for user deletion events
+    socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id, userName }) => {
+      console.log("User deleted (admin):", u_id);
+      // Find user name before removal
+      const deletedUser = users.find(u => u.u_id === u_id);
+      const fullName = deletedUser ? 
+        `${deletedUser.u_fname || ''} ${deletedUser.u_lname || ''}`.trim() || 'User' : 
+        userName || 'User';
+      
+      setUsers((prevUsers) => 
+        prevUsers.filter((user) => user.u_id !== u_id)
+      );
+      
+      // Add notification
+      setNotifications(prev => {
+        const existingNotif = prev.find(n => 
+          n.type === 'delete' && 
+          n.userName === fullName && 
+          (new Date() - new Date(n.timestamp)) < 5000
+        );
+        if (existingNotif) return prev;
+        
+        return [...prev, {
+          id: Date.now() + Math.random(),
+          type: 'delete',
+          message: `🗑️ User deleted: "${fullName}"`,
+          timestamp: new Date().toISOString(),
+          userName: fullName
+        }];
+      });
+    });
+  };
+
+  // Dismiss a specific notification
+  const dismissNotification = (notificationId) => {
+    setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+  };
 
   const fetchData = async () => {
     try {
@@ -108,7 +259,6 @@ const UserManagement = () => {
     });
   }, [users, searchTerm, roleFilter, roleMap, branchMap]);
 
-  // UX Fix: Removed itemsPerPage limitations so all matching records show at once
   const visibleUsers = filteredUsers;
 
   const totalUsers = users.length;
@@ -140,7 +290,7 @@ const UserManagement = () => {
         role_id: roles?.[0]?.role_id ? String(roles[0].role_id) : "",
       });
 
-      fetchData();
+      // No need to call fetchData() as socket event will update the list
     } catch (err) {
       window.alert(err?.response?.data?.message || "Failed to create user.");
     }
@@ -155,7 +305,7 @@ const UserManagement = () => {
       setIsDeleting(true);
       await deleteUserById(deleteTargetUser.u_id);
       setDeleteTargetUser(null);
-      fetchData();
+      // No need to call fetchData() as socket event will update the list
     } catch (err) {
       window.alert(err?.response?.data?.message || "Failed to delete user.");
     } finally {
@@ -189,6 +339,101 @@ const UserManagement = () => {
             gap: "14px",
           }}
         >
+          {/* Notification Container - Shows all active notifications */}
+          {notifications.length > 0 && (
+            <div
+              style={{
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                zIndex: 9999,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                maxWidth: '420px',
+                minWidth: '320px',
+                maxHeight: '80vh',
+                overflowY: 'auto',
+                paddingRight: '4px',
+              }}
+              className="notifications-container"
+            >
+              {notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  style={{
+                    backgroundColor: notification.type === 'delete' ? '#FEE2E2' : 
+                                    notification.type === 'update' ? '#DBEAFE' : '#D1FAE5',
+                    borderLeft: `4px solid ${notification.type === 'delete' ? '#EF4444' : 
+                                    notification.type === 'update' ? '#3B82F6' : '#22C55E'}`,
+                    borderRadius: '8px',
+                    padding: '16px 20px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '12px',
+                    animation: 'slideInRight 0.3s ease-out',
+                  }}
+                >
+                  <div>
+                    <div style={{ 
+                      fontWeight: '600', 
+                      fontSize: '15px',
+                      color: '#1F2937',
+                      marginBottom: '4px'
+                    }}>
+                      {notification.type === 'delete' ? '❌ User Deleted' :
+                       notification.type === 'update' ? '📝 User Updated' : '✅ New User Added'}
+                    </div>
+                    <div style={{ 
+                      fontSize: '14px', 
+                      color: '#4B5563',
+                      fontWeight: '500',
+                      lineHeight: '1.5'
+                    }}>
+                      {notification.message}
+                    </div>
+                    <div style={{
+                      fontSize: '11px',
+                      color: '#9CA3AF',
+                      marginTop: '4px',
+                      fontWeight: '400'
+                    }}>
+                      {new Date(notification.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => dismissNotification(notification.id)}
+                    style={{
+                      background: notification.type === 'delete' ? '#EF4444' :
+                                notification.type === 'update' ? '#3B82F6' : '#22C55E',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      alignSelf: 'flex-end',
+                      minWidth: '70px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = '0.85';
+                      e.currentTarget.style.transform = 'scale(1.02)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = '1';
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                  >
+                    OK
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h1 style={{ fontSize: "30px", margin: 0, fontWeight: 700, color: "#2f3d72", letterSpacing: "0.3px", lineHeight: 1 }}>
               User Management
@@ -321,7 +566,6 @@ const UserManagement = () => {
             ) : error ? (
               <p style={{ textAlign: "center", color: "#cf3e3e", margin: "22px 0" }}>{error}</p>
             ) : (
-              // UX Fix: Enabled independent clean y-scrolling inside the table element container
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: "4px" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "#fff" }}>
@@ -441,7 +685,6 @@ const UserManagement = () => {
                   </tbody>
                 </table>
 
-                {/* Simplified Data Metric Counter Footnote */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 6px 4px" }}>
                   <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 500 }}>
                     Showing {visibleUsers.length} of {totalUsers} registered users
@@ -475,11 +718,39 @@ const UserManagement = () => {
           loading={isDeleting}
         />
       )}
+
+      {/* Add animation styles */}
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        /* Custom scrollbar for notifications container */
+        .notifications-container::-webkit-scrollbar {
+          width: 4px;
+        }
+        
+        .notifications-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .notifications-container::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };
 
-// Child presentational layout elements stay the same...
+// Child presentational layout elements
 const StatCard = ({ icon, title, value, bg, iconBg }) => {
   return (
     <div
@@ -751,19 +1022,3 @@ const DeleteConfirmModal = ({ userName, onClose, onConfirm, loading }) => {
 };
 
 export default UserManagement;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
