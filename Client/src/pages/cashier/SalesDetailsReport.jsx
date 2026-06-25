@@ -12,7 +12,6 @@ const availableColumns = [
   { key: "invoice_no", label: "Invoice No" },
   { key: "order_date", label: "Date" },
   { key: "order_time", label: "Time" },
-  { key: "customer_name", label: "Customer" },
   { key: "order_type", label: "Order Type" },
   { key: "payment_method", label: "Payment Method" },
   { key: "subtotal", label: "Sales Amount" },
@@ -137,7 +136,6 @@ export default function SalesDetailsReport() {
       if (selectedColumns.includes("invoice_no")) dataRow["Invoice No"] = row.invoice_no;
       if (selectedColumns.includes("order_date")) dataRow["Date"] = row.order_date ? row.order_date.split("T")[0] : "";
       if (selectedColumns.includes("order_time")) dataRow["Time"] = row.order_time;
-      if (selectedColumns.includes("customer_name")) dataRow["Customer"] = row.customer_name;
       if (selectedColumns.includes("order_type")) dataRow["Order Type"] = row.order_type;
       if (selectedColumns.includes("payment_method")) dataRow["Payment Method"] = row.payment_method;
       if (selectedColumns.includes("subtotal")) dataRow["Sales Amount (Rs.)"] = row.subtotal ? parseFloat(row.subtotal) : 0.00;
@@ -354,6 +352,9 @@ export default function SalesDetailsReport() {
                             }
                             if (col.key === "order_date" && row[col.key]) {
                               return <td key={col.key} className="p-4 text-sm text-gray-600">{row[col.key].includes("T") ? row[col.key].split("T")[0] : row[col.key]}</td>;
+                            }
+                            if (col.key === "order_time" && row[col.key]) {
+                              return <td key={col.key} className="p-4 text-sm text-gray-600">{row[col.key].split(".")[0]}</td>;
                             }
                             return <td key={col.key} className="p-4 text-sm text-gray-600">{String(row[col.key] ?? "")}</td>;
                           })}

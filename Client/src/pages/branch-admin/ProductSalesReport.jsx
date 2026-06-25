@@ -15,6 +15,10 @@ const availableColumns = [
     label: "Date",
   },
   {
+    key: "pay_time",
+    label: "Time",
+  },
+  {
     key: "prod_name",
     label: "Product Name",
   },
@@ -154,20 +158,20 @@ export default function ProductSalesReport() {
       if (selectedColumns.includes("pay_date")) {
         dataRow["Payment Date"] = row.pay_date;
       }
-      if (selectedColumns.includes("pay_method")) {
-        dataRow["Payment Method"] = row.pay_method;
+      if (selectedColumns.includes("pay_time")) {
+        dataRow["Time"] = row.pay_time;
       }
-      if (selectedColumns.includes("cust_name")) {
-        dataRow["Customer Name"] = row.cust_name;
+      if (selectedColumns.includes("prod_name")) {
+        dataRow["Product Name"] = row.prod_name;
       }
-      if (selectedColumns.includes("total_cost")) {
-        dataRow["Total Cost (Rs.)"] = row.total_cost ? parseFloat(row.total_cost) : 0.00;
+      if (selectedColumns.includes("quantity")) {
+        dataRow["Quantity Sold"] = row.quantity ? parseFloat(row.quantity) : 0;
       }
-      if (selectedColumns.includes("tax")) {
-        dataRow["Tax (Rs.)"] = row.tax ? parseFloat(row.tax) : 0.00;
+      if (selectedColumns.includes("unit_price")) {
+        dataRow["Unit Price (Rs.)"] = row.unit_price ? parseFloat(row.unit_price) : 0.00;
       }
-      if (selectedColumns.includes("totalCostWtax")) {
-        dataRow["Total Cost With Tax (Rs.)"] = row.totalCostWtax ? parseFloat(row.totalCostWtax) : 0.00;
+      if (selectedColumns.includes("total_sale")) {
+        dataRow["Total Sale (Rs.)"] = row.total_sale ? parseFloat(row.total_sale) : 0.00;
       }
       return dataRow;
     });
@@ -180,8 +184,8 @@ export default function ProductSalesReport() {
         totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "GRAND TOTAL";
       }
       
-      if (selectedColumns.includes("totalCostWtax")) {
-        totalRow["Total Cost With Tax (Rs.)"] = parseFloat(grandTotal);
+      if (selectedColumns.includes("total_sale")) {
+        totalRow["Total Sale (Rs.)"] = parseFloat(grandTotal);
       }
       
       formattedRows.push(totalRow);
@@ -214,7 +218,7 @@ export default function ProductSalesReport() {
     // HEADER
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
-    doc.text("Sales Summary Report", 14, 20);
+    doc.text("Product Sales Report", 14, 20);
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated: ${generatedDate} ${generatedTime}`, 14, 28);
@@ -246,7 +250,7 @@ export default function ProductSalesReport() {
       ],
       body: rows.map((row) =>
         selectedColumns.map((col) => {
-          if (col === "total_cost" || col === "tax" || col === "totalCostWtax") {
+          if (col === "unit_price" || col === "total_sale") {
             return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
           }
           if (col === "pay_time") {
@@ -531,7 +535,13 @@ export default function ProductSalesReport() {
                                 </td>
                                 );
                             }
-
+                            if (col.key === "pay_time" && cellValue) {
+                              return (
+                                <td key={col.key} className="p-4 text-sm text-gray-600">
+                                  {cellValue.split(".")[0]}
+                                </td>
+                              );
+                            }
                             return (
                                 <td key={col.key} className="p-4 text-sm text-gray-600">
                                 {String(cellValue ?? "")}

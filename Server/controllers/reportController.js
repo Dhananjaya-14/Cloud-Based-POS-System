@@ -19,8 +19,8 @@ export const getSalesSummaryReport = async (req, res) => {
     }
     const columnMap = {
       pay_date: "p.pay_date",
+      pay_time: 'o."or_time"',
       pay_method: "p.pay_method",
-      cust_name: "c.cust_name",
       total_cost: "o.or_totalcost",
       tax: "o.or_tax",
       totalCostWtax: 'o."or_totalCostWtax"',
@@ -36,8 +36,8 @@ export const getSalesSummaryReport = async (req, res) => {
             .join(", ")
         : `
           p."pay_date" AS pay_date,
+          o."or_time" AS pay_time,
           p."pay_method" AS pay_method,
-          c."cust_name" AS cust_name,
           o."or_totalcost" AS total_cost,
           o."or_tax" AS tax,
           o."or_totalCostWtax" AS "totalCostWtax"
@@ -75,8 +75,9 @@ export const getSalesSummaryReport = async (req, res) => {
 
     if (filterType === "daily") {
       query += `
-        AND p."pay_date" = CURRENT_DATE
+        AND p."pay_date" = $${params.length + 1}
       `;
+      params.push(fromDate);
     }
 
     query += `
@@ -126,6 +127,7 @@ export const getProductSalesReport = async (req, res) => {
     }
     const columnMap = {
         pay_date: 'p."pay_date"',
+        pay_time: 'o."or_time"',
         prod_name: 'bp."pro_name"',
         quantity: 'SUM(oi."pro_quantity")',
         unit_price: 'MAX(oi."unit_price")',
@@ -143,6 +145,7 @@ export const getProductSalesReport = async (req, res) => {
           .join(", ")
       : `
         p."pay_date" AS pay_date,
+        o."or_time" AS pay_time,
         bp."pro_name" AS prod_name,
         SUM(oi."pro_quantity") AS quantity,
         MAX(oi."unit_price") AS unit_price,
@@ -173,8 +176,9 @@ export const getProductSalesReport = async (req, res) => {
 
     if (filterType === "daily") {
       query += `
-        AND p."pay_date" = CURRENT_DATE
+        AND p."pay_date" = $${params.length + 1}
       `;
+      params.push(fromDate);
     }
 
     if (
@@ -196,6 +200,7 @@ export const getProductSalesReport = async (req, res) => {
       GROUP 
       BY
         p."pay_date",
+        o."or_time",
         bp."pro_name"
 
       ORDER BY
@@ -494,8 +499,9 @@ export const getRawMaterialConsumptionReport = async (req,res) => {
 
     if (filterType === "daily") {
       query += `
-        AND o."or_date" = CURRENT_DATE
+        AND o."or_date" = $${params.length + 1}
       `;
+      params.push(fromDate);
     }
     if (
       ["weekly", "monthly", "custom"].includes(
@@ -576,7 +582,6 @@ export const getSalesDetailsReport =
 
         order_time: 'o."or_time"',
 
-        customer_name:'c."cust_name"',
 
         order_type:'o."or_type"',
 
@@ -602,7 +607,6 @@ export const getSalesDetailsReport =
             o."or_id" AS invoice_no,
             o."or_date" AS order_date,
             o."or_time" AS order_time,
-            c."cust_name" AS customer_name,
             o."or_type" AS order_type,
             p."pay_method" AS payment_method,
             o."or_totalcost" AS subtotal
@@ -617,8 +621,6 @@ export const getSalesDetailsReport =
         INNER JOIN "Payment" p
           ON p."or_id" = o."or_id"
 
-        LEFT JOIN "CUSTOMER" c
-          ON c."cust_id" = o."cust_id"
 
         WHERE o."b_id" = $1
         AND p."pay_status" = 'paid'
