@@ -11,8 +11,8 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 
 const availableColumns = [
   { key: "pay_date", label: "Pay Date" },
+  { key: "pay_time", label: "Time" },
   { key: "pay_method", label: "Payment Method" },
-  { key: "cust_name", label: "Customer Name" },
   { key: "total_cost", label: "Total Cost" },
   { key: "tax", label: "Tax" },
   { key: "totalCostWtax", label: "Total Cost With Tax" },
@@ -140,12 +140,13 @@ export default function SalesSummaryReport() {
       if (selectedColumns.includes("pay_date")) {
         dataRow["Payment Date"] = row.pay_date;
       }
+      if (selectedColumns.includes("pay_time")) {
+        dataRow["Time"] = row.pay_time;
+      }
       if (selectedColumns.includes("pay_method")) {
         dataRow["Payment Method"] = row.pay_method;
       }
-      if (selectedColumns.includes("cust_name")) {
-        dataRow["Customer Name"] = row.cust_name;
-      }
+
       if (selectedColumns.includes("total_cost")) {
         dataRow["Total Cost (Rs.)"] = row.total_cost ? parseFloat(row.total_cost) : 0.00;
       }
@@ -516,6 +517,14 @@ export default function SalesSummaryReport() {
                               </td>
                             );
                           }
+
+                        if (col.key === "pay_time" && cellValue) {
+                          return (
+                            <td key={col.key} className="p-4 text-sm text-gray-600">
+                              {cellValue.split(".")[0]}
+                            </td>
+                          );
+                        }
 
                           return (
                             <td key={col.key} className="p-4 text-sm text-gray-600">
