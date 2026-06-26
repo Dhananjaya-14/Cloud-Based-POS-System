@@ -54,22 +54,6 @@ const categories = [
   { label: "Front Desk", icon: FaDesktop },
 ];
 
-const toastStyle = {
-  position: "fixed",
-  top: "20px",
-  right: "20px",
-  background: "#0E6DCF",
-  color: "#FFFFFF",
-  padding: "12px 20px",
-  borderRadius: "12px",
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
-  zIndex: 10000,
-  animation: "slideIn 0.3s ease-out",
-};
-
 const CashierPos = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -99,9 +83,51 @@ const CashierPos = () => {
   const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
-  // Toast notification for new products
-  const [showNewProductToast, setShowNewProductToast] = useState(false);
-  const [newProductName, setNewProductName] = useState("");
+  // State for product notifications (persistent)
+  const [productNotifications, setProductNotifications] = useState(() => {
+    const userId = user?.u_id;
+    if (!userId) return [];
+    
+    const savedNotifications = sessionStorage.getItem(`productNotifications_${userId}`);
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        const now = new Date();
+        const validNotifications = parsed.filter(notif => {
+          const timestamp = new Date(notif.timestamp);
+          const diffMinutes = (now - timestamp) / (1000 * 60);
+          return diffMinutes < 60; // Keep notifications for up to 1 hour
+        });
+        if (validNotifications.length > 0) {
+          return validNotifications;
+        } else {
+          sessionStorage.removeItem(`productNotifications_${userId}`);
+          return [];
+        }
+      } catch (e) {
+        sessionStorage.removeItem(`productNotifications_${userId}`);
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // Save product notifications to sessionStorage
+  useEffect(() => {
+    const userId = user?.u_id;
+    if (!userId) return;
+    
+    if (productNotifications.length > 0) {
+      sessionStorage.setItem(`productNotifications_${userId}`, JSON.stringify(productNotifications));
+    } else {
+      sessionStorage.removeItem(`productNotifications_${userId}`);
+    }
+  }, [productNotifications, user?.u_id]);
+
+  // Dismiss a specific product notification
+  const dismissProductNotification = (notificationId) => {
+    setProductNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+  };
 
   const fetchWaiterOrders = async () => {
     try {
@@ -188,10 +214,24 @@ const CashierPos = () => {
           // Check if product already exists
           const exists = prevProducts.some(p => p.Bpro_id === productData.Bpro_id);
           if (!exists) {
-            // Show toast notification
-            setNewProductName(productData.pro_name || "New Product");
-            setShowNewProductToast(true);
-            setTimeout(() => setShowNewProductToast(false), 3000);
+            // Add notification to persistent queue
+            const productName = productData.pro_name || "New Product";
+            
+            setProductNotifications(prev => {
+              const existingNotif = prev.find(n => 
+                n.productName === productName && 
+                (new Date() - new Date(n.timestamp)) < 5000
+              );
+              if (existingNotif) return prev;
+              
+              return [...prev, {
+                id: Date.now() + Math.random(),
+                type: 'product_added',
+                message: `📦 New product added: "${productName}"`,
+                timestamp: new Date().toISOString(),
+                productName: productName
+              }];
+            });
             
             // Add the new product to the list
             return [productData, ...prevProducts];
@@ -231,23 +271,35 @@ const CashierPos = () => {
     // Also listen for company-level product events as fallback
     const handleCompanyProductAdded = (data) => {
       console.log("Company product added event received:", data);
-      // If we already got it via branch event, skip
       if (data.product && !data.branch_id) {
-        // This is a company-level event, we need to check if this branch has this product
-        // Since it's a company product, it should be available to all branches
         setProducts((prevProducts) => {
           const exists = prevProducts.some(p => p.pro_id === data.product.pro_id);
           if (!exists) {
-            // Map product to branch product format
             const branchProduct = {
               ...data.product,
               Bpro_id: data.product.pro_id,
               branch_id: branchId,
               pro_quantity: data.product.pro_qty || 0
             };
-            setNewProductName(data.product.pro_name || "New Product");
-            setShowNewProductToast(true);
-            setTimeout(() => setShowNewProductToast(false), 3000);
+            
+            // Add notification to persistent queue
+            const productName = data.product.pro_name || "New Product";
+            setProductNotifications(prev => {
+              const existingNotif = prev.find(n => 
+                n.productName === productName && 
+                (new Date() - new Date(n.timestamp)) < 5000
+              );
+              if (existingNotif) return prev;
+              
+              return [...prev, {
+                id: Date.now() + Math.random(),
+                type: 'product_added',
+                message: `📦 New product available: "${productName}"`,
+                timestamp: new Date().toISOString(),
+                productName: productName
+              }];
+            });
+            
             return [branchProduct, ...prevProducts];
           }
           return prevProducts;
@@ -434,6 +486,7 @@ const CashierPos = () => {
       setError("");
 
       let orderId = editingOrderId;
+      const socket = getSocket();
 
       if (editingOrderId) {
         // Update existing order
@@ -456,6 +509,16 @@ const CashierPos = () => {
             existingItems.map((item) => deleteOrderItem(item.orderItem_id))
           );
         }
+        
+        // Emit order updated event
+        if (socket && socket.connected) {
+          socket.emit("order:updated", {
+            or_id: editingOrderId,
+            b_id: branchId,
+            status: "completed"
+          });
+          console.log("Order updated event emitted:", { orderId: editingOrderId, branchId });
+        }
       } else {
         const orderResponse = await createOrder({
           or_tax: taxRate,
@@ -472,6 +535,18 @@ const CashierPos = () => {
         orderId = orderResponse?.data?.or_id;
         if (!orderId) {
           throw new Error("Order was created but no order id was returned");
+        }
+        
+        // Emit order created event for kitchen
+        if (socket && socket.connected) {
+          socket.emit("order:created", {
+            or_id: orderId,
+            b_id: branchId,
+            or_type: orderType,
+            or_status: "pending",
+            u_id: user.u_id
+          });
+          console.log("Order created event emitted to kitchen:", { orderId, branchId });
         }
       }
 
@@ -566,7 +641,6 @@ const CashierPos = () => {
     };
     setHeldOrders((prev) => [...prev, newHeldOrder]);
 
-
     // Reset form
     setCart([]);
     setPaymentMethod("Cash");
@@ -612,6 +686,98 @@ const CashierPos = () => {
   return (
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
       <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
+      
+      {/* Product Notifications Container */}
+      {productNotifications.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '80px',
+            right: '20px',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            maxWidth: '420px',
+            minWidth: '320px',
+            maxHeight: '70vh',
+            overflowY: 'auto',
+            paddingRight: '4px',
+          }}
+          className="product-notifications-container"
+        >
+          {productNotifications.map((notification) => (
+            <div
+              key={notification.id}
+              style={{
+                backgroundColor: '#FEF3C7',
+                borderLeft: '4px solid #F59E0B',
+                borderRadius: '8px',
+                padding: '16px 20px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                animation: 'slideInRight 0.3s ease-out',
+              }}
+            >
+              <div>
+                <div style={{ 
+                  fontWeight: '600', 
+                  fontSize: '15px',
+                  color: '#1F2937',
+                  marginBottom: '4px'
+                }}>
+                  📢 New Product Available
+                </div>
+                <div style={{ 
+                  fontSize: '14px', 
+                  color: '#4B5563',
+                  fontWeight: '500',
+                  lineHeight: '1.5'
+                }}>
+                  {notification.message}
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  color: '#9CA3AF',
+                  marginTop: '4px',
+                  fontWeight: '400'
+                }}>
+                  {new Date(notification.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+              <button
+                onClick={() => dismissProductNotification(notification.id)}
+                style={{
+                  background: '#F59E0B',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  alignSelf: 'flex-end',
+                  minWidth: '70px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.85';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                OK
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <header className="border-b border-black/5 bg-linear-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)]">
         <div className="mx-auto flex max-w-350 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -1128,17 +1294,9 @@ const CashierPos = () => {
         </div>
       )}
 
-      {/* Toast notification for new products */}
-      {showNewProductToast && (
-        <div style={toastStyle}>
-          <FaBell size={18} />
-          <span>New product "{newProductName}" is now available!</span>
-        </div>
-      )}
-
       <style>
         {`
-          @keyframes slideIn {
+          @keyframes slideInRight {
             from {
               transform: translateX(100%);
               opacity: 0;
@@ -1147,6 +1305,19 @@ const CashierPos = () => {
               transform: translateX(0);
               opacity: 1;
             }
+          }
+          
+          .product-notifications-container::-webkit-scrollbar {
+            width: 4px;
+          }
+          
+          .product-notifications-container::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          
+          .product-notifications-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
           }
         `}
       </style>
