@@ -717,9 +717,9 @@ export const getBranchWiseSalesReport =
 
         branch_address: 'b."B_address"',
 
-        total_customers: `
+        total_orders: `
           COUNT(
-            DISTINCT o."cust_id"
+            DISTINCT o."or_id"
           )
         `,
 

@@ -13,7 +13,7 @@ const availableColumns = [
   { key: "report_date", label: "Date" },
   { key: "branch_name", label: "Branch Name" },
   { key: "branch_address", label: "Branch Address" },
-  { key: "total_customers", label: "Total Customers" },
+  { key: "total_orders", label: "Total Orders" },
   { key: "total_products", label: "Sold Products" },
   { key: "total_sales", label: "Total Sales" },
 ];
@@ -127,8 +127,8 @@ export default function BranchWiseSalesReport() {
       if (selectedColumns.includes("branch_address")) {
         dataRow["Branch Address"] = row.branch_address;
       }
-      if (selectedColumns.includes("total_customers")) {
-        dataRow["Total Customers"] = row.total_customers;
+      if (selectedColumns.includes("total_orders")) {
+        dataRow["Total Orders"] = row.total_orders;
       }
       if (selectedColumns.includes("total_products")) {
         dataRow["Sold Products"] = row.total_products;
@@ -181,7 +181,7 @@ export default function BranchWiseSalesReport() {
 
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
-    doc.text("Branch Wise Sales Report", 14, 20);
+    doc.text("Branch Sales Summary", 14, 20);
 
     doc.setFontSize(10);
     doc.setTextColor(100);
