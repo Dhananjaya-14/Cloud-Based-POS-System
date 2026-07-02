@@ -11,7 +11,7 @@ import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-import { getProducts, updateProduct } from "../../services/api";
+import { getProducts, updateProduct, deleteProduct, deleteBranchProduct, getBranches } from "../../services/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -107,17 +107,28 @@ const ProductManagement = () => {
   const [updatingStockId, setUpdatingStockId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteTargetName, setDeleteTargetName] = useState("");
+  const [deleteOption, setDeleteOption] = useState("complete");
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
 
-    const loadProducts = async () => {
+      const loadProducts = async () => {
       try {
         setLoading(true);
         setError("");
-        const response = await getProducts();
+        const [response, branchList] = await Promise.all([
+          getProducts(),
+          getBranches(),
+        ]);
         if (!isMounted) return;
         setProducts(Array.isArray(response) ? response : []);
+        setBranches(Array.isArray(branchList) ? branchList : []);
       } catch (err) {
         if (!isMounted) return;
         setError(err?.response?.data?.message || "Failed to load products");
@@ -408,12 +419,10 @@ const ProductManagement = () => {
 
           <ProductItemsTable
             products={paginatedProducts}
-            onDecreaseStock={(id) => handleAdjustStock(id, -1)}
-            onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+            hideStockColumn={true}
             onViewProduct={handleViewProduct}
             onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}
-            updatingStockId={updatingStockId}
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={tableProducts.length}

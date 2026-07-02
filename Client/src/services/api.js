@@ -270,8 +270,9 @@ export const updateProduct = async (productId, payload) => {
   return response.data;
 };
 
-export const deleteProduct = async (productId) => {
-  await api.delete(`/products/${productId}`);
+export const deleteProduct = async (productId, branchId = null) => {
+  const params = branchId ? { branch_id: branchId } : {};
+  await api.delete(`/products/${productId}`, { params });
 };
 
 export const getUserById = async (userId) => {
