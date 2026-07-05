@@ -351,7 +351,7 @@ export default function SalesDetailsReport() {
                               return <td key={col.key} className="p-4 text-sm font-medium text-gray-700">Rs. {Number(row[col.key] || 0).toFixed(2)}</td>;
                             }
                             if (col.key === "order_date" && row[col.key]) {
-                              return <td key={col.key} className="p-4 text-sm text-gray-600">{row[col.key].includes("T") ? row[col.key].split("T")[0] : row[col.key]}</td>;
+                              return <td key={col.key} className="p-4 text-sm text-gray-600">{new Date(row[col.key]).toLocaleDateString("en-CA")}</td>;
                             }
                             if (col.key === "order_time" && row[col.key]) {
                               return <td key={col.key} className="p-4 text-sm text-gray-600">{row[col.key].split(".")[0]}</td>;

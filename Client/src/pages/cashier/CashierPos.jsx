@@ -402,7 +402,7 @@ const CashierPos = () => {
       if (editingOrderId) {
         // Update existing order
         await updateOrder(editingOrderId, {
-          or_tax: taxRate,
+          or_tax: Number(tax.toFixed(2)),
           or_totalcost: Number(taxableBase.toFixed(2)),
           or_totalCostWtax: Number(total.toFixed(2)),
           or_status: "completed",
@@ -426,7 +426,7 @@ const CashierPos = () => {
         }
       } else {
         const orderResponse = await createOrder({
-          or_tax: taxRate,
+          or_tax: Number(tax.toFixed(2)),
           or_totalcost: Number(taxableBase.toFixed(2)),
           or_totalCostWtax: Number(total.toFixed(2)),
           or_status: "pending",

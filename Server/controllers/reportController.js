@@ -587,7 +587,7 @@ export const getSalesDetailsReport =
 
         payment_method:'p."pay_method"',
 
-        subtotal:'o."or_totalcost"',
+        subtotal:'o."or_totalCostWtax"',
       };
 
       const selectedColumns =
@@ -609,7 +609,7 @@ export const getSalesDetailsReport =
             o."or_time" AS order_time,
             o."or_type" AS order_type,
             p."pay_method" AS payment_method,
-            o."or_totalcost" AS subtotal
+            o."or_totalCostWtax" AS subtotal
           `;
 
       let query = `
