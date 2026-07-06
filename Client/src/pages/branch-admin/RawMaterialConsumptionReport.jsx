@@ -75,19 +75,14 @@ export default function RawMaterialConsumptionReport() {
         const [year, month] = filters.selectedMonth.split("-").map(Number);
         const week = Number(filters.selectedWeek);
 
-
         const daysInMonth = new Date(year, month, 0).getDate();
         
         const startDay = (week - 1) * 7 + 1;
-<<<<<<< HEAD
-let endDay = startDay + 6;
-=======
-        let  endDay = startDay + 6;
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
+        let endDay = startDay + 6;
 
-if (endDay > daysInMonth) {
-    endDay = daysInMonth;
-}
+        if (endDay > daysInMonth) {
+          endDay = daysInMonth;
+        }
 
         finalFromDate = `${year}-${String(month).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`;
         finalToDate = `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`;
@@ -102,10 +97,10 @@ if (endDay > daysInMonth) {
 
       setActiveRange({ from: finalFromDate, to: finalToDate });
       const orderedColumns = availableColumns
-  .filter((col) =>
-    selectedColumns.includes(col.key)
-  )
-  .map((col) => col.key);
+        .filter((col) =>
+          selectedColumns.includes(col.key)
+        )
+        .map((col) => col.key);
 
       const response = await getRawMaterialConsumptionReport({
         b_id: user?.b_id,
@@ -132,106 +127,106 @@ if (endDay > daysInMonth) {
   }, [user?.b_id]);
 
   useEffect(() => {
-        let mounted = true;
-    
-        const loadBranch = async () => {
-          const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
-          if (fromUser) {
-            if (mounted) setBranchName(fromUser);
-            return;
-          }
-    
-          if (user?.b_id) {
-            try {
-              const res = await getBranchById(user.b_id);
-              const branch = res?.data ?? res;
-              if (mounted) setBranchName(branch?.B_name ?? branch?.b_name ?? "");
-            } catch {
-              if (mounted) setBranchName("");
-            }
-          } else {
-            if (mounted) setBranchName("");
-          }
-        };
-    
-        loadBranch();
-        return () => {
-          mounted = false;
-        };
-      }, [user]);
+    let mounted = true;
+
+    const loadBranch = async () => {
+      const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
+      if (fromUser) {
+        if (mounted) setBranchName(fromUser);
+        return;
+      }
+
+      if (user?.b_id) {
+        try {
+          const res = await getBranchById(user.b_id);
+          const branch = res?.data ?? res;
+          if (mounted) setBranchName(branch?.B_name ?? branch?.b_name ?? "");
+        } catch {
+          if (mounted) setBranchName("");
+        }
+      } else {
+        if (mounted) setBranchName("");
+      }
+    };
+
+    loadBranch();
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
 
   // Excel export logic
   const exportExcel = () => {
-  const formattedRows = rows.map(
-    (row) => {
-      const dataRow = {};
+    const formattedRows = rows.map(
+      (row) => {
+        const dataRow = {};
 
-      if (
-        selectedColumns.includes(
-          "report_date"
-        )
-      ) {
-        dataRow["Date"] =
-          row.report_date;
-      }
+        if (
+          selectedColumns.includes(
+            "report_date"
+          )
+        ) {
+          dataRow["Date"] =
+            row.report_date;
+        }
 
-      if (
-        selectedColumns.includes(
-          "rm_name"
-        )
-      ) {
-        dataRow[
-          "Raw Material"
-        ] = row.rm_name;
-      }
+        if (
+          selectedColumns.includes(
+            "rm_name"
+          )
+        ) {
+          dataRow[
+            "Raw Material"
+          ] = row.rm_name;
+        }
 
-      if (
-        selectedColumns.includes(
-          "unit"
-        )
-      ) {
-        dataRow["Unit"] =
-          row.unit;
-      }
+        if (
+          selectedColumns.includes(
+            "unit"
+          )
+        ) {
+          dataRow["Unit"] =
+            row.unit;
+        }
 
-      if (
-        selectedColumns.includes(
-          "quantity"
-        )
-      ) {
-        dataRow[
-          "Quantity Consumed"
-        ] = Number(
-          row.quantity || 0
-        ).toFixed(2);
-      }
+        if (
+          selectedColumns.includes(
+            "quantity"
+          )
+        ) {
+          dataRow[
+            "Quantity Consumed"
+          ] = Number(
+            row.quantity || 0
+          ).toFixed(2);
+        }
 
-      if (
-        selectedColumns.includes(
-          "unit_cost"
-        )
-      ) {
-        dataRow[
-          "Unit Cost (Rs.)"
-        ] = Number(
-          row.unit_cost || 0
-        ).toFixed(2);
-      }
+        if (
+          selectedColumns.includes(
+            "unit_cost"
+          )
+        ) {
+          dataRow[
+            "Unit Cost (Rs.)"
+          ] = Number(
+            row.unit_cost || 0
+          ).toFixed(2);
+        }
 
-      if (
-        selectedColumns.includes(
-          "total_cost"
-        )
-      ) {
-        dataRow[
-          "Total Cost (Rs.)"
-        ] = Number(
-          row.total_cost || 0
-        ).toFixed(2);
-      }
+        if (
+          selectedColumns.includes(
+            "total_cost"
+          )
+        ) {
+          dataRow[
+            "Total Cost (Rs.)"
+          ] = Number(
+            row.total_cost || 0
+          ).toFixed(2);
+        }
 
-      return dataRow;
-    });
+        return dataRow;
+      });
 
     if (formattedRows.length > 0) {
       const totalRow = {};
@@ -242,9 +237,9 @@ if (endDay > daysInMonth) {
       }
       
       if (selectedColumns.includes("total_cost")) {
-          totalRow["Total Cost (Rs.)"] =
-            Number(grandTotal).toFixed(2);
-        }
+        totalRow["Total Cost (Rs.)"] =
+          Number(grandTotal).toFixed(2);
+      }
       
       formattedRows.push(totalRow);
     }
@@ -287,10 +282,10 @@ if (endDay > daysInMonth) {
     // FILTER INFO 
     let filterLabel = "Daily";
     if (filters.filterType === "weekly") {
-       filterLabel = `Week: ${activeRange.from} to ${activeRange.to}`;
+      filterLabel = `Week: ${activeRange.from} to ${activeRange.to}`;
     }
     if (filters.filterType === "monthly") {
-       filterLabel = `Month: ${filters.selectedMonth}`;
+      filterLabel = `Month: ${filters.selectedMonth}`;
     }
     if (filters.filterType === "custom") {
       filterLabel = `${filters.fromDate} to ${filters.toDate}`;
@@ -301,57 +296,56 @@ if (endDay > daysInMonth) {
 
     // TABLE
     autoTable(doc, {
-    startY: 55,
+      startY: 55,
 
-    head: [
-      orderedColumns.map(
-        (col) => col.label
+      head: [
+        orderedColumns.map(
+          (col) => col.label
+        ),
+      ],
+
+      body: rows.map((row) =>
+        orderedColumns.map((col) => {
+          const key = col.key;
+          const value = row[key];
+
+          if (key === "report_date") {
+            return value?.includes("T")
+              ? value.split("T")[0]
+              : value;
+          }
+
+          if (key === "quantity") {
+            return Number(
+              value || 0
+            ).toFixed(2);
+          }
+
+          if (
+            key === "unit_cost" ||
+            key === "total_cost"
+          ) {
+            return `Rs. ${Number(
+              value || 0
+            ).toFixed(2)}`;
+          }
+
+          return value ?? "";
+        })
       ),
-    ],
 
-   body: rows.map((row) =>
-  orderedColumns.map((col) => {
-    const key = col.key;
-    const value = row[key];
+      theme: "striped",
 
-        if (key === "report_date") {
-          return value?.includes("T")
-            ? value.split("T")[0]
-            : value;
-        }
+      headStyles: {
+        fillColor: [0, 82, 168],
+        fontSize: 10,
+        align: "center",
+      },
 
-        if (key === "quantity") {
-          return Number(
-            value || 0
-          ).toFixed(2);
-        }
-
-        if (
-          key === "unit_cost" ||
-          key === "total_cost"
-        ) {
-          return `Rs. ${Number(
-            value || 0
-          ).toFixed(2)}`;
-        }
-
-        
-        return value ?? "";
-      })
-    ),
-
-  theme: "striped",
-
-  headStyles: {
-    fillColor: [0, 82, 168],
-    fontSize: 10,
-    align: "center",
-  },
-
-  bodyStyles: {
-    fontSize: 9,
-  },
-});
+      bodyStyles: {
+        fontSize: 9,
+      },
+    });
     
     const finalY = doc.lastAutoTable.finalY + 12;
 
@@ -394,7 +388,7 @@ if (endDay > daysInMonth) {
             className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150"
           >
             <FaFilePdf className="text-base" />
-             Export PDF
+            Export PDF
           </button>
         </div>
 
@@ -554,16 +548,16 @@ if (endDay > daysInMonth) {
         
         {/* Table & Data Handling */}
         {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="flex items-center gap-1.5 h-6">
-                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
-                </div>
-                <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
-                        Please wait...
-                </span>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="flex items-center gap-1.5 h-6">
+              <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
             </div>
+            <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
+              Please wait...
+            </span>
+          </div>
         ) : (
           <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
             <table className="w-full min-w-max">
@@ -597,46 +591,38 @@ if (endDay > daysInMonth) {
                         .map((col) => {
                           const cellValue = row[col.key];
 
-                          if (
-                              col.key === "quantity"
-                            ) {
-                              return (
-                                <td
-                                  key={col.key}
-                                  className="p-4 text-sm text-gray-600"
-                                >
-                                  {Number(  cellValue || 0 ).toFixed(2)}
-                                </td>
-                              );
-                            }
+                          if (col.key === "quantity") {
+                            return (
+                              <td
+                                key={col.key}
+                                className="p-4 text-sm text-gray-600"
+                              >
+                                {Number(cellValue || 0).toFixed(2)}
+                              </td>
+                            );
+                          }
 
-                            if (
-                              col.key === "unit_cost" ||
-                              col.key === "total_cost"
-                            ) {
-                              return (
-                                <td
-                                  key={col.key}
-                                  className="p-4 text-sm text-gray-600"
-                                >
-                                  Rs.{" "}
-                                  {Number( cellValue || 0).toFixed(2)}
-                                </td>
-                              );
-                            }
+                          if (col.key === "unit_cost" || col.key === "total_cost") {
+                            return (
+                              <td
+                                key={col.key}
+                                className="p-4 text-sm text-gray-600"
+                              >
+                                Rs. {Number(cellValue || 0).toFixed(2)}
+                              </td>
+                            );
+                          }
 
-                            if (
-                              col.key === "report_date"
-                            ) {
-                              return (
-                                <td
-                                  key={col.key}
-                                  className="p-4 text-sm text-gray-600"
-                                >
-                                  {cellValue?.includes( "T"  )? cellValue.split( "T" )[0] : cellValue}
-                                </td>
-                              );
-                            }
+                          if (col.key === "report_date") {
+                            return (
+                              <td
+                                key={col.key}
+                                className="p-4 text-sm text-gray-600"
+                              >
+                                {cellValue?.includes("T") ? cellValue.split("T")[0] : cellValue}
+                              </td>
+                            );
+                          }
 
                           return (
                             <td key={col.key} className="p-4 text-sm text-gray-600">
