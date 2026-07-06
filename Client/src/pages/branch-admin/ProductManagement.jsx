@@ -13,8 +13,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-<<<<<<< HEAD
-import { getBranchProducts, updateBranchProduct } from "../../services/api";
+import { getBranchProducts, updateBranchProduct, deleteBranchProduct } from "../../services/api";
 import { 
   getSocket, 
   connectSocket, 
@@ -23,9 +22,6 @@ import {
   leaveBranchInventoryRoom,
   joinCompanyRoom,
 } from "../../services/socket";
-=======
-import { getBranchProducts, updateBranchProduct, deleteBranchProduct } from "../../services/api";
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -79,17 +75,10 @@ const statValueStyle = {
   textAlign: "center",
 };
 
-<<<<<<< HEAD
-const getStockStatus = (quantity) => {
-  if (quantity <= 0) return "Out of stock";
-  if (quantity <= 10) return "Low stock";
-  return "In stock";
-=======
 const getStockStatus = (quantity, lowStockLimit = 10) => {
-	if (quantity <= 0) return "Out of stock";
-	if (quantity <= lowStockLimit) return "Low stock";
-	return "In stock";
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
+  if (quantity <= 0) return "Out of stock";
+  if (quantity <= lowStockLimit) return "Low stock";
+  return "In stock";
 };
 
 const resolveProductImage = (value) => {
@@ -102,8 +91,8 @@ const resolveProductImage = (value) => {
 };
 
 const mapApiProductToTableItem = (product) => {
-<<<<<<< HEAD
   const quantity = Number(product.pro_quantity ?? 0);
+  const lowStockLimit = Number(product.low_stock_limit ?? 10);
   const price = Number(product.pro_price ?? 0);
   const imageUrl = resolveProductImage(product.pro_image);
 
@@ -117,12 +106,12 @@ const mapApiProductToTableItem = (product) => {
     price: `$${price.toFixed(2)}`,
     discount: "0%",
     stock: quantity,
-    status: getStockStatus(quantity),
+    status: getStockStatus(quantity, lowStockLimit),
     _original: product
   };
 };
 
-const BranchProductManagement = () => {
+const ProductManagement = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
@@ -135,41 +124,12 @@ const BranchProductManagement = () => {
   const branchId = user?.b_id;
   const companyId = user?.com_id;
   const isSubscribedRef = useRef(false);
-=======
-	const quantity = Number(product.pro_quantity ?? 0);
-	const lowStockLimit = Number(product.low_stock_limit ?? 10);
-	const price = Number(product.pro_price ?? 0);
-	const imageUrl = resolveProductImage(product.pro_image);
-
-	return {
-		id: product.Bpro_id,
-		imageUrl,
-		imageAlt: product.pro_name || "Product",
-		name: product.pro_name,
-		sku: `SKU: BPRD-${String(product.Bpro_id).padStart(3, "0")}`,
-		category: product.cat_name || "General",
-		price: `$${price.toFixed(2)}`,
-		discount: "0%",
-		stock: quantity,
-		status: getStockStatus(quantity, lowStockLimit),
-	};
-};
-
-const ProductManagement = () => {
-	const navigate = useNavigate();
-	const { user } = useAuth();
-	const [searchTerm, setSearchTerm] = useState("");
-	const [products, setProducts] = useState([]);
-	const [loading, setLoading] = useState(true);
-	const [error, setError] = useState("");
-	const [updatingStockId, setUpdatingStockId] = useState(null);
-	const [currentPage, setCurrentPage] = useState(1);
-	const itemsPerPage = 4;
-	const [deleteTargetId, setDeleteTargetId] = useState(null);
-	const [deleteTargetName, setDeleteTargetName] = useState("");
-	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-	const [isDeleting, setIsDeleting] = useState(false);
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
+  
+  // Delete confirmation states
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteTargetName, setDeleteTargetName] = useState("");
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // State for real-time notifications
   const [notifications, setNotifications] = useState(() => {
@@ -398,7 +358,6 @@ const ProductManagement = () => {
     const mapped = products.map(mapApiProductToTableItem);
     const query = searchTerm.trim().toLowerCase();
 
-<<<<<<< HEAD
     if (!query) return mapped;
 
     return mapped.filter((item) => {
@@ -409,50 +368,6 @@ const ProductManagement = () => {
       );
     });
   }, [products, searchTerm]);
-=======
-			setProducts((prev) =>
-				prev.map((item) =>
-					item.Bpro_id === productId
-						? {
-							...item,
-							...updated,
-							pro_quantity: Number(updated?.pro_quantity ?? nextQty),
-						}
-						: item
-				)
-			);
-		} catch (err) {
-			setError(err?.response?.data?.message || "Failed to update stock quantity");
-		} finally {
-			setUpdatingStockId(null);
-		}
-	};
-			const handleDeleteClick = (productId) => {
-			const product = products.find((item) => item.Bpro_id === productId);
-			setDeleteTargetId(productId);
-			setDeleteTargetName(product?.pro_name || "this product");
-			setShowDeleteConfirm(true);
-			};
-
-			const handleConfirmDelete = async () => {
-			if (!deleteTargetId) return;
-			try {
-				setIsDeleting(true);
-				await deleteBranchProduct(deleteTargetId);
-				setProducts((prev) => prev.filter((item) => item.Bpro_id !== deleteTargetId));
-				setShowDeleteConfirm(false);
-				setDeleteTargetId(null);
-				setDeleteTargetName("");
-			} catch (err) {
-				setError(err?.response?.data?.message || "Failed to delete product");
-			} finally {
-				setIsDeleting(false);
-			}
-			};
-	return (
-		<div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
-			<Sidebar />
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
 
   const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
 
@@ -496,7 +411,6 @@ const ProductManagement = () => {
       setError("");
       const updated = await updateBranchProduct(productId, { pro_quantity: nextQty });
 
-<<<<<<< HEAD
       setProducts((prev) =>
         prev.map((item) =>
           item.Bpro_id === productId
@@ -512,6 +426,29 @@ const ProductManagement = () => {
       setError(err?.response?.data?.message || "Failed to update stock quantity");
     } finally {
       setUpdatingStockId(null);
+    }
+  };
+
+  const handleDeleteClick = (productId) => {
+    const product = products.find((item) => item.Bpro_id === productId);
+    setDeleteTargetId(productId);
+    setDeleteTargetName(product?.pro_name || "this product");
+    setShowDeleteConfirm(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTargetId) return;
+    try {
+      setIsDeleting(true);
+      await deleteBranchProduct(deleteTargetId);
+      setProducts((prev) => prev.filter((item) => item.Bpro_id !== deleteTargetId));
+      setShowDeleteConfirm(false);
+      setDeleteTargetId(null);
+      setDeleteTargetName("");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to delete product");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -784,7 +721,9 @@ const ProductManagement = () => {
             onDecreaseStock={(id) => handleAdjustStock(id, -1)}
             onIncreaseStock={(id) => handleAdjustStock(id, 1)}
             updatingStockId={updatingStockId}
-            showActions={false}
+            showActions={true}
+            onDeleteProduct={handleDeleteClick}
+            onEditProduct={null}
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={tableProducts.length}
@@ -795,50 +734,7 @@ const ProductManagement = () => {
         </div>
       </div>
 
-      <style>{`
-        @keyframes slideInRight {
-          from {
-            transform: translateX(100%);
-            opacity: 0;
-          }
-          to {
-            transform: translateX(0);
-            opacity: 1;
-          }
-        }
-        
-        .notifications-container::-webkit-scrollbar {
-          width: 4px;
-        }
-        
-        .notifications-container::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        
-        .notifications-container::-webkit-scrollbar-thumb {
-          background: rgba(0, 0, 0, 0.2);
-          border-radius: 10px;
-        }
-      `}</style>
-=======
-				<ProductItemsTable
-		products={paginatedProducts}
-		onDecreaseStock={(id) => handleAdjustStock(id, -1)}
-		onIncreaseStock={(id) => handleAdjustStock(id, 1)}
-		updatingStockId={updatingStockId}
-		showActions={true}
-		onDeleteProduct={handleDeleteClick}
-		onEditProduct={null}
-		currentPage={currentPage}
-		totalPages={totalPages}
-		totalItems={tableProducts.length}
-		pageStart={pageStart}
-		pageEnd={pageEnd}
-		onPageChange={setCurrentPage}
-		/>
-				</div>
-			</div>
-
+      {/* Delete Confirmation Modal */}
       {showDeleteConfirm && (
         <div style={{
           position: "fixed",
@@ -950,9 +846,34 @@ const ProductManagement = () => {
           </div>
         </div>
       )}
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
+
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        .notifications-container::-webkit-scrollbar {
+          width: 4px;
+        }
+        
+        .notifications-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .notifications-container::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };
 
-export default BranchProductManagement;
+export default ProductManagement;
