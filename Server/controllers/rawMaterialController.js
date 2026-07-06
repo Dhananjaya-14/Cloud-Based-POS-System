@@ -703,10 +703,15 @@ export async function deleteRawMaterial(req, res, next) {
       );
     }
 
-<<<<<<< HEAD
-    await pool.query(
-      'DELETE FROM "Raw_Material" WHERE rm_id = $1 RETURNING rm_id',
-      [id],
+    // Soft delete - set rm_status to FALSE instead of hard delete
+    const result = await pool.query(
+      `
+      UPDATE "Raw_Material"
+      SET rm_status = FALSE
+      WHERE rm_id = $1
+      RETURNING rm_id, rm_name
+      `,
+      [id]
     );
 
     // Emit socket event for deletion
@@ -721,31 +726,18 @@ export async function deleteRawMaterial(req, res, next) {
       console.error("Failed to emit socket event for deletion:", socketErr);
     }
 
-    res.status(204).send();
-=======
-   const result = await pool.query(
-      `
-      UPDATE "Raw_Material"
-      SET rm_status = FALSE
-      WHERE rm_id = $1
-      RETURNING rm_id, rm_name
-      `,
-      [id]
-    );  
     res.status(200).json({
       success: true,
       message: "Raw material deactivated successfully",
     });
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
   } catch (err) {
     if (err?.code === "23503") {
-
-  return res.status(409).json({
-    message: "Foreign key violation",
-    constraint: err.constraint,
-    detail: err.detail,
-  });
-}
+      return res.status(409).json({
+        message: "Foreign key violation",
+        constraint: err.constraint,
+        detail: err.detail,
+      });
+    }
     next(err);
   }
 }
