@@ -44,8 +44,8 @@ const RecipeMapperDetail = () => {
   const [saving, setSaving] = useState(false);
   const [savingMapping, setSavingMapping] = useState(false);
   const [notice, setNotice] = useState("");
-<<<<<<< HEAD
   const [socketConnected, setSocketConnected] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   // Load recipe data
   const loadRecipeData = useCallback(async () => {
@@ -65,9 +65,6 @@ const RecipeMapperDetail = () => {
       }
     }
   }, [productId]);
-=======
-  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
 
   useEffect(() => {
     let isMounted = true;
@@ -327,19 +324,16 @@ const RecipeMapperDetail = () => {
 
       await createRecipeBulk(payload);
 
-<<<<<<< HEAD
-      await loadRecipeData();
+      // Refresh recipe data after saving
+      const refreshed = await getRecipesByProduct(productId);
+      const ingredients = Array.isArray(refreshed?.ingredients)
+        ? refreshed.ingredients
+        : Array.isArray(refreshed)
+          ? refreshed
+          : [];
+      setRecipeItems(ingredients);
+      setShowSuccessPopup(true);
       setNotice("Ingredients mapping saved.");
-=======
-const refreshed = await getRecipesByProduct(productId);
-const ingredients = Array.isArray(refreshed?.ingredients)
-  ? refreshed.ingredients
-  : Array.isArray(refreshed)
-    ? refreshed
-    : [];
-setRecipeItems(ingredients);
-setShowSuccessPopup(true); // ← show popup instead ✅
->>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save ingredients mapping");
     } finally {
@@ -461,7 +455,20 @@ setShowSuccessPopup(true); // ← show popup instead ✅
             </div>
           )}
 
-          
+          {notice && (
+            <div
+              style={{
+                background: "#D1FAE5",
+                color: "#065F46",
+                padding: "10px 14px",
+                borderRadius: "10px",
+                fontSize: "13px",
+                marginBottom: "18px",
+              }}
+            >
+              {notice}
+            </div>
+          )}
 
           <div
             style={{
@@ -632,7 +639,9 @@ setShowSuccessPopup(true); // ← show popup instead ✅
           </div>
         </div>
       </div>
-    {showSuccessPopup && (
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
         <div
           style={{
             position: "fixed",
