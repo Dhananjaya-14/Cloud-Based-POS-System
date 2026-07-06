@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaPrint, FaTimes } from "react-icons/fa";
 import { printReceipt } from "../../utils/printReceipt";
+import { useAuth } from "../../context/AuthContext";
 
 const defaultState = {
   orderId: "INV-0000000",
@@ -27,6 +28,7 @@ const defaultState = {
 const InvoicePreview = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { token } = useAuth();
 
   const invoice = useMemo(() => ({
     ...defaultState,
@@ -34,15 +36,16 @@ const InvoicePreview = () => {
   }), [location.state]);
   
   const [isPaid, setIsPaid] = useState(false);
+const [isSubmitting, setIsSubmitting] = useState(false); // To prevent double-clicks
 
-    useEffect(() => {
-    if (isPaid) {
-      const timer = setTimeout(() => {
-        navigate("/cashier/pos");
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [isPaid, navigate]);
+useEffect(() => {
+  if (isPaid) {
+    const timer = setTimeout(() => {
+      navigate("/cashier/pos");
+    }, 5000);
+    return () => clearTimeout(timer);
+  }
+}, [isPaid, navigate]);
 
   const grandTotal = Number(invoice.total ?? 0).toFixed(2);
   const subtotal = Number(invoice.subtotal ?? 0).toFixed(2);
@@ -53,10 +56,47 @@ const InvoicePreview = () => {
     printReceipt(invoice);
   };
 
-  const handlePay = () => {
-    setIsPaid(true);
+const handlePay = async () => {
+  if (isSubmitting || isPaid) return;
+  
+  setIsSubmitting(true);
+  
+  const mappedMethod = String(invoice.paymentMethod).toLowerCase() === "cash" ? "cash" : "card"; 
+  const orderIdParsed = parseInt(String(invoice.orderId).replace(/[^0-9]/g, ""), 10) || 1;
+  const paymentPayload = {
+    pay_method: mappedMethod,
+    pay_status: "paid", 
+    pay_date: new Date().toISOString().split('T')[0], 
+    pay_amount: Number(invoice.total), 
+    or_id: orderIdParsed, 
   };
 
+  try {
+    const response = await fetch("/api/payments", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token && { "Authorization": `Bearer ${token}` }),
+      },
+      body: JSON.stringify(paymentPayload),
+    });
+
+    const result = await response.json();
+
+    if (response.ok && result.success) {
+      setIsPaid(true);
+    } else {
+      alert(`Payment Failed: ${result.message}\n${
+        result.errors ? result.errors.map(e => `- ${e.field}: ${e.message}`).join('\n') : ''
+      }`);
+    }
+  } catch (error) {
+    console.error("Payment Submission Error:", error);
+    alert("Network or Server error occurred.");
+  } finally {
+    setIsSubmitting(false);
+  }
+};
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_35%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.16),transparent_32%),linear-gradient(135deg,#eff6ff_0%,#f8fafc_45%,#edfdf3_100%)] px-3 py-3 text-slate-900 sm:px-4 sm:py-4">
       <div className="pointer-events-none absolute -left-22.5 -top-22.5 h-56 w-56 rounded-full bg-sky-300/25 blur-3xl" />
@@ -173,10 +213,10 @@ const InvoicePreview = () => {
             <button
               type="button"
               onClick={handlePay}
-              disabled={isPaid}
+              disabled={isPaid || isSubmitting}
               className="inline-flex items-center justify-center rounded-xl bg-[#55C24A] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#49b03f] disabled:cursor-default disabled:opacity-70 sm:text-sm"
             >
-              {isPaid ? "PAID" : "PAY NOW"}
+              {isPaid ? "PAID" : isSubmitting ? "PROCESSING..." : "PAY NOW"}
             </button>
           </section>
 

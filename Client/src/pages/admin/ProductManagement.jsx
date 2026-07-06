@@ -7,12 +7,13 @@ import {
   FaChevronDown,
   FaExclamationTriangle,
   FaSearch,
+  FaTrash,
 } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-import { getProducts, updateProduct } from "../../services/api";
+import { getProducts, updateProduct, deleteProduct, deleteBranchProduct, getBranches } from "../../services/api";
 import { 
   connectSocket, 
   getSocket, 
@@ -117,6 +118,15 @@ const ProductManagement = () => {
   const itemsPerPage = 4;
   const [userCompanyId, setUserCompanyId] = useState(null);
   const isSubscribedRef = useRef(false);
+  
+  // Delete modal states
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteTargetName, setDeleteTargetName] = useState("");
+  const [deleteOption, setDeleteOption] = useState("complete");
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // State for real-time notifications - stored as an array in sessionStorage
   const [notifications, setNotifications] = useState(() => {
@@ -309,9 +319,13 @@ const ProductManagement = () => {
       try {
         setLoading(true);
         setError("");
-        const response = await getProducts();
+        const [response, branchList] = await Promise.all([
+          getProducts(),
+          getBranches(),
+        ]);
         if (!isMounted) return;
         setProducts(Array.isArray(response) ? response : []);
+        setBranches(Array.isArray(branchList) ? branchList : []);
       } catch (err) {
         if (!isMounted) return;
         setError(err?.response?.data?.message || "Failed to load products");
@@ -413,7 +427,66 @@ const ProductManagement = () => {
   };
 
   const handleDeleteProduct = (productId) => {
-    navigate(`/admin/products/${productId}/delete`);
+    const product = products.find(p => p.pro_id === productId);
+    if (product) {
+      setDeleteTargetId(productId);
+      setDeleteTargetName(product.pro_name || "Product");
+      setShowDeletePopup(true);
+      setDeleteOption("complete");
+      setSelectedBranchId("");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
+    
+    try {
+      setIsDeleting(true);
+      setError("");
+      
+      if (deleteOption === "complete") {
+        await deleteProduct(deleteTargetId);
+      } else if (deleteOption === "branch" && selectedBranchId) {
+        await deleteBranchProduct(deleteTargetId, selectedBranchId);
+      } else {
+        setError("Please select a branch for branch deletion");
+        setIsDeleting(false);
+        return;
+      }
+
+      // Remove from local state
+      setProducts(prev => prev.filter(p => p.pro_id !== deleteTargetId));
+      
+      // Show success notification
+      setNotifications(prev => [...prev, {
+        id: Date.now() + Math.random(),
+        type: 'delete',
+        message: `🗑️ Product "${deleteTargetName}" deleted successfully`,
+        timestamp: new Date().toISOString(),
+        productName: deleteTargetName
+      }]);
+      
+      // Close popup
+      setShowDeletePopup(false);
+      setDeleteTargetId(null);
+      setDeleteTargetName("");
+      setSelectedBranchId("");
+      setDeleteOption("complete");
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to delete product");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const closeDeletePopup = () => {
+    if (isDeleting) return;
+    setShowDeletePopup(false);
+    setDeleteTargetId(null);
+    setDeleteTargetName("");
+    setSelectedBranchId("");
+    setDeleteOption("complete");
+    setError("");
   };
 
   const dismissNotification = (notificationId) => {
@@ -701,12 +774,10 @@ const ProductManagement = () => {
 
           <ProductItemsTable
             products={paginatedProducts}
-            onDecreaseStock={(id) => handleAdjustStock(id, -1)}
-            onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+            hideStockColumn={true}
             onViewProduct={handleViewProduct}
             onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}
-            updatingStockId={updatingStockId}
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={tableProducts.length}
@@ -716,6 +787,167 @@ const ProductManagement = () => {
           />
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeletePopup && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          }}
+          onClick={closeDeletePopup}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "480px",
+              width: "90%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+              <div
+                style={{
+                  background: "#FEE2E2",
+                  borderRadius: "50%",
+                  width: "48px",
+                  height: "48px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <FaTrash color="#DC2626" size={20} />
+              </div>
+              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#111827" }}>
+                Delete Product
+              </h2>
+            </div>
+
+            <p style={{ margin: "0 0 20px 0", color: "#4B5563", fontSize: "15px", lineHeight: "1.6" }}>
+              Are you sure you want to delete <strong>"{deleteTargetName}"</strong>?
+            </p>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "14px", color: "#374151" }}>
+                Delete Option
+              </label>
+              <div style={{ display: "flex", gap: "12px", flexDirection: "column" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    value="complete"
+                    checked={deleteOption === "complete"}
+                    onChange={(e) => setDeleteOption(e.target.value)}
+                  />
+                  <span>Complete Deletion (from all branches)</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    value="branch"
+                    checked={deleteOption === "branch"}
+                    onChange={(e) => setDeleteOption(e.target.value)}
+                  />
+                  <span>Delete from specific branch only</span>
+                </label>
+              </div>
+            </div>
+
+            {deleteOption === "branch" && (
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "14px", color: "#374151" }}>
+                  Select Branch
+                </label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: "42px",
+                    borderRadius: "8px",
+                    border: "1px solid #D1D5DB",
+                    padding: "0 12px",
+                    fontSize: "14px",
+                    outline: "none",
+                    background: "white",
+                  }}
+                >
+                  <option value="">Select a branch...</option>
+                  {branches.map((branch) => (
+                    <option key={branch.branch_id} value={branch.branch_id}>
+                      {branch.branch_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {error && (
+              <div style={{ 
+                background: "#FEE2E2", 
+                color: "#991B1B", 
+                padding: "10px 12px", 
+                borderRadius: "8px",
+                marginBottom: "16px",
+                fontSize: "14px"
+              }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={closeDeletePopup}
+                disabled={isDeleting}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: "8px",
+                  border: "1px solid #D1D5DB",
+                  background: "white",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: isDeleting ? "not-allowed" : "pointer",
+                  opacity: isDeleting ? 0.6 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting || (deleteOption === "branch" && !selectedBranchId)}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "#DC2626",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: (isDeleting || (deleteOption === "branch" && !selectedBranchId)) ? "not-allowed" : "pointer",
+                  opacity: (isDeleting || (deleteOption === "branch" && !selectedBranchId)) ? 0.6 : 1,
+                }}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes slideInRight {

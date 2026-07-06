@@ -5,16 +5,13 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
     rm_name: material.rm_name,
     unit: material.unit,
     record_level: material.record_level,
-    stock_qty: material.stock_qty, // Added stock_qty to initial state
+    stock_qty: material.stock_qty, 
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState(null);
 
-  // --- OPTIMIZED DELETE CLICK HANDLER ---
   const handleDeleteInitialClick = () => {
-    // Instant Frontend Check: 
-    // If stock is > 0, show the error immediately without calling the API
     if (parseFloat(material.stock_qty) > 0) {
       setDeleteError(`Cannot delete raw material while it still has stock. Set stock to 0 first.`);
       return;
@@ -66,23 +63,39 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
 
   const confirmDelete = async () => {
     try {
-      const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
-        method: 'DELETE',
-      });
+      const token =
+        localStorage.getItem("token") ||
+        localStorage.getItem("authToken");
 
-      if (response.ok) {
-        onSuccess();
-        onClose();
-      } else {
-        const error = await response.json();
-        setDeleteError(error.message || "Cannot delete this item.");
-        setShowDeleteConfirm(false);
-      }
-    } catch (err) {
-      setDeleteError("A network error occurred.");
+      const response = await fetch(
+        `/api/raw-materials/${material.rm_id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+
+    if (response.ok) {
+      onSuccess();
+    setMaterials((prev) =>
+        prev.filter(
+          (item) => item.rm_id !== material.rm_id
+        )
+      );
+
+      onClose();
+      return;
     }
-  };
 
+    const error = await response.json();
+    setDeleteError(error.message);
+  } catch (err) {
+    setDeleteError("Network error");
+  }
+};
   return (
     <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 transition-all">
       <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/20 relative overflow-hidden">
@@ -124,26 +137,36 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Stock Quantity</label>
               <input 
-                type="number"
-                step="0.001"
-                className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-                value={formData.stock_qty}
-                onChange={(e) => setFormData({...formData, stock_qty: e.target.value})}
-                required
-              />
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.stock_qty}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val < 0) return;
+                    setFormData({...formData, stock_qty: val});
+                  }}
+                  required
+/>
             </div>
           </div>
 
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Reorder Level</label>
             <input 
-              type="number"
-              step="0.001"
-              className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-              value={formData.record_level}
-              onChange={(e) => setFormData({...formData, record_level: e.target.value})}
-              required
-            />
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+                  value={formData.record_level}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val < 0) return;
+                    setFormData({...formData, record_level: val});
+                  }}
+                  required
+/>
           </div>
 
           <div className="pt-4 flex flex-col gap-3">

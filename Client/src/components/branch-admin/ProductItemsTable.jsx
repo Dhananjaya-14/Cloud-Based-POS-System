@@ -16,6 +16,7 @@ const ProductItemsTable = ({
   onEditProduct,
   onDeleteProduct,
   showActions = true,
+  hideStockColumn = false,
   currentPage = 1,
   totalPages = 1,
   totalItems = 0,
@@ -27,6 +28,17 @@ const ProductItemsTable = ({
   const showPageNumbers = totalPages <= 4;
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
+
+  const headers = [
+    "IMAGE",
+    "PRODUCT NAME",
+    "CATEGORY",
+    "PRICE",
+    "DISCOUNT",
+    ...(hideStockColumn ? [] : ["STOCK QUANTITY"]),
+    "STATUS",
+    ...(shouldShowActions ? ["ACTION"] : []),
+  ];
 
   return (
     <>
@@ -44,16 +56,7 @@ const ProductItemsTable = ({
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={{ background: "#F8FAFC" }}>
             <tr>
-              {[
-                "IMAGE",
-                "PRODUCT NAME",
-                "CATEGORY",
-                "PRICE",
-                "DISCOUNT",
-                "STOCK QUANTITY",
-                "STATUS",
-                ...(shouldShowActions ? ["ACTION"] : []),
-              ].map((head) => (
+              {headers.map((head) => (
                 <th
                   key={head}
                   style={{
@@ -111,69 +114,73 @@ const ProductItemsTable = ({
                 <td style={{ padding: "10px 14px", color: "#6B7280", fontSize: "14px" }}>{item.category}</td>
                 <td style={{ padding: "10px 14px", color: "#6B7280", fontSize: "14px" }}>{item.price}</td>
                 <td style={{ padding: "10px 14px", color: "#6B7280", fontSize: "14px" }}>{item.discount}</td>
-                <td style={{ padding: "10px 14px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#111827" }}>
-                    <button
-                      type="button"
-                      onClick={() => onDecreaseStock?.(item.id)}
-                      disabled={updatingStockId === item.id}
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        borderRadius: "4px",
-                        border: "1px solid #D1D5DB",
-                        background: "#fff",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 0,
-                        lineHeight: 1,
-                        opacity: updatingStockId === item.id ? 0.6 : 1,
-                      }}
-                    >
-                      {updatingStockId === item.id ? (
-                        <FaSpinner
-                          size={10}
-                          color="#6B7280"
-                          style={{ display: "block", animation: "stockButtonSpin 0.8s linear infinite" }}
-                        />
-                      ) : (
-                        <FaMinus size={10} color="#6B7280" style={{ display: "block" }} />
-                      )}
-                    </button>
-                    <span style={{ width: "26px", textAlign: "center", fontSize: "14px" }}>{item.stock}</span>
-                    <button
-                      type="button"
-                      onClick={() => onIncreaseStock?.(item.id)}
-                      disabled={updatingStockId === item.id}
-                      style={{
-                        width: "20px",
-                        height: "20px",
-                        borderRadius: "4px",
-                        border: "1px solid #D1D5DB",
-                        background: "#fff",
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        padding: 0,
-                        lineHeight: 1,
-                        opacity: updatingStockId === item.id ? 0.6 : 1,
-                      }}
-                    >
-                      {updatingStockId === item.id ? (
-                        <FaSpinner
-                          size={10}
-                          color="#6B7280"
-                          style={{ display: "block", animation: "stockButtonSpin 0.8s linear infinite" }}
-                        />
-                      ) : (
-                        <FaPlus size={10} color="#6B7280" style={{ display: "block" }} />
-                      )}
-                    </button>
-                  </div>
-                </td>
+
+                {!hideStockColumn && (
+                  <td style={{ padding: "10px 14px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", color: "#111827" }}>
+                      <button
+                        type="button"
+                        onClick={() => onDecreaseStock?.(item.id)}
+                        disabled={updatingStockId === item.id}
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "4px",
+                          border: "1px solid #D1D5DB",
+                          background: "#fff",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 0,
+                          lineHeight: 1,
+                          opacity: updatingStockId === item.id ? 0.6 : 1,
+                        }}
+                      >
+                        {updatingStockId === item.id ? (
+                          <FaSpinner
+                            size={10}
+                            color="#6B7280"
+                            style={{ display: "block", animation: "stockButtonSpin 0.8s linear infinite" }}
+                          />
+                        ) : (
+                          <FaMinus size={10} color="#6B7280" style={{ display: "block" }} />
+                        )}
+                      </button>
+                      <span style={{ width: "26px", textAlign: "center", fontSize: "14px" }}>{item.stock}</span>
+                      <button
+                        type="button"
+                        onClick={() => onIncreaseStock?.(item.id)}
+                        disabled={updatingStockId === item.id}
+                        style={{
+                          width: "20px",
+                          height: "20px",
+                          borderRadius: "4px",
+                          border: "1px solid #D1D5DB",
+                          background: "#fff",
+                          cursor: "pointer",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: 0,
+                          lineHeight: 1,
+                          opacity: updatingStockId === item.id ? 0.6 : 1,
+                        }}
+                      >
+                        {updatingStockId === item.id ? (
+                          <FaSpinner
+                            size={10}
+                            color="#6B7280"
+                            style={{ display: "block", animation: "stockButtonSpin 0.8s linear infinite" }}
+                          />
+                        ) : (
+                          <FaPlus size={10} color="#6B7280" style={{ display: "block" }} />
+                        )}
+                      </button>
+                    </div>
+                  </td>
+                )}
+
                 <td style={{ padding: "10px 14px" }}>
                   <span
                     style={{
@@ -188,44 +195,49 @@ const ProductItemsTable = ({
                     {item.status}
                   </span>
                 </td>
+
                 {shouldShowActions && (
                   <td style={{ padding: "10px 14px" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <button
-                        type="button"
-                        onClick={() => onEditProduct?.(item.id)}
-                        style={{
-                          width: "24px",
-                          height: "24px",
-                          borderRadius: "7px",
-                          border: "none",
-                          background: "#F1F3F6",
-                          cursor: "pointer",
-                          display: "grid",
-                          placeItems: "center",
-                          padding: 0,
-                        }}
-                      >
-                        <FaEdit color="#8A94A6" size={10} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDeleteProduct?.(item.id)}
-                        style={{
-                          width: "24px",
-                          height: "24px",
-                          borderRadius: "7px",
-                          border: "none",
-                          background: "#FFE7E7",
-                          cursor: "pointer",
-                          display: "grid",
-                          placeItems: "center",
-                          padding: 0,
-                        }}
-                        title="Delete product"
-                      >
-                        <FaTrashAlt color="#FF6A6A" size={10} />
-                      </button>
+                      {onEditProduct && (
+                        <button
+                          type="button"
+                          onClick={() => onEditProduct?.(item.id)}
+                          style={{
+                            width: "24px",
+                            height: "24px",
+                            borderRadius: "7px",
+                            border: "none",
+                            background: "#F1F3F6",
+                            cursor: "pointer",
+                            display: "grid",
+                            placeItems: "center",
+                            padding: 0,
+                          }}
+                        >
+                          <FaEdit color="#8A94A6" size={10} />
+                        </button>
+                      )}
+                      {onDeleteProduct && (
+                        <button
+                          type="button"
+                          onClick={() => onDeleteProduct?.(item.id)}
+                          style={{
+                            width: "24px",
+                            height: "24px",
+                            borderRadius: "7px",
+                            border: "none",
+                            background: "#FFE7E7",
+                            cursor: "pointer",
+                            display: "grid",
+                            placeItems: "center",
+                            padding: 0,
+                          }}
+                          title="Delete product"
+                        >
+                          <FaTrashAlt color="#FF6A6A" size={10} />
+                        </button>
+                      )}
                     </div>
                   </td>
                 )}

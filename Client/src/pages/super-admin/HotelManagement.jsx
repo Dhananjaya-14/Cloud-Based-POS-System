@@ -7,6 +7,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^07[0-9]{8}$/;
 
 const StatusBadge = ({ status }) => {
   const statusStr = String(status || "").toLowerCase();
@@ -44,6 +46,8 @@ const HotelManagement = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [togglingId, setTogglingId] = useState(null);
   const { toasts, removeToast, toast } = useToast();
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [formData, setFormData] = useState({
     id: null,
     name: "",
@@ -142,11 +146,45 @@ const HotelManagement = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name) {
-      setModalError("Please fill in company name.");
-      return;
-    }
-    
+    setEmailError("");
+    setPhoneError("");
+
+   if (!formData.name.trim()) {
+  setModalError("Please fill in company name.");
+  return;
+}
+
+if (!formData.location.trim()) {
+  setModalError("Please fill in company location.");
+  return;
+}
+
+if (!formData.email.trim()) {
+  setEmailError("Please enter a contact email address.");
+  return;
+}
+
+if (!EMAIL_RE.test(formData.email.trim())) {
+  setEmailError("Please enter a valid email address (e.g. name@example.com).");
+  return;
+}
+
+if (!formData.phone.trim()) {
+  setPhoneError("Please enter a phone number.");
+  return;
+}
+
+if (!PHONE_RE.test(formData.phone.trim())) {
+  setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
+  return;
+}
+const today = new Date().toISOString().slice(0, 10);
+if (modalMode === "add" && formData.date < today) {
+  setModalError("Registered date cannot be in the past.");
+  return;
+}
+setIsSaving(true);
+
     setIsSaving(true);
     setModalError("");
     try {
@@ -507,15 +545,35 @@ const HotelManagement = () => {
               </div>
               <div>
                 <label style={labelStyle}>Contact Email</label>
-                <input type="email" placeholder="Enter email" style={inputStyle} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input
+                  type="email"
+                  placeholder="Enter email"
+                  style={{ ...inputStyle, borderColor: emailError ? "#EF4444" : "#D1D5DB" }}
+                  value={formData.email}
+                  onChange={e => { setFormData({...formData, email: e.target.value}); setEmailError(""); }}
+                />
+                {emailError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{emailError}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Phone Number</label>
-                <input type="text" placeholder="Enter phone number" style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                <input
+                  type="text"
+                  placeholder="07XXXXXXXX"
+                  maxLength={10}
+                  style={{ ...inputStyle, borderColor: phoneError ? "#EF4444" : "#D1D5DB" }}
+                  value={formData.phone}
+                  onChange={e => {
+                    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+                    setFormData({...formData, phone: digitsOnly});
+                    setPhoneError("");
+                  }}
+                />
+                {phoneError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{phoneError}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Registered Date</label>
-                <input type="date" style={inputStyle} value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                <input type="date" style={inputStyle} value={formData.date}  min={new Date().toISOString().slice(0, 10)} 
+                onChange={e => setFormData({...formData, date: e.target.value})} />
               </div>
               <div>
                 <label style={labelStyle}>Status</label>

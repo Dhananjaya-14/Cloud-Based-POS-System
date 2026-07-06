@@ -270,8 +270,9 @@ export const updateProduct = async (productId, payload) => {
   return response.data;
 };
 
-export const deleteProduct = async (productId) => {
-  await api.delete(`/products/${productId}`);
+export const deleteProduct = async (productId, branchId = null) => {
+  const params = branchId ? { branch_id: branchId } : {};
+  await api.delete(`/products/${productId}`, { params });
 };
 
 export const getUserById = async (userId) => {
@@ -445,6 +446,16 @@ export const getRawMaterialConsumptionReport=async (payload)=>{
   return response.data;
 }
 
+//Cashier sales details report
+export const getSalesDetailsReport=async (payload)=>{
+  const response=await api.post("/reports/salesdetails",payload);
+  return response.data;
+}
+
+export const getBranchWiseSalesReport=async (payload)=>{
+  const response=await api.post("/reports/branchsales",payload);
+  return response.data;
+}
 
 
 

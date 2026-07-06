@@ -39,6 +39,7 @@ import SalesSummaryReport from './pages/branch-admin/SalesSummaryReport';
 import ProductSalesReport from './pages/branch-admin/ProductSalesReport';
 import RawMaterialStockReport from './pages/branch-admin/RawMaterialStockReport';
 import RawMaterialConsumptionReport from './pages/branch-admin/RawMaterialConsumptionReport';
+import SalesDetailsReport from './pages/cashier/SalesDetailsReport';
 
 const BranchProfileRouter = () => {
   const { user } = useAuth();
@@ -59,6 +60,8 @@ import KitchenManagement from './pages/kitchen/KitchenManagement';
 import RecipeMapper from './pages/branch-admin/RecipeMapper';
 import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
 import WaiterPos from './pages/waiter/WaiterPos';
+import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
+
 
 function App() {
   return (
@@ -471,31 +474,63 @@ function App() {
             path="/branch-admin/promotions"
           element={
             <ProtectedRoute allowedRoles={[1 , 2, 6]}>
-                    <Promotions />
-                    </ProtectedRoute>
-  }
-/>
+                <Promotions />
+            </ProtectedRoute>
+          }
+        />
 
       <Route path="*" element={<Navigate to="/" />} />
+     
       <Route
         path="/branch-admin/summary-sales"
-        element={<SalesSummaryReport/>}
-      />
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <SalesSummaryReport/>
+          </ProtectedRoute>
+          }
+        />
 
       <Route
         path="/branch-admin/summary-productsales"
-        element={<ProductSalesReport/>}
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <ProductSalesReport/>
+          </ProtectedRoute>}
       />
 
       <Route
         path="/branch-admin/raw-material-stock"
-        element={<RawMaterialStockReport/>}
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <RawMaterialStockReport/>
+          </ProtectedRoute>}
       />
 
       <Route
         path="/branch-admin/raw-material-consumption"
-        element={<RawMaterialConsumptionReport/>}
+        element={
+          <ProtectedRoute allowedRoles={[1]}>
+            <RawMaterialConsumptionReport/>
+          </ProtectedRoute>}
       />
+
+      <Route
+        path="/cashier/sales-summary"
+        element={
+        <ProtectedRoute allowedRoles={[3]}>
+            <SalesDetailsReport/>
+        </ProtectedRoute>}       
+
+      />
+
+      <Route
+        path="/admin/sales-details"
+        element={
+         <ProtectedRoute allowedRoles={[2]}>
+             <BranchWiseSalesReport/>
+        </ProtectedRoute>}
+      />
+
 
     </Routes>
   );

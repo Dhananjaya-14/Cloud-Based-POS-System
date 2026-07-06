@@ -393,6 +393,29 @@ const KitchenManagement = () => {
 						{renderOrderItems(order.or_id)}
 					</div>
 
+					{(order.or_notes || order.or_addons || order.or_allergies) && (
+						<div className="flex flex-col gap-1 mt-1 p-2.5 rounded-xl bg-amber-50/50 border border-amber-100/50">
+							{order.or_allergies && (
+								<div className="text-xs text-rose-600 font-medium">
+									<span className="uppercase text-[10px] bg-rose-100 px-1.5 py-0.5 rounded mr-1.5 font-bold">Allergies</span>
+									{order.or_allergies}
+								</div>
+							)}
+							{order.or_addons && (
+								<div className="text-xs text-sky-700 font-medium mt-1">
+									<span className="uppercase text-[10px] bg-sky-100 px-1.5 py-0.5 rounded mr-1.5 font-bold">Add-ons</span>
+									{order.or_addons}
+								</div>
+							)}
+							{order.or_notes && (
+								<div className="text-xs text-amber-800 font-medium mt-1">
+									<span className="uppercase text-[10px] bg-amber-200 px-1.5 py-0.5 rounded mr-1.5 font-bold">Note</span>
+									{order.or_notes}
+								</div>
+							)}
+						</div>
+					)}
+
 					<div className="flex flex-wrap items-center gap-2">
 						{isPending && (
 							<>

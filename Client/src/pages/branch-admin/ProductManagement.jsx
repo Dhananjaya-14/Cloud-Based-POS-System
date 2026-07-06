@@ -13,6 +13,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
+<<<<<<< HEAD
 import { getBranchProducts, updateBranchProduct } from "../../services/api";
 import { 
   getSocket, 
@@ -22,6 +23,9 @@ import {
   leaveBranchInventoryRoom,
   joinCompanyRoom,
 } from "../../services/socket";
+=======
+import { getBranchProducts, updateBranchProduct, deleteBranchProduct } from "../../services/api";
+>>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -75,10 +79,17 @@ const statValueStyle = {
   textAlign: "center",
 };
 
+<<<<<<< HEAD
 const getStockStatus = (quantity) => {
   if (quantity <= 0) return "Out of stock";
   if (quantity <= 10) return "Low stock";
   return "In stock";
+=======
+const getStockStatus = (quantity, lowStockLimit = 10) => {
+	if (quantity <= 0) return "Out of stock";
+	if (quantity <= lowStockLimit) return "Low stock";
+	return "In stock";
+>>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
 };
 
 const resolveProductImage = (value) => {
@@ -91,6 +102,7 @@ const resolveProductImage = (value) => {
 };
 
 const mapApiProductToTableItem = (product) => {
+<<<<<<< HEAD
   const quantity = Number(product.pro_quantity ?? 0);
   const price = Number(product.pro_price ?? 0);
   const imageUrl = resolveProductImage(product.pro_image);
@@ -123,6 +135,41 @@ const BranchProductManagement = () => {
   const branchId = user?.b_id;
   const companyId = user?.com_id;
   const isSubscribedRef = useRef(false);
+=======
+	const quantity = Number(product.pro_quantity ?? 0);
+	const lowStockLimit = Number(product.low_stock_limit ?? 10);
+	const price = Number(product.pro_price ?? 0);
+	const imageUrl = resolveProductImage(product.pro_image);
+
+	return {
+		id: product.Bpro_id,
+		imageUrl,
+		imageAlt: product.pro_name || "Product",
+		name: product.pro_name,
+		sku: `SKU: BPRD-${String(product.Bpro_id).padStart(3, "0")}`,
+		category: product.cat_name || "General",
+		price: `$${price.toFixed(2)}`,
+		discount: "0%",
+		stock: quantity,
+		status: getStockStatus(quantity, lowStockLimit),
+	};
+};
+
+const ProductManagement = () => {
+	const navigate = useNavigate();
+	const { user } = useAuth();
+	const [searchTerm, setSearchTerm] = useState("");
+	const [products, setProducts] = useState([]);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState("");
+	const [updatingStockId, setUpdatingStockId] = useState(null);
+	const [currentPage, setCurrentPage] = useState(1);
+	const itemsPerPage = 4;
+	const [deleteTargetId, setDeleteTargetId] = useState(null);
+	const [deleteTargetName, setDeleteTargetName] = useState("");
+	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+	const [isDeleting, setIsDeleting] = useState(false);
+>>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
 
   // State for real-time notifications
   const [notifications, setNotifications] = useState(() => {
@@ -351,6 +398,7 @@ const BranchProductManagement = () => {
     const mapped = products.map(mapApiProductToTableItem);
     const query = searchTerm.trim().toLowerCase();
 
+<<<<<<< HEAD
     if (!query) return mapped;
 
     return mapped.filter((item) => {
@@ -361,6 +409,50 @@ const BranchProductManagement = () => {
       );
     });
   }, [products, searchTerm]);
+=======
+			setProducts((prev) =>
+				prev.map((item) =>
+					item.Bpro_id === productId
+						? {
+							...item,
+							...updated,
+							pro_quantity: Number(updated?.pro_quantity ?? nextQty),
+						}
+						: item
+				)
+			);
+		} catch (err) {
+			setError(err?.response?.data?.message || "Failed to update stock quantity");
+		} finally {
+			setUpdatingStockId(null);
+		}
+	};
+			const handleDeleteClick = (productId) => {
+			const product = products.find((item) => item.Bpro_id === productId);
+			setDeleteTargetId(productId);
+			setDeleteTargetName(product?.pro_name || "this product");
+			setShowDeleteConfirm(true);
+			};
+
+			const handleConfirmDelete = async () => {
+			if (!deleteTargetId) return;
+			try {
+				setIsDeleting(true);
+				await deleteBranchProduct(deleteTargetId);
+				setProducts((prev) => prev.filter((item) => item.Bpro_id !== deleteTargetId));
+				setShowDeleteConfirm(false);
+				setDeleteTargetId(null);
+				setDeleteTargetName("");
+			} catch (err) {
+				setError(err?.response?.data?.message || "Failed to delete product");
+			} finally {
+				setIsDeleting(false);
+			}
+			};
+	return (
+		<div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
+			<Sidebar />
+>>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
 
   const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
 
@@ -404,6 +496,7 @@ const BranchProductManagement = () => {
       setError("");
       const updated = await updateBranchProduct(productId, { pro_quantity: nextQty });
 
+<<<<<<< HEAD
       setProducts((prev) =>
         prev.map((item) =>
           item.Bpro_id === productId
@@ -727,6 +820,137 @@ const BranchProductManagement = () => {
           border-radius: 10px;
         }
       `}</style>
+=======
+				<ProductItemsTable
+		products={paginatedProducts}
+		onDecreaseStock={(id) => handleAdjustStock(id, -1)}
+		onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+		updatingStockId={updatingStockId}
+		showActions={true}
+		onDeleteProduct={handleDeleteClick}
+		onEditProduct={null}
+		currentPage={currentPage}
+		totalPages={totalPages}
+		totalItems={tableProducts.length}
+		pageStart={pageStart}
+		pageEnd={pageEnd}
+		onPageChange={setCurrentPage}
+		/>
+				</div>
+			</div>
+
+      {showDeleteConfirm && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+        }}>
+          <div style={{
+            width: "min(92vw, 430px)",
+            background: "#EBEBEB",
+            borderRadius: "22px",
+            padding: "32px 20px",
+            textAlign: "center",
+          }}>
+            <div style={{
+              width: "62px",
+              height: "62px",
+              borderRadius: "50%",
+              background: "#EF4444",
+              margin: "0 auto 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}>
+              <span style={{ color: "#fff", fontSize: "28px" }}>🗑️</span>
+            </div>
+
+            <h2 style={{
+              margin: "0 0 8px",
+              fontSize: "18px",
+              fontWeight: "700",
+              color: "#111",
+            }}>
+              Remove Product?
+            </h2>
+
+            <p style={{
+              margin: "0 0 8px",
+              fontSize: "14px",
+              color: "#555",
+            }}>
+              Are you sure you want to remove
+            </p>
+
+            <p style={{
+              margin: "0 0 8px",
+              fontSize: "16px",
+              fontWeight: "700",
+              color: "#111",
+            }}>
+              "{deleteTargetName}"
+            </p>
+
+            <p style={{
+              margin: "0 0 24px",
+              fontSize: "13px",
+              color: "#888",
+            }}>
+              This will remove the product from
+              your branch only. It will still
+              exist in the admin panel and
+              other branches.
+            </p>
+
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeleteTargetId(null);
+                  setDeleteTargetName("");
+                }}
+                disabled={isDeleting}
+                style={{
+                  flex: 1,
+                  height: "48px",
+                  border: "1px solid #ddd",
+                  borderRadius: "12px",
+                  background: "#fff",
+                  color: "#333",
+                  fontSize: "15px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                style={{
+                  flex: 1,
+                  height: "48px",
+                  border: "none",
+                  borderRadius: "12px",
+                  background: "#EF4444",
+                  color: "#fff",
+                  fontSize: "15px",
+                  fontWeight: "700",
+                  cursor: isDeleting ? "not-allowed" : "pointer",
+                  opacity: isDeleting ? 0.7 : 1,
+                }}
+              >
+                {isDeleting ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+>>>>>>> 9fbd0c36163ffb1ad97058931818c2b962a5a4ad
     </div>
   );
 };

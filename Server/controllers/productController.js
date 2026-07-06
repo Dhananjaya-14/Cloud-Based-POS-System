@@ -83,19 +83,18 @@ export async function getProductById(req, res, next) {
 //create product
 export async function createProduct(req, res, next) {
   try {
-    const { pro_name, pro_qty, pro_price, pro_image, cat_id, add_ons, stations } = req.body;
-    const com_id = normalizeComId(req.body);
+          const { pro_name, pro_price, pro_image, cat_id, add_ons, stations } = req.body;
+      const com_id = normalizeComId(req.body);
 
-    if (
-      !pro_name ||
-      pro_qty === undefined ||
-      pro_price === undefined ||
-      !pro_image ||
-      com_id === undefined
-    ) {
-      res.status(400);
-      throw new Error("pro_name, pro_qty, pro_price, pro_image and com_id are required");
-    }
+      if (
+        !pro_name ||
+        pro_price === undefined ||
+        !pro_image ||
+        com_id === undefined
+      ) {
+        res.status(400);
+        throw new Error("pro_name, pro_price, pro_image and com_id are required");
+      }
 
     if (typeof pro_name !== "string" || pro_name.trim().length === 0) {
       res.status(400);
@@ -105,11 +104,6 @@ export async function createProduct(req, res, next) {
     if (typeof pro_image !== "string" || pro_image.trim().length === 0) {
       res.status(400);
       throw new Error("pro_image must be a non-empty string");
-    }
-
-    if (!isNonNegativeNumber(pro_qty)) {
-      res.status(400);
-      throw new Error("pro_qty must be a non-negative number");
     }
 
     if (!isNonNegativeNumber(pro_price)) {
@@ -127,17 +121,17 @@ export async function createProduct(req, res, next) {
     const finalAddOns = add_ons ? JSON.stringify(add_ons) : '{"Cheese": true, "Bacon": true}';
     const finalStations = stations ? JSON.stringify(stations) : '{"Kitchen": true, "Bar": true}';
 
-    const insertQuery = resolvedCatId
-      ? `INSERT INTO "public"."Product" ("pro_name", "pro_qty", "pro_price", " pro_image", "Com_id", "cat_id", "add_ons", "stations")
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id", "add_ons", "stations"`
-      : `INSERT INTO "public"."Product" ("pro_name", "pro_qty", "pro_price", " pro_image", "Com_id", "add_ons", "stations")
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
-         RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "add_ons", "stations"`;
+   const insertQuery = resolvedCatId
+  ? `INSERT INTO "public"."Product" ("pro_name", "pro_price", " pro_image", "Com_id", "cat_id", "add_ons", "stations")
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     RETURNING "pro_id", "pro_name", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id", "add_ons", "stations"`
+  : `INSERT INTO "public"."Product" ("pro_name", "pro_price", " pro_image", "Com_id", "add_ons", "stations")
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING "pro_id", "pro_name", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "add_ons", "stations"`;
 
-    const insertParams = resolvedCatId
-      ? [pro_name, pro_qty, pro_price, pro_image, com_id, resolvedCatId, finalAddOns, finalStations]
-      : [pro_name, pro_qty, pro_price, pro_image, com_id, finalAddOns, finalStations];
+  const insertParams = resolvedCatId
+  ? [pro_name, pro_price, pro_image, com_id, resolvedCatId, finalAddOns, finalStations]
+  : [pro_name, pro_price, pro_image, com_id, finalAddOns, finalStations];
 
     const result = await pool.query(insertQuery, insertParams);
     const newProduct = result.rows[0];
@@ -219,7 +213,7 @@ export async function createProduct(req, res, next) {
 export async function updateProduct(req, res, next) {
   try {
     const { id } = req.params;
-    const { pro_name, pro_qty, pro_price, pro_image, cat_id, add_ons, stations } = req.body;
+    const { pro_name, pro_price, pro_image, cat_id, add_ons, stations } = req.body;
     const com_id = normalizeComId(req.body);
     if (!isPositiveInt(id)) {
       res.status(400);
@@ -234,11 +228,6 @@ export async function updateProduct(req, res, next) {
     if (pro_image !== undefined && (typeof pro_image !== "string" || pro_image.trim().length === 0)) {
       res.status(400);
       throw new Error("pro_image must be a non-empty string");
-    }
-
-    if (pro_qty !== undefined && !isNonNegativeNumber(pro_qty)) {
-      res.status(400);
-      throw new Error("pro_qty must be a non-negative number");
     }
 
     if (pro_price !== undefined && !isNonNegativeNumber(pro_price)) {
@@ -280,32 +269,30 @@ export async function updateProduct(req, res, next) {
     const finalAddOns = add_ons !== undefined ? (add_ons != null ? JSON.stringify(add_ons) : null) : undefined;
     const finalStations = stations !== undefined ? (stations != null ? JSON.stringify(stations) : null) : undefined;
 
-    const updateQuery = `
-      UPDATE "public"."Product"
-      SET
-        "pro_name" = COALESCE($1, "pro_name"),
-        "pro_qty" = COALESCE($2, "pro_qty"),
-        "pro_price" = COALESCE($3, "pro_price"),
-        " pro_image" = COALESCE($4, " pro_image"),
-        "Com_id" = COALESCE($5, "Com_id"),
-        "cat_id" = COALESCE($6, "cat_id"),
-        "add_ons" = COALESCE($7, "add_ons"),
-        "stations" = COALESCE($8, "stations")
-      WHERE "pro_id" = $9
-      RETURNING "pro_id", "pro_name", "pro_qty", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id", "add_ons", "stations"
-    `;
+      const updateQuery = `
+    UPDATE "public"."Product"
+    SET
+      "pro_name" = COALESCE($1, "pro_name"),
+      "pro_price" = COALESCE($2, "pro_price"),
+      " pro_image" = COALESCE($3, " pro_image"),
+      "Com_id" = COALESCE($4, "Com_id"),
+      "cat_id" = COALESCE($5, "cat_id"),
+      "add_ons" = COALESCE($6, "add_ons"),
+      "stations" = COALESCE($7, "stations")
+    WHERE "pro_id" = $8
+    RETURNING "pro_id", "pro_name", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id", "add_ons", "stations"
+  `;
 
-    const result = await pool.query(updateQuery, [
-      fieldOrNull(pro_name),
-      fieldOrNull(pro_qty),
-      fieldOrNull(pro_price),
-      fieldOrNull(pro_image),
-      fieldOrNull(com_id),
-      fieldOrNull(resolvedCatId),
-      fieldOrNull(finalAddOns),
-      fieldOrNull(finalStations),
-      id,
-    ]);
+  const result = await pool.query(updateQuery, [
+    fieldOrNull(pro_name),
+    fieldOrNull(pro_price),
+    fieldOrNull(pro_image),
+    fieldOrNull(com_id),
+    fieldOrNull(resolvedCatId),
+    fieldOrNull(finalAddOns),
+    fieldOrNull(finalStations),
+    id,
+  ]);
 
     const updatedProduct = result.rows[0];
     
@@ -359,35 +346,65 @@ export async function updateProduct(req, res, next) {
 }
 
 // DELETE /api/products/:id
-//delete product
+// Query param: ?branch_id=X → delete from one branch only
 export async function deleteProduct(req, res, next) {
   try {
     const { id } = req.params;
+    const { branch_id } = req.query;
+
     if (!isPositiveInt(id)) {
       res.status(400);
       throw new Error("Invalid product id");
     }
 
     const { role_id, com_id } = req.user;
-    
-    // First get the product to know which company to notify
+
+    // Get the product first
     let getQuery = 'SELECT "pro_id", "pro_name", "Com_id" FROM "public"."Product" WHERE "pro_id" = $1';
     let getParams = [id];
     if (role_id !== ROLES.SUPER_ADMIN) {
       getQuery += ' AND "Com_id" = $2';
       getParams.push(com_id);
     }
-    
+
     const productToDelete = await pool.query(getQuery, getParams);
     if (productToDelete.rows.length === 0) {
       res.status(404);
       throw new Error("Product not found");
     }
-    
+
     const deletedProduct = productToDelete.rows[0];
     const targetComId = deletedProduct.Com_id;
     const productName = deletedProduct.pro_name;
-    
+
+    // Case 1 → Delete from specific branch only
+    if (branch_id) {
+      if (!isPositiveInt(branch_id)) {
+        res.status(400);
+        throw new Error("Invalid branch_id");
+      }
+
+      const branchResult = await pool.query(
+        'DELETE FROM "public"."Branch_Product" WHERE "pro_id" = $1 AND "B_id" = $2 RETURNING "Bpro_id"',
+        [id, branch_id]
+      );
+
+      if (branchResult.rows.length === 0) {
+        res.status(404);
+        throw new Error("Product not found in this branch");
+      }
+
+      return res.status(204).send();
+    }
+
+    // Case 2 → Delete completely from system
+    // Step 1 → Delete from Branch_Product first
+    await pool.query(
+      'DELETE FROM "public"."Branch_Product" WHERE "pro_id" = $1',
+      [id]
+    );
+
+    // Step 2 → Delete from Product table
     let deleteQuery = 'DELETE FROM "public"."Product" WHERE "pro_id" = $1';
     let deleteParams = [id];
     if (role_id !== ROLES.SUPER_ADMIN) {
@@ -395,14 +412,15 @@ export async function deleteProduct(req, res, next) {
       deleteParams.push(com_id);
     }
     deleteQuery += ' RETURNING "pro_id"';
+
     const result = await pool.query(deleteQuery, deleteParams);
 
     if (result.rows.length === 0) {
       res.status(404);
       throw new Error("Product not found");
     }
-    
-    // Emit socket event for product deletion
+
+    // Emit socket event
     const io = getIO();
     if (io) {
       io.to(`company_${targetComId}`).emit(SOCKET_EVENTS.PRODUCT_DELETED, {
@@ -411,8 +429,6 @@ export async function deleteProduct(req, res, next) {
         company_id: targetComId,
         timestamp: new Date()
       });
-      
-      console.log(`Socket event emitted: Product ${productName} deleted from company ${targetComId}`);
     }
 
     res.status(204).send();
@@ -420,3 +436,5 @@ export async function deleteProduct(req, res, next) {
     next(err);
   }
 }
+    
+   

@@ -70,6 +70,7 @@ const CashierPos = () => {
   const [orderType, setOrderType] = useState("takeaway");
   const [allergies, setAllergies] = useState("");
   const [addons, setAddons] = useState("");
+  const [addonsPrice, setAddonsPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [discountPct, setDiscountPct] = useState(0);
   const [serviceFee, setServiceFee] = useState(0);
@@ -424,7 +425,7 @@ const CashierPos = () => {
   );
   const taxRate = 10;
   const discountAmount = subtotal * (Number(discountPct || 0) / 100);
-  const taxableBase = subtotal - discountAmount + Number(serviceFee || 0);
+  const taxableBase = subtotal - discountAmount + Number(serviceFee || 0) + Number(addonsPrice || 0);
   const tax = taxableBase * (taxRate / 100);
   const total = taxableBase + tax;
 
@@ -500,6 +501,10 @@ const CashierPos = () => {
           u_id: user.u_id,
           b_id: branchId,
           table_id: null,
+          or_notes: notes,
+          or_addons: addons,
+          or_addons_price: Number(addonsPrice || 0),
+          or_allergies: allergies,
         });
 
         // Fetch existing items to delete them
@@ -530,6 +535,10 @@ const CashierPos = () => {
           u_id: user.u_id,
           b_id: branchId,
           table_id: null,
+          or_notes: notes,
+          or_addons: addons,
+          or_addons_price: Number(addonsPrice || 0),
+          or_allergies: allergies,
         });
 
         orderId = orderResponse?.data?.or_id;
@@ -584,6 +593,7 @@ const CashierPos = () => {
           serviceFee: Number(serviceFee || 0),
           allergies,
           addons,
+          addonsPrice: Number(addonsPrice || 0),
           notes,
           tax: Number(tax.toFixed(2)),
           total: Number(total.toFixed(2)),
@@ -616,6 +626,9 @@ const CashierPos = () => {
       setCart(newCart);
       setOrderType(ao.or_type || "takeaway");
       setNotes(ao.or_notes || "");
+      setAddons(ao.or_addons || "");
+      setAddonsPrice(ao.or_addons_price || "");
+      setAllergies(ao.or_allergies || "");
       setEditingOrderId(ao.or_id);
       setShowWaiterOrdersModal(false);
     } catch (err) {
@@ -635,6 +648,7 @@ const CashierPos = () => {
       orderType,
       allergies,
       addons,
+      addonsPrice,
       notes,
       discountPct,
       serviceFee
@@ -647,6 +661,7 @@ const CashierPos = () => {
     setOrderType("takeaway");
     setAllergies("");
     setAddons("");
+    setAddonsPrice("");
     setNotes("");
     setDiscountPct(0);
     setServiceFee(0);
@@ -665,6 +680,7 @@ const CashierPos = () => {
     setOrderType(orderToResume.orderType);
     setAllergies(orderToResume.allergies || "");
     setAddons(orderToResume.addons || "");
+    setAddonsPrice(orderToResume.addonsPrice || "");
     setNotes(orderToResume.notes || "");
     setDiscountPct(orderToResume.discountPct || 0);
     setServiceFee(orderToResume.serviceFee || 0);
@@ -1045,14 +1061,24 @@ const CashierPos = () => {
                     className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
                   />
 
-                  <input
-                    aria-label="addons"
-                    type="text"
-                    value={addons}
-                    onChange={(e) => setAddons(e.target.value)}
-                    placeholder="Add Ons (e.g., Extra cheese)"
-                    className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      aria-label="addons"
+                      type="text"
+                      value={addons}
+                      onChange={(e) => setAddons(e.target.value)}
+                      placeholder="Add Ons (e.g., Extra cheese)"
+                      className="h-9 w-2/3 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
+                    />
+                    <input
+                      aria-label="addons price"
+                      type="number"
+                      value={addonsPrice}
+                      onChange={(e) => setAddonsPrice(e.target.value)}
+                      placeholder="Price"
+                      className="h-9 w-1/3 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
+                    />
+                  </div>
 
                   <input
                     aria-label="notes"

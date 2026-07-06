@@ -47,14 +47,11 @@ const AddProduct = () => {
   const { user } = useAuth();
   const [form, setForm] = useState({
     pro_name: "",
-    pro_qty: "",
     pro_price: "",
     pro_image: "",
     com_id: "",
     cat_id: "",
     add_ons: {
-      Cheese: true,
-      Bacon: true,
     },
     stations: {
       Kitchen: true,
@@ -147,14 +144,13 @@ const AddProduct = () => {
       setSubmitting(true);
       setError("");
 
-      if (!form.pro_name.trim() || form.pro_qty === "" || form.pro_price === "") {
-        setError("Product Name, Quantity, and Sales Price are required");
+      if (!form.pro_name.trim() || form.pro_price === "") {
+        setError("Product Name and Sales Price are required");
         return;
       }
 
       const payload = {
         pro_name: form.pro_name.trim(),
-        pro_qty: Number(form.pro_qty),
         pro_price: Number(form.pro_price),
         pro_image: form.pro_image.trim() || "N/A",
         com_id: Number(form.com_id || user?.com_id || 1),
@@ -170,12 +166,9 @@ const AddProduct = () => {
       setForm((prev) => ({
         ...prev,
         pro_name: "",
-        pro_qty: "",
         pro_price: "",
         pro_image: "",
         add_ons: {
-          Cheese: true,
-          Bacon: true,
         },
         stations: {
           Kitchen: true,
@@ -232,53 +225,40 @@ const AddProduct = () => {
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: "12px", marginBottom: "10px" }}>
-                  <div>
-                    <label style={labelStyle}>Category</label>
-                    <div style={{ position: "relative" }}>
-                      <select
-                        value={form.cat_id}
-                        onChange={handleChange("cat_id")}
-                        style={{
-                          ...inputStyle,
-                          appearance: "none",
-                          WebkitAppearance: "none",
-                          MozAppearance: "none",
-                          paddingRight: "30px",
-                        }}
-                      >
-                        {categories.length === 0 ? (
-                          <option value="">Loading...</option>
-                        ) : (
-                          categories.map((cat) => (
-                            <option key={cat.cat_id} value={cat.cat_id}>
-                              {cat.cat_name}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                      <FaChevronDown
-                        size={10}
-                        color="#475569"
-                        style={{
-                          position: "absolute",
-                          right: "14px",
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Quantity</label>
-                    <input
-                      type="number"
-                      min="0"
-                      style={inputStyle}
-                      value={form.pro_qty}
-                      onChange={handleChange("pro_qty")}
-                      placeholder="0"
+                <div style={{ marginBottom: "10px" }}>
+                  <label style={labelStyle}>Category</label>
+                  <div style={{ position: "relative" }}>
+                    <select
+                      value={form.cat_id}
+                      onChange={handleChange("cat_id")}
+                      style={{
+                        ...inputStyle,
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        paddingRight: "30px",
+                      }}
+                    >
+                      {categories.length === 0 ? (
+                        <option value="">Loading...</option>
+                      ) : (
+                        categories.map((cat) => (
+                          <option key={cat.cat_id} value={cat.cat_id}>
+                            {cat.cat_name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <FaChevronDown
+                      size={10}
+                      color="#475569"
+                      style={{
+                        position: "absolute",
+                        right: "14px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                      }}
                     />
                   </div>
                 </div>
@@ -390,7 +370,7 @@ const AddProduct = () => {
             <div>
               <h2 style={{ ...sectionTitleStyle, fontSize: "30px", marginBottom: "10px" }}>Modifiers</h2>
 
-              <div style={{ ...cardStyle, minHeight: "386px", display: "flex", flexDirection: "column", padding: "12px" }}>
+              <div style={{ ...cardStyle, minHeight: "100px", display: "flex", flexDirection: "column", padding: "12px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
                   <div
                     style={{
@@ -526,7 +506,8 @@ const AddProduct = () => {
                     </div>
                   </div>
                 </div>
-
+                
+                {/* Track Inventory Section - Added from the HEAD version */}
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                   <div style={{ fontSize: "16px", fontWeight: "700", lineHeight: 1 }}>Track Inventory</div>
                   <div
@@ -564,7 +545,7 @@ const AddProduct = () => {
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginTop: "100px", paddingRight: "2px", marginRight: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginTop: "24px", paddingRight: "2px", marginRight: "20px" }}>
                 <button
                   type="button"
                   onClick={() => navigate("/admin/products")}

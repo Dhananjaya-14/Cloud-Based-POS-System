@@ -10,6 +10,7 @@ import {
   FaSignOutAlt,
   FaBox,
   FaTag,
+  FaFileAlt,
 } from "react-icons/fa";
 
 const Sidebar = () => {
@@ -75,7 +76,7 @@ const Sidebar = () => {
           {menuItem(<FaChartBar />, "Statistics", "/admin/statistics")}
           {menuItem(<FaMoneyBill />, "Transactions", "/admin/transactions")}
           {menuItem(<FaTag />, "Promotions", "/admin/promotions")}
-          
+          {menuItem(<FaFileAlt/>,"Reports","/admin/sales-details")}
           
         </div>
       </div>

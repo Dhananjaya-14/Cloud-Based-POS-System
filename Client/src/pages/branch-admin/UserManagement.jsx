@@ -291,7 +291,7 @@ const UserManagement = () => {
     });
   }, [users, searchTerm, roleFilter, roleMap, branchMap, accessibleRoleIds]);
 
-  const visibleUsers = useMemo(() => filteredUsers.slice(0, 5), [filteredUsers]);
+  const visibleUsers = useMemo(() => filteredUsers, [filteredUsers]);
 
   const totalUsers = filteredUsers.length;
   const branchAdminCount = filteredUsers.filter((u) => !String(roleMap[String(u.role_id)] || "").toLowerCase().includes("cashier")).length;
@@ -601,7 +601,7 @@ const UserManagement = () => {
             ) : error ? (
               <p style={{ textAlign: "center", color: "#cf3e3e", margin: "22px 0" }}>{error}</p>
             ) : (
-              <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <thead>
                     <tr>
@@ -650,19 +650,28 @@ const UserManagement = () => {
                           <Td>{branchName}</Td>
 
                           <Td>
-                            <span
-                              style={{
-                                padding: "4px 10px",
-                                borderRadius: "999px",
-                                background: "#dff6e4",
-                                color: "#20a048",
-                                fontSize: "12px",
-                                fontWeight: 700,
-                              }}
-                            >
-                              Available
-                            </span>
-                          </Td>
+                                  <span
+                                    style={{
+                                      padding: "4px 10px",
+                                      borderRadius: "999px",
+                                      background: user.u_status === true || 
+                                                  String(user.u_status).toLowerCase() === "true" || 
+                                                  String(user.u_status).toLowerCase() === "active"
+                                                  ? "#dff6e4" : "#fee2e2",
+                                      color: user.u_status === true || 
+                                            String(user.u_status).toLowerCase() === "true" || 
+                                            String(user.u_status).toLowerCase() === "active"
+                                            ? "#20a048" : "#ef4444",
+                                      fontSize: "12px",
+                                      fontWeight: 700,
+                                    }}
+                                  >
+                                    {user.u_status === true || 
+                                    String(user.u_status).toLowerCase() === "true" || 
+                                    String(user.u_status).toLowerCase() === "active"
+                                    ? "Available" : "Inactive"}
+                                  </span>
+                                </Td>
 
                           <Td align="center">
                             <div style={{ display: "inline-flex", gap: "10px", justifyContent: "center" }}>

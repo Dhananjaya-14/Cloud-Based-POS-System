@@ -297,6 +297,7 @@ const AddProduct = () => {
         return {
           ...product,
           quantity: value.quantity,
+          lowStockLimit: value.lowStockLimit,
         };
       })
       .filter(Boolean);
@@ -317,6 +318,21 @@ const AddProduct = () => {
         ...prev,
         [key]: {
           quantity: 1,
+          lowStockLimit: 10,
+        },
+      };
+    });
+  };
+
+  const updateLowStockLimit = (productId, value) => {
+    setSelectedItems((prev) => {
+      const key = String(productId);
+      if (!prev[key]) return prev;
+      return {
+        ...prev,
+        [key]: {
+          ...prev[key],
+          lowStockLimit: value,
         },
       };
     });
@@ -373,6 +389,7 @@ const AddProduct = () => {
       }
 
       for (const item of selectedList) {
+        const itemState = selectedItems[String(item.pro_id)] || {};
         await createBranchProduct({
           pro_name: item.pro_name,
           pro_shortname: toShortName(item.pro_name),
@@ -383,6 +400,7 @@ const AddProduct = () => {
           cat_id: resolvedCategoryId,
           pro_id: Number(item.pro_id),
           B_id: branchId,
+          low_stock_limit: Number(itemState.lowStockLimit ?? 10),
         });
       }
 
@@ -569,13 +587,13 @@ const AddProduct = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px", marginTop: "14px" }}>
+                        <div style={{ marginTop: "14px" }}>
                           <ProductChip label="Catalog price" value={`$${price.toFixed(2)}`} />
-                          <ProductChip label="Qty on hand" value={stock} />
-                        </div>
+                            </div>
                       </button>
                     );
                   })}
+                  
                 </div>
               )}
             </div>
@@ -692,6 +710,27 @@ const AddProduct = () => {
                             >
                               <FaTrashAlt size={11} />
                             </button>
+                          </div>
+
+                          <div style={{ marginTop: "10px" }}>
+                            <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#64748B", marginBottom: "4px" }}>
+                              Low stock limit
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={itemState.lowStockLimit ?? 10}
+                              onChange={(e) => updateLowStockLimit(item.pro_id, e.target.value)}
+                              style={{
+                                width: "100%",
+                                height: "32px",
+                                borderRadius: "8px",
+                                border: "1px solid #E2E8F0",
+                                padding: "0 10px",
+                                fontSize: "13px",
+                                outline: "none",
+                              }}
+                            />
                           </div>
 
                           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px" }}>
