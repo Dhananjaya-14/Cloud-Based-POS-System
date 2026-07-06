@@ -181,8 +181,9 @@ export const getRecipeById = async (recipeId) => {
   return response.data;
 };
 
-export const getRecipesByProduct = async (productId) => {
-  const response = await api.get(`/recipes/product/${productId}`);
+export const getRecipesByProduct = async (productId, b_id) => {
+  const params = b_id ? { b_id } : {};
+  const response = await api.get(`/recipes/product/${productId}`, { params });
   return response.data;
 };
 
@@ -205,8 +206,9 @@ export const deleteRecipe = async (recipeId) => {
   await api.delete(`/recipes/${recipeId}`);
 };
 
-export const deleteRecipeByProduct = async (productId) => {
-  const response = await api.delete(`/recipes/product/${productId}`);
+export const deleteRecipeByProduct = async (productId, b_id) => {
+  const params = b_id ? { b_id } : {};
+  const response = await api.delete(`/recipes/product/${productId}`, { params });
   return response.data;
 };
 
