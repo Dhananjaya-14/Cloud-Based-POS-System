@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaArrowLeft, FaCheck } from "react-icons/fa";
+import { FaArrowLeft, FaCheck, FaTimes } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
@@ -47,6 +47,7 @@ const EditUser = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [showSuccessToast, setShowSuccessToast] = useState(false);
+    const [toasts, setToasts] = useState([]);
 
     const resolvedUserId = useMemo(() => {
         return String(userId || "").trim();
@@ -108,6 +109,36 @@ const EditUser = () => {
         loadPageData();
     }, [resolvedUserId]);
 
+    useEffect(() => {
+        if (toasts.length === 0) return undefined;
+
+        const timer = setTimeout(() => {
+            setToasts((prev) => prev.slice(1));
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [toasts]);
+
+    const showToastMessage = (message, type = "success") => {
+        setToasts((prev) => [
+            ...prev,
+            {
+                id: Date.now() + Math.random(),
+                message,
+                type,
+            },
+        ]);
+    };
+
+    const removeToast = (toastId) => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+    };
+
+    const setSubmitError = (message) => {
+        setErrorMessage(message);
+        showToastMessage(message, "error");
+    };
+
     const roleOptions = useMemo(() => {
         if (!roles.length) {
             return [{ label: "No roles available", value: "" }];
@@ -145,22 +176,22 @@ const EditUser = () => {
         }
 
         if (!resolvedUserId) {
-            setErrorMessage("User id is missing. Open this page from User Management.");
+            setSubmitError("User id is missing. Open this page from User Management.");
             return;
         }
 
         if (!formData.firstName || !formData.lastName || !formData.email) {
-            setErrorMessage("First name, last name and email are required");
+            setSubmitError("First name, last name and email are required");
             return;
         }
 
         if (formData.password && formData.password !== formData.confirmPassword) {
-            setErrorMessage("Password and confirm password do not match");
+            setSubmitError("Password and confirm password do not match");
             return;
         }
 
         if (!formData.role) {
-            setErrorMessage("Please select a user role");
+            setSubmitError("Please select a user role");
             return;
         }
 
@@ -178,7 +209,7 @@ const EditUser = () => {
                 if (isAdminRole) {
                 const com_id = getComIdFromToken();
                 if (!com_id) {
-                    setErrorMessage("Could not determine company. Please re-login.");
+                    setSubmitError("Could not determine company. Please re-login.");
                     return;
                 }
                 payload.com_id = com_id;
@@ -193,7 +224,7 @@ const EditUser = () => {
 
             await updateUser(resolvedUserId, payload);
 
-            setShowSuccessToast(true);
+            showToastMessage("User details updated successfully.", "success");
             setFormData((prev) => ({
                 ...prev,
                 password: "",
@@ -201,7 +232,9 @@ const EditUser = () => {
             }));
             setIsEditMode(false);
         } catch (error) {
-            setErrorMessage(error?.response?.data?.message || "Failed to update user");
+            const message = error?.response?.data?.message || "Failed to update user";
+            setErrorMessage(message);
+            showToastMessage(message, "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -424,6 +457,57 @@ const EditUser = () => {
                     </div>
                 </div>
             </div>
+
+            {toasts.length > 0 && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: "82px",
+                        right: "20px",
+                        zIndex: 10000,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                        width: "min(380px, calc(100vw - 32px))",
+                    }}
+                >
+                    {toasts.map((toast) => (
+                        <div
+                            key={toast.id}
+                            style={{
+                                background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                                borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                                borderRadius: "8px",
+                                padding: "14px 16px",
+                                boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                                color: toast.type === "error" ? "#991B1B" : "#065F46",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "12px",
+                            }}
+                        >
+                            <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => removeToast(toast.id)}
+                                style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "inherit",
+                                    cursor: "pointer",
+                                    opacity: 0.7,
+                                    padding: "4px",
+                                    display: "inline-flex",
+                                }}
+                                aria-label="Dismiss notification"
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {showSuccessToast && (
                 <div

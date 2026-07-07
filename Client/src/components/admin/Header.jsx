@@ -3,6 +3,48 @@
 import React, { useEffect, useState } from "react";
 import { FaBell, FaUserCircle, FaTimes } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
+
+const NOTIFICATION_KEYS = ["branchNotifications", "adminUserNotifications"];
+
+const getUserFullName = (userData) =>
+  `${userData?.u_fname || ""} ${userData?.u_lname || ""}`.trim() || userData?.userName || "User";
+
+const isFreshNotification = (notification) => {
+  const timestamp = new Date(notification.timestamp);
+  const diffMinutes = (new Date() - timestamp) / (1000 * 60);
+  return diffMinutes < 60;
+};
+
+const loadStoredNotifications = () => {
+  return NOTIFICATION_KEYS.flatMap((key) => {
+    const saved = sessionStorage.getItem(key);
+    if (!saved) return [];
+
+    try {
+      return JSON.parse(saved)
+        .filter(isFreshNotification)
+        .map((notification) => ({ ...notification, storageKey: key }));
+    } catch {
+      sessionStorage.removeItem(key);
+      return [];
+    }
+  }).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+};
+
+const saveStoredNotifications = (items) => {
+  NOTIFICATION_KEYS.forEach((key) => {
+    const keyItems = items
+      .filter((notification) => notification.storageKey === key)
+      .map(({ storageKey, ...notification }) => notification);
+
+    if (keyItems.length > 0) {
+      sessionStorage.setItem(key, JSON.stringify(keyItems));
+    } else {
+      sessionStorage.removeItem(key);
+    }
+  });
+};
 
 const Header = ({ title = "Branch Management" }) => {
   const { user } = useAuth();
@@ -23,53 +65,84 @@ const Header = ({ title = "Branch Management" }) => {
 
   // Listen for notification updates from sessionStorage
   useEffect(() => {
+    const refreshNotifications = () => {
+      const validNotifications = loadStoredNotifications();
+      setNotifications(validNotifications);
+      setUnreadCount(validNotifications.filter((n) => !n.read).length);
+    };
+
     const handleStorageChange = (e) => {
-      if (e.key === 'branchNotifications') {
-        const savedNotifications = sessionStorage.getItem('branchNotifications');
-        if (savedNotifications) {
-          try {
-            const parsed = JSON.parse(savedNotifications);
-            const now = new Date();
-            const validNotifications = parsed.filter(notif => {
-              const timestamp = new Date(notif.timestamp);
-              const diffMinutes = (now - timestamp) / (1000 * 60);
-              return diffMinutes < 60;
-            });
-            setNotifications(validNotifications);
-            const unread = validNotifications.filter(n => !n.read).length;
-            setUnreadCount(unread);
-          } catch (e) {
-            console.error('Error parsing notifications:', e);
-          }
-        } else {
-          setNotifications([]);
-          setUnreadCount(0);
-        }
+      if (NOTIFICATION_KEYS.includes(e.key)) {
+        refreshNotifications();
       }
     };
 
-    // Initial load
-    const savedNotifications = sessionStorage.getItem('branchNotifications');
-    if (savedNotifications) {
-      try {
-        const parsed = JSON.parse(savedNotifications);
-        const now = new Date();
-        const validNotifications = parsed.filter(notif => {
-          const timestamp = new Date(notif.timestamp);
-          const diffMinutes = (now - timestamp) / (1000 * 60);
-          return diffMinutes < 60;
-        });
-        setNotifications(validNotifications);
-        const unread = validNotifications.filter(n => !n.read).length;
-        setUnreadCount(unread);
-      } catch (e) {
-        console.error('Error parsing notifications:', e);
-      }
-    }
-
+    refreshNotifications();
     window.addEventListener('storage', handleStorageChange);
     return () => window.removeEventListener('storage', handleStorageChange);
   }, []);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    const currentUserId = Number(user?.u_id ?? user?.id);
+    const socket = connectSocket();
+
+    const addUserNotification = (notification) => {
+      setNotifications((prev) => {
+        const next = [notification, ...prev]
+          .filter(isFreshNotification)
+          .filter((item, index, items) => (
+            !item.dedupeKey || index === items.findIndex((candidate) => {
+              if (candidate.dedupeKey !== item.dedupeKey) return false;
+              return Math.abs(new Date(candidate.timestamp) - new Date(item.timestamp)) < 5000;
+            })
+          ));
+        saveStoredNotifications(next);
+        setUnreadCount(next.filter((item) => !item.read).length);
+        return next;
+      });
+    };
+
+    const handleUserEvent = (type, payload = {}) => {
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const fullName = getUserFullName(payload);
+      const actionText = type === "delete" ? "deleted" : type === "update" ? "updated" : "added";
+      const userId = payload?.u_id ?? fullName;
+      const timestamp = new Date().toISOString();
+
+      addUserNotification({
+        id: `${type}-${userId}-${Date.now()}-${Math.random()}`,
+        type,
+        storageKey: "adminUserNotifications",
+        dedupeKey: `user-${type}-${userId}-${payload?.actor_id || "unknown"}`,
+        message: `User ${actionText}: "${fullName}"${payload?.actor_name ? ` by ${payload.actor_name}` : ""}`,
+        timestamp,
+        read: false,
+        userName: fullName,
+      });
+    };
+
+    const handleCreated = (payload) => handleUserEvent("add", payload);
+    const handleUpdated = (payload) => handleUserEvent("update", payload);
+    const handleDeleted = (payload) => handleUserEvent("delete", payload);
+
+    socket.on(SOCKET_EVENTS.USER_CREATED, handleCreated);
+    socket.on(SOCKET_EVENTS.USER_UPDATED, handleUpdated);
+    socket.on(SOCKET_EVENTS.USER_DELETED, handleDeleted);
+
+    return () => {
+      const activeSocket = getSocket();
+      if (activeSocket) {
+        activeSocket.off(SOCKET_EVENTS.USER_CREATED, handleCreated);
+        activeSocket.off(SOCKET_EVENTS.USER_UPDATED, handleUpdated);
+        activeSocket.off(SOCKET_EVENTS.USER_DELETED, handleDeleted);
+      }
+    };
+  }, [user]);
 
   // Mark notification as read
   const markAsRead = (notificationId) => {
@@ -77,7 +150,7 @@ const Header = ({ title = "Branch Management" }) => {
       n.id === notificationId ? { ...n, read: true } : n
     );
     setNotifications(updatedNotifications);
-    sessionStorage.setItem('branchNotifications', JSON.stringify(updatedNotifications));
+    saveStoredNotifications(updatedNotifications);
     const unread = updatedNotifications.filter(n => !n.read).length;
     setUnreadCount(unread);
   };
@@ -86,7 +159,7 @@ const Header = ({ title = "Branch Management" }) => {
   const dismissNotification = (notificationId) => {
     const updatedNotifications = notifications.filter(n => n.id !== notificationId);
     setNotifications(updatedNotifications);
-    sessionStorage.setItem('branchNotifications', JSON.stringify(updatedNotifications));
+    saveStoredNotifications(updatedNotifications);
     const unread = updatedNotifications.filter(n => !n.read).length;
     setUnreadCount(unread);
   };
@@ -95,7 +168,7 @@ const Header = ({ title = "Branch Management" }) => {
   const markAllAsRead = () => {
     const updatedNotifications = notifications.map(n => ({ ...n, read: true }));
     setNotifications(updatedNotifications);
-    sessionStorage.setItem('branchNotifications', JSON.stringify(updatedNotifications));
+    saveStoredNotifications(updatedNotifications);
     setUnreadCount(0);
   };
 

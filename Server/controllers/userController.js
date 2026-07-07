@@ -37,6 +37,13 @@ function normalizeOptionalPositiveInt(value, fieldName) {
   return parsed;
 }
 
+function getActorMeta(req) {
+  return {
+    actor_id: req.user?.u_id ?? null,
+    actor_name: [req.user?.u_fname, req.user?.u_lname].filter(Boolean).join(" ") || req.user?.u_email || "Admin",
+  };
+}
+
 //all users
 // GET /api/users
 export async function getUsers(req, res, next) {
@@ -212,6 +219,7 @@ export async function createUser(req, res, next) {
     const userWithDetails = {
       ...newUser,
       role_name: roleName,
+      ...getActorMeta(req),
     };
 
     // Emit socket event to notify branch admins about new user
@@ -365,6 +373,7 @@ export async function updateUser(req, res, next) {
     const userWithDetails = {
       ...updatedUser,
       role_name: roleName,
+      ...getActorMeta(req),
     };
 
     // Emit socket events for user updates
@@ -377,16 +386,15 @@ export async function updateUser(req, res, next) {
       
       // If branch changed, notify both old and new branches
       if (oldBranchId && oldBranchId !== finalBranchId) {
-        emitUserEventToBranch(oldBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id) });
+        emitUserEventToBranch(oldBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), ...getActorMeta(req) });
       }
       emitUserEventToBranch(finalBranchId, SOCKET_EVENTS.USER_UPDATED, userWithDetails);
     }
 
-    // Emit to company room if company changed
-    if (com_id && oldComId !== com_id) {
-      const companyRoom = `company_${com_id}`;
-      emitSocketEvent(SOCKET_EVENTS.USER_UPDATED, userWithDetails, { room: companyRoom });
-    }
+    // Emit to company rooms so all logged-in company admins receive the update.
+    [...new Set([oldComId, com_id].filter(Boolean))].forEach((companyId) => {
+      emitSocketEvent(SOCKET_EVENTS.USER_UPDATED, userWithDetails, { room: `company_${companyId}` });
+    });
 
     res.json(updatedUser);
   } catch (err) {
@@ -441,13 +449,13 @@ export async function deleteUser(req, res, next) {
 
     // Emit socket event to notify branch admins about user deletion
     if (userBranchId) {
-      emitUserEventToBranch(userBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName });
+      emitUserEventToBranch(userBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName, ...getActorMeta(req) });
     }
 
     // Emit to company room
     if (userComId) {
       const companyRoom = `company_${userComId}`;
-      emitSocketEvent(SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName }, { room: companyRoom });
+      emitSocketEvent(SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName, ...getActorMeta(req) }, { room: companyRoom });
     }
 
     res.status(204).send();
