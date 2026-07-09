@@ -5,10 +5,16 @@ import { FaBell, FaUserCircle, FaTimes } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 
-const NOTIFICATION_KEYS = ["branchNotifications", "adminUserNotifications"];
+const NOTIFICATION_KEYS = ["branchNotifications", "adminUserNotifications", "adminProductNotifications"];
 
 const getUserFullName = (userData) =>
   `${userData?.u_fname || ""} ${userData?.u_lname || ""}`.trim() || userData?.userName || "User";
+
+const getProductName = (payload) =>
+  payload?.product?.pro_name || payload?.pro_name || payload?.productName || "Product";
+
+const getBranchName = (payload) =>
+  payload?.B_name || payload?.b_name || payload?.branchName || payload?.branch?.B_name || payload?.branch?.b_name || "Branch";
 
 const isFreshNotification = (notification) => {
   const timestamp = new Date(notification.timestamp);
@@ -88,7 +94,7 @@ const Header = ({ title = "Branch Management" }) => {
     const currentUserId = Number(user?.u_id ?? user?.id);
     const socket = connectSocket();
 
-    const addUserNotification = (notification) => {
+    const addNotification = (notification) => {
       setNotifications((prev) => {
         const next = [notification, ...prev]
           .filter(isFreshNotification)
@@ -114,7 +120,7 @@ const Header = ({ title = "Branch Management" }) => {
       const userId = payload?.u_id ?? fullName;
       const timestamp = new Date().toISOString();
 
-      addUserNotification({
+      addNotification({
         id: `${type}-${userId}-${Date.now()}-${Math.random()}`,
         type,
         storageKey: "adminUserNotifications",
@@ -126,13 +132,69 @@ const Header = ({ title = "Branch Management" }) => {
       });
     };
 
+    const handleProductEvent = (type, payload = {}) => {
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const productName = getProductName(payload);
+      const productId = payload?.product?.pro_id ?? payload?.pro_id ?? productName;
+      const actionText = type === "delete" ? "deleted" : type === "update" ? "updated" : "added";
+      const timestamp = new Date().toISOString();
+
+      addNotification({
+        id: `product-${type}-${productId}-${Date.now()}-${Math.random()}`,
+        type,
+        storageKey: "adminProductNotifications",
+        dedupeKey: `product-${type}-${productId}-${payload?.actor_id || "unknown"}`,
+        message: `Product ${actionText}: "${productName}"${payload?.actor_name ? ` by ${payload.actor_name}` : ""}`,
+        timestamp,
+        read: false,
+        productName,
+      });
+    };
+
+    const handleBranchEvent = (type, payload = {}) => {
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const branchName = getBranchName(payload);
+      const branchId = payload?.B_id ?? payload?.b_id ?? branchName;
+      const actionText = type === "delete" ? "deleted" : type === "update" ? "updated" : "added";
+      const timestamp = new Date().toISOString();
+
+      addNotification({
+        id: `branch-${type}-${branchId}-${Date.now()}-${Math.random()}`,
+        type,
+        storageKey: "branchNotifications",
+        dedupeKey: `branch-${type}-${branchId}-${payload?.actor_id || "unknown"}`,
+        message: `Branch ${actionText}: "${branchName}"${payload?.actor_name ? ` by ${payload.actor_name}` : ""}`,
+        timestamp,
+        read: false,
+        branchName,
+      });
+    };
+
     const handleCreated = (payload) => handleUserEvent("add", payload);
     const handleUpdated = (payload) => handleUserEvent("update", payload);
     const handleDeleted = (payload) => handleUserEvent("delete", payload);
+    const handleProductCreated = (payload) => handleProductEvent("add", payload);
+    const handleProductUpdated = (payload) => handleProductEvent("update", payload);
+    const handleProductDeleted = (payload) => handleProductEvent("delete", payload);
+    const handleBranchCreated = (payload) => handleBranchEvent("add", payload);
+    const handleBranchUpdated = (payload) => handleBranchEvent("update", payload);
+    const handleBranchDeleted = (payload) => handleBranchEvent("delete", payload);
 
+    socket.on("branch:created", handleBranchCreated);
+    socket.on("branch:updated", handleBranchUpdated);
+    socket.on("branch:deleted", handleBranchDeleted);
     socket.on(SOCKET_EVENTS.USER_CREATED, handleCreated);
     socket.on(SOCKET_EVENTS.USER_UPDATED, handleUpdated);
     socket.on(SOCKET_EVENTS.USER_DELETED, handleDeleted);
+    socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleProductCreated);
+    socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
+    socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
 
     return () => {
       const activeSocket = getSocket();
@@ -140,22 +202,26 @@ const Header = ({ title = "Branch Management" }) => {
         activeSocket.off(SOCKET_EVENTS.USER_CREATED, handleCreated);
         activeSocket.off(SOCKET_EVENTS.USER_UPDATED, handleUpdated);
         activeSocket.off(SOCKET_EVENTS.USER_DELETED, handleDeleted);
+        activeSocket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleProductCreated);
+        activeSocket.off(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
+        activeSocket.off(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+        activeSocket.off("branch:created", handleBranchCreated);
+        activeSocket.off("branch:updated", handleBranchUpdated);
+        activeSocket.off("branch:deleted", handleBranchDeleted);
       }
     };
   }, [user]);
 
-  // Mark notification as read
+  // Mark notification as read and remove it permanently
   const markAsRead = (notificationId) => {
-    const updatedNotifications = notifications.map(n => 
-      n.id === notificationId ? { ...n, read: true } : n
-    );
+    const updatedNotifications = notifications.filter(n => n.id !== notificationId);
     setNotifications(updatedNotifications);
     saveStoredNotifications(updatedNotifications);
     const unread = updatedNotifications.filter(n => !n.read).length;
     setUnreadCount(unread);
   };
 
-  // Dismiss notification
+  // Dismiss notification (delete permanently)
   const dismissNotification = (notificationId) => {
     const updatedNotifications = notifications.filter(n => n.id !== notificationId);
     setNotifications(updatedNotifications);
@@ -164,21 +230,15 @@ const Header = ({ title = "Branch Management" }) => {
     setUnreadCount(unread);
   };
 
-  // Mark all as read
+  // Mark all as read (delete all notifications permanently)
   const markAllAsRead = () => {
-    const updatedNotifications = notifications.map(n => ({ ...n, read: true }));
-    setNotifications(updatedNotifications);
-    saveStoredNotifications(updatedNotifications);
+    setNotifications([]);
+    NOTIFICATION_KEYS.forEach(key => sessionStorage.removeItem(key));
     setUnreadCount(0);
   };
 
   const toggleNotifications = () => {
     setShowNotifications(!showNotifications);
-    if (!showNotifications && notifications.length > 0) {
-      // Mark all as read when opening notification panel
-      // Uncomment if you want auto-mark as read when opening
-      // markAllAsRead();
-    }
   };
 
   const fullName =
@@ -308,7 +368,7 @@ const Header = ({ title = "Branch Management" }) => {
                     onMouseEnter={(e) => e.currentTarget.style.background = "#EFF6FF"}
                     onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                   >
-                    Mark all read
+                    Clear all
                   </button>
                 )}
               </div>

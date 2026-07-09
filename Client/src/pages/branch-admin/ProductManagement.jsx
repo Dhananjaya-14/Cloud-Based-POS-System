@@ -164,6 +164,7 @@ const ProductManagement = () => {
     } else {
       sessionStorage.removeItem('branchProductNotifications');
     }
+    window.dispatchEvent(new Event('branch-product-notifications-updated'));
   }, [notifications]);
 
   // Setup WebSocket listeners
@@ -185,29 +186,63 @@ const ProductManagement = () => {
       console.log(`Branch admin joined company room: ${companyId}`);
     }
 
+    const appendNotification = (type, productName, message, extra = {}) => {
+      setNotifications((prev) => {
+        const existingNotif = prev.find((notification) => 
+          notification.type === type && 
+          notification.productName === productName && 
+          (new Date() - new Date(notification.timestamp)) < 5000
+        );
+        if (existingNotif) return prev;
+
+        return [...prev, {
+          id: Date.now() + Math.random(),
+          type,
+          message,
+          timestamp: new Date().toISOString(),
+          productName,
+          ...extra,
+        }];
+      });
+    };
+
     // Handler for new product added by admin (from company room)
     const handleAdminProductAdded = (data) => {
       console.log("New product added by admin via socket (branch):", data);
       if (data.product && data.company_id === companyId) {
-        // Show notification to branch admin that a new product is available
-        setNotifications(prev => {
-          const productName = data.product.pro_name || 'Product';
-          const existingNotif = prev.find(n => 
-            n.type === 'admin_add' && 
-            n.productName === productName && 
-            (new Date() - new Date(n.timestamp)) < 5000
-          );
-          if (existingNotif) return prev;
-          
-          return [...prev, {
-            id: Date.now() + Math.random(),
-            type: 'admin_add',
-            message: `📢 New product available for branch: "${productName}"`,
-            timestamp: new Date().toISOString(),
-            productName: productName,
-            productId: data.product.pro_id
-          }];
-        });
+        const productName = data.product.pro_name || 'Product';
+        appendNotification(
+          'admin_add',
+          productName,
+          `📢 New product available for branch: "${productName}"`,
+          { productId: data.product.pro_id }
+        );
+      }
+    };
+
+    const handleAdminProductUpdated = (data) => {
+      console.log("Product updated by admin via socket (branch):", data);
+      if (data.product && data.company_id === companyId) {
+        const productName = data.product.pro_name || 'Product';
+        appendNotification(
+          'admin_update',
+          productName,
+          `✏️ Product updated by admin: "${productName}"`,
+          { productId: data.product.pro_id }
+        );
+      }
+    };
+
+    const handleAdminProductDeleted = (data) => {
+      console.log("Product deleted by admin via socket (branch):", data);
+      if ((data.product || data.pro_id) && data.company_id === companyId) {
+        const productName = data.product?.pro_name || data.pro_name || 'Product';
+        appendNotification(
+          'admin_delete',
+          productName,
+          `🗑️ Product deleted by admin: "${productName}"`,
+          { productId: data.product?.pro_id ?? data.pro_id }
+        );
       }
     };
 
@@ -305,6 +340,8 @@ const ProductManagement = () => {
 
     // Subscribe to events
     socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleAdminProductAdded);
+    socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, handleAdminProductUpdated);
+    socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleAdminProductDeleted);
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleBranchProductAdded);
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleBranchProductUpdated);
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, handleBranchProductDeleted);
@@ -313,6 +350,8 @@ const ProductManagement = () => {
       isSubscribedRef.current = false;
       leaveBranchInventoryRoom(branchId);
       socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleAdminProductAdded);
+      socket.off(SOCKET_EVENTS.PRODUCT_UPDATED, handleAdminProductUpdated);
+      socket.off(SOCKET_EVENTS.PRODUCT_DELETED, handleAdminProductDeleted);
       socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleBranchProductAdded);
       socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleBranchProductUpdated);
       socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, handleBranchProductDeleted);
@@ -490,83 +529,7 @@ const ProductManagement = () => {
               }}
               className="notifications-container"
             >
-              {notifications.map((notification) => (
-                <div
-                  key={notification.id}
-                  style={{
-                    backgroundColor: notification.type === 'delete' ? '#FEE2E2' : 
-                                    notification.type === 'admin_add' ? '#FEF3C7' :
-                                    notification.type === 'update' ? '#DBEAFE' : '#D1FAE5',
-                    borderLeft: `4px solid ${notification.type === 'delete' ? '#EF4444' : 
-                                    notification.type === 'admin_add' ? '#F59E0B' :
-                                    notification.type === 'update' ? '#3B82F6' : '#22C55E'}`,
-                    borderRadius: '8px',
-                    padding: '16px 20px',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    animation: 'slideInRight 0.3s ease-out',
-                  }}
-                >
-                  <div>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      fontSize: '15px',
-                      color: '#1F2937',
-                      marginBottom: '4px'
-                    }}>
-                      {notification.type === 'delete' ? '❌ Product Deleted' :
-                       notification.type === 'admin_add' ? '📢 New Product Available' :
-                       notification.type === 'update' ? '📝 Product Updated' : '✅ New Product Added'}
-                    </div>
-                    <div style={{ 
-                      fontSize: '14px', 
-                      color: '#4B5563',
-                      fontWeight: '500',
-                      lineHeight: '1.5'
-                    }}>
-                      {notification.message}
-                    </div>
-                    <div style={{
-                      fontSize: '11px',
-                      color: '#9CA3AF',
-                      marginTop: '4px',
-                      fontWeight: '400'
-                    }}>
-                      {new Date(notification.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => dismissNotification(notification.id)}
-                    style={{
-                      background: notification.type === 'delete' ? '#EF4444' :
-                                notification.type === 'admin_add' ? '#F59E0B' :
-                                notification.type === 'update' ? '#3B82F6' : '#22C55E',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 16px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      alignSelf: 'flex-end',
-                      minWidth: '70px',
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = '0.85';
-                      e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '1';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                  >
-                    OK
-                  </button>
-                </div>
-              ))}
+              
             </div>
           )}
 

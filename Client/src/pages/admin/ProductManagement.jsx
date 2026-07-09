@@ -7,6 +7,7 @@ import {
   FaChevronDown,
   FaExclamationTriangle,
   FaSearch,
+  FaTimes,
   FaTrash,
 } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
@@ -127,6 +128,7 @@ const ProductManagement = () => {
   const [branches, setBranches] = useState([]);
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [toasts, setToasts] = useState([]);
   
   // State for real-time notifications - stored as an array in sessionStorage
   const [notifications, setNotifications] = useState(() => {
@@ -162,6 +164,31 @@ const ProductManagement = () => {
       sessionStorage.removeItem('adminProductNotifications');
     }
   }, [notifications]);
+
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
 
   // Connect to socket and join company room
   useEffect(() => {
@@ -280,22 +307,8 @@ const ProductManagement = () => {
           prev.filter(p => p.pro_id !== data.pro_id)
         );
         
-        setNotifications(prev => {
-          const existingNotif = prev.find(n => 
-            n.type === 'delete' && 
-            n.productName === productName && 
-            (new Date() - new Date(n.timestamp)) < 5000
-          );
-          if (existingNotif) return prev;
-          
-          return [...prev, {
-            id: Date.now() + Math.random(),
-            type: 'delete',
-            message: `🗑️ Product deleted: "${productName}"`,
-            timestamp: new Date().toISOString(),
-            productName: productName
-          }];
-        });
+        
+        
       }
     };
 
@@ -411,8 +424,11 @@ const ProductManagement = () => {
             : item
         )
       );
+      showToastMessage(`Stock updated for "${existing.pro_name || "Product"}".`, "success");
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to update stock quantity");
+      const message = err?.response?.data?.message || "Failed to update stock quantity";
+      setError(message);
+      showToastMessage(message, "error");
     } finally {
       setUpdatingStockId(null);
     }
@@ -458,13 +474,8 @@ const ProductManagement = () => {
       setProducts(prev => prev.filter(p => p.pro_id !== deleteTargetId));
       
       // Show success notification
-      setNotifications(prev => [...prev, {
-        id: Date.now() + Math.random(),
-        type: 'delete',
-        message: `🗑️ Product "${deleteTargetName}" deleted successfully`,
-        timestamp: new Date().toISOString(),
-        productName: deleteTargetName
-      }]);
+      
+      showToastMessage(`Product "${deleteTargetName}" deleted successfully.`, "success");
       
       // Close popup
       setShowDeletePopup(false);
@@ -473,7 +484,9 @@ const ProductManagement = () => {
       setSelectedBranchId("");
       setDeleteOption("complete");
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to delete product");
+      const message = err?.response?.data?.message || "Failed to delete product";
+      setError(message);
+      showToastMessage(message, "error");
     } finally {
       setIsDeleting(false);
     }
@@ -507,100 +520,61 @@ const ProductManagement = () => {
             minHeight: "calc(100vh - 70px)",
           }}
         >
-          {/* Notification Container */}
-          {notifications.length > 0 && (
+          {/* Toast Notifications */}
+          {toasts.length > 0 && (
             <div
               style={{
                 position: 'fixed',
-                top: '20px',
+                top: '82px',
                 right: '20px',
-                zIndex: 9999,
+                zIndex: 10000,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px',
-                maxWidth: '420px',
-                minWidth: '320px',
-                maxHeight: '80vh',
-                overflowY: 'auto',
-                paddingRight: '4px',
+                gap: '10px',
+                width: 'min(380px, calc(100vw - 32px))',
               }}
-              className="notifications-container"
             >
-              {notifications.map((notification) => (
+              {toasts.map((toast) => (
                 <div
-                  key={notification.id}
+                  key={toast.id}
                   style={{
-                    backgroundColor: notification.type === 'delete' ? '#FEE2E2' : 
-                                    notification.type === 'update' ? '#DBEAFE' : '#D1FAE5',
-                    borderLeft: `4px solid ${notification.type === 'delete' ? '#EF4444' : 
-                                    notification.type === 'update' ? '#3B82F6' : '#22C55E'}`,
+                    background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4',
+                    borderLeft: `4px solid ${toast.type === 'error' ? '#EF4444' : '#22C55E'}`,
                     borderRadius: '8px',
-                    padding: '16px 20px',
+                    padding: '14px 16px',
                     boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    color: toast.type === 'error' ? '#991B1B' : '#065F46',
                     display: 'flex',
-                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
                     gap: '12px',
-                    animation: 'slideInRight 0.3s ease-out',
                   }}
                 >
-                  <div>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      fontSize: '15px',
-                      color: '#1F2937',
-                      marginBottom: '4px'
-                    }}>
-                      {notification.type === 'delete' ? '❌ Product Deleted' :
-                       notification.type === 'update' ? '📝 Product Updated' : '✅ New Product Added'}
-                    </div>
-                    <div style={{ 
-                      fontSize: '14px', 
-                      color: '#4B5563',
-                      fontWeight: '500',
-                      lineHeight: '1.5'
-                    }}>
-                      {notification.message}
-                    </div>
-                    <div style={{
-                      fontSize: '11px',
-                      color: '#9CA3AF',
-                      marginTop: '4px',
-                      fontWeight: '400'
-                    }}>
-                      {new Date(notification.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
+                  <span style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
                   <button
-                    onClick={() => dismissNotification(notification.id)}
+                    type="button"
+                    onClick={() => removeToast(toast.id)}
                     style={{
-                      background: notification.type === 'delete' ? '#EF4444' :
-                                notification.type === 'update' ? '#3B82F6' : '#22C55E',
-                      color: 'white',
                       border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 16px',
-                      fontSize: '13px',
-                      fontWeight: '600',
+                      background: 'transparent',
+                      color: 'inherit',
                       cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      alignSelf: 'flex-end',
-                      minWidth: '70px',
+                      opacity: 0.7,
+                      padding: '4px',
+                      display: 'inline-flex',
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = '0.85';
-                      e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '1';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
+                    aria-label="Dismiss notification"
                   >
-                    OK
+                    <FaTimes />
                   </button>
                 </div>
               ))}
             </div>
           )}
+
+         
+              
+            
 
           <div
             style={{

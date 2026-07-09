@@ -25,6 +25,13 @@ function isNonNegativeNumber(value) {
   return Number.isFinite(n) && n >= 0;
 }
 
+function getActorMeta(req) {
+  return {
+    actor_id: req.user?.u_id ?? null,
+    actor_name: [req.user?.u_fname, req.user?.u_lname].filter(Boolean).join(" ") || req.user?.u_email || "Admin",
+  };
+}
+
 // GET /api/products
 export async function getProducts(req, res, next) {
   try {
@@ -162,7 +169,8 @@ export async function createProduct(req, res, next) {
       io.to(`company_${com_id}`).emit(SOCKET_EVENTS.NEW_PRODUCT_ADDED, {
         product: productData,
         company_id: com_id,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...getActorMeta(req),
       });
       
       // Also emit to branch rooms for all branches in this company
@@ -184,7 +192,8 @@ export async function createProduct(req, res, next) {
             },
             branch_id: branch.b_id,
             company_id: com_id,
-            timestamp: new Date()
+            timestamp: new Date(),
+            ...getActorMeta(req),
           });
         });
       } catch (branchErr) {
@@ -305,7 +314,8 @@ export async function updateProduct(req, res, next) {
       io.to(`company_${targetComId}`).emit(SOCKET_EVENTS.PRODUCT_UPDATED, {
         product: updatedProduct,
         company_id: targetComId,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...getActorMeta(req),
       });
       
       // Also emit to all branch rooms in this company
@@ -325,7 +335,8 @@ export async function updateProduct(req, res, next) {
             },
             branch_id: branch.b_id,
             company_id: targetComId,
-            timestamp: new Date()
+            timestamp: new Date(),
+            ...getActorMeta(req),
           });
         });
       } catch (branchErr) {
@@ -427,7 +438,8 @@ export async function deleteProduct(req, res, next) {
         pro_id: Number(id),
         pro_name: productName,
         company_id: targetComId,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...getActorMeta(req),
       });
     }
 
