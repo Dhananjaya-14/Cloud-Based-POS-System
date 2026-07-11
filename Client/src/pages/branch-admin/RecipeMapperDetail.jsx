@@ -44,6 +44,7 @@ const RecipeMapperDetail = () => {
   const [savingMapping, setSavingMapping] = useState(false);
   const [notice, setNotice] = useState("");
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [branchId, setBranchId] = useState(null); 
 
   useEffect(() => {
     let isMounted = true;
@@ -54,18 +55,21 @@ const RecipeMapperDetail = () => {
         setError("");
         setNotice("");
 
-        const [categoryList, branchList, materials] = await Promise.all([
+        const [categoryList, branchList] = await Promise.all([
           getCategories(),
           getBranches(),
-          getRawMaterials(),
         ]);
 
         const branch =
           branchList?.find((item) => String(item.U_id) === String(user?.u_id)) ||
           branchList?.[0];
 
-        let branchProducts = branch?.B_id
-          ? await getBranchProducts(branch.B_id)
+        const resolvedBid = branch?.B_id ?? null;
+
+        const materials = await getRawMaterials(resolvedBid ? { b_id: resolvedBid } : {});
+
+        let branchProducts = resolvedBid
+          ? await getBranchProducts(resolvedBid)
           : [];
 
         if (!Array.isArray(branchProducts) || branchProducts.length === 0) {
@@ -76,7 +80,7 @@ const RecipeMapperDetail = () => {
           (item) => String(item?.pro_id) === String(productId)
         );
 
-        const recipeResponse = await getRecipesByProduct(productId);
+        const recipeResponse = await getRecipesByProduct(productId, resolvedBid);
         const ingredients = Array.isArray(recipeResponse?.ingredients)
           ? recipeResponse.ingredients
           : Array.isArray(recipeResponse)
@@ -85,6 +89,7 @@ const RecipeMapperDetail = () => {
 
         if (!isMounted) return;
 
+        setBranchId(resolvedBid);
         setCategories(Array.isArray(categoryList) ? categoryList : []);
         setRawMaterials(Array.isArray(materials) ? materials : []);
         setProduct(foundProduct || null);
@@ -192,7 +197,7 @@ const RecipeMapperDetail = () => {
       setError("");
       setNotice("");
 
-      await deleteRecipeByProduct(productId);
+      await deleteRecipeByProduct(productId, branchId);
 
       if (recipeItems.length === 0) {
         setNotice("Recipe cleared.");
@@ -201,6 +206,7 @@ const RecipeMapperDetail = () => {
 
       const payload = {
         pro_id: Number(productId),
+        b_id: branchId,
         ingredients: recipeItems.map((item) => ({
           rawmaterial_id: Number(item.rawmaterial_id),
           quantity_req: Number(item.quantity_req),
@@ -210,7 +216,7 @@ const RecipeMapperDetail = () => {
 
       await createRecipeBulk(payload);
 
-const refreshed = await getRecipesByProduct(productId);
+const refreshed = await getRecipesByProduct(productId, branchId);
 const ingredients = Array.isArray(refreshed?.ingredients)
   ? refreshed.ingredients
   : Array.isArray(refreshed)

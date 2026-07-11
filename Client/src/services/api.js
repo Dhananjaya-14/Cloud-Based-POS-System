@@ -181,8 +181,9 @@ export const getRecipeById = async (recipeId) => {
   return response.data;
 };
 
-export const getRecipesByProduct = async (productId) => {
-  const response = await api.get(`/recipes/product/${productId}`);
+export const getRecipesByProduct = async (productId, b_id) => {
+  const params = b_id ? { b_id } : {};
+  const response = await api.get(`/recipes/product/${productId}`, { params });
   return response.data;
 };
 
@@ -205,8 +206,9 @@ export const deleteRecipe = async (recipeId) => {
   await api.delete(`/recipes/${recipeId}`);
 };
 
-export const deleteRecipeByProduct = async (productId) => {
-  const response = await api.delete(`/recipes/product/${productId}`);
+export const deleteRecipeByProduct = async (productId, b_id) => {
+  const params = b_id ? { b_id } : {};
+  const response = await api.delete(`/recipes/product/${productId}`, { params });
   return response.data;
 };
 
@@ -456,6 +458,51 @@ export const getBranchWiseSalesReport=async (payload)=>{
   const response=await api.post("/reports/branchsales",payload);
   return response.data;
 }
+
+// ── Supplier API -----------------
+export const getSuppliers = async (params = {}) => {
+  const response = await api.get("/suppliers", { params });
+  return response.data;
+};
+
+export const getSupplierById = async (id) => {
+  const response = await api.get(`/suppliers/${id}`);
+  return response.data;
+};
+
+export const createSupplier = async (payload) => {
+  const response = await api.post("/suppliers", payload);
+  return response.data;
+};
+
+export const updateSupplier = async (id, payload) => {
+  const response = await api.put(`/suppliers/${id}`, payload);
+  return response.data;
+};
+
+export const deleteSupplier = async (id) => {
+  await api.delete(`/suppliers/${id}`);
+};
+
+export const restoreSupplier = async (id) => {
+  const response = await api.patch(`/suppliers/${id}/restore`);
+  return response.data;
+};
+
+export const assignSupplierToBranch = async (sup_id, b_id) => {
+  const response = await api.post(`/suppliers/${sup_id}/branches`, { b_id });
+  return response.data;
+};
+
+export const removeSupplierFromBranch = async (sup_id, b_id) => {
+  await api.delete(`/suppliers/${sup_id}/branches/${b_id}`);
+};
+
+export const getSupplierBranches = async (sup_id) => {
+  const response = await api.get(`/suppliers/${sup_id}/branches`);
+  return response.data;
+};
+
 
 
 
