@@ -13,7 +13,6 @@ const AddRawMaterials = () => {
 
   const { user } = useAuth();
 
-  const [isNewSupplier, setIsNewSupplier] = useState(false);
   const [supplier, setSupplier] = useState({
     sup_name: "",
     sup_email: "",
@@ -57,38 +56,7 @@ const AddRawMaterials = () => {
       return { ok: res.ok, status: res.status, body: text };
     }
   }
-
-  const clientValidateSupplier = (s) => {
-    const name = (s.sup_name || "").trim();
-    if (!name || name.length < 2 || name.length > 120) {
-      throw new Error("Supplier name must be 2–120 characters");
-    }
-    if (!/^[\w\s\-().&/,]+$/.test(name)) {
-      throw new Error("Supplier name contains invalid characters");
-    }
-
-    const email = (s.sup_email || "").trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 150) {
-      throw new Error("Invalid supplier email");
-    }
-
-    const contact = String(s.sup_contact || "").trim();
-    if (!/^[0-9+\-\s()]{7,30}$/.test(contact)) {
-      throw new Error("Contact must be 7–30 chars (digits, + - () and spaces only)");
-    }
-
-    const address = s.sup_address !== undefined ? String(s.sup_address).trim() : null;
-    if (address && address.length > 100) {
-      throw new Error("Address cannot exceed 100 characters");
-    }
-
-    return {
-      sup_name: name,
-      sup_email: email.toLowerCase(),
-      sup_contact: contact,
-      sup_address: address,
-    };
-  };
+  
 
   useEffect(() => {
     fetchSuppliers();
@@ -169,9 +137,6 @@ const AddRawMaterials = () => {
 
   const handleSubmit = async () => {
     try {
-      if (!supplier.sup_name || !supplier.sup_email || !supplier.sup_contact) {
-        throw new Error("Please fill in required Supplier Details (Name, Email, Contact)");
-      }
 
       const branchCandidate = Array.isArray(branches) && branches.length > 0 ? branches[0] : null;
       const branchId =
@@ -320,7 +285,6 @@ const AddRawMaterials = () => {
       // Reset form fields
       setSupplier({ sup_name: "", sup_email: "", sup_contact: "", sup_address: "" });
       setMaterials([{ rm_name: "", unit: "", stock_qty: "", record_level: "", unit_price: "" }]);
-      setIsNewSupplier(false);
       fetchSuppliers();
     } catch (err) {
       console.error("Workflow Error:", err);
@@ -365,20 +329,9 @@ const AddRawMaterials = () => {
                 <span style={{ fontSize: 20, color: primaryTeal }}>👤</span>
                 <h3 style={{ margin: 0, color: primaryBlue, fontSize: 18, fontWeight: 600 }}>2. Supplier</h3>
               </div>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                {!isNewSupplier && (
-                  <button
-                    onClick={() => { setIsNewSupplier(true); setSupplier({ sup_name: "", sup_email: "", sup_contact: "", sup_address: "" }); }}
-                    style={{ background: primaryTeal, color: "#fff", padding: "8px 16px", borderRadius: "8px", border: "none", cursor: "pointer", fontSize: 14 }}
-                  >
-                    + Add New Supplier
-                  </button>
-                )}
-              </div>
             </div>
 
-            {!isNewSupplier ? (
+         
               <div>
                 <label style={labelStyle}>Select Existing Supplier</label>
                 <select
@@ -394,34 +347,6 @@ const AddRawMaterials = () => {
                   ))}
                 </select>
               </div>
-            ) : (
-              <div style={{ position: 'relative' }}>
-                <button
-                  onClick={() => setIsNewSupplier(false)}
-                  style={{ position: 'absolute', top: '-40px', right: 0, color: primaryTeal, background: 'none', border: 'none', cursor: 'pointer', fontSize: 13, textDecoration: 'underline' }}
-                >
-                  Back to existing suppliers
-                </button>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-                  <div>
-                    <label style={labelStyle}>Supplier Name *</label>
-                    <input style={inputStyle} value={supplier.sup_name} onChange={(e) => setSupplier({...supplier, sup_name: e.target.value})} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Contact Number *</label>
-                    <input style={inputStyle} value={supplier.sup_contact} onChange={(e) => setSupplier({...supplier, sup_contact: e.target.value})} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Email Address *</label>
-                    <input style={inputStyle} value={supplier.sup_email} onChange={(e) => setSupplier({...supplier, sup_email: e.target.value})} />
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Address</label>
-                    <input style={inputStyle} value={supplier.sup_address} onChange={(e) => setSupplier({...supplier, sup_address: e.target.value})} />
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           <div style={{ textAlign: "right", marginTop: 20 }}>
