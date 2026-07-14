@@ -1,4 +1,3 @@
-
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -7,6 +6,7 @@ import {
   FaPen,
   FaPlus,
   FaSearch,
+  FaTimes,
   FaTrash,
   FaUserCheck,
   FaUserShield,
@@ -36,41 +36,7 @@ const UserManagement = () => {
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentUserBranch, setCurrentUserBranch] = useState(null);
-
-  // State for real-time notifications - stored as an array in sessionStorage
-  const [notifications, setNotifications] = useState(() => {
-    const savedNotifications = sessionStorage.getItem('branchUserNotifications');
-    if (savedNotifications) {
-      try {
-        const parsed = JSON.parse(savedNotifications);
-        const now = new Date();
-        const validNotifications = parsed.filter(notif => {
-          const timestamp = new Date(notif.timestamp);
-          const diffMinutes = (now - timestamp) / (1000 * 60);
-          return diffMinutes < 60;
-        });
-        if (validNotifications.length > 0) {
-          return validNotifications;
-        } else {
-          sessionStorage.removeItem('branchUserNotifications');
-          return [];
-        }
-      } catch (e) {
-        sessionStorage.removeItem('branchUserNotifications');
-        return [];
-      }
-    }
-    return [];
-  });
-
-  // Save notifications to sessionStorage whenever they change
-  useEffect(() => {
-    if (notifications.length > 0) {
-      sessionStorage.setItem('branchUserNotifications', JSON.stringify(notifications));
-    } else {
-      sessionStorage.removeItem('branchUserNotifications');
-    }
-  }, [notifications]);
+  const [toasts, setToasts] = useState([]);
 
   const accessibleRoles = useMemo(() => {
     return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
@@ -128,25 +94,6 @@ const UserManagement = () => {
             }
             return [...prevUsers, newUserData];
           });
-          
-          // Add notification
-          const fullName = `${newUserData.u_fname || ''} ${newUserData.u_lname || ''}`.trim() || 'User';
-          setNotifications(prev => {
-            const existingNotif = prev.find(n => 
-              n.type === 'add' && 
-              n.userName === fullName && 
-              (new Date() - new Date(n.timestamp)) < 5000
-            );
-            if (existingNotif) return prev;
-            
-            return [...prev, {
-              id: Date.now() + Math.random(),
-              type: 'add',
-              message: `👤 New user added: "${fullName}"`,
-              timestamp: new Date().toISOString(),
-              userName: fullName
-            }];
-          });
         });
         
         // Listen for user update events
@@ -157,67 +104,19 @@ const UserManagement = () => {
               user.u_id === updatedUserData.u_id ? updatedUserData : user
             )
           );
-          
-          // Add notification
-          const fullName = `${updatedUserData.u_fname || ''} ${updatedUserData.u_lname || ''}`.trim() || 'User';
-          setNotifications(prev => {
-            const existingNotif = prev.find(n => 
-              n.type === 'update' && 
-              n.userName === fullName && 
-              (new Date() - new Date(n.timestamp)) < 5000
-            );
-            if (existingNotif) return prev;
-            
-            return [...prev, {
-              id: Date.now() + Math.random(),
-              type: 'update',
-              message: `✏️ User updated: "${fullName}"`,
-              timestamp: new Date().toISOString(),
-              userName: fullName
-            }];
-          });
         });
         
         // Listen for user deletion events
         socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id, userName }) => {
           console.log("User deleted:", u_id);
-          // Find user name before removal
-          const deletedUser = users.find(u => u.u_id === u_id);
-          const fullName = deletedUser ? 
-            `${deletedUser.u_fname || ''} ${deletedUser.u_lname || ''}`.trim() || 'User' : 
-            userName || 'User';
-          
           setUsers((prevUsers) => 
             prevUsers.filter((user) => user.u_id !== u_id)
           );
-          
-          // Add notification
-          setNotifications(prev => {
-            const existingNotif = prev.find(n => 
-              n.type === 'delete' && 
-              n.userName === fullName && 
-              (new Date() - new Date(n.timestamp)) < 5000
-            );
-            if (existingNotif) return prev;
-            
-            return [...prev, {
-              id: Date.now() + Math.random(),
-              type: 'delete',
-              message: `🗑️ User deleted: "${fullName}"`,
-              timestamp: new Date().toISOString(),
-              userName: fullName
-            }];
-          });
         });
       }
     } catch (error) {
       console.error("Error setting up socket connection:", error);
     }
-  };
-
-  // Dismiss a specific notification
-  const dismissNotification = (notificationId) => {
-    setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
   };
 
   const fetchData = async () => {
@@ -303,11 +202,36 @@ const UserManagement = () => {
     setNewUser((prev) => ({ ...prev, [name]: value }));
   };
 
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
 
     if (!accessibleRoleIds.has(String(newUser.role_id))) {
-      window.alert("Please select a supported role.");
+      showToastMessage("Please select a supported role.", "error");
       return;
     }
 
@@ -327,9 +251,9 @@ const UserManagement = () => {
         role_id: accessibleRoles?.[0]?.role_id ? String(accessibleRoles[0].role_id) : "",
       });
 
-      // No need to call fetchData() as socket event will update the list
+      showToastMessage("User created successfully.", "success");
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Failed to create user.");
+      showToastMessage(err?.response?.data?.message || "Failed to create user.", "error");
     }
   };
 
@@ -341,10 +265,10 @@ const UserManagement = () => {
     try {
       setIsDeleting(true);
       await deleteUserById(deleteTargetUser.u_id);
+      showToastMessage(`User deleted successfully${deleteTargetUser.name ? `: ${deleteTargetUser.name}` : ""}.`, "success");
       setDeleteTargetUser(null);
-      // No need to call fetchData() as socket event will update the list
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Failed to delete user.");
+      showToastMessage(err?.response?.data?.message || "Failed to delete user.", "error");
     } finally {
       setIsDeleting(false);
     }
@@ -376,95 +300,53 @@ const UserManagement = () => {
             gap: "14px",
           }}
         >
-          {/* Notification Container - Shows all active notifications */}
-          {notifications.length > 0 && (
+          {/* Toast Messages */}
+          {toasts.length > 0 && (
             <div
               style={{
-                position: 'fixed',
-                top: '20px',
-                right: '20px',
+                position: "fixed",
+                top: "82px",
+                right: "20px",
                 zIndex: 9999,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px',
-                maxWidth: '420px',
-                minWidth: '320px',
-                maxHeight: '80vh',
-                overflowY: 'auto',
-                paddingRight: '4px',
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                width: "min(380px, calc(100vw - 32px))",
               }}
-              className="notifications-container"
             >
-              {notifications.map((notification) => (
+              {toasts.map((toast) => (
                 <div
-                  key={notification.id}
+                  key={toast.id}
                   style={{
-                    backgroundColor: notification.type === 'delete' ? '#FEE2E2' : 
-                                    notification.type === 'update' ? '#DBEAFE' : '#D1FAE5',
-                    borderLeft: `4px solid ${notification.type === 'delete' ? '#EF4444' : 
-                                    notification.type === 'update' ? '#3B82F6' : '#22C55E'}`,
-                    borderRadius: '8px',
-                    padding: '16px 20px',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '12px',
-                    animation: 'slideInRight 0.3s ease-out',
+                    background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                    borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                    borderRadius: "8px",
+                    padding: "14px 16px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                    color: toast.type === "error" ? "#991B1B" : "#065F46",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    animation: "slideInRight 0.3s ease-out",
                   }}
                 >
-                  <div>
-                    <div style={{ 
-                      fontWeight: '600', 
-                      fontSize: '15px',
-                      color: '#1F2937',
-                      marginBottom: '4px'
-                    }}>
-                      {notification.type === 'delete' ? '❌ User Deleted' :
-                       notification.type === 'update' ? '📝 User Updated' : '✅ New User Added'}
-                    </div>
-                    <div style={{ 
-                      fontSize: '14px', 
-                      color: '#4B5563',
-                      fontWeight: '500',
-                      lineHeight: '1.5'
-                    }}>
-                      {notification.message}
-                    </div>
-                    <div style={{
-                      fontSize: '11px',
-                      color: '#9CA3AF',
-                      marginTop: '4px',
-                      fontWeight: '400'
-                    }}>
-                      {new Date(notification.timestamp).toLocaleTimeString()}
-                    </div>
-                  </div>
+                  <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
                   <button
-                    onClick={() => dismissNotification(notification.id)}
+                    type="button"
+                    onClick={() => removeToast(toast.id)}
                     style={{
-                      background: notification.type === 'delete' ? '#EF4444' :
-                                notification.type === 'update' ? '#3B82F6' : '#22C55E',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      padding: '8px 16px',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s',
-                      alignSelf: 'flex-end',
-                      minWidth: '70px',
+                      border: "none",
+                      background: "transparent",
+                      color: "inherit",
+                      cursor: "pointer",
+                      opacity: 0.7,
+                      padding: "4px",
+                      display: "inline-flex",
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = '0.85';
-                      e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '1';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
+                    aria-label="Dismiss notification"
                   >
-                    OK
+                    <FaTimes />
                   </button>
                 </div>
               ))}
@@ -531,17 +413,21 @@ const UserManagement = () => {
                   size={12}
                 />
                 <input
+                  type="text"
+                  placeholder="Search users..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by name, email, role, or branch"
                   style={{
                     width: "100%",
                     height: "34px",
-                    border: "1px solid #d8e0ed",
-                    borderRadius: "7px",
-                    padding: "0 12px 0 30px",
-                    color: "#3d4f73",
+                    padding: "0 10px 0 30px",
+                    border: "1px solid #dde3f0",
+                    borderRadius: "8px",
+                    background: "#f8fafd",
+                    color: "#1e2a48",
+                    fontSize: "13px",
                     boxSizing: "border-box",
+                    outline: "none",
                   }}
                 />
               </div>
@@ -650,28 +536,28 @@ const UserManagement = () => {
                           <Td>{branchName}</Td>
 
                           <Td>
-                                  <span
-                                    style={{
-                                      padding: "4px 10px",
-                                      borderRadius: "999px",
-                                      background: user.u_status === true || 
-                                                  String(user.u_status).toLowerCase() === "true" || 
-                                                  String(user.u_status).toLowerCase() === "active"
-                                                  ? "#dff6e4" : "#fee2e2",
-                                      color: user.u_status === true || 
+                            <span
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: "999px",
+                                background: user.u_status === true || 
                                             String(user.u_status).toLowerCase() === "true" || 
                                             String(user.u_status).toLowerCase() === "active"
-                                            ? "#20a048" : "#ef4444",
-                                      fontSize: "12px",
-                                      fontWeight: 700,
-                                    }}
-                                  >
-                                    {user.u_status === true || 
-                                    String(user.u_status).toLowerCase() === "true" || 
-                                    String(user.u_status).toLowerCase() === "active"
-                                    ? "Available" : "Inactive"}
-                                  </span>
-                                </Td>
+                                            ? "#dff6e4" : "#fee2e2",
+                                color: user.u_status === true || 
+                                      String(user.u_status).toLowerCase() === "true" || 
+                                      String(user.u_status).toLowerCase() === "active"
+                                      ? "#20a048" : "#ef4444",
+                                fontSize: "12px",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {user.u_status === true || 
+                              String(user.u_status).toLowerCase() === "true" || 
+                              String(user.u_status).toLowerCase() === "active"
+                              ? "Available" : "Inactive"}
+                            </span>
+                          </Td>
 
                           <Td align="center">
                             <div style={{ display: "inline-flex", gap: "10px", justifyContent: "center" }}>
@@ -768,20 +654,6 @@ const UserManagement = () => {
             transform: translateX(0);
             opacity: 1;
           }
-        }
-        
-        /* Custom scrollbar for notifications container */
-        .notifications-container::-webkit-scrollbar {
-          width: 4px;
-        }
-        
-        .notifications-container::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        
-        .notifications-container::-webkit-scrollbar-thumb {
-          background: rgba(0, 0, 0, 0.2);
-          border-radius: 10px;
         }
       `}</style>
     </div>

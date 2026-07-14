@@ -6,7 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getBranchById } from "../../services/api";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 
-const NOTIFICATION_KEYS = ["branchProductNotifications", "adminProductNotifications"];
+const NOTIFICATION_KEYS = ["branchProductNotifications", "adminProductNotifications", "branchUserNotifications"];
 
 const getUserFullName = (userData) =>
   `${userData?.u_fname || ""} ${userData?.u_lname || ""}`.trim() || userData?.userName || "User";
@@ -164,10 +164,39 @@ const Header = ({ title = "Product Management" }) => {
     const handleProductUpdated = (payload) => handleProductEvent("update", payload);
     const handleProductDeleted = (payload) => handleProductEvent("delete", payload);
 
+    const handleUserEvent = (type, payload = {}) => {
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const fullName = getUserFullName(payload);
+      const actionText = type === "delete" ? "deleted" : type === "update" ? "updated" : "added";
+      const userId = payload?.u_id ?? fullName;
+      const timestamp = new Date().toISOString();
+
+      addNotification({
+        id: `user-${type}-${userId}-${Date.now()}-${Math.random()}`,
+        type,
+        storageKey: "branchUserNotifications",
+        dedupeKey: `user-${type}-${userId}-${payload?.actor_id || "unknown"}`,
+        message: `User ${actionText}: "${fullName}"${payload?.actor_name ? ` by ${payload.actor_name}` : ""}`,
+        timestamp,
+        read: false,
+        userName: fullName,
+      });
+    };
+
+    const handleUserCreated = (payload) => handleUserEvent("add", payload);
+    const handleUserUpdated = (payload) => handleUserEvent("update", payload);
+    const handleUserDeleted = (payload) => handleUserEvent("delete", payload);
+
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleProductCreated);
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleProductUpdated);
     // Also listen for product deleted events that might affect branch
     socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+    socket.on(SOCKET_EVENTS.USER_CREATED, handleUserCreated);
+    socket.on(SOCKET_EVENTS.USER_UPDATED, handleUserUpdated);
+    socket.on(SOCKET_EVENTS.USER_DELETED, handleUserDeleted);
 
     return () => {
       const activeSocket = getSocket();
@@ -175,6 +204,9 @@ const Header = ({ title = "Product Management" }) => {
         activeSocket.off(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleProductCreated);
         activeSocket.off(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleProductUpdated);
         activeSocket.off(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+        activeSocket.off(SOCKET_EVENTS.USER_CREATED, handleUserCreated);
+        activeSocket.off(SOCKET_EVENTS.USER_UPDATED, handleUserUpdated);
+        activeSocket.off(SOCKET_EVENTS.USER_DELETED, handleUserDeleted);
       }
     };
   }, [user]);
@@ -389,17 +421,17 @@ const Header = ({ title = "Product Management" }) => {
                               marginBottom: "4px",
                             }}
                           >
-                            {notification.type === "admin_delete"
-                              ? "❌ Deleted by admin"
-                              : notification.type === "admin_update"
-                                ? "📝 Updated by admin"
-                                : notification.type === "admin_add"
-                                  ? "✅ New product available"
-                                  : notification.type === "delete"
-                                    ? "❌ Deleted"
-                                    : notification.type === "update"
-                                      ? "📝 Updated"
-                                      : "✅ Added"}
+          {notification.type === "admin_delete"
+            ? "❌ Deleted by admin"
+            : notification.type === "admin_update"
+              ? "📝 Updated by admin"
+              : notification.type === "admin_add"
+                ? "✅ New product available"
+                : notification.type === "delete"
+                  ? "❌ Deleted"
+                  : notification.type === "update"
+                    ? "📝 Updated"
+                    : "✅ Added"}
                           </div>
                           <div style={{ fontSize: "14px", color: "#4B5563", lineHeight: "1.4" }}>
                             {notification.message}
