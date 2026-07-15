@@ -6,7 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getBranchById } from "../../services/api";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 
-const NOTIFICATION_KEYS = ["branchProductNotifications", "adminProductNotifications", "branchUserNotifications"];
+const NOTIFICATION_KEYS = ["branchProductNotifications", "adminProductNotifications", "branchUserNotifications", "branchInventoryNotifications", "branchSupplierNotifications", "branchRecipeNotifications"];
 
 const getUserFullName = (userData) =>
   `${userData?.u_fname || ""} ${userData?.u_lname || ""}`.trim() || userData?.userName || "User";
@@ -115,7 +115,7 @@ const Header = ({ title = "Product Management" }) => {
     };
   }, []);
 
-  // Socket listeners for real-time product notifications
+  // Socket listeners for real-time product, user, and inventory notifications
   useEffect(() => {
     if (!user) return undefined;
 
@@ -190,6 +190,106 @@ const Header = ({ title = "Product Management" }) => {
     const handleUserUpdated = (payload) => handleUserEvent("update", payload);
     const handleUserDeleted = (payload) => handleUserEvent("delete", payload);
 
+    // Inventory event handler
+    const handleInventoryEvent = (type, payload = {}) => {
+      // Skip if the current user is the actor (they'll see a toast instead)
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const materialName = payload?.rm_name || payload?.materialName || "Inventory Item";
+      const materialId = payload?.rm_id || payload?.materialId || materialName;
+      const actionText = type === "delete" ? "deleted" : type === "update" ? "updated" : "added";
+      const timestamp = new Date().toISOString();
+
+      addNotification({
+        id: `inventory-${type}-${materialId}-${Date.now()}-${Math.random()}`,
+        type: `inventory_${type}`,
+        storageKey: "branchInventoryNotifications",
+        dedupeKey: `inventory-${type}-${materialId}-${payload?.actor_id || "unknown"}`,
+        message: `Inventory ${actionText}: "${materialName}"${payload?.actor_name ? ` by ${payload.actor_name}` : ""}`,
+        timestamp,
+        read: false,
+        materialName,
+      });
+    };
+
+    const handleInventoryCreated = (payload) => handleInventoryEvent("created", payload);
+    const handleInventoryUpdated = (payload) => handleInventoryEvent("updated", payload);
+    const handleInventoryDeleted = (payload) => handleInventoryEvent("deleted", payload);
+
+    // ── Supplier event handlers ──────────────────────────────────────────────
+    const handleSupplierEvent = (type, payload = {}) => {
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const supplierName = payload?.sup_name || "Supplier";
+      const supplierId = payload?.sup_id || supplierName;
+      const actionText = type === "delete" ? "deleted" : type === "update" ? "updated" : "added";
+      const timestamp = new Date().toISOString();
+
+      addNotification({
+        id: `supplier-${type}-${supplierId}-${Date.now()}-${Math.random()}`,
+        type: `supplier_${type}`,
+        storageKey: "branchSupplierNotifications",
+        dedupeKey: `supplier-${type}-${supplierId}-${payload?.actor_id || "unknown"}`,
+        message: `Supplier ${actionText}: "${supplierName}"${payload?.actor_name ? ` by ${payload.actor_name}` : ""}`,
+        timestamp,
+        read: false,
+        supplierName,
+      });
+    };
+
+    const handleSupplierCreated = (payload) => handleSupplierEvent("created", payload);
+    const handleSupplierUpdated = (payload) => handleSupplierEvent("updated", payload);
+    const handleSupplierDeleted = (payload) => handleSupplierEvent("deleted", payload);
+
+    // ── Recipe event handlers ────────────────────────────────────────────────
+    const handleRecipeEvent = (type, payload = {}) => {
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const proName = payload?.pro_name || "Product";
+      const proId = payload?.pro_id || "unknown";
+      const ingredientCount = payload?.ingredients?.length || payload?.ingredient?.rm_name || "";
+      const timestamp = new Date().toISOString();
+
+      let message = "";
+      let notifType = `recipe_${type}`;
+      if (type === "bulk_created") {
+        message = `Recipe updated for "${proName}" with ${payload?.ingredients?.length || 0} ingredients`;
+      } else if (type === "product_cleared") {
+        message = `All ingredients removed from "${proName}" recipe`;
+      } else if (type === "created") {
+        const ingName = payload?.ingredient?.rm_name || "";
+        message = `Ingredient "${ingName}" added to "${proName}" recipe`;
+      } else if (type === "updated") {
+        const ingName = payload?.ingredient?.rm_name || "";
+        message = `Ingredient "${ingName}" updated in "${proName}" recipe`;
+      } else if (type === "deleted") {
+        message = `Ingredient removed from "${proName}" recipe`;
+      }
+
+      addNotification({
+        id: `recipe-${type}-${proId}-${Date.now()}-${Math.random()}`,
+        type: notifType,
+        storageKey: "branchRecipeNotifications",
+        dedupeKey: `recipe-${type}-${proId}-${payload?.actor_id || "unknown"}`,
+        message,
+        timestamp,
+        read: false,
+        proName,
+      });
+    };
+
+    const handleRecipeBulkCreated = (payload) => handleRecipeEvent("bulk_created", payload);
+    const handleRecipeCreated = (payload) => handleRecipeEvent("created", payload);
+    const handleRecipeUpdated = (payload) => handleRecipeEvent("updated", payload);
+    const handleRecipeDeleted = (payload) => handleRecipeEvent("deleted", payload);
+    const handleRecipeProductCleared = (payload) => handleRecipeEvent("product_cleared", payload);
+
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleProductCreated);
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleProductUpdated);
     // Also listen for product deleted events that might affect branch
@@ -197,6 +297,20 @@ const Header = ({ title = "Product Management" }) => {
     socket.on(SOCKET_EVENTS.USER_CREATED, handleUserCreated);
     socket.on(SOCKET_EVENTS.USER_UPDATED, handleUserUpdated);
     socket.on(SOCKET_EVENTS.USER_DELETED, handleUserDeleted);
+    // Inventory events
+    socket.on(SOCKET_EVENTS.INVENTORY_CREATED, handleInventoryCreated);
+    socket.on(SOCKET_EVENTS.INVENTORY_UPDATED, handleInventoryUpdated);
+    socket.on(SOCKET_EVENTS.INVENTORY_DELETED, handleInventoryDeleted);
+    // Supplier events
+    socket.on(SOCKET_EVENTS.SUPPLIER_CREATED, handleSupplierCreated);
+    socket.on(SOCKET_EVENTS.SUPPLIER_UPDATED, handleSupplierUpdated);
+    socket.on(SOCKET_EVENTS.SUPPLIER_DELETED, handleSupplierDeleted);
+    // Recipe events
+    socket.on(SOCKET_EVENTS.RECIPE_BULK_CREATED, handleRecipeBulkCreated);
+    socket.on(SOCKET_EVENTS.RECIPE_CREATED, handleRecipeCreated);
+    socket.on(SOCKET_EVENTS.RECIPE_UPDATED, handleRecipeUpdated);
+    socket.on(SOCKET_EVENTS.RECIPE_DELETED, handleRecipeDeleted);
+    socket.on(SOCKET_EVENTS.RECIPE_PRODUCT_CLEARED, handleRecipeProductCleared);
 
     return () => {
       const activeSocket = getSocket();
@@ -207,6 +321,17 @@ const Header = ({ title = "Product Management" }) => {
         activeSocket.off(SOCKET_EVENTS.USER_CREATED, handleUserCreated);
         activeSocket.off(SOCKET_EVENTS.USER_UPDATED, handleUserUpdated);
         activeSocket.off(SOCKET_EVENTS.USER_DELETED, handleUserDeleted);
+        activeSocket.off(SOCKET_EVENTS.INVENTORY_CREATED, handleInventoryCreated);
+        activeSocket.off(SOCKET_EVENTS.INVENTORY_UPDATED, handleInventoryUpdated);
+        activeSocket.off(SOCKET_EVENTS.INVENTORY_DELETED, handleInventoryDeleted);
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_CREATED, handleSupplierCreated);
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_UPDATED, handleSupplierUpdated);
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_DELETED, handleSupplierDeleted);
+        activeSocket.off(SOCKET_EVENTS.RECIPE_BULK_CREATED, handleRecipeBulkCreated);
+        activeSocket.off(SOCKET_EVENTS.RECIPE_CREATED, handleRecipeCreated);
+        activeSocket.off(SOCKET_EVENTS.RECIPE_UPDATED, handleRecipeUpdated);
+        activeSocket.off(SOCKET_EVENTS.RECIPE_DELETED, handleRecipeDeleted);
+        activeSocket.off(SOCKET_EVENTS.RECIPE_PRODUCT_CLEARED, handleRecipeProductCleared);
       }
     };
   }, [user]);
@@ -421,17 +546,23 @@ const Header = ({ title = "Product Management" }) => {
                               marginBottom: "4px",
                             }}
                           >
-          {notification.type === "admin_delete"
-            ? "❌ Deleted by admin"
-            : notification.type === "admin_update"
-              ? "📝 Updated by admin"
-              : notification.type === "admin_add"
-                ? "✅ New product available"
-                : notification.type === "delete"
-                  ? "❌ Deleted"
-                  : notification.type === "update"
-                    ? "📝 Updated"
-                    : "✅ Added"}
+                            {notification.type === "admin_delete"
+                              ? "❌ Deleted by admin"
+                              : notification.type === "admin_update"
+                                ? "📝 Updated by admin"
+                                : notification.type === "admin_add"
+                                  ? "✅ New product available"
+                                  : notification.type === "delete"
+                                    ? "❌ Deleted"
+                                    : notification.type === "update"
+                                      ? "📝 Updated"
+                                      : notification.type === "inventory_deleted"
+                                        ? "🗑️ Inventory Deleted"
+                                        : notification.type === "inventory_updated"
+                                          ? "📦 Inventory Updated"
+                                          : notification
+                                            ? "➕ Inventory Added"
+                                            : "✅ Added"}
                           </div>
                           <div style={{ fontSize: "14px", color: "#4B5563", lineHeight: "1.4" }}>
                             {notification.message}
