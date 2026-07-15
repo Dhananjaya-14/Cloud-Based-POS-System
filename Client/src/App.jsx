@@ -61,6 +61,7 @@ import RecipeMapper from './pages/branch-admin/RecipeMapper';
 import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
 import WaiterPos from './pages/waiter/WaiterPos';
 import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
+import AdminSupplierManagement from './pages/admin/SupplierManagement';
 
 
 function App() {
@@ -213,6 +214,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[2, 6]}>
             <BranchProfileEdit />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/suppliers"
+        element={
+          <ProtectedRoute allowedRoles={[2, 6]}>
+            <AdminSupplierManagement />
           </ProtectedRoute>
         }
       />

@@ -67,8 +67,8 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
     return "or_totalCostWtax must be a non-negative number";
   }
   if (or_tax !== undefined && or_tax !== null) {
-    if (isNaN(tax) || tax < 0 || tax > 100) {
-      return "or_tax must be a number between 0 and 100";
+    if (isNaN(tax) || tax < 0 ) {
+      return "or_tax must be a number greater than or equal to 0";
     }
   }
   if (costWtx < cost) {
@@ -76,10 +76,10 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
   }
   // Sanity check: cost with tax should roughly match (within 1% tolerance for rounding)
   if (or_tax !== undefined && or_tax !== null && !isNaN(tax)) {
-    const expected = parseFloat((cost * (1 + tax / 100)).toFixed(2));
+    const expected = parseFloat((cost + tax).toFixed(2));
     const diff = Math.abs(expected - costWtx);
     if (diff > 0.05) {
-      return `or_totalCostWtax (${costWtx}) does not match or_totalcost * (1 + tax/100) = ${expected}`;
+      return `or_totalCostWtax (${costWtx}) does not match or_totalcost + or_tax = ${expected}`;
     }
   }
   return null;
@@ -510,6 +510,7 @@ export const updateOrder = async (req, res) => {
 
     // ── Required fields for full update ──
     const missing = [];
+    if (or_tax === undefined) missing.push("or_tax");
     if (or_totalcost === undefined) missing.push("or_totalcost");
     if (or_totalCostWtax === undefined) missing.push("or_totalCostWtax");
     if (!or_status) missing.push("or_status");

@@ -451,7 +451,7 @@ export default function BranchWiseSalesReport() {
                             if (col.key === "report_date" && cellValue) {
                               return (
                                 <td key={col.key} className="p-4 text-sm text-gray-600">
-                                  {cellValue.includes("T") ? cellValue.split("T")[0] : cellValue}
+                                  {new Date(cellValue).toLocaleDateString("en-CA")}
                                 </td>
                               );
                             }

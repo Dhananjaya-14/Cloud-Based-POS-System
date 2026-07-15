@@ -33,6 +33,7 @@ function toResponseRow(row) {
     quantity_req: parseFloat(row.quantity_req), // return as number, not string
     pro_id: row.pro_id,
     rawmaterial_id: row.rawmaterial_id,
+    b_id: row.b_id,
     // enriched fields (present only in getRecipesByProduct)
     ...(row.rm_name !== undefined && { rm_name: row.rm_name }),
     rm_unit: row.rm_unit || row.unit || "",
@@ -129,7 +130,8 @@ export async function getRecipeById(req, res, next) {
 export async function getRecipesByProduct(req, res, next) {
   try {
     const { pro_id } = req.params;
-    const { role_id, com_id } = req.user;
+    const { role_id, com_id, b_id: userBid } = req.user;
+    const b_id = req.query.b_id ? Number(req.query.b_id) : (userBid ?? null);
 
     if (!isPositiveInt(pro_id)) {
       res.status(400);
@@ -149,11 +151,19 @@ export async function getRecipesByProduct(req, res, next) {
       throw new Error("You do not have permission to view recipes for this product.");
     }
 
+    const queryParams = [pro_id];
+    let branchFilter = "";
+    if (b_id) {
+      branchFilter = ` AND r."b_id" = $2`;
+      queryParams.push(b_id);
+    }
+
     const result = await pool.query(
       `SELECT
         r."recipe_id",
         r."quantity_req",
         r."pro_id",
+        r."b_id",
         r."rawmaterial_ID" AS "rawmaterial_id",
         p."pro_name",
         rm."rm_name",
@@ -161,9 +171,9 @@ export async function getRecipesByProduct(req, res, next) {
       FROM "public"."RECIPE" r
       JOIN "public"."Product"      p  ON p."pro_id" = r."pro_id"
       JOIN "public"."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
-      WHERE r."pro_id" = $1
+      WHERE r."pro_id" = $1${branchFilter}
       ORDER BY r."recipe_id"`,
-      [pro_id],
+      queryParams,
     );
 
     res.json({
@@ -312,6 +322,10 @@ export async function createRecipeBulk(req, res, next) {
       res.status(400);
       throw new Error("pro_id is required.");
     }
+    if (b_id === undefined || b_id === null) {
+      res.status(400);
+      throw new Error("b_id is required.");
+    }
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
       res.status(400);
       throw new Error("ingredients must be a non-empty array.");
@@ -319,6 +333,10 @@ export async function createRecipeBulk(req, res, next) {
     if (!isPositiveInt(pro_id)) {
       res.status(400);
       throw new Error("pro_id must be a positive integer.");
+    }
+    if (!isPositiveInt(b_id)) {
+      res.status(400);
+      throw new Error("b_id must be a positive integer.");
     }
 
     // ── Cap ingredient list — realistic kitchen recipe ──
@@ -382,28 +400,28 @@ export async function createRecipeBulk(req, res, next) {
       throw new Error("You do not have permission to add a recipe to this product.");
     }
 
-    // ── Verify each raw material belongs to user's company ─────────────────────
+    // ── Verify each raw material belongs to user's company and the given branch ──
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       const rmIdsList = ingredients.map((i) => i.rawmaterial_id);
       const rmCheck = await pool.query(
-        'SELECT "rm_id" FROM "public"."Raw_Material" WHERE "rm_id" = ANY($1) AND "Com_id" = $2',
-        [rmIdsList, req.user.com_id]
+        'SELECT "rm_id" FROM "public"."Raw_Material" WHERE "rm_id" = ANY($1) AND "Com_id" = $2 AND "b_id" = $3',
+        [rmIdsList, req.user.com_id, b_id]
       );
       if (rmCheck.rows.length !== rmIdsList.length) {
         res.status(403);
-        throw new Error("One or more raw materials do not exist or do not belong to your company.");
+        throw new Error("One or more raw materials do not exist or do not belong to your branch.");
       }
     }
 
-    // ── Check no existing recipe entries for this product ──
+    // ── Check no existing recipe entries for this product+branch combo ──
     const existingCheck = await pool.query(
-      'SELECT "recipe_id" FROM "public"."RECIPE" WHERE "pro_id" = $1 LIMIT 1',
-      [pro_id],
+      'SELECT "recipe_id" FROM "public"."RECIPE" WHERE "pro_id" = $1 AND "b_id" = $2 LIMIT 1',
+      [pro_id, b_id],
     );
     if (existingCheck.rows.length > 0) {
       res.status(409);
       throw new Error(
-        "This product already has a recipe. Use POST /api/recipes to add individual ingredients or PUT /api/recipes/:id to update.",
+        "This product already has a recipe for this branch. Delete it first before saving a new one.",
       );
     }
 
@@ -420,6 +438,7 @@ export async function createRecipeBulk(req, res, next) {
            "recipe_id",
            "quantity_req",
            "pro_id",
+           "b_id",
            "rawmaterial_ID" AS "rawmaterial_id",
            "unit",
            "b_id"`,
@@ -449,7 +468,7 @@ export async function createRecipeBulk(req, res, next) {
       res.status(409);
       return next(
         new Error(
-          "Duplicate entry: one or more raw materials are already in this recipe.",
+          "Duplicate entry: one or more raw materials are already in this recipe for this branch.",
         ),
       );
     }
@@ -672,7 +691,9 @@ export async function deleteRecipe(req, res, next) {
 export async function deleteRecipeByProduct(req, res, next) {
   try {
     const { pro_id } = req.params;
-    const { role_id, com_id } = req.user;
+    const { role_id, com_id, b_id: userBid } = req.user;
+    // b_id can be passed as a query param (for super admin) or taken from the JWT
+    const b_id = req.query.b_id ? Number(req.query.b_id) : (userBid ?? null);
 
     if (!isPositiveInt(pro_id)) {
       res.status(400);
@@ -692,13 +713,20 @@ export async function deleteRecipeByProduct(req, res, next) {
       throw new Error("You do not have permission to delete recipes for this product.");
     }
 
+    const deleteParams = [pro_id];
+    let branchFilter = "";
+    if (b_id) {
+      branchFilter = ` AND "b_id" = $2`;
+      deleteParams.push(b_id);
+    }
+
     const result = await pool.query(
-      'DELETE FROM "public"."RECIPE" WHERE "pro_id" = $1 RETURNING "recipe_id"',
-      [pro_id],
+      `DELETE FROM "public"."RECIPE" WHERE "pro_id" = $1${branchFilter} RETURNING "recipe_id"`,
+      deleteParams,
     );
 
     res.json({
-      message: `Deleted ${result.rows.length} recipe entries for product ${pro_id}.`,
+      message: `Deleted ${result.rows.length} recipe entries for product ${pro_id}${b_id ? ` in branch ${b_id}` : ''}.`,
       deleted_count: result.rows.length,
     });
   } catch (err) {
