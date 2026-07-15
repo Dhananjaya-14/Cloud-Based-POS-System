@@ -86,6 +86,7 @@ const mapApiProductToTableItem = (product) => {
 
   return {
     id: product.pro_id,
+    product_type: product.product_type || "made_to_order",
     imageUrl,
     imageAlt: product.pro_name || "Product",
     name: product.pro_name,
@@ -420,6 +421,8 @@ const ProductManagement = () => {
           <ProductItemsTable
             products={paginatedProducts}
             hideStockColumn={true}
+            hideStatusColumn={true}
+            showTypeColumn={true}
             onViewProduct={handleViewProduct}
             onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}

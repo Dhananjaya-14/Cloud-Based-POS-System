@@ -7,6 +7,7 @@ import {
   patchOrder,
   updateOrderStatus,
   deleteOrder,
+  checkOrderStock,
 } from "../controllers/orderController.js";
 
 import {
@@ -64,6 +65,9 @@ router.get("/", requireAuth, canReadOrders, getAllOrders);
 
 // GET /orders/:id
 router.get("/:id", requireAuth, canReadOrders, getOrderById);
+
+// POST /orders/check-stock — must be before POST "/"
+router.post("/check-stock", requireAuth, canCreateOrder, checkOrderStock);
 
 // POST /orders
 router.post("/", requireAuth, canCreateOrder, createOrder);

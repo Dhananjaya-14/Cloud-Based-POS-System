@@ -21,44 +21,48 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
     setShowDeleteConfirm(true);
   };
 
+  const [updateError, setUpdateError] = useState(null);
+
   const handleUpdate = async (e) => {
     e.preventDefault();
-    setMaterials(prev => prev.map(m => 
-      m.rm_id === material.rm_id 
-        ? { 
-            ...m, 
-            ...formData, 
-            // Updated to use the new formData.stock_qty for the low stock check
-            low_stock: Number(formData.stock_qty) <= Number(formData.record_level) 
-          } 
-        : m
-    ));
-    onClose(); 
+    setUpdateError(null);
 
     const token =
       localStorage.getItem('token') ||
       localStorage.getItem('authToken');
 
-  try{
-    const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(formData),
-    });
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message);
-    }
+    try {
+      const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
 
-    onSuccess();
-    onClose();
-   } catch (err) {
-    console.error(err);
-    alert(err.message);
-   }   
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message);
+      }
+
+      // Only update local state and close AFTER the backend confirms success
+      setMaterials(prev => prev.map(m =>
+        m.rm_id === material.rm_id
+          ? {
+              ...m,
+              ...formData,
+              low_stock: Number(formData.stock_qty) <= Number(formData.record_level)
+            }
+          : m
+      ));
+
+      onSuccess();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      setUpdateError(err.message);
+    }
   };
 
   const confirmDelete = async () => {
@@ -104,7 +108,13 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
           <h2 className="text-xl font-bold text-gray-800">Update Item Details</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
         </div>
-        
+
+        {updateError && (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {updateError}
+          </div>
+        )}
+
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Material Name</label>

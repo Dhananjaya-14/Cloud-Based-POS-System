@@ -12,7 +12,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-import { getBranchProducts, updateBranchProduct, deleteBranchProduct } from "../../services/api";
+import { getBranchProducts, updateBranchProduct, deleteBranchProduct, addBranchProductStock, getBranchProductIngredientStatus } from "../../services/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -83,12 +83,12 @@ const resolveProductImage = (value) => {
 
 const mapApiProductToTableItem = (product) => {
 	const quantity = Number(product.pro_quantity ?? 0);
-	const lowStockLimit = Number(product.low_stock_limit ?? 10);
 	const price = Number(product.pro_price ?? 0);
 	const imageUrl = resolveProductImage(product.pro_image);
 
 	return {
 		id: product.Bpro_id,
+		product_type: product.product_type || "made_to_order",
 		imageUrl,
 		imageAlt: product.pro_name || "Product",
 		name: product.pro_name,
@@ -97,7 +97,7 @@ const mapApiProductToTableItem = (product) => {
 		price: `$${price.toFixed(2)}`,
 		discount: "0%",
 		stock: quantity,
-		status: getStockStatus(quantity, lowStockLimit),
+		status: product.calculated_status || "In stock",
 	};
 };
 
@@ -115,6 +115,10 @@ const ProductManagement = () => {
 	const [deleteTargetName, setDeleteTargetName] = useState("");
 	const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 	const [isDeleting, setIsDeleting] = useState(false);
+	
+	const [activeTab, setActiveTab] = useState("made_to_order");
+	const [stockModalItem, setStockModalItem] = useState(null);
+	const [stockModalQty, setStockModalQty] = useState("");
 
 	useEffect(() => {
 		let isMounted = true;
@@ -147,7 +151,16 @@ const ProductManagement = () => {
 	}, [user?.u_id]);
 
 	const tableProducts = useMemo(() => {
-		const mapped = products.map(mapApiProductToTableItem);
+		let mapped = products.map(mapApiProductToTableItem);
+		
+		if (activeTab === "made_to_order") {
+			mapped = mapped.filter(item => item.product_type === "made_to_order");
+		} else if (activeTab === "pre_made") {
+			mapped = mapped.filter(item => item.product_type === "pre_made");
+		} else if (activeTab === "finished") {
+			mapped = mapped.filter(item => item.product_type === "finished");
+		}
+
 		const query = searchTerm.trim().toLowerCase();
 
 		if (!query) return mapped;
@@ -159,13 +172,13 @@ const ProductManagement = () => {
 				item.category.toLowerCase().includes(query)
 			);
 		});
-	}, [products, searchTerm]);
+	}, [products, searchTerm, activeTab]);
 
 	const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
 
 	useEffect(() => {
 		setCurrentPage(1);
-	}, [searchTerm]);
+	}, [searchTerm, activeTab]);
 
 	useEffect(() => {
 		if (currentPage > totalPages) {
@@ -182,11 +195,8 @@ const ProductManagement = () => {
 	const pageEnd = Math.min(currentPage * itemsPerPage, tableProducts.length);
 
 	const totalItems = products.length;
-	const lowStockCount = products.filter((item) => {
-		const quantity = Number(item.pro_quantity ?? 0);
-		return quantity > 0 && quantity <= 10;
-	}).length;
-	const outOfStockCount = products.filter((item) => Number(item.pro_quantity ?? 0) <= 0).length;
+	const lowStockCount = products.filter((item) => item.calculated_status === "Low stock").length;
+	const outOfStockCount = products.filter((item) => item.calculated_status === "Out of stock").length;
 
 	const handleAdjustStock = async (productId, delta) => {
 		if (updatingStockId !== null) return;
@@ -220,7 +230,37 @@ const ProductManagement = () => {
 			setUpdatingStockId(null);
 		}
 	};
-			const handleDeleteClick = (productId) => {
+
+	const handleConfirmAddStock = async () => {
+		if (!stockModalItem || !stockModalQty) return;
+		const qty = parseInt(stockModalQty, 10);
+		if (isNaN(qty) || qty <= 0) return;
+
+		try {
+			setUpdatingStockId(stockModalItem.id);
+			setError("");
+			const updated = await addBranchProductStock(stockModalItem.id, qty);
+
+			setProducts((prev) =>
+				prev.map((item) =>
+					item.Bpro_id === stockModalItem.id
+						? {
+							...item,
+							...updated,
+						}
+						: item
+				)
+			);
+			setStockModalItem(null);
+			setStockModalQty("");
+		} catch (err) {
+			setError(err?.response?.data?.message || "Failed to add stock");
+		} finally {
+			setUpdatingStockId(null);
+		}
+	};
+
+	const handleDeleteClick = (productId) => {
 			const product = products.find((item) => item.Bpro_id === productId);
 			setDeleteTargetId(productId);
 			setDeleteTargetName(product?.pro_name || "this product");
@@ -347,6 +387,54 @@ const ProductManagement = () => {
 						<div style={{ marginBottom: "14px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>
 					)}
 
+					<div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+						<button
+							onClick={() => setActiveTab("made_to_order")}
+							style={{
+								padding: "10px 20px",
+								borderRadius: "20px",
+								border: "none",
+								fontWeight: "600",
+								cursor: "pointer",
+								background: activeTab === "made_to_order" ? "#0E6DCF" : "#fff",
+								color: activeTab === "made_to_order" ? "#fff" : "#4B5563",
+								boxShadow: activeTab === "made_to_order" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
+							}}
+						>
+							Made to Order
+						</button>
+						<button
+							onClick={() => setActiveTab("pre_made")}
+							style={{
+								padding: "10px 20px",
+								borderRadius: "20px",
+								border: "none",
+								fontWeight: "600",
+								cursor: "pointer",
+								background: activeTab === "pre_made" ? "#0E6DCF" : "#fff",
+								color: activeTab === "pre_made" ? "#fff" : "#4B5563",
+								boxShadow: activeTab === "pre_made" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
+							}}
+						>
+							Pre-made
+						</button>
+						<button
+							onClick={() => setActiveTab("finished")}
+							style={{
+								padding: "10px 20px",
+								borderRadius: "20px",
+								border: "none",
+								fontWeight: "600",
+								cursor: "pointer",
+								background: activeTab === "finished" ? "#0E6DCF" : "#fff",
+								color: activeTab === "finished" ? "#fff" : "#4B5563",
+								boxShadow: activeTab === "finished" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
+							}}
+						>
+							External Products
+						</button>
+					</div>
+
 					<div style={{ display: "flex", gap: "14px", marginBottom: "24px" }}>
 						<div
 							style={{
@@ -407,11 +495,14 @@ const ProductManagement = () => {
 
 				<ProductItemsTable
 		products={paginatedProducts}
-		onDecreaseStock={(id) => handleAdjustStock(id, -1)}
-		onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+		onDecreaseStock={null}
+		onIncreaseStock={null}
+		onAddStock={activeTab !== "made_to_order" ? (item) => setStockModalItem(item) : null}
+		hideStockColumn={activeTab === "made_to_order"}
 		updatingStockId={updatingStockId}
 		showActions={true}
 		onDeleteProduct={handleDeleteClick}
+		onFetchIngredients={getBranchProductIngredientStatus}
 		onEditProduct={null}
 		currentPage={currentPage}
 		totalPages={totalPages}
@@ -529,6 +620,80 @@ const ProductManagement = () => {
                 }}
               >
                 {isDeleting ? "Removing..." : "Remove"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {stockModalItem && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.12)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+        }}>
+          <div style={{
+            width: "min(92vw, 400px)",
+            background: "#fff",
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+          }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
+              Add Stock for {stockModalItem.name}
+            </h2>
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", fontSize: "14px", color: "#4B5563", marginBottom: "8px" }}>
+                Quantity to Add
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={stockModalQty}
+                onChange={(e) => setStockModalQty(e.target.value)}
+                placeholder="Enter quantity"
+                style={{
+                  width: "100%",
+                  padding: "10px 12px",
+                  borderRadius: "8px",
+                  border: "1px solid #D1D5DB",
+                  outline: "none",
+                  fontSize: "14px"
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setStockModalItem(null)}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "1px solid #D1D5DB",
+                  background: "#fff",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  color: "#374151"
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAddStock}
+                style={{
+                  padding: "8px 16px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "#0E6DCF",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                  color: "#fff"
+                }}
+              >
+                Confirm
               </button>
             </div>
           </div>

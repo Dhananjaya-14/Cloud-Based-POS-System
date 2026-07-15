@@ -32,13 +32,13 @@ export async function getProducts(req, res, next) {
     let result;
     if (role_id === ROLES.SUPER_ADMIN) {
       result = await pool.query(
-        'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name", p."add_ons", p."stations" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" ORDER BY p."pro_id"'
-      );
+  'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name", p."add_ons", p."stations", p."product_type" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" ORDER BY p."pro_id"'
+);
     } else {
       result = await pool.query(
-        'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name", p."add_ons", p."stations" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" WHERE p."Com_id" = $1 ORDER BY p."pro_id"',
-        [com_id]
-      );
+  'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name", p."add_ons", p."stations", p."product_type" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" WHERE p."Com_id" = $1 ORDER BY p."pro_id"',
+  [com_id]
+);
     }
     res.json(result.rows);
   } catch (err) {
@@ -82,7 +82,7 @@ export async function getProductById(req, res, next) {
 //create product
 export async function createProduct(req, res, next) {
   try {
-          const { pro_name, pro_price, pro_image, cat_id, add_ons, stations } = req.body;
+          const { pro_name, pro_price, pro_image, cat_id, add_ons, stations, product_type } = req.body;
       const com_id = normalizeComId(req.body);
 
       if (
@@ -117,20 +117,23 @@ export async function createProduct(req, res, next) {
 
     // cat_id is optional — only insert if provided
     const resolvedCatId = cat_id != null && isPositiveInt(cat_id) ? Number(cat_id) : null;
-    const finalAddOns = add_ons ? JSON.stringify(add_ons) : '{"Cheese": true, "Bacon": true}';
-    const finalStations = stations ? JSON.stringify(stations) : '{"Kitchen": true, "Bar": true}';
+    const finalAddOns = add_ons ? JSON.stringify(add_ons) : '{}';
+      const finalStations = stations ? JSON.stringify(stations) : '{"Kitchen": true, "Bar": true}';
+      const finalProductType = ['made_to_order', 'pre_made', 'finished'].includes(product_type)
+        ? product_type
+        : 'made_to_order';
 
    const insertQuery = resolvedCatId
-  ? `INSERT INTO "public"."Product" ("pro_name", "pro_price", " pro_image", "Com_id", "cat_id", "add_ons", "stations")
+  ? `INSERT INTO "public"."Product" ("pro_name", "pro_price", " pro_image", "Com_id", "cat_id", "add_ons", "stations", "product_type")
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING "pro_id", "pro_name", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id", "add_ons", "stations", "product_type"`
+  : `INSERT INTO "public"."Product" ("pro_name", "pro_price", " pro_image", "Com_id", "add_ons", "stations", "product_type")
      VALUES ($1, $2, $3, $4, $5, $6, $7)
-     RETURNING "pro_id", "pro_name", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "cat_id", "add_ons", "stations"`
-  : `INSERT INTO "public"."Product" ("pro_name", "pro_price", " pro_image", "Com_id", "add_ons", "stations")
-     VALUES ($1, $2, $3, $4, $5, $6)
-     RETURNING "pro_id", "pro_name", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "add_ons", "stations"`;
+     RETURNING "pro_id", "pro_name", "pro_price", " pro_image" AS "pro_image", "Com_id" AS "com_id", "add_ons", "stations", "product_type"`;
 
-  const insertParams = resolvedCatId
-  ? [pro_name, pro_price, pro_image, com_id, resolvedCatId, finalAddOns, finalStations]
-  : [pro_name, pro_price, pro_image, com_id, finalAddOns, finalStations];
+const insertParams = resolvedCatId
+  ? [pro_name, pro_price, pro_image, com_id, resolvedCatId, finalAddOns, finalStations, finalProductType]
+  : [pro_name, pro_price, pro_image, com_id, finalAddOns, finalStations, finalProductType];
 
     const result = await pool.query(insertQuery, insertParams);
     const newProduct = result.rows[0];

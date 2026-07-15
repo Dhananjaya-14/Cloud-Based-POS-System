@@ -44,6 +44,7 @@ const RecipeMapperDetail = () => {
   const [savingMapping, setSavingMapping] = useState(false);
   const [notice, setNotice] = useState("");
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [branchId, setBranchId] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -63,6 +64,8 @@ const RecipeMapperDetail = () => {
         const branch =
           branchList?.find((item) => String(item.U_id) === String(user?.u_id)) ||
           branchList?.[0];
+
+        if (branch) setBranchId(branch.B_id);
 
         let branchProducts = branch?.B_id
           ? await getBranchProducts(branch.B_id)
@@ -201,6 +204,7 @@ const RecipeMapperDetail = () => {
 
       const payload = {
         pro_id: Number(productId),
+        b_id: Number(branchId),
         ingredients: recipeItems.map((item) => ({
           rawmaterial_id: Number(item.rawmaterial_id),
           quantity_req: Number(item.quantity_req),
