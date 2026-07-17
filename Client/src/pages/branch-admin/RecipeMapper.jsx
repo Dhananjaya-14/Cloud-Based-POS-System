@@ -111,6 +111,7 @@ const RecipeMapper = () => {
   const filteredProducts = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
     return products.filter((item) => {
+      if (item?.product_type === "finished") return false;
       const name = String(item?.pro_name || "").toLowerCase();
       const description = String(item?.pro_des || "").toLowerCase();
       const matchesQuery = !query || name.includes(query) || description.includes(query);

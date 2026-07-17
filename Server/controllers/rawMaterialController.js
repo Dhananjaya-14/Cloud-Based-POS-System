@@ -486,20 +486,7 @@ export async function updateRawMaterial(req, res, next) {
       }
     }
 
-    // ── NEW: if both are provided, reorder level should not exceed stock ──
-    if (
-      stockQty !== null &&
-      recordLevel !== null &&
-      recordLevel > stockQty &&
-      stockQty > 0
-    ) {
-      res.status(400);
-      throw new Error(
-        "record_level (reorder point) should not exceed stock_qty",
-      );
-    }
-
-    const result = await pool.query(
+   const result = await pool.query(
       `UPDATE "Raw_Material"
        SET
          rm_name      = COALESCE($1, rm_name),
