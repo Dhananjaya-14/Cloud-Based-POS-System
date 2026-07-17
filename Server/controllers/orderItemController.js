@@ -58,9 +58,10 @@ async function fetchOrder(order_id) {
  */
 async function fetchBranchProduct(Bpro_id) {
   const { rows } = await pool.query(
-    `SELECT "Bpro_id", pro_name, " Pro_Price" AS "Pro_Price"
-     FROM public."Branch_Product"
-     WHERE "Bpro_id" = $1`,
+    `SELECT bp."Bpro_id", bp.pro_name, bp." Pro_Price" AS "Pro_Price", bp.pro_id, bp."B_id", p.product_type
+     FROM public."Branch_Product" bp
+     JOIN public."Product" p ON p.pro_id = bp.pro_id
+     WHERE bp."Bpro_id" = $1`,
     [Bpro_id],
   );
   return rows[0] ?? null;
@@ -80,25 +81,89 @@ function guardOrderStatus(or_status, roleId) {
   return null;
 }
 
+// Unit conversion for recipe ingredients
+function convertQty(recipeQty, recipeUnit, stockUnit) {
+  const rUnit = String(recipeUnit || "").toLowerCase().trim();
+  const sUnit = String(stockUnit || "").toLowerCase().trim();
+
+  if (rUnit === sUnit || !rUnit || !sUnit) return recipeQty;
+
+  // Weight conversions
+  if (rUnit === "g"  && sUnit === "kg") return recipeQty / 1000;
+  if (rUnit === "kg" && sUnit === "g")  return recipeQty * 1000;
+  if (rUnit === "mg" && sUnit === "g")  return recipeQty / 1000;
+  if (rUnit === "mg" && sUnit === "kg") return recipeQty / 1_000_000;
+
+  // Volume conversions
+  if (rUnit === "ml" && sUnit === "l")  return recipeQty / 1000;
+  if (rUnit === "l"  && sUnit === "ml") return recipeQty * 1000;
+
+  // Count conversions
+  if (rUnit === "pcs"   && sUnit === "dozen") return recipeQty / 12;
+  if (rUnit === "units" && sUnit === "dozen") return recipeQty / 12;
+
+  return recipeQty;
+}
+
+async function adjustRecipeIngredients(client, pro_id, b_id, quantity, operation) {
+  const recipesResult = await client.query(
+    `SELECT
+       r."rawmaterial_ID" AS "rawmaterial_id",
+       r."quantity_req",
+       COALESCE(r."unit", rm."unit") AS "recipe_unit",
+       rm."unit"                     AS "stock_unit"
+     FROM public."RECIPE"        r
+     JOIN public."Raw_Material"  rm ON rm."rm_id" = r."rawmaterial_ID"
+     WHERE r."pro_id" = $1
+     FOR UPDATE OF rm`,
+    [pro_id]
+  );
+
+  for (const recipe of recipesResult.rows) {
+    const totalQty = recipe.quantity_req * quantity;
+    const convertedQty = convertQty(totalQty, recipe.recipe_unit, recipe.stock_unit);
+    const stockExpr = operation === "subtract"
+      ? "GREATEST(0, stock_qty - $1)"
+      : "stock_qty + $1";
+
+    await client.query(
+      `UPDATE public."Raw_Material"
+         SET stock_qty = ${stockExpr}
+       WHERE rm_id = $2
+         AND (
+           b_id = $3
+           OR (b_id IS NULL AND $3::integer IS NULL)
+         )`,
+      [convertedQty, recipe.rawmaterial_id, b_id ?? null]
+    );
+  }
+}
+
 /**
  * Transaction-safe stock adjuster for order items.
  *
- * These are pre-made products — raw material ingredients are consumed at
- * prep time when the branch admin adds the product batch (via Recipe Mapper).
- * At POS sale time only the branch showcase quantity is decremented.
- * Raw materials and base product stock are NOT touched here.
+ * - Pre-made / finished products: decrement branch showcase qty at sale time
+ *   (raw materials were already deducted at prep time by the branch admin).
+ * - Made-to-order products: do NOT touch anything at sale time.
+ *   Raw material deduction happens when kitchen staff accepts the order
+ *   (status → "preparing") in orderController.updateOrderStatus.
  */
-export async function adjustStockForOrderItem(client, Bpro_id, quantity, operation) {
-  // Only update the branch product's showcase quantity.
-  // Recipe / raw-material deduction happens in branchProductController at prep time.
+export async function adjustStockForOrderItem(client, bProduct, quantity, operation) {
+  if (bProduct.product_type === 'made_to_order') {
+    // Nothing to do at order creation/deletion for made_to_order.
+    // Ingredients are deducted only when kitchen accepts the order.
+    return [];
+  }
+
+  // For pre_made or finished products, update the branch showcase quantity.
   await client.query(
     `UPDATE public."Branch_Product"
        SET "pro_quantity" = GREATEST(0, "pro_quantity" ${operation === "subtract" ? "-" : "+"} $1)
      WHERE "Bpro_id" = $2`,
-    [quantity, Bpro_id]
+    [quantity, bProduct.Bpro_id]
   );
 
-  return []; // No raw-material warnings at sale time
+  return [];
 }
 
 // ─────────────────────────────────────────────
@@ -251,7 +316,7 @@ export const createOrderItem = async (req, res) => {
     await client.query("BEGIN");
 
     // Deduct raw material stock
-    const stockWarnings = await adjustStockForOrderItem(client, Bpro_id, qty, "subtract");
+    const stockWarnings = await adjustStockForOrderItem(client, bProduct, qty, "subtract");
 
     const result = await client.query(
       `INSERT INTO public."ORDER_ITEM" ("Bpro_id", pro_quantity, unit_price, total_price, order_id)
@@ -381,14 +446,15 @@ export const updateOrderItem = async (req, res) => {
 
     // Calculate quantity difference and adjust stock
     if (Number(oldItem.Bpro_id) !== Number(Bpro_id)) {
-      await adjustStockForOrderItem(client, oldItem.Bpro_id, oldItem.pro_quantity, "add");
-      await adjustStockForOrderItem(client, Bpro_id, qty, "subtract");
+      const oldBProduct = await fetchBranchProduct(oldItem.Bpro_id);
+      await adjustStockForOrderItem(client, oldBProduct, oldItem.pro_quantity, "add");
+      await adjustStockForOrderItem(client, bProduct, qty, "subtract");
     } else {
       const diff = qty - oldItem.pro_quantity;
       if (diff > 0) {
-        await adjustStockForOrderItem(client, Bpro_id, diff, "subtract");
+        await adjustStockForOrderItem(client, bProduct, diff, "subtract");
       } else if (diff < 0) {
-        await adjustStockForOrderItem(client, Bpro_id, Math.abs(diff), "add");
+        await adjustStockForOrderItem(client, bProduct, Math.abs(diff), "add");
       }
     }
 
@@ -457,7 +523,8 @@ export const deleteOrderItem = async (req, res) => {
     }
 
     // Restore stock levels
-    await adjustStockForOrderItem(client, item.Bpro_id, item.pro_quantity, "add");
+    const bProduct = await fetchBranchProduct(item.Bpro_id);
+    await adjustStockForOrderItem(client, bProduct, item.pro_quantity, "add");
 
     const result = await client.query(
       `DELETE FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1 RETURNING *`,

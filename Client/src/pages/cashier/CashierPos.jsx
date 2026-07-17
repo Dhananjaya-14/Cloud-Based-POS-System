@@ -30,6 +30,7 @@ import {
   updateOrder,
   deleteOrderItem,
   initiatePayHerePayment,
+  checkOrderStock,
 } from "../../services/api";
 import PayHereQRModal from "../../components/cashier/PayHereQRModal";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
@@ -77,6 +78,7 @@ const CashierPos = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [stockErrorModal, setStockErrorModal] = useState(null); // { shortages: [...] } or null
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [orderType, setOrderType] = useState("takeaway");
   const [allergies, setAllergies] = useState("");
@@ -429,6 +431,16 @@ const CashierPos = () => {
     try {
       setSubmitting(true);
       setError("");
+
+     const stockResult = await checkOrderStock(
+        cart.map((item) => ({ Bpro_id: item.Bpro_id, pro_quantity: item.qty })),
+      );
+
+      if (!stockResult.success) {
+        setStockErrorModal({ shortages: stockResult.shortages });
+        setSubmitting(false);
+        return;
+      }
 
       let orderId = editingOrderId;
 
@@ -1173,6 +1185,44 @@ const CashierPos = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Insufficient Stock Modal */}
+      {stockErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3 border-b pb-4 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 text-xl font-bold">
+                !
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">Insufficient Stock</h2>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-3">
+              This order cannot be placed. The following ingredients don't have enough stock:
+            </p>
+
+            <ul className="space-y-2 mb-5">
+              {stockErrorModal.shortages.map((s, idx) => (
+                <li
+                  key={idx}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                >
+                  <span className="font-semibold">{s.ingredient}</span> — needs {s.required}
+                  {s.unit}, only {s.available}
+                  {s.unit} available
+                </li>
+              ))}
+            </ul>
+
+            <button
+              onClick={() => setStockErrorModal(null)}
+              className="w-full rounded-xl bg-[#0A5BAE] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

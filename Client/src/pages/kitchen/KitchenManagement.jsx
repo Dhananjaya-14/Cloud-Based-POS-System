@@ -161,9 +161,11 @@ const KitchenManagement = () => {
 		return orderItems.reduce((acc, item) => {
 			const product = branchProductMap[item.Bpro_id];
 			const stations = product?.stations || {};
+			const productType = product?.product_type;
 
 			if (stations.Kitchen === false) return acc;
 			if (stations.Bar === true && stations.Kitchen !== true) return acc;
+			if (productType !== 'made_to_order') return acc;
 
 			const orderId = item.order_id;
 			if (!acc[orderId]) acc[orderId] = [];

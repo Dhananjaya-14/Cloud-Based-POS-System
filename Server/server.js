@@ -37,7 +37,7 @@ import branchProductRoutes from "./routes/branchProductRoutes.js";
 import recipeRoutes from "./routes/recipeRouter.js";
 
 // Raw Materials & Inventory
-import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
+import rawMaterialRoutes from "./routes/rawMaterialRoutes.js";
 import wasteRoutes from "./routes/wasteRoutes.js";
 
 // Suppliers & Purchasing
