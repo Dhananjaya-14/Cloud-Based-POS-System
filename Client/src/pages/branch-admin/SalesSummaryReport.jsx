@@ -13,9 +13,9 @@ const availableColumns = [
   { key: "pay_date", label: "Pay Date" },
   { key: "pay_time", label: "Time" },
   { key: "pay_method", label: "Payment Method" },
-  { key: "total_cost", label: "Total Cost" },
+  { key: "total_cost", label: "Subtotal" },
   { key: "tax", label: "Tax" },
-  { key: "totalCostWtax", label: "Total Cost With Tax" },
+  { key: "totalCostWtax", label: "Grand Total" },
 ];
 
 export default function SalesSummaryReport() {
@@ -138,23 +138,27 @@ export default function SalesSummaryReport() {
       const dataRow = {};
       
       if (selectedColumns.includes("pay_date")) {
-        dataRow["Payment Date"] = row.pay_date;
+        dataRow["Date"] = row.pay_date ? row.pay_date.split("T")[0] : "";
       }
       if (selectedColumns.includes("pay_time")) {
-        dataRow["Time"] = row.pay_time;
+        dataRow["Time"] = row.pay_time
+          ? (row.pay_time.includes("T")
+              ? row.pay_time.split("T")[1].split(".")[0]
+              : row.pay_time.slice(0, 8))
+          : "";
       }
       if (selectedColumns.includes("pay_method")) {
         dataRow["Payment Method"] = row.pay_method;
       }
 
       if (selectedColumns.includes("total_cost")) {
-        dataRow["Total Cost (Rs.)"] = row.total_cost ? parseFloat(row.total_cost) : 0.00;
+        dataRow["Subtotal (Rs.)"] = row.total_cost ? parseFloat(row.total_cost) : 0.00;
       }
       if (selectedColumns.includes("tax")) {
         dataRow["Tax (Rs.)"] = row.tax ? parseFloat(row.tax) : 0.00;
       }
       if (selectedColumns.includes("totalCostWtax")) {
-        dataRow["Total Cost With Tax (Rs.)"] = row.totalCostWtax ? parseFloat(row.totalCostWtax) : 0.00;
+        dataRow["Grand Total (Rs.)"] = row.totalCostWtax ? parseFloat(row.totalCostWtax) : 0.00;
       }
       return dataRow;
     });
@@ -164,11 +168,17 @@ export default function SalesSummaryReport() {
       const firstVisibleColumn = availableColumns.find(col => selectedColumns.includes(col.key));
       
       if (firstVisibleColumn) {
-        totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "GRAND TOTAL";
+        let targetKey = "";
+        if (firstVisibleColumn.key === "pay_date") targetKey = "Date";
+        else if (firstVisibleColumn.key === "pay_time") targetKey = "Time";
+        else if (firstVisibleColumn.key === "pay_method") targetKey = "Payment Method";
+        else targetKey = firstVisibleColumn.label; 
+
+        totalRow[targetKey] = "TOTAL";
       }
       
       if (selectedColumns.includes("totalCostWtax")) {
-        totalRow["Total Cost With Tax (Rs.)"] = parseFloat(grandTotal);
+        totalRow["Grand Total (Rs.)"] = parseFloat(grandTotal);
       }
       
       formattedRows.push(totalRow);
@@ -221,7 +231,7 @@ export default function SalesSummaryReport() {
     }
     doc.setFontSize(11);
     doc.text(`Filter: ${filterLabel}`, 14, 46);
-    doc.text(`Records: ${rows.length}`, 140, 46);
+    doc.text(`Records: ${rows.length}`, 175, 46);
 
     // TABLE
     autoTable(doc, {
@@ -235,6 +245,9 @@ export default function SalesSummaryReport() {
         selectedColumns.map((col) => {
           if (col === "total_cost" || col === "tax" || col === "totalCostWtax") {
             return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
+          }
+          if(col === "pay_date") {
+            return row[col].includes("T") ? row[col].split("T")[0] : row[col];
           }
           if (col === "pay_time") {
             return row[col]?.slice(0, 8);
@@ -260,10 +273,10 @@ export default function SalesSummaryReport() {
 
     // GRAND TOTAL BOX
     doc.setFillColor(240, 248, 255);
-    doc.rect(120, finalY - 6, 70, 12, "F");
-    doc.setFontSize(12);
+    doc.rect(135, finalY - 6, 70, 12, "F");
+    doc.setFontSize(11);
     doc.setTextColor(0, 128, 0);
-    doc.text(`Grand Total: Rs. ${Number(grandTotal).toFixed(2)}`, 125, finalY + 2);
+    doc.text(`Total: Rs. ${Number(grandTotal).toFixed(2)}`, 155, finalY + 2);
 
     // FOOTER
     const pageCount = doc.internal.getNumberOfPages();

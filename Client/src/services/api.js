@@ -650,3 +650,22 @@ export const getSupplierBranches = async (sup_id) => {
 
 
 
+// ─── PayHere ─────────────────────────────────────────────────────────────────
+/**
+ * Initiate a PayHere payment.
+ * Returns { success, payment_url, order_id }
+ */
+export const initiatePayHerePayment = async ({
+  order_id,
+  amount,
+  order_description,
+  cashier_uid,
+}) => {
+  const res = await api.post("/payhere/initiate", {
+    order_id,
+    amount,
+    order_description,
+    cashier_uid,
+  });
+  return res.data;
+};

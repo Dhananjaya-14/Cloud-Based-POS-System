@@ -62,6 +62,7 @@ import statsRoutes from "./routes/statsRoutes.js";
 
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import payhereRoutes from "./routes/payhereRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
@@ -78,6 +79,8 @@ app.use(
   }),
 );
 app.use(express.json());
+// PayHere notify sends application/x-www-form-urlencoded
+app.use(express.urlencoded({ extended: true }));
 
 // ─────────────────────────────────────────────
 // HEALTH CHECK
@@ -145,6 +148,9 @@ app.use("/api/stats", statsRoutes);
 
 //Reports
 app.use("/api/reports", reportRoutes);
+
+// PayHere Payment Gateway
+app.use("/api/payhere", payhereRoutes);
 
 // ─────────────────────────────────────────────
 // ERROR HANDLING (must be last)
