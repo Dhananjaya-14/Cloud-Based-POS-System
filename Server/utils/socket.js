@@ -41,6 +41,8 @@ export const SOCKET_EVENTS = {
   BRANCH_PRODUCT_ADDED: "branch_product_added",
   BRANCH_PRODUCT_UPDATED: "branch_product_updated",
   BRANCH_PRODUCT_DELETED: "branch_product_deleted",
+  // PayHere payment events
+  PAYHERE_PAYMENT_CONFIRMED: "payhere:payment_confirmed",
 };
 
 function extractSocketToken(socket) {
@@ -207,6 +209,24 @@ export const initializeSocket = (httpServer) => {
       }
     });
 
+    // Listen for order room joining (for PayHere payment confirmation)
+    socket.on("join_order_room", (orderId) => {
+      if (orderId) {
+        const orderRoom = `order_${orderId}`;
+        socket.join(orderRoom);
+        console.log(`Socket ${socket.id} joined order room: ${orderRoom}`);
+      }
+    });
+
+    // Listen for leaving order room
+    socket.on("leave_order_room", (orderId) => {
+      if (orderId) {
+        const orderRoom = `order_${orderId}`;
+        socket.leave(orderRoom);
+        console.log(`Socket ${socket.id} left order room: ${orderRoom}`);
+      }
+    });
+
     socket.emit("socket:ready", {
       message: "WebSocket connection established",
       socketId: socket.id,
@@ -275,5 +295,48 @@ export const emitSocketEvent = (eventName, payload, options = {}) => {
   return true;
 };
 
+// Helper function to emit PayHere payment confirmed event
+export const emitPayHerePaymentConfirmed = (orderId, paymentData) => {
+  if (!io) {
+    return false;
+  }
+  
+  const orderRoom = `order_${orderId}`;
+  io.to(orderRoom).emit(SOCKET_EVENTS.PAYHERE_PAYMENT_CONFIRMED, {
+    orderId,
+    ...paymentData,
+    confirmedAt: new Date().toISOString(),
+  });
+  
+  // Also emit to the branch room for broader notification
+  const branchRoom = getBranchInventoryRoom(paymentData.branchId);
+  if (branchRoom) {
+    io.to(branchRoom).emit(SOCKET_EVENTS.PAYHERE_PAYMENT_CONFIRMED, {
+      orderId,
+      ...paymentData,
+      confirmedAt: new Date().toISOString(),
+    });
+  }
+  
+  console.log(`Emitted PAYHERE_PAYMENT_CONFIRMED for order ${orderId}`);
+  return true;
+};
+
 export const BRANCH_SOCKET_ROOM = BRANCH_UPDATE_ROOM;
 export const KITCHEN_SOCKET_ROOM = KITCHEN_UPDATE_ROOM;
+
+export default {
+  initializeSocket,
+  getSocketIO,
+  getIO,
+  emitSocketEvent,
+  emitPayHerePaymentConfirmed,
+  getCashierSocketRoom,
+  getBranchUserRoom,
+  getBranchInventoryRoom,
+  emitBranchProductEvent,
+  emitUserEventToBranch,
+  SOCKET_EVENTS,
+  BRANCH_SOCKET_ROOM,
+  KITCHEN_SOCKET_ROOM,
+};

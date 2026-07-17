@@ -298,14 +298,17 @@ export const getRawMaterialStockReport = async (req, res) => {
     if (stockFilter === "low") {
       query += `
         AND rm."stock_qty" > 0
-        AND rm."stock_qty"
-            <= rm."record_level"
+        AND rm."stock_qty" <= rm."record_level"
       `;
     }
 
     if (stockFilter === "out") {
-      query += `
-        AND rm."stock_qty" = 0
+      query += `AND rm."stock_qty" = 0`;
+    }
+
+    if(stockFilter === "in") {
+      query += ` 
+        AND rm."stock_qty" > rm."record_level" 
       `;
     }
 

@@ -37,14 +37,6 @@ const statCards = [
     badgeColor: "bg-indigo-100 text-indigo-600",
     iconBg: "bg-blue-700",
   },
-  {
-    label: "Total Customers",
-    value: "35",
-    badge: "+5 new",
-    icon: "👥",
-    badgeColor: "bg-lime-100 text-lime-600",
-    iconBg: "bg-cyan-500",
-  },
 ];
 
 const CashierDashboard = () => {
@@ -54,7 +46,6 @@ const CashierDashboard = () => {
     revenue: 0,
     transactions: 0,
     productsSold: 0,
-    totalCustomers: 0,
   });
   const [activities, setActivities] = useState([]);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
@@ -158,7 +149,6 @@ const CashierDashboard = () => {
       revenue: Number(data.revenue),
       transactions: Number(data.transactions),
       productsSold: Number(data.products_sold),
-      totalCustomers: Number(data.total_customers),
     });
   } catch (error) {
     console.error("Failed to load dashboard stats", error);
@@ -209,7 +199,7 @@ console.log(user);
         </div>
 
           {/* Stat cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             {statCards.map((card) => {
               let displayValue;
 
@@ -224,10 +214,6 @@ console.log(user);
 
                 case "Products Sold":
                   displayValue = stats.productsSold;
-                  break;
-
-                case "Total Customers":
-                  displayValue = stats.totalCustomers;
                   break;
 
                 default:

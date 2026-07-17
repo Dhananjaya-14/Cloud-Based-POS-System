@@ -41,6 +41,8 @@ export const SOCKET_EVENTS = {
   BRANCH_PRODUCT_ADDED: "branch_product_added",
   BRANCH_PRODUCT_UPDATED: "branch_product_updated",
   BRANCH_PRODUCT_DELETED: "branch_product_deleted",
+  // PayHere payment events
+  PAYHERE_PAYMENT_CONFIRMED: "payhere:payment_confirmed",
 };
 
 export const getSocket = () => {
@@ -376,4 +378,53 @@ export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
       leaveBranchInventoryRoom(branchId);
     }
   };
+};
+
+// Helper function to listen for PayHere payment events
+export const subscribeToPayHereUpdates = (orderId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const {
+    onPaymentConfirmed,
+  } = callbacks;
+
+  // Join a room specific to this order
+  if (orderId && socket.connected) {
+    socket.emit("join_order_room", orderId);
+    console.log(`Joined order room for order ${orderId}`);
+  }
+
+  if (onPaymentConfirmed) {
+    socket.on(SOCKET_EVENTS.PAYHERE_PAYMENT_CONFIRMED, onPaymentConfirmed);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onPaymentConfirmed) {
+      socket.off(SOCKET_EVENTS.PAYHERE_PAYMENT_CONFIRMED, onPaymentConfirmed);
+    }
+    if (orderId && socket.connected) {
+      socket.emit("leave_order_room", orderId);
+    }
+  };
+};
+
+export default {
+  getSocket,
+  connectSocket,
+  disconnectSocket,
+  getSocketUrl,
+  SOCKET_EVENTS,
+  joinCompanyRoom,
+  joinBranchUserRoom,
+  leaveBranchUserRoom,
+  joinBranchInventoryRoom,
+  leaveBranchInventoryRoom,
+  subscribeToProductUpdates,
+  subscribeToRecipeUpdates,
+  subscribeToSupplierUpdates,
+  subscribeToInventoryUpdates,
+  subscribeToBranchProductUpdates,
+  subscribeToPayHereUpdates,
 };

@@ -145,7 +145,7 @@ export default function BranchWiseSalesReport() {
       const firstVisibleColumn = availableColumns.find((col) => selectedColumns.includes(col.key));
 
       if (firstVisibleColumn) {
-        totalRow[firstVisibleColumn.label] = "GRAND TOTAL";
+        totalRow[firstVisibleColumn.label] = "TOTAL";
       }
 
       if (selectedColumns.includes("total_sales")) {
@@ -202,7 +202,7 @@ export default function BranchWiseSalesReport() {
 
     doc.setFontSize(11);
     doc.text(`Filter: ${filterLabel}`, 14, 44);
-    doc.text(`Records: ${rows.length}`, 140, 44);
+    doc.text(`Records: ${rows.length}`, 175, 44);
 
     const visibleColumns = availableColumns.filter((col) => selectedColumns.includes(col.key));
 
@@ -236,10 +236,10 @@ export default function BranchWiseSalesReport() {
 
     const finalY = doc.lastAutoTable.finalY + 12;
     doc.setFillColor(240, 248, 255);
-    doc.rect(120, finalY - 6, 70, 12, "F");
-    doc.setFontSize(12);
+    doc.rect(135, finalY - 6, 70, 12, "F");
+    doc.setFontSize(11);
     doc.setTextColor(0, 128, 0);
-    doc.text(`Grand Total: Rs. ${Number(grandTotal).toFixed(2)}`, 125, finalY + 2);
+    doc.text(`Total: Rs. ${Number(grandTotal).toFixed(2)}`, 155, finalY + 2);
 
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {

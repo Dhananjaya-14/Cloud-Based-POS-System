@@ -257,10 +257,6 @@ const KitchenManagement = () => {
 			const stations = product?.stations || {};
 			const productType = product?.product_type;
 
-			// --- THE FIX FOR PREMADE FOODS ---
-			// 1. If Kitchen is explicitly false, hide it.
-			// 2. If the item is marked for Bar and NOT explicitly Kitchen, hide it.
-			// 3. Only show made_to_order products in the kitchen.
 			if (stations.Kitchen === false) return acc;
 			if (stations.Bar === true && stations.Kitchen !== true) return acc;
 			if (productType !== 'made_to_order') return acc;
@@ -275,7 +271,6 @@ const KitchenManagement = () => {
 	const filteredOrders = useMemo(() => {
 		const query = searchTerm.trim().toLowerCase();
 
-		// Only show orders that have items requiring kitchen preparation
 		const withKitchenPrep = orders.filter((order) => {
 			const items = itemsByOrderId[order.or_id] || [];
 			return items.length > 0;

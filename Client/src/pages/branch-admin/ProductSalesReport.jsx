@@ -156,10 +156,14 @@ export default function ProductSalesReport() {
       const dataRow = {};
       
       if (selectedColumns.includes("pay_date")) {
-        dataRow["Payment Date"] = row.pay_date;
+        dataRow["Date"] = row.pay_date ? row.pay_date.split("T")[0] : "";
       }
       if (selectedColumns.includes("pay_time")) {
-        dataRow["Time"] = row.pay_time;
+        dataRow["Time"] = row.pay_time
+          ? (row.pay_time.includes("T")
+              ? row.pay_time.split("T")[1].split(".")[0]
+              : row.pay_time.slice(0, 8))
+          : "";
       }
       if (selectedColumns.includes("prod_name")) {
         dataRow["Product Name"] = row.prod_name;
@@ -181,7 +185,7 @@ export default function ProductSalesReport() {
       const firstVisibleColumn = availableColumns.find(col => selectedColumns.includes(col.key));
       
       if (firstVisibleColumn) {
-        totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "GRAND TOTAL";
+        totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "TOTAL";
       }
       
       if (selectedColumns.includes("total_sale")) {
@@ -204,9 +208,9 @@ export default function ProductSalesReport() {
     worksheet["!cols"] = maxColumnWidths.map(w => ({ wch: w }));
 
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sales Summary Statement");
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Product Sales Report");
     const timestamp = new Date().toISOString().split("T")[0];
-    XLSX.writeFile(workbook, `Sales_Summary_Report_${timestamp}.xlsx`);
+    XLSX.writeFile(workbook, `Product_Sales_Report_${timestamp}.xlsx`);
   };
 
   const exportPDF = () => {
@@ -238,7 +242,7 @@ export default function ProductSalesReport() {
     }
     doc.setFontSize(11);
     doc.text(`Filter: ${filterLabel}`, 14, 46);
-    doc.text(`Records: ${rows.length}`, 140, 46);
+    doc.text(`Records: ${rows.length}`, 175, 46);
 
     // TABLE
     autoTable(doc, {
@@ -252,6 +256,9 @@ export default function ProductSalesReport() {
         selectedColumns.map((col) => {
           if (col === "unit_price" || col === "total_sale") {
             return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
+          }
+          if (col=== "pay_date" ) {
+            return row[col].includes("T") ? row[col].split("T")[0] : row[col];
           }
           if (col === "pay_time") {
             return row[col]?.slice(0, 8);
@@ -276,10 +283,10 @@ export default function ProductSalesReport() {
     const finalY = doc.lastAutoTable.finalY + 12;
 
     doc.setFillColor(240, 248, 255);
-    doc.rect(120, finalY - 6, 70, 12, "F");
-    doc.setFontSize(12);
+    doc.rect(135, finalY - 6, 70, 12, "F");
+    doc.setFontSize(11);
     doc.setTextColor(0, 128, 0);
-    doc.text(`Grand Total: Rs. ${Number(grandTotal).toFixed(2)}`, 125, finalY + 2);
+    doc.text(`Total: Rs. ${Number(grandTotal).toFixed(2)}`, 155, finalY + 2);
 
     // FOOTER
     const pageCount = doc.internal.getNumberOfPages();

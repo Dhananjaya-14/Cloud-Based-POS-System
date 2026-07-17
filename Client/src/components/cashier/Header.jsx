@@ -39,7 +39,7 @@ const CashierHeader = () => {
 
   return (
     <header className="w-full bg-gradient-to-r from-[#0052A8] via-[#00B4EB] to-[#40D463] text-white shadow-sm">
-      <div className="max-w-8xl mx-auto flex items-center justify-between px-6 py-3">
+      <div className="mx-auto max-w-380 px-3 flex items-center justify-between px-6 py-3">
         {/* Left: Logo + app name */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-white/20">
@@ -70,9 +70,9 @@ const CashierHeader = () => {
 
           <button
             onClick={logout}
-            className="ml-1 px-5 py-2 text-xs font-medium rounded-lg bg-black hover:bg-black/40 border border-white/20 transition-colors flex items-center gap-2"
+             className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80"
           >
-            <FaSignOutAlt className="w-3 h-8" />
+            <FaSignOutAlt className="h-3.5 w-3.5" />
             <span>Logout</span>
           </button>
         </div>
