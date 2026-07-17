@@ -123,6 +123,16 @@ export const createBranchProduct = async (branchProductData) => {
   return response.data;
 };
 
+export const getBranchProductIngredientStatus = async (bproId) => {
+  const response = await api.get(`/branch_products/${bproId}/ingredient-status`);
+  return response.data;
+};
+
+export const addBranchProductStock = async (branchProductId, quantity) => {
+  const response = await api.post(`/branch_products/${branchProductId}/add-stock`, { quantity });
+  return response.data;
+};
+
 export const updateBranchProduct = async (branchProductId, payload) => {
   const response = await api.put(`/branch_products/${branchProductId}`, payload);
   return response.data;
@@ -224,6 +234,11 @@ export const createProduct = async (productData) => {
 
 export const createOrder = async (orderData) => {
   const response = await api.post("/orders", orderData);
+  return response.data;
+};
+
+export const checkOrderStock = async (items) => {
+  const response = await api.post("/orders/check-stock", { items });
   return response.data;
 };
 

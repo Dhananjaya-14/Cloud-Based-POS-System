@@ -255,12 +255,15 @@ const KitchenManagement = () => {
 		return orderItems.reduce((acc, item) => {
 			const product = branchProductMap[item.Bpro_id];
 			const stations = product?.stations || {};
+			const productType = product?.product_type;
 
 			// --- THE FIX FOR PREMADE FOODS ---
 			// 1. If Kitchen is explicitly false, hide it.
 			// 2. If the item is marked for Bar and NOT explicitly Kitchen, hide it.
+			// 3. Only show made_to_order products in the kitchen.
 			if (stations.Kitchen === false) return acc;
 			if (stations.Bar === true && stations.Kitchen !== true) return acc;
+			if (productType !== 'made_to_order') return acc;
 
 			const orderId = item.order_id;
 			if (!acc[orderId]) acc[orderId] = [];

@@ -29,6 +29,7 @@ import {
   updateOrderStatus,
   updateOrder,
   deleteOrderItem,
+  checkOrderStock,
 } from "../../services/api";
 import { 
   connectSocket, 
@@ -66,6 +67,7 @@ const CashierPos = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [stockErrorModal, setStockErrorModal] = useState(null); // { shortages: [...] } or null
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [orderType, setOrderType] = useState("takeaway");
   const [allergies, setAllergies] = useState("");
@@ -74,6 +76,8 @@ const CashierPos = () => {
   const [notes, setNotes] = useState("");
   const [discountPct, setDiscountPct] = useState(0);
   const [serviceFee, setServiceFee] = useState(0);
+  const [showNewProductToast, setShowNewProductToast] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
 
   const [heldOrders, setHeldOrders] = useState([]);
   const [showHeldOrdersModal, setShowHeldOrdersModal] = useState(false);
@@ -218,6 +222,13 @@ const CashierPos = () => {
             // Add notification to persistent queue
             const productName = productData.pro_name || "New Product";
             
+            // Show toast notification
+            setNewProductName(productName);
+            setShowNewProductToast(true);
+            setTimeout(() => {
+              setShowNewProductToast(false);
+            }, 5000);
+            
             setProductNotifications(prev => {
               const existingNotif = prev.find(n => 
                 n.productName === productName && 
@@ -285,6 +296,14 @@ const CashierPos = () => {
             
             // Add notification to persistent queue
             const productName = data.product.pro_name || "New Product";
+            
+            // Show toast notification
+            setNewProductName(productName);
+            setShowNewProductToast(true);
+            setTimeout(() => {
+              setShowNewProductToast(false);
+            }, 5000);
+            
             setProductNotifications(prev => {
               const existingNotif = prev.find(n => 
                 n.productName === productName && 
@@ -485,6 +504,16 @@ const CashierPos = () => {
     try {
       setSubmitting(true);
       setError("");
+
+     const stockResult = await checkOrderStock(
+        cart.map((item) => ({ Bpro_id: item.Bpro_id, pro_quantity: item.qty })),
+      );
+
+      if (!stockResult.success) {
+        setStockErrorModal({ shortages: stockResult.shortages });
+        setSubmitting(false);
+        return;
+      }
 
       let orderId = editingOrderId;
       const socket = getSocket();
@@ -698,6 +727,27 @@ const CashierPos = () => {
   };
 
   const selectedProductCount = cart.reduce((sum, item) => sum + item.qty, 0);
+
+  // Toast notification style
+  const toastStyle = {
+    position: 'fixed',
+    bottom: '30px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: '#0A5BAE',
+    color: 'white',
+    padding: '16px 24px',
+    borderRadius: '12px',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    zIndex: 10000,
+    fontSize: '16px',
+    fontWeight: '500',
+    animation: 'slideUp 0.5s ease-out',
+    maxWidth: '90%',
+  };
 
   return (
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
@@ -952,8 +1002,7 @@ const CashierPos = () => {
                   const priceLabel = Number(product.pro_price ?? 0).toFixed(2);
 
                   return (
-                    <article
-                      key={product.Bpro_id ?? index}
+                    <article                      key={product.Bpro_id ?? index}
                       onClick={() => addToCart(product)}
                       className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]"
                     >
@@ -1320,6 +1369,52 @@ const CashierPos = () => {
         </div>
       )}
 
+      {/* Insufficient Stock Modal */}
+      {stockErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3 border-b pb-4 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 text-xl font-bold">
+                !
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">Insufficient Stock</h2>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-3">
+              This order cannot be placed. The following ingredients don't have enough stock:
+            </p>
+
+            <ul className="space-y-2 mb-5">
+              {stockErrorModal.shortages.map((s, idx) => (
+                <li
+                  key={idx}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                >
+                  <span className="font-semibold">{s.ingredient}</span> — needs {s.required}
+                  {s.unit}, only {s.available}
+                  {s.unit} available
+                </li>
+              ))}
+            </ul>
+
+            <button
+              onClick={() => setStockErrorModal(null)}
+              className="w-full rounded-xl bg-[#0A5BAE] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Toast notification for new products */}
+      {showNewProductToast && (
+        <div style={toastStyle}>
+          <FaBell size={18} />
+          <span>New product "{newProductName}" is now available!</span>
+        </div>
+      )}
+
       <style>
         {`
           @keyframes slideInRight {
@@ -1329,6 +1424,17 @@ const CashierPos = () => {
             }
             to {
               transform: translateX(0);
+              opacity: 1;
+            }
+          }
+          
+          @keyframes slideUp {
+            from {
+              transform: translateX(-50%) translateY(30px);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(-50%) translateY(0);
               opacity: 1;
             }
           }

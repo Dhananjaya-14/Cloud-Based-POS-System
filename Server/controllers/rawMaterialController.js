@@ -313,59 +313,59 @@ export async function createRawMaterial(req, res, next) {
       }
     }
 
-const dupCheck = await pool.query(
-  dupQuery.replace(
-    "SELECT rm_id",
-    "SELECT rm_id, rm_status, stock_qty, unit, record_level"
-  ),
-  dupParams
-);
-
-if (dupCheck.rows.length > 0) {
-  const existing = dupCheck.rows[0];
-
-  // Restore request
-  if (req.body.restore === true && existing.rm_status === false) {
-    const restoreResult = await pool.query(
-      `
-      UPDATE "Raw_Material"
-      SET
-        rm_status = TRUE,
-        stock_qty = $1,
-        record_level = $2,
-        unit = $3
-      WHERE rm_id = $4
-      RETURNING *
-      `,
-      [
-        stockQty,
-        recordLevel,
-        unitLower,
-        existing.rm_id,
-      ]
+    const dupCheck = await pool.query(
+      dupQuery.replace(
+        "SELECT rm_id",
+        "SELECT rm_id, rm_status, stock_qty, unit, record_level"
+      ),
+      dupParams
     );
 
-    return res.status(200).json({
-      restored: true,
-      message: `"${rm_name}" restored successfully`,
-      ...restoreResult.rows[0],
-    });
-  }
+    if (dupCheck.rows.length > 0) {
+      const existing = dupCheck.rows[0];
 
-  // Existing inactive material
-  if (existing.rm_status === false) {
-    return res.status(409).json({
-      message: `"${rm_name}" already exists but is inactive`,
-      isInactive: true,
-      rm_id: existing.rm_id,
-    });
-  }
+      // Restore request
+      if (req.body.restore === true && existing.rm_status === false) {
+        const restoreResult = await pool.query(
+          `
+          UPDATE "Raw_Material"
+          SET
+            rm_status = TRUE,
+            stock_qty = $1,
+            record_level = $2,
+            unit = $3
+          WHERE rm_id = $4
+          RETURNING *
+          `,
+          [
+            stockQtyVal,
+            recordLevelVal,
+            unitLower,
+            existing.rm_id,
+          ]
+        );
 
-  // Existing active material
-  return res.status(409).json({
-    message: `A raw material named "${rm_name}" already exists`,
-  });
-}
+        return res.status(200).json({
+          restored: true,
+          message: `"${rm_name}" restored successfully`,
+          ...restoreResult.rows[0],
+        });
+      }
+
+      // Existing inactive material
+      if (existing.rm_status === false) {
+        return res.status(409).json({
+          message: `"${rm_name}" already exists but is inactive`,
+          isInactive: true,
+          rm_id: existing.rm_id,
+        });
+      }
+
+      // Existing active material
+      return res.status(409).json({
+        message: `A raw material named "${rm_name}" already exists`,
+      });
+    }
 
     const result = await pool.query(
       `INSERT INTO "Raw_Material" (rm_name, unit, stock_qty, record_level, "Com_id", b_id)

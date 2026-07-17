@@ -51,6 +51,7 @@ const AddProduct = () => {
     pro_image: "",
     com_id: "",
     cat_id: "",
+    product_type: "made_to_order",
     add_ons: {
     },
     stations: {
@@ -184,6 +185,7 @@ const AddProduct = () => {
         cat_id: Number(form.cat_id) || undefined,
         add_ons: form.add_ons,
         stations: form.stations,
+        product_type: form.product_type,
       };
 
       const response = await createProduct(payload);
@@ -320,6 +322,7 @@ const AddProduct = () => {
                   />
                 </div>
 
+                {/* Description and Product Type Section - Fixed merge conflict */}
                 <div>
                   <label style={labelStyle}>Description</label>
                   <textarea
@@ -331,6 +334,47 @@ const AddProduct = () => {
                     }}
                     placeholder="Product description"
                   />
+                </div>
+
+                <div style={{ marginTop: "10px" }}>
+                  <label style={labelStyle}>Product Type</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginTop: "6px" }}>
+                    {[
+                      { value: "made_to_order", label: "Made to Order", desc: "Cook when ordered", icon: "🍳" },
+                      { value: "pre_made", label: "Pre-made", desc: "Made in advance", icon: "🥐" },
+                      { value: "finished", label: "External", desc: "Bought from outside", icon: "🥤" },
+                    ].map((type) => (
+                      <div
+                        key={type.value}
+                        onClick={() => setForm({ ...form, product_type: type.value })}
+                        style={{
+                          border: form.product_type === type.value
+                            ? "2px solid #0E6DCF"
+                            : "1px solid #C9DDF3",
+                          borderRadius: "12px",
+                          padding: "12px 10px",
+                          cursor: "pointer",
+                          background: form.product_type === type.value
+                            ? "#EFF6FF"
+                            : "#F7FAFD",
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: "24px", marginBottom: "6px" }}>{type.icon}</div>
+                        <div style={{
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          color: form.product_type === type.value ? "#0E6DCF" : "#333",
+                          marginBottom: "4px",
+                        }}>
+                          {type.label}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "#888" }}>
+                          {type.desc}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -669,9 +713,6 @@ const AddProduct = () => {
           ))}
         </div>
       )}
-
-      
-    
     </div>
   );
 };

@@ -190,7 +190,7 @@ export async function getRecipesByProduct(req, res, next) {
 // ─────────────────────────────────────────────
 export async function createRecipe(req, res, next) {
   try {
-    const { quantity_req, pro_id, rawmaterial_id, unit } = req.body;
+    const { quantity_req, pro_id, rawmaterial_id, unit, b_id } = req.body;
 
     if (unit !== undefined && unit !== null && !VALID_UNITS.includes(unit)) {
       res.status(400);
@@ -271,15 +271,16 @@ export async function createRecipe(req, res, next) {
     const safeQty = roundQuantity(quantity_req);
 
     const result = await pool.query(
-      `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit")
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit", "b_id")
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING
          "recipe_id",
          "quantity_req",
          "pro_id",
          "rawmaterial_ID" AS "rawmaterial_id",
-         "unit"`,
-      [safeQty, pro_id, rawmaterial_id, unit || null],
+         "unit",
+         "b_id"`,
+      [safeQty, pro_id, rawmaterial_id, unit || null, b_id],
     );
 
     const newRecipe = toResponseRow(result.rows[0]);
@@ -462,7 +463,8 @@ export async function createRecipeBulk(req, res, next) {
            "pro_id",
            "b_id",
            "rawmaterial_ID" AS "rawmaterial_id",
-           "unit"`,
+           "unit",
+           "b_id"`,
         [safeQty, pro_id, item.rawmaterial_id, item.unit || null, b_id],
       );
       const newItem = toResponseRow(result.rows[0]);
