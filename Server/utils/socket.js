@@ -22,6 +22,8 @@ export const SOCKET_EVENTS = {
   USER_DELETED: "user_deleted",
   JOIN_BRANCH_USER_ROOM: "join_branch_user_room",
   LEAVE_BRANCH_USER_ROOM: "leave_branch_user_room",
+  // PayHere payment events
+  PAYHERE_PAYMENT_CONFIRMED: "payhere:payment_confirmed",
 };
 
 function extractSocketToken(socket) {

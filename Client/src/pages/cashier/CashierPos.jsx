@@ -18,6 +18,7 @@ import {
   FaBell,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
+import posIcon from "../../assets/images/PosIcon.png";
 import {
   createOrder,
   createOrderItem,
@@ -28,7 +29,9 @@ import {
   updateOrderStatus,
   updateOrder,
   deleteOrderItem,
+  initiatePayHerePayment,
 } from "../../services/api";
+import PayHereQRModal from "../../components/cashier/PayHereQRModal";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import {
@@ -91,6 +94,9 @@ const CashierPos = () => {
   const [showWaiterOrdersModal, setShowWaiterOrdersModal] = useState(false);
   const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
+
+  // PayHere QR payment state
+  const [payhereModal, setPayhereModal] = useState(null); // { paymentUrl, orderId, invoiceState }
 
   // Toast notification for new products
   const [showNewProductToast, setShowNewProductToast] = useState(false);
@@ -379,6 +385,33 @@ const CashierPos = () => {
     setCart((currentCart) => currentCart.filter((item) => item.Bpro_id !== Bpro_id));
   };
 
+  // ── Build invoice navigation state (shared by Cash/Card and PayHere) ──────
+  const buildInvoiceState = (orderId, invoiceItems) => ({
+    orderId,
+    cashierName: `${user?.u_fname || "Cashier"} ${user?.u_lname || ""}`.trim(),
+    branchName,
+    branchLabel: `${branchName.split(" ")[0] || branchName}\nBranch`,
+    paymentMethod,
+    items: invoiceItems,
+    subtotal: Number(subtotal.toFixed(2)),
+    discount: Number(discountPct || 0),
+    serviceFee: Number(serviceFee || 0),
+    allergies,
+    addons,
+    addonsPrice: Number(addonsPrice || 0),
+    notes,
+    tax: Number(tax.toFixed(2)),
+    total: Number(total.toFixed(2)),
+  });
+
+  // Called by PayHereQRModal when payment is confirmed via Socket.IO
+  const handlePayHereSuccess = (invoiceState) => {
+    setPayhereModal(null);
+    setCart([]);
+    setEditingOrderId(null);
+    navigate("/cashier/invoice-preview", { state: invoiceState });
+  };
+
   const handleCheckout = async () => {
     if (!cart.length || !user?.u_id) {
       return;
@@ -405,7 +438,7 @@ const CashierPos = () => {
           or_tax: Number(tax.toFixed(2)),
           or_totalcost: Number(taxableBase.toFixed(2)),
           or_totalCostWtax: Number(total.toFixed(2)),
-          or_status: "completed",
+          or_status: paymentMethod === "PayHere" ? "pending" : "completed",
           or_type: orderType,
           cust_id: null,
           u_id: user.u_id,
@@ -466,26 +499,34 @@ const CashierPos = () => {
         total: Number((item.unitPrice * item.qty).toFixed(2)),
       }));
 
+      // ── PayHere: generate URL and show QR modal ────────────────────────────
+      if (paymentMethod === "PayHere") {
+        const payhereRes = await initiatePayHerePayment({
+          order_id: orderId,
+          amount: total.toFixed(2),
+          order_description: `Order #${orderId} — ${branchName}`,
+          cashier_uid: user.u_id,
+        });
+
+        if (!payhereRes?.payment_url) {
+          throw new Error("Failed to generate PayHere payment URL");
+        }
+
+        // Store invoice state so the QR modal can navigate after confirmation
+        setPayhereModal({
+          paymentUrl: payhereRes.payment_url,
+          orderId,
+          invoiceState: buildInvoiceState(orderId, invoiceItems),
+        });
+        // Don't clear cart yet — wait for payment confirmation
+        return;
+      }
+
+      // ── Cash / Card: complete immediately ──────────────────────────────────
       setCart([]);
       setEditingOrderId(null);
       navigate("/cashier/invoice-preview", {
-        state: {
-          orderId,
-          cashierName: `${user?.u_fname || "Cashier"} ${user?.u_lname || ""}`.trim(),
-          branchName,
-          branchLabel: `${branchName.split(" ")[0] || branchName}\nBranch`,
-          paymentMethod,
-          items: invoiceItems,
-          subtotal: Number(subtotal.toFixed(2)),
-          discount: Number(discountPct || 0),
-          serviceFee: Number(serviceFee || 0),
-          allergies,
-          addons,
-          addonsPrice: Number(addonsPrice || 0),
-          notes,
-          tax: Number(tax.toFixed(2)),
-          total: Number(total.toFixed(2)),
-        },
+        state: buildInvoiceState(orderId, invoiceItems),
       });
     } catch (checkoutError) {
       setError(
@@ -592,14 +633,18 @@ const CashierPos = () => {
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
       <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
       <header className="border-b border-black/5 bg-linear-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)]">
-        <div className="mx-auto flex max-w-350 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white text-[#0A5BAE] shadow-sm">
-              <FaStore className="h-5 w-5" />
+        <div className="mx-auto flex max-w-450 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+         <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-white/20">
+            <img
+                src={posIcon}
+                alt="Hotel POS logo"
+                className="w-7 h-7 object-contain"
+              />
             </div>
             <div className="leading-tight">
-              <div className="text-[15px] font-semibold tracking-wide">Hotel POS</div>
-              <div className="text-[11px] text-white/80">Point of Sale System</div>
+              <div className="text-[17px] font-semibold tracking-wide">Hotel POS</div>
+              <div className="text-[13px] text-white/80">Point of Sale System</div>
             </div>
           </div>
 
@@ -656,7 +701,7 @@ const CashierPos = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-350 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-380 px-3 py-6 sm:px-6 lg:px-8">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">Point of Sale</h1>
           <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
@@ -671,7 +716,7 @@ const CashierPos = () => {
           </div>
         ) : null}
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
           <section className="space-y-5">
             <div className="rounded-3xl bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/70 sm:p-5">
               <div className="relative">
@@ -705,7 +750,7 @@ const CashierPos = () => {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {loading ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-                  Loading products from the backend...
+                  Loading products ...
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -777,11 +822,11 @@ const CashierPos = () => {
             </div>
           </section>
 
-          <aside className="rounded-3xl bg-white shadow-[0_10px_30px_rgba(15,23,42,0.09)] ring-1 ring-slate-200/70">
+          <aside className="rounded-3xl w-[370px] h-fit bg-white shadow-[0_10px_30px_rgba(15,23,42,0.09)] ring-1 ring-slate-200/70">
             <div className="rounded-t-3xl bg-linear-to-r from-[#0A5BAE] to-[#19A4E5] px-5 py-4 text-white">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+                  <div className="flex h-12 w-11 items-center justify-center rounded-2xl bg-white/10">
                     <FaShoppingCart className="h-5 w-5" />
                   </div>
                   <div>
@@ -932,11 +977,11 @@ const CashierPos = () => {
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <h3 className="text-sm font-semibold text-slate-900">Payment Method</h3>
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("Cash")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Cash"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Cash"
                       ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                       : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
@@ -949,7 +994,7 @@ const CashierPos = () => {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("Card")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Card"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Card"
                       ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                       : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
@@ -958,6 +1003,21 @@ const CashierPos = () => {
                       className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "Card" ? "bg-[#00B67A]" : "bg-slate-300"}`}
                     />
                     Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("PayHere")}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "PayHere"
+                      ? "border-[#0E6DCF] bg-white text-[#0E6DCF] ring-2 ring-blue-100"
+                      : "border-blue-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                      }`}
+                  >
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "PayHere" ? "bg-[#0E6DCF]" : "bg-slate-300"}`}
+                    />
+                    <span className="font-bold">
+                      pay<span className={paymentMethod === "PayHere" ? "text-yellow-400" : "text-slate-400"}>here</span>
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1123,6 +1183,19 @@ const CashierPos = () => {
           <FaBell size={18} />
           <span>New product "{newProductName}" is now available!</span>
         </div>
+      )}
+
+      {/* PayHere QR Payment Modal */}
+      {payhereModal && (
+        <PayHereQRModal
+          paymentUrl={payhereModal.paymentUrl}
+          orderId={payhereModal.orderId}
+          onSuccess={() => handlePayHereSuccess(payhereModal.invoiceState)}
+          onCancel={() => {
+            setPayhereModal(null);
+            setSubmitting(false);
+          }}
+        />
       )}
 
       <style>

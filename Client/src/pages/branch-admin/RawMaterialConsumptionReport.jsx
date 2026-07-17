@@ -161,68 +161,28 @@ export default function RawMaterialConsumptionReport() {
     (row) => {
       const dataRow = {};
 
-      if (
-        selectedColumns.includes(
-          "report_date"
-        )
-      ) {
-        dataRow["Date"] =
-          row.report_date;
+      if (selectedColumns.includes("report_date")) {
+        dataRow["Date"] = row.report_date ? row.report_date.split("T")[0] : "";
       }
 
-      if (
-        selectedColumns.includes(
-          "rm_name"
-        )
-      ) {
-        dataRow[
-          "Raw Material"
-        ] = row.rm_name;
+      if (selectedColumns.includes("rm_name" )) {
+        dataRow["Raw Material"] = row.rm_name;
       }
 
-      if (
-        selectedColumns.includes(
-          "unit"
-        )
-      ) {
-        dataRow["Unit"] =
-          row.unit;
+      if (selectedColumns.includes("unit")) {
+        dataRow["Unit"] =row.unit;
       }
 
-      if (
-        selectedColumns.includes(
-          "quantity"
-        )
-      ) {
-        dataRow[
-          "Quantity Consumed"
-        ] = Number(
-          row.quantity || 0
-        ).toFixed(2);
+      if (selectedColumns.includes("quantity")) {
+        dataRow[ "Quantity Consumed"] = Number(row.quantity || 0).toFixed(2);
       }
 
-      if (
-        selectedColumns.includes(
-          "unit_cost"
-        )
-      ) {
-        dataRow[
-          "Unit Cost (Rs.)"
-        ] = Number(
-          row.unit_cost || 0
-        ).toFixed(2);
+      if (selectedColumns.includes( "unit_cost")) {
+        dataRow["Unit Cost (Rs.)"] = Number(row.unit_cost || 0).toFixed(2);
       }
 
-      if (
-        selectedColumns.includes(
-          "total_cost"
-        )
-      ) {
-        dataRow[
-          "Total Cost (Rs.)"
-        ] = Number(
-          row.total_cost || 0
-        ).toFixed(2);
+      if (selectedColumns.includes( "total_cost")) {
+        dataRow["Total Cost (Rs.)"] = Number(row.total_cost || 0).toFixed(2);
       }
 
       return dataRow;
@@ -233,7 +193,7 @@ export default function RawMaterialConsumptionReport() {
       const firstVisibleColumn = availableColumns.find(col => selectedColumns.includes(col.key));
       
       if (firstVisibleColumn) {
-        totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "GRAND TOTAL";
+        totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "TOTAL";
       }
       
       if (selectedColumns.includes("total_cost")) {
@@ -292,7 +252,7 @@ export default function RawMaterialConsumptionReport() {
     }
     doc.setFontSize(11);
     doc.text(`Filter: ${filterLabel}`, 14, 46);
-    doc.text(`Records: ${rows.length}`, 140, 46);
+    doc.text(`Records: ${rows.length}`, 175, 46);
 
     // TABLE
     autoTable(doc, {
@@ -351,10 +311,10 @@ export default function RawMaterialConsumptionReport() {
     const finalY = doc.lastAutoTable.finalY + 12;
 
     doc.setFillColor(240, 248, 255);
-    doc.rect(120, finalY - 6, 70, 12, "F");
-    doc.setFontSize(12);
+    doc.rect(135, finalY - 6, 70, 12, "F");
+    doc.setFontSize(11);
     doc.setTextColor(0, 128, 0);
-    doc.text(`Grand Total: Rs. ${Number(grandTotal).toFixed(2)}`, 125, finalY + 2);
+    doc.text(`Total: Rs. ${Number(grandTotal).toFixed(2)}`, 155, finalY + 2);
 
     // FOOTER
     const pageCount = doc.internal.getNumberOfPages();

@@ -133,9 +133,15 @@ export default function SalesDetailsReport() {
     const formattedRows = rows.map((row) => {
       const dataRow = {};
       
-      if (selectedColumns.includes("invoice_no")) dataRow["Invoice No"] = row.invoice_no;
+      if (selectedColumns.includes("invoice_no")) dataRow["Invoice No"] = String(row.invoice_no);
       if (selectedColumns.includes("order_date")) dataRow["Date"] = row.order_date ? row.order_date.split("T")[0] : "";
-      if (selectedColumns.includes("order_time")) dataRow["Time"] = row.order_time;
+      if (selectedColumns.includes("order_time")) {
+        dataRow["Time"] = row.order_time
+          ? (row.order_time.includes("T")
+              ? row.order_time.split("T")[1].split(".")[0]
+              : row.order_time.slice(0, 8))
+          : "";
+      }
       if (selectedColumns.includes("order_type")) dataRow["Order Type"] = row.order_type;
       if (selectedColumns.includes("payment_method")) dataRow["Payment Method"] = row.payment_method;
       if (selectedColumns.includes("subtotal")) dataRow["Sales Amount (Rs.)"] = row.subtotal ? parseFloat(row.subtotal) : 0.00;
@@ -148,7 +154,7 @@ export default function SalesDetailsReport() {
       const firstVisibleColumn = availableColumns.find(col => selectedColumns.includes(col.key));
       
       if (firstVisibleColumn) {
-        totalRow[firstVisibleColumn.label] = "GRAND TOTAL";
+        totalRow[firstVisibleColumn.label] = "TOTAL";
       }
       if (selectedColumns.includes("subtotal")) {
         totalRow["Sales Amount (Rs.)"] = parseFloat(grandTotal);
@@ -190,8 +196,8 @@ export default function SalesDetailsReport() {
 
     let filterLabel = filters.filterType === "weekly" ? `Week: ${activeRange.from} to ${activeRange.to}` : filters.filterType === "monthly" ? `Month: ${filters.selectedMonth}` : `${filters.fromDate} to ${filters.toDate}`;
     doc.setFontSize(11);
-    doc.text(`Filter: ${filterLabel.toUpperCase()}`, 14, 46);
-    doc.text(`Records: ${rows.length}`, 140, 46);
+    doc.text(`Filter: ${filterLabel}`, 14, 46);
+    doc.text(`Records: ${rows.length}`, 175, 46);
 
     const visibleColumns = availableColumns.filter((col) => selectedColumns.includes(col.key));
 
@@ -211,10 +217,10 @@ export default function SalesDetailsReport() {
     
     const finalY = doc.lastAutoTable.finalY + 12;
     doc.setFillColor(240, 248, 255);
-    doc.rect(120, finalY - 6, 70, 12, "F");
-    doc.setFontSize(12);
+    doc.rect(135, finalY - 6, 70, 12, "F");
+    doc.setFontSize(11);
     doc.setTextColor(0, 128, 0);
-    doc.text(`Grand Total: Rs. ${Number(grandTotal).toFixed(2)}`, 125, finalY + 2);
+    doc.text(`Total: Rs. ${Number(grandTotal).toFixed(2)}`, 155, finalY + 2);
 
     doc.save(`Sales_Details_Report_${reportDate.toLocaleDateString()}.pdf`);
   };

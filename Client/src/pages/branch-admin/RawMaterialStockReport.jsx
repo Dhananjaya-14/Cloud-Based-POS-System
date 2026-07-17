@@ -184,7 +184,7 @@ export default function RawMaterialStockReport() {
     doc.setTextColor(100);
     doc.text(`Generated: ${generatedDate} ${generatedTime}`,14,28);
     doc.text(`Branch: ${branchName || "Current Branch"}`, 14, 34);
-    doc.text(`Filter: ${stockFilter.replace("_", " ").toUpperCase()}`,140,34);
+    doc.text(`Filter: ${stockFilter.replace("_", " ").toUpperCase()}`,175,34);
     doc.line(14, 38, 196, 38);
     autoTable(doc, {
       startY: 48,
@@ -282,9 +282,6 @@ export default function RawMaterialStockReport() {
           </h3>
           <div className="flex flex-wrap gap-6 items-center">
             <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Stock Filter
-              </label>
               <select
                 value={stockFilter}
                 onChange={(e) =>
@@ -293,6 +290,7 @@ export default function RawMaterialStockReport() {
                 className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm"
               >
                 <option value="all"> All Materials </option>
+                <option value="in"> In Stock</option>
                 <option value="low"> Low Stock</option>
                 <option value="out">Out of Stock</option>
               </select>
