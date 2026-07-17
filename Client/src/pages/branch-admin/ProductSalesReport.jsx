@@ -491,7 +491,6 @@ export default function ProductSalesReport() {
             <table className="w-full min-w-max">
               <thead className="bg-gray-100">
                 <tr>
-                  {/* Filter headers properly */}
                   {availableColumns
                     .filter((col) => selectedColumns.includes(col.key))
                     .map((col) => (
@@ -519,8 +518,7 @@ export default function ProductSalesReport() {
                         .map((col) => {
                           const cellValue = row[col.key];
 
-                          // Format currency columns safely
-                          if (col.key === "total_cost" || col.key === "tax" || col.key === "total_cost_with_tax" || col.key === "totalCostWtax") {
+                          if (col.key === "unit_price" || col.key === "total_sale") {
                             return (
                               <td key={col.key} className="p-4 text-sm text-gray-600">
                                 Rs. {Number(cellValue || 0).toFixed(2)}
@@ -552,19 +550,21 @@ export default function ProductSalesReport() {
                   ))
                 )}
               </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                  <td 
-                    colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
-                    className="p-4 text-right"
-                  >
-                    Grand Total
-                  </td>
-                  <td className="p-4 text-green-600 text-base">
-                    Rs. {Number(grandTotal).toFixed(2)}
-                  </td>
-                </tr>
-              </tfoot>
+              {rows.length > 0 && (
+                <tfoot>
+                  <tr className="bg-gray-50 font-bold text-sm text-gray-700">
+                    <td 
+                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
+                      className="p-4 text-right"
+                    >
+                      Grand Total
+                    </td>
+                    <td className="p-4 text-green-600 text-base">
+                      Rs. {Number(grandTotal).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}

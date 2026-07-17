@@ -46,6 +46,7 @@ const RecipeMapperDetail = () => {
   const [notice, setNotice] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [branchId, setBranchId] = useState(null); 
 
   // Load recipe data
   const loadRecipeData = useCallback(async () => {
@@ -75,18 +76,21 @@ const RecipeMapperDetail = () => {
         setError("");
         setNotice("");
 
-        const [categoryList, branchList, materials] = await Promise.all([
+        const [categoryList, branchList] = await Promise.all([
           getCategories(),
           getBranches(),
-          getRawMaterials(),
         ]);
 
         const branch =
           branchList?.find((item) => String(item.U_id) === String(user?.u_id)) ||
           branchList?.[0];
 
-        let branchProducts = branch?.B_id
-          ? await getBranchProducts(branch.B_id)
+        const resolvedBid = branch?.B_id ?? null;
+
+        const materials = await getRawMaterials(resolvedBid ? { b_id: resolvedBid } : {});
+
+        let branchProducts = resolvedBid
+          ? await getBranchProducts(resolvedBid)
           : [];
 
         if (!Array.isArray(branchProducts) || branchProducts.length === 0) {
@@ -97,13 +101,21 @@ const RecipeMapperDetail = () => {
           (item) => String(item?.pro_id) === String(productId)
         );
 
-        await loadRecipeData();
+        // Load recipe data with branch ID
+        const recipeResponse = await getRecipesByProduct(productId, resolvedBid);
+        const ingredients = Array.isArray(recipeResponse?.ingredients)
+          ? recipeResponse.ingredients
+          : Array.isArray(recipeResponse)
+            ? recipeResponse
+            : [];
 
         if (!isMounted) return;
 
+        setBranchId(resolvedBid);
         setCategories(Array.isArray(categoryList) ? categoryList : []);
         setRawMaterials(Array.isArray(materials) ? materials : []);
         setProduct(foundProduct || null);
+        setRecipeItems(ingredients);
       } catch (err) {
         if (!isMounted) return;
         setError(err?.response?.data?.message || "Failed to load recipe details");
@@ -119,7 +131,7 @@ const RecipeMapperDetail = () => {
     return () => {
       isMounted = false;
     };
-  }, [productId, user?.u_id, loadRecipeData]);
+  }, [productId, user?.u_id]);
 
   // WebSocket setup for real-time recipe updates
   useEffect(() => {
@@ -306,7 +318,7 @@ const RecipeMapperDetail = () => {
       setError("");
       setNotice("");
 
-      await deleteRecipeByProduct(productId);
+      await deleteRecipeByProduct(productId, branchId);
 
       if (recipeItems.length === 0) {
         setNotice("Recipe cleared.");
@@ -315,6 +327,7 @@ const RecipeMapperDetail = () => {
 
       const payload = {
         pro_id: Number(productId),
+        b_id: branchId,
         ingredients: recipeItems.map((item) => ({
           rawmaterial_id: Number(item.rawmaterial_id),
           quantity_req: Number(item.quantity_req),
@@ -325,7 +338,7 @@ const RecipeMapperDetail = () => {
       await createRecipeBulk(payload);
 
       // Refresh recipe data after saving
-      const refreshed = await getRecipesByProduct(productId);
+      const refreshed = await getRecipesByProduct(productId, branchId);
       const ingredients = Array.isArray(refreshed?.ingredients)
         ? refreshed.ingredients
         : Array.isArray(refreshed)

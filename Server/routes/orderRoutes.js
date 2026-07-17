@@ -55,20 +55,12 @@ const canDeleteOrder = requireRole(
   "Waiter, Cashier, or Admin",
 );
 
-// ─────────────────────────────────────────────
-// ROUTES
-// ─────────────────────────────────────────────
-
-// GET /orders
 router.get("/", requireAuth, canReadOrders, getAllOrders);
 
-// GET /orders/:id
 router.get("/:id", requireAuth, canReadOrders, getOrderById);
 
-// POST /orders
 router.post("/", requireAuth, canCreateOrder, createOrder);
 
-// Must be before "/:id"
 router.patch(
   "/:id/status",
   requireAuth,
@@ -76,13 +68,10 @@ router.patch(
   updateOrderStatus,
 );
 
-// PUT /orders/:id
 router.put("/:id", requireAuth, canEditOrder, updateOrder);
 
-// PATCH /orders/:id
 router.patch("/:id", requireAuth, canEditOrder, patchOrder);
 
-// DELETE /orders/:id
 router.delete("/:id", requireAuth, canDeleteOrder, deleteOrder);
 
 export default router;

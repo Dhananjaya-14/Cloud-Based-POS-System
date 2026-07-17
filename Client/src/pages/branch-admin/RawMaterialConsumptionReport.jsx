@@ -563,7 +563,6 @@ export default function RawMaterialConsumptionReport() {
             <table className="w-full min-w-max">
               <thead className="bg-gray-100">
                 <tr>
-                  {/* Filter headers properly */}
                   {availableColumns
                     .filter((col) => selectedColumns.includes(col.key))
                     .map((col) => (
@@ -580,7 +579,7 @@ export default function RawMaterialConsumptionReport() {
                       colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length} 
                       className="text-center py-12 text-gray-400 font-medium"
                     >
-                      No matching sales data captured. Adjust your filters and reload.
+                      No matching consumption data captured. Adjust your filters and reload.
                     </td>
                   </tr>
                 ) : (
@@ -634,19 +633,21 @@ export default function RawMaterialConsumptionReport() {
                   ))
                 )}
               </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                  <td 
-                    colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
-                    className="p-4 text-right"
-                  >
-                    Grand Total
-                  </td>
-                  <td className="p-4 text-green-600 text-base">
-                    Rs. {Number(grandTotal).toFixed(2)}
-                  </td>
-                </tr>
-              </tfoot>
+              {rows.length > 0 && (
+                <tfoot>
+                  <tr className="bg-gray-50 font-bold text-sm text-gray-700">
+                    <td 
+                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
+                      className="p-4 text-right"
+                    >
+                      Grand Total
+                    </td>
+                    <td className="p-4 text-green-600 text-base">
+                      Rs. {Number(grandTotal).toFixed(2)}
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}
