@@ -4,6 +4,7 @@
     "dotenv": "^17.3.1",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",
+    "qrcode.react": "^4.2.0",
     "react-chartjs-2": "^5.3.1",
     "recharts": "^3.8.1",
     "xlsx": "^0.18.5"
