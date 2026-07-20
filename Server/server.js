@@ -63,6 +63,7 @@ import statsRoutes from "./routes/statsRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import payhereRoutes from "./routes/payhereRoutes.js";
+import packageRoutes from "./routes/packageRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
@@ -151,6 +152,9 @@ app.use("/api/reports", reportRoutes);
 
 // PayHere Payment Gateway
 app.use("/api/payhere", payhereRoutes);
+
+// SaaS Package Management
+app.use("/api/packages", packageRoutes);
 
 // ─────────────────────────────────────────────
 // ERROR HANDLING (must be last)

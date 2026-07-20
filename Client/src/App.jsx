@@ -10,6 +10,7 @@ import SuperAdminUserManagement from './pages/super-admin/UserManagement';
 import SuperAdminUserDetails from './pages/super-admin/UserDetails';
 import SuperAdminAddUser from './pages/super-admin/AddUser';
 import SuperAdminBranchManagement from './pages/super-admin/BranchManagement';
+import SuperAdminPackageManagement from './pages/super-admin/PackageManagement';
 import BranchManagement from './pages/admin/BranchManagement';
 import AddUser from './pages/admin/AddUser';
 import EditUser from './pages/admin/EditUser';
@@ -123,6 +124,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[6]}>
             <SuperAdminBranchManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/packages"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <SuperAdminPackageManagement />
           </ProtectedRoute>
         }
       />

@@ -85,6 +85,7 @@ export function AuthProvider({ children }) {
         token,
         login,
         logout,
+        features: user?.features ?? null,
       }}
     >
       {children}
