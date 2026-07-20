@@ -12,6 +12,8 @@ import {
   getSupplierBranches,
   getBranches,
 } from "../../services/api";
+import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
+import { useAuth } from "../../context/AuthContext";
 
 // -----Toast ─---------------
 const Toast = ({ message, type, onClose }) => (
@@ -78,6 +80,7 @@ const btnSuccess   = `${btnClass} bg-green-600 text-white`;
 
 // ----------------- Main Page-----------------
 const AdminSupplierManagement = () => {
+  const { user } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -103,6 +106,8 @@ const AdminSupplierManagement = () => {
 
   // Form state
   const [form, setForm] = useState({ sup_name: "", sup_email: "", sup_contact: "", sup_address: "", b_id: "" });
+
+  const currentUserId = Number(user?.u_id ?? user?.id);
 
   const showToast = (message, type = "success") => {
     setToast({ message, type });
@@ -130,6 +135,97 @@ const AdminSupplierManagement = () => {
   }, [filterBranch, showDeleted]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Socket real-time listeners for supplier events ──
+  useEffect(() => {
+    // Connect socket if not already connected
+    const socket = connectSocket();
+
+    // Handler for supplier created
+    const handleSupplierCreated = (data) => {
+      // Only show toast if this user didn't perform the action
+      // The server sends actor_id in the payload
+      if (data?.actor_id && Number(data.actor_id) === currentUserId) {
+        // This is the user's own action, skip toast (they already got one from the CRUD operation)
+        return;
+      }
+      
+      // Add the new supplier to the list if it matches current filter
+      if (!showDeleted) {
+        setSuppliers(prev => {
+          // Check if supplier already exists (prevent duplicates)
+          if (prev.some(s => s.sup_id === data.sup_id)) return prev;
+          return [data, ...prev];
+        });
+      }
+    };
+
+    // Handler for supplier updated
+    const handleSupplierUpdated = (data) => {
+      // Only show toast if this user didn't perform the action
+      if (data?.actor_id && Number(data.actor_id) === currentUserId) {
+        return;
+      }
+      
+      setSuppliers(prev => prev.map(s => 
+        s.sup_id === data.sup_id ? data : s
+      ));
+    };
+
+    // Handler for supplier deleted
+    const handleSupplierDeleted = (data) => {
+      // Only show toast if this user didn't perform the action
+      if (data?.actor_id && Number(data.actor_id) === currentUserId) {
+        return;
+      }
+      
+      if (showDeleted) {
+        // If viewing deleted, update the supplier's active status
+        setSuppliers(prev => prev.map(s => 
+          s.sup_id === data.sup_id ? { ...s, is_active: false } : s
+        ));
+      } else {
+        // Remove from active list
+        setSuppliers(prev => prev.filter(s => s.sup_id !== data.sup_id));
+      }
+    };
+
+    // Handler for supplier restored
+    const handleSupplierRestored = (data) => {
+      // Only show toast if this user didn't perform the action
+      if (data?.actor_id && Number(data.actor_id) === currentUserId) {
+        return;
+      }
+      
+      if (showDeleted) {
+        // Remove from deleted list
+        setSuppliers(prev => prev.filter(s => s.sup_id !== data.sup_id));
+      } else {
+        // Add back to active list
+        setSuppliers(prev => {
+          if (prev.some(s => s.sup_id === data.sup_id)) return prev;
+          return [data, ...prev];
+        });
+      }
+    };
+
+    // Register event listeners
+    socket.on(SOCKET_EVENTS.SUPPLIER_CREATED, handleSupplierCreated);
+    socket.on(SOCKET_EVENTS.SUPPLIER_UPDATED, handleSupplierUpdated);
+    socket.on(SOCKET_EVENTS.SUPPLIER_DELETED, handleSupplierDeleted);
+    socket.on("supplier:restored", handleSupplierRestored);
+
+    // Cleanup
+    return () => {
+      const activeSocket = getSocket();
+      if (activeSocket) {
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_CREATED, handleSupplierCreated);
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_UPDATED, handleSupplierUpdated);
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_DELETED, handleSupplierDeleted);
+        activeSocket.off("supplier:restored", handleSupplierRestored);
+      }
+    };
+  }, [showDeleted, currentUserId]); // Re-run when showDeleted changes to handle filter state
 
   // -------------------─ Open Manage Branches Modal -------------------
   const openAssign = async (sup) => {
