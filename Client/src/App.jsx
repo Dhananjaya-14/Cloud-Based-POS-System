@@ -231,7 +231,7 @@ function App() {
       <Route
         path="/admin/suppliers"
         element={
-          <ProtectedRoute allowedRoles={[2, 6]}>
+          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_suppliers">
             <AdminSupplierManagement />
           </ProtectedRoute>
         }
@@ -240,7 +240,7 @@ function App() {
       <Route
         path="/admin/products"
         element={
-          <ProtectedRoute allowedRoles={[2, 6]}>
+          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_inventory">
             <AdminProductManagement />
           </ProtectedRoute>
         }
@@ -484,7 +484,7 @@ function App() {
         <Route
             path="/admin/promotions"
             element={
-              <ProtectedRoute allowedRoles={[2, 6]}>
+              <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_promotions">
                 <Promotions />
               </ProtectedRoute>
             }
@@ -493,7 +493,7 @@ function App() {
         <Route
             path="/branch-admin/promotions"
           element={
-            <ProtectedRoute allowedRoles={[1 , 2, 6]}>
+            <ProtectedRoute allowedRoles={[1 , 2, 6]} requiredFeature="has_promotions">
                 <Promotions />
             </ProtectedRoute>
           }
@@ -504,7 +504,7 @@ function App() {
       <Route
         path="/branch-admin/summary-sales"
         element={
-          <ProtectedRoute allowedRoles={[1]}>
+          <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
             <SalesSummaryReport/>
           </ProtectedRoute>
           }
@@ -513,7 +513,7 @@ function App() {
       <Route
         path="/branch-admin/summary-productsales"
         element={
-          <ProtectedRoute allowedRoles={[1]}>
+          <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
             <ProductSalesReport/>
           </ProtectedRoute>}
       />
@@ -521,7 +521,7 @@ function App() {
       <Route
         path="/branch-admin/raw-material-stock"
         element={
-          <ProtectedRoute allowedRoles={[1]}>
+          <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
             <RawMaterialStockReport/>
           </ProtectedRoute>}
       />
@@ -529,7 +529,7 @@ function App() {
       <Route
         path="/branch-admin/raw-material-consumption"
         element={
-          <ProtectedRoute allowedRoles={[1]}>
+          <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
             <RawMaterialConsumptionReport/>
           </ProtectedRoute>}
       />
@@ -546,7 +546,7 @@ function App() {
       <Route
         path="/admin/sales-details"
         element={
-         <ProtectedRoute allowedRoles={[2]}>
+         <ProtectedRoute allowedRoles={[2]} requiredFeature="has_reports">
              <BranchWiseSalesReport/>
         </ProtectedRoute>}
       />

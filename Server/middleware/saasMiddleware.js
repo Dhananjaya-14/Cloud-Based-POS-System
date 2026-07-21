@@ -41,17 +41,14 @@ export const requireFeature = (featureName) => {
   };
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
 // checkQuota("max_users", "User")
 // Before creating a record, counts existing ones and blocks if limit is reached.
-// Super Admin (role_id 6) resolves the target company from req.body.
-// ─────────────────────────────────────────────────────────────────────────────
+
 export const checkQuota = (quotaName, tableName, companyColumn = "com_id") => {
   return async (req, res, next) => {
     try {
       let target_com_id = req.user?.com_id;
 
-      // Super Admin: resolve target company from the request body
       if (Number(req.user?.role_id) === 6) {
         const bodyComId = req.body?.com_id ?? req.body?.company_id;
         const bodyBId   = req.body?.B_id ?? req.body?.b_id ?? req.body?.branch_id;
@@ -62,18 +59,17 @@ export const checkQuota = (quotaName, tableName, companyColumn = "com_id") => {
           const br = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [bodyBId]);
           target_com_id = br.rows[0]?.com_id ?? null;
         } else {
-          // e.g. creating another Super Admin — no company context, bypass quota
           return next();
         }
       }
 
-      if (!target_com_id) return next(); // No company context — don't block
+      if (!target_com_id) return next(); 
 
       const features = await getCompanyFeatures(target_com_id);
-      if (!features) return next(); // No package assigned — don't block
+      if (!features) return next(); 
 
       const limit = features[quotaName];
-      if (limit === undefined || limit === null) return next(); // No limit defined
+      if (limit === undefined || limit === null) return next(); 
 
       const countRes = await pool.query(
         `SELECT COUNT(*) FROM "${tableName}" WHERE "${companyColumn}" = $1`,
