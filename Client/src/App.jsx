@@ -54,6 +54,7 @@ import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
 import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
 import SupplierManagement from './pages/branch-admin/SupplierManagement';
 import BranchAdminDashboard from './pages/branch-admin/Dashboard';
+import WasteManagement from './pages/branch-admin/WasteManagement';
 import SalesRevenue from './pages/branch-admin/SalesRevenue';
 import CashierPerformance from './pages/branch-admin/CashierPerformance';
 import KitchenManagement from './pages/kitchen/KitchenManagement';
@@ -353,6 +354,15 @@ function App() {
         }
 
         />
+
+      <Route
+        path="/branch-admin/waste-management"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <WasteManagement />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/branch-admin/sales-revenue"

@@ -13,6 +13,7 @@ import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getBranchProducts, updateBranchProduct, deleteBranchProduct, addBranchProductStock, getBranchProductIngredientStatus } from "../../services/api";
+import ReorderModal from "../../components/branch-admin/ReorderModal";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -119,6 +120,7 @@ const ProductManagement = () => {
 	const [activeTab, setActiveTab] = useState("made_to_order");
 	const [stockModalItem, setStockModalItem] = useState(null);
 	const [stockModalQty, setStockModalQty] = useState("");
+	const [orderModalProduct, setOrderModalProduct] = useState(null);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -160,6 +162,12 @@ const ProductManagement = () => {
 		} else if (activeTab === "finished") {
 			mapped = mapped.filter(item => item.product_type === "finished");
 		}
+
+		// Attach pro_id from raw products for the ReorderModal
+		mapped = mapped.map(item => {
+			const rawProduct = products.find(p => p.Bpro_id === item.id);
+			return { ...item, pro_id: rawProduct?.pro_id ?? null };
+		});
 
 		const query = searchTerm.trim().toLowerCase();
 
@@ -494,23 +502,27 @@ const ProductManagement = () => {
 					</div>
 
 				<ProductItemsTable
-		products={paginatedProducts}
-		onDecreaseStock={null}
-		onIncreaseStock={null}
-		onAddStock={activeTab !== "made_to_order" ? (item) => setStockModalItem(item) : null}
-		hideStockColumn={activeTab === "made_to_order"}
-		updatingStockId={updatingStockId}
-		showActions={true}
-		onDeleteProduct={handleDeleteClick}
-		onFetchIngredients={getBranchProductIngredientStatus}
-		onEditProduct={null}
-		currentPage={currentPage}
-		totalPages={totalPages}
-		totalItems={tableProducts.length}
-		pageStart={pageStart}
-		pageEnd={pageEnd}
-		onPageChange={setCurrentPage}
-		/>
+					products={paginatedProducts}
+					onDecreaseStock={null}
+					onIncreaseStock={null}
+					onAddStock={
+						activeTab === "finished"
+							? (item) => setOrderModalProduct({ pro_id: item.pro_id, pro_name: item.name, name: item.name, unit: "pcs" })
+							: activeTab !== "made_to_order" ? (item) => setStockModalItem(item) : null
+					}
+					hideStockColumn={activeTab === "made_to_order"}
+					updatingStockId={updatingStockId}
+					showActions={true}
+					onDeleteProduct={handleDeleteClick}
+					onFetchIngredients={getBranchProductIngredientStatus}
+					onEditProduct={null}
+					currentPage={currentPage}
+					totalPages={totalPages}
+					totalItems={tableProducts.length}
+					pageStart={pageStart}
+					pageEnd={pageEnd}
+					onPageChange={setCurrentPage}
+				/>
 				</div>
 			</div>
 
@@ -699,6 +711,15 @@ const ProductManagement = () => {
           </div>
         </div>
       )}
+		{orderModalProduct && (
+			<ReorderModal
+				material={orderModalProduct}
+				onClose={() => setOrderModalProduct(null)}
+				onSuccess={() => {
+					setOrderModalProduct(null);
+				}}
+			/>
+		)}
     </div>
   );
 };

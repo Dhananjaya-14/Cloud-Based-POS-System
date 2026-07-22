@@ -3,17 +3,32 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getSuppliers } from '../../services/api';
 
-const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
+const WEIGHT_UNITS = ["kg", "g"];
+const VOLUME_UNITS = ["l", "ml"];
+const COUNT_UNITS  = ["pcs", "units", "box", "pack"];
+
+function getCompatibleUnits(baseUnit) {
+  const u = (baseUnit || "").toLowerCase();
+  if (WEIGHT_UNITS.includes(u)) return WEIGHT_UNITS;
+  if (VOLUME_UNITS.includes(u)) return VOLUME_UNITS;
+  return COUNT_UNITS;
+}
 
 const ReorderModal = ({ material, onClose, onSuccess }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
+
+  // Support both raw materials (rm_id) and external products (pro_id)
+  const isProduct = !!material?.pro_id;
+  const itemName = isProduct ? (material?.pro_name || material?.name) : material?.rm_name;
+
   const [formData, setFormData] = useState({
     sup_id: '',
     quantity: '',
-    unit: material?.unit || 'pcs',
-    unitPrice: ''
+    unit: '',
+    unitPrice: '',
+    unitPriceUnit: material?.unit || 'pcs',  // which unit the price is per
   });
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -94,6 +109,21 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
 
       const order = await orderRes.json();
 
+      const itemPayload = {
+        po_id: order.po_id,
+        qty: parseFloat(formData.quantity),
+        unit: formData.unit || (material?.unit || 'pcs'),
+        unit_price: parseFloat(formData.unitPrice),
+        price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)
+      };
+
+      // Use pro_id for external products, rm_id for raw materials
+      if (isProduct) {
+        itemPayload.pro_id = material.pro_id;
+      } else {
+        itemPayload.rm_id = material.rm_id;
+      }
+
       const itemRes = await fetch('/api/purchase-items', {
         method: 'POST',
         headers: {
@@ -101,13 +131,7 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
           ...(token ? { Authorization: `Bearer ${token}` } : {})
         },
         credentials: 'include',
-        body: JSON.stringify({
-          po_id: order.po_id,
-          rm_id: material.rm_id,
-          qty: parseFloat(formData.quantity),
-          unit_price: parseFloat(formData.unitPrice),
-          price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)
-        })
+        body: JSON.stringify(itemPayload)
       });
 
       if (itemRes.status === 401) {
@@ -143,7 +167,7 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         ) : (
           <>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">Reorder: {material?.rm_name}</h2>
+              <h2 className="text-xl font-bold text-gray-800">{isProduct ? 'Order' : 'Reorder'}: {itemName}</h2>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
 
@@ -174,6 +198,8 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
                   <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Quantity</label>
                   <input
                     type="number"
+                    min="0.001"
+                    step="any"
                     className="w-full border-gray-200 border rounded-xl p-3"
                     required
                     onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
@@ -184,9 +210,11 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
                   <select
                     className="w-full border-gray-200 border rounded-xl p-3"
                     value={formData.unit}
+                    required
                     onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
                   >
-                    {VALID_UNITS.map(u => (
+                    <option value="" disabled>Select Unit</option>
+                    {getCompatibleUnits(material?.unit).map(u => (
                       <option key={u} value={u}>{u}</option>
                     ))}
                   </select>
@@ -194,14 +222,23 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Unit Price (LKR)</label>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">
+                  Unit Price (LKR) &mdash; per {formData.unit || (material?.unit || 'unit')}
+                </label>
                 <input
                   type="number"
                   step="0.01"
+                  min="0.01"
                   className="w-full border-gray-200 border rounded-xl p-3"
                   required
+                  placeholder={`e.g. price per 1 ${formData.unit || (material?.unit || 'unit')}`}
                   onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
                 />
+                {formData.quantity && formData.unitPrice && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Total: LKR {(parseFloat(formData.quantity || 0) * parseFloat(formData.unitPrice || 0)).toFixed(2)}
+                  </p>
+                )}
               </div>
 
               <div className="pt-6 flex gap-3">
