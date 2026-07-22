@@ -160,8 +160,8 @@ async function adjustRecipeIngredients(client, pro_id, b_id, quantity, operation
 // GET /api/branch_products
 export async function getBranchProducts(req, res, next) {
   try {
-    const { role_id, com_id, b_id } = req.user;
-    const branchId = req.query?.b_id ?? req.query?.B_id ?? b_id;
+    const { role_id, com_id } = req.user;
+    const branchId = req.query?.b_id ?? req.query?.B_id;
     if (branchId !== undefined && !isPositiveInt(branchId)) {
       res.status(400);
       throw new Error("b_id must be a positive integer");

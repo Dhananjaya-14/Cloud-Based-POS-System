@@ -8,7 +8,6 @@ import {
   updatePurchaseOrder,
   updatePurchaseOrderStatus,
   deletePurchaseOrder,
-  receiveWithWastage,
 } from "../controllers/purchaseOrderController.js";
 import {
   requireAuth,
@@ -27,7 +26,6 @@ router.get("/:id", getPurchaseOrderById);
 router.post("/", createPurchaseOrder);
 router.put("/:id", updatePurchaseOrder);
 router.patch("/:id/status", updatePurchaseOrderStatus);
-router.post("/:id/receive", receiveWithWastage);
 router.delete("/:id", deletePurchaseOrder);
 
 export default router;

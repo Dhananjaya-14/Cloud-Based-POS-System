@@ -281,7 +281,7 @@ const ProductItemsTable = ({
                                <FaSpinner size={10} style={{ animation: "stockButtonSpin 0.8s linear infinite" }} />
                             ) : null}
                                
-                            {item.product_type === "finished" ? "Order" : "Add Stock"}
+                            Add Stock
                           </button>
                         </>
                       ) : (

@@ -552,53 +552,36 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       }
     }
 
-    const poBranchId = existing.rows[0].b_id;
-
     // Perform the status update and stock adjustments in a single transaction
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
 
-      // If the target status is 'received', add each purchase_item.qty to the corresponding stock
+      // If the target status is 'received', add each purchase_item.qty to the corresponding Raw_Material.stock_qty
       if (status === "received") {
         const items = await client.query(
-          `SELECT rm_id, pro_id, qty FROM purchase_item WHERE po_id = $1`,
+          `SELECT rm_id, qty FROM purchase_item WHERE po_id = $1`,
           [id],
         );
 
-        // Update each raw material or product stock
+        // Update each raw material stock
         for (const it of items.rows) {
           const adjQty = Number(it.qty) || 0;
           if (adjQty === 0) continue;
 
-          if (it.pro_id) {
-            const updateRes = await client.query(
-              `UPDATE "Branch_Product"
-               SET pro_quantity = COALESCE(pro_quantity, 0) + $1
-               WHERE pro_id = $2 AND "B_id" = $3
-               RETURNING pro_id`,
-              [adjQty, it.pro_id, poBranchId], // Note: poBranchId needs to be fetched
-            );
-            if (updateRes.rows.length === 0) {
-              await client.query("ROLLBACK");
-              res.status(404);
-              throw new Error(`Branch Product with pro_id ${it.pro_id} not found for this branch`);
-            }
-          } else if (it.rm_id) {
-            const updateRes = await client.query(
-              `UPDATE "Raw_Material"
-               SET stock_qty = COALESCE(stock_qty, 0) + $1
-               WHERE rm_id = $2
-               RETURNING rm_id`,
-              [adjQty, it.rm_id],
-            );
+          const updateRes = await client.query(
+            `UPDATE "Raw_Material"
+             SET stock_qty = COALESCE(stock_qty, 0) + $1
+             WHERE rm_id = $2
+             RETURNING rm_id`,
+            [adjQty, it.rm_id],
+          );
 
-            if (updateRes.rows.length === 0) {
-              // Raw material missing or out-of-scope — abort
-              await client.query("ROLLBACK");
-              res.status(404);
-              throw new Error(`Raw material with id ${it.rm_id} not found`);
-            }
+          if (updateRes.rows.length === 0) {
+            // Raw material missing or out-of-scope — abort
+            await client.query("ROLLBACK");
+            res.status(404);
+            throw new Error(`Raw material with id ${it.rm_id} not found`);
           }
         }
       }
@@ -629,192 +612,6 @@ export async function updatePurchaseOrderStatus(req, res, next) {
 
 
 
-
-// ─── POST /api/purchase-orders/:id/receive ──────────────────────────────────────
-export async function receiveWithWastage(req, res, next) {
-  try {
-    const id = parsePositiveInt(req.params.id, "po_id");
-    const { wastage = [], reason } = req.body;
-    const { b_id, role_id, com_id, user_id } = req.user;
-    
-    // ── Existence & Scoping check ──
-    let existQuery = `
-      SELECT po.po_id, po.status, po.b_id
-      FROM purchase_order po
-      JOIN "Branch" b ON b."B_id" = po.b_id
-      WHERE po.po_id = $1
-    `;
-    const existParams = [id];
-    if (role_id !== ROLES.SUPER_ADMIN) {
-      existQuery += ` AND b.com_id = $2`;
-      existParams.push(com_id);
-      if (b_id) {
-        existQuery += ` AND po.b_id = $3`;
-        existParams.push(b_id);
-      }
-    }
-    const existing = await pool.query(existQuery, existParams);
-    if (existing.rows.length === 0) {
-      res.status(404);
-      throw new Error("Purchase order not found");
-    }
-
-    const currentStatus = existing.rows[0].status;
-    const poBranchId = existing.rows[0].b_id;
-
-    if (currentStatus === "received") {
-      res.status(409);
-      throw new Error("Purchase order is already received");
-    }
-
-    // Perform the status update, stock adjustments, and waste records in a single transaction
-    const client = await pool.connect();
-    try {
-      await client.query("BEGIN");
-
-      const items = await client.query(
-        `SELECT pi.rm_id, pi.pro_id, pi.qty, pi.unit AS pi_unit, rm.unit AS rm_unit 
-         FROM purchase_item pi
-         LEFT JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
-         WHERE pi.po_id = $1`,
-        [id],
-      );
-
-      if (items.rows.length === 0) {
-        await client.query("ROLLBACK");
-        res.status(422);
-        throw new Error(
-          "Cannot mark order as received — no purchase items exist for this order",
-        );
-      }
-
-      // Update each stock and insert waste record
-      for (const it of items.rows) {
-        const grossQty = Number(it.qty) || 0;
-        if (grossQty === 0) continue;
-
-        // Find matching wastage info from request body
-        // Wastage matches on rm_id or pro_id interchangeably based on what the UI passes
-        const itemWastage = wastage.find((w) => w.rm_id === (it.rm_id || it.pro_id)) || {
-          wastage_type: "none",
-          wastage_value: 0
-        };
-
-        let wasteQty = 0;
-        if (itemWastage.wastage_type === "percentage") {
-          wasteQty = grossQty * (Number(itemWastage.wastage_value) / 100);
-        } else if (itemWastage.wastage_type === "fixed") {
-          wasteQty = Number(itemWastage.wastage_value);
-        }
-        
-        // Prevent floating point issues and ensure max 3 decimals
-        wasteQty = Math.round(wasteQty * 1000) / 1000;
-        
-        if (wasteQty > grossQty) {
-           await client.query("ROLLBACK");
-           res.status(400);
-           throw new Error(`Waste quantity cannot exceed ordered quantity for item ${it.rm_id || it.pro_id}`);
-        }
-        if (wasteQty < 0) {
-           await client.query("ROLLBACK");
-           res.status(400);
-           throw new Error(`Waste quantity cannot be negative for item ${it.rm_id || it.pro_id}`);
-        }
-
-        let netReceived = grossQty - wasteQty;
-
-        // Convert units if necessary (e.g. ordered in g but stock is in kg)
-        if (it.rm_id && it.pi_unit && it.rm_unit) {
-          const piU = it.pi_unit.toLowerCase();
-          const rmU = it.rm_unit.toLowerCase();
-          
-          if (piU === 'g' && rmU === 'kg') {
-            netReceived = netReceived / 1000;
-          } else if (piU === 'kg' && rmU === 'g') {
-            netReceived = netReceived * 1000;
-          } else if (piU === 'ml' && rmU === 'l') {
-            netReceived = netReceived / 1000;
-          } else if (piU === 'l' && rmU === 'ml') {
-            netReceived = netReceived * 1000;
-          }
-        }
-
-        // Update Stock
-        if (it.pro_id) {
-          const updateRes = await client.query(
-            `UPDATE "Branch_Product"
-             SET pro_quantity = COALESCE(pro_quantity, 0) + $1
-             WHERE pro_id = $2 AND "B_id" = $3
-             RETURNING pro_id`,
-            [netReceived, it.pro_id, poBranchId],
-          );
-          if (updateRes.rows.length === 0) {
-            await client.query("ROLLBACK");
-            res.status(404);
-            throw new Error(`Branch Product with pro_id ${it.pro_id} not found for this branch`);
-          }
-        } else if (it.rm_id) {
-          const updateRes = await client.query(
-            `UPDATE "Raw_Material"
-             SET stock_qty = COALESCE(stock_qty, 0) + $1
-             WHERE rm_id = $2
-             RETURNING rm_id`,
-            [netReceived, it.rm_id],
-          );
-
-          if (updateRes.rows.length === 0) {
-            // Raw material missing or out-of-scope — abort
-            await client.query("ROLLBACK");
-            res.status(404);
-            throw new Error(`Raw material with id ${it.rm_id} not found`);
-          }
-        }
-
-        // 3. Record wastage if applicable
-        if (wasteQty > 0 || itemWastage.wastage_type !== "none") {
-          await client.query(
-            `INSERT INTO "Waste" 
-             (rm_id, pro_id, waste_qty, gross_received, net_received, wastage_type, wastage_value, reason, b_id, po_id, recorded_at)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)`,
-            [
-              it.rm_id || null,
-              it.pro_id || null,
-              wasteQty,
-              grossQty,
-              netReceived,
-              itemWastage.wastage_type,
-              Number(itemWastage.wastage_value) || 0,
-              itemWastage.reason || reason || null,
-              poBranchId,
-              id
-            ]
-          );
-        }
-      }
-
-      // Update purchase_order status + received_date
-      const result = await client.query(
-        `UPDATE purchase_order
-         SET
-           status        = 'received',
-           received_date = CURRENT_TIMESTAMP
-         WHERE po_id = $1
-         RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
-        [id],
-      );
-
-      await client.query("COMMIT");
-      res.json(result.rows[0]);
-    } catch (txErr) {
-      await client.query("ROLLBACK");
-      throw txErr;
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    next(err);
-  }
-}
 
 // ─── DELETE /api/purchase-orders/:id ─────────────────────────────────────────
 export async function deletePurchaseOrder(req, res, next) {

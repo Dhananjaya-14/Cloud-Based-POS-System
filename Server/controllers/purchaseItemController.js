@@ -38,7 +38,7 @@ function parsePositiveDecimal(value, fieldName) {
 const MAX_QTY        = 100_000;
 const MAX_UNIT_PRICE = 999_999.99;
 
-// ─── GET /api/purchase-items ─────────────────────────────────────────────────
+// ─── GET /api/purchase-items ──────────────────────────────────────────────────
 export async function getPurchaseItems(req, res, next) {
   try {
     const { role_id, com_id, b_id } = req.user;
@@ -47,19 +47,12 @@ export async function getPurchaseItems(req, res, next) {
          pi.qty,
          pi.price,
          pi.unit_price,
-         pi.rm_id,
-         pi.pro_id,
          po.po_id,
          po.status      AS order_status,
          po.order_date,
          rm.rm_id,
          rm.rm_name,
          rm.unit        AS rm_unit,
-         p.pro_id       AS pro_id,
-         p.pro_name,
-         'pcs'          AS pro_unit,
-         COALESCE(rm.rm_name, p.pro_name)  AS item_name,
-         COALESCE(pi.unit, rm.unit, 'pcs')  AS unit,
          b."B_id"       AS branch_id,
          b."B_name"     AS branch_name,
          c.com_id       AS company_id,
@@ -68,8 +61,7 @@ export async function getPurchaseItems(req, res, next) {
        JOIN purchase_order po ON po.po_id = pi.po_id
        JOIN "Branch"       b  ON b."B_id" = po.b_id
        JOIN "Company"      c  ON c.com_id = b.com_id
-       LEFT JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
-       LEFT JOIN "Product"      p  ON p.pro_id  = pi.pro_id`;
+       JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id`;
     
     const conditions = [];
     const params = [];
@@ -134,19 +126,12 @@ export async function getPurchaseItemsByOrder(req, res, next) {
          pi.qty,
          pi.price,
          pi.unit_price,
-         pi.rm_id,
-         pi.pro_id,
          po.po_id,
          po.status      AS order_status,
          po.order_date,
          rm.rm_id,
          rm.rm_name,
          rm.unit        AS rm_unit,
-         p.pro_id       AS pro_id,
-         p.pro_name,
-         'pcs'          AS pro_unit,
-         COALESCE(rm.rm_name, p.pro_name)  AS item_name,
-         COALESCE(pi.unit, rm.unit, 'pcs')  AS unit,
          b."B_id"       AS branch_id,
          b."B_name"     AS branch_name,
          c.com_id       AS company_id,
@@ -155,8 +140,7 @@ export async function getPurchaseItemsByOrder(req, res, next) {
        JOIN purchase_order po ON po.po_id = pi.po_id
        JOIN "Branch"       b  ON b."B_id" = po.b_id
        JOIN "Company"      c  ON c.com_id = b.com_id
-       LEFT JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
-       LEFT JOIN "Product"      p  ON p.pro_id  = pi.pro_id
+       JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
        WHERE pi.po_id = $1
        ORDER BY pi.pi_id ASC`,
       [orderId],
@@ -179,19 +163,12 @@ export async function getPurchaseItemById(req, res, next) {
          pi.qty,
          pi.price,
          pi.unit_price,
-         pi.rm_id,
-         pi.pro_id,
          po.po_id,
          po.status      AS order_status,
          po.order_date,
          rm.rm_id,
          rm.rm_name,
          rm.unit        AS rm_unit,
-         p.pro_id       AS pro_id,
-         p.pro_name,
-         'pcs'          AS pro_unit,
-         COALESCE(rm.rm_name, p.pro_name)  AS item_name,
-         COALESCE(pi.unit, rm.unit, 'pcs')  AS unit,
          b."B_id"       AS branch_id,
          b."B_name"     AS branch_name,
          c.com_id       AS company_id,
@@ -200,8 +177,7 @@ export async function getPurchaseItemById(req, res, next) {
        JOIN purchase_order po ON po.po_id = pi.po_id
        JOIN "Branch"       b  ON b."B_id" = po.b_id
        JOIN "Company"      c  ON c.com_id = b.com_id
-       LEFT JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
-       LEFT JOIN "Product"      p  ON p.pro_id  = pi.pro_id
+       JOIN "Raw_Material" rm ON rm.rm_id = pi.rm_id
        WHERE pi.pi_id = $1`;
     const params = [id];
 
@@ -234,28 +210,27 @@ export async function createPurchaseItem(req, res, next) {
     const body = sanitizeBody(req.body, [
       "po_id",
       "rm_id",
-      "pro_id",
       "qty",
       "price",
       "unit_price",
-      "unit",
     ]);
 
-    const { po_id, rm_id, pro_id, qty, price, unit_price, unit } = body;
+    const { po_id, rm_id, qty, price, unit_price } = body;
 
     // ── Required fields ──
-    if (!po_id || (!rm_id && !pro_id) || !qty || !price || !unit_price) {
+    if (
+      po_id      === undefined ||
+      rm_id      === undefined ||
+      qty        === undefined ||
+      price      === undefined ||
+      unit_price === undefined
+    ) {
       res.status(400);
-      throw new Error("po_id, qty, price, unit_price, and either rm_id or pro_id are required");
-    }
-    if (rm_id && pro_id) {
-      res.status(400);
-      throw new Error("Provide either rm_id or pro_id, not both");
+      throw new Error("po_id, rm_id, qty, price and unit_price are required");
     }
 
-    const parsedPoId      = parsePositiveInt(po_id, "po_id");
-    const parsedRmId      = rm_id  ? parsePositiveInt(rm_id,  "rm_id")  : null;
-    const parsedProId     = pro_id ? parsePositiveInt(pro_id, "pro_id") : null;
+    const parsedPoId      = parsePositiveInt(po_id,      "po_id");
+    const parsedRmId      = parsePositiveInt(rm_id,      "rm_id");
     const parsedQty       = parsePositiveDecimal(qty,        "qty");
     const parsedPrice     = parsePositiveDecimal(price,      "price");
     const parsedUnitPrice = parsePositiveDecimal(unit_price, "unit_price");
@@ -306,67 +281,40 @@ export async function createPurchaseItem(req, res, next) {
       );
     }
 
-    if (parsedRmId) {
-      // ── Raw material existence & scoping check ──
-      let rmQuery = `SELECT rm_id FROM "Raw_Material" WHERE rm_id = $1`;
-      const rmParams = [parsedRmId];
-      if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-        rmQuery += ` AND "Com_id" = $2`;
-        rmParams.push(req.user.com_id);
-        if (req.user.b_id) {
-          rmQuery += ` AND b_id = $3`;
-          rmParams.push(req.user.b_id);
-        }
+    // ── Raw material existence & scoping check ──
+    let rmQuery = `SELECT rm_id FROM "Raw_Material" WHERE rm_id = $1`;
+    const rmParams = [parsedRmId];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      rmQuery += ` AND "Com_id" = $2`;
+      rmParams.push(req.user.com_id);
+      if (req.user.b_id) {
+        rmQuery += ` AND b_id = $3`;
+        rmParams.push(req.user.b_id);
       }
-      const rmCheck = await pool.query(rmQuery, rmParams);
-      if (rmCheck.rows.length === 0) {
-        res.status(404);
-        throw new Error(`Raw material with id ${parsedRmId} not found`);
-      }
+    }
+    const rmCheck = await pool.query(rmQuery, rmParams);
+    if (rmCheck.rows.length === 0) {
+      res.status(404);
+      throw new Error(`Raw material with id ${parsedRmId} not found`);
+    }
 
-      // ── Duplicate raw material in same order ──
-      const dupItem = await pool.query(
-        `SELECT pi_id FROM purchase_item WHERE po_id = $1 AND rm_id = $2`,
-        [parsedPoId, parsedRmId],
+    // ── Duplicate raw material in same order ──
+    const dupItem = await pool.query(
+      `SELECT pi_id FROM purchase_item WHERE po_id = $1 AND rm_id = $2`,
+      [parsedPoId, parsedRmId],
+    );
+    if (dupItem.rows.length > 0) {
+      res.status(409);
+      throw new Error(
+        "This raw material is already listed in the purchase order — update the existing item instead",
       );
-      if (dupItem.rows.length > 0) {
-        res.status(409);
-        throw new Error(
-          "This raw material is already listed in the purchase order — update the existing item instead",
-        );
-      }
-    } else {
-      // ── Product existence & scoping check ──
-      let proQuery = `SELECT pro_id FROM "Product" WHERE pro_id = $1`;
-      const proParams = [parsedProId];
-      if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-        proQuery += ` AND "Com_id" = $2`;
-        proParams.push(req.user.com_id);
-      }
-      const proCheck = await pool.query(proQuery, proParams);
-      if (proCheck.rows.length === 0) {
-        res.status(404);
-        throw new Error(`Product with id ${parsedProId} not found`);
-      }
-
-      // ── Duplicate product in same order ──
-      const dupPro = await pool.query(
-        `SELECT pi_id FROM purchase_item WHERE po_id = $1 AND pro_id = $2`,
-        [parsedPoId, parsedProId],
-      );
-      if (dupPro.rows.length > 0) {
-        res.status(409);
-        throw new Error(
-          "This product is already listed in the purchase order — update the existing item instead",
-        );
-      }
     }
 
     const result = await pool.query(
-      `INSERT INTO purchase_item (po_id, rm_id, pro_id, qty, price, unit_price, unit)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING pi_id, po_id, rm_id, pro_id, qty, price, unit_price, unit`,
-      [parsedPoId, parsedRmId, parsedProId, parsedQty, parsedPrice, parsedUnitPrice, unit || null],
+      `INSERT INTO purchase_item (po_id, rm_id, qty, price, unit_price)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING pi_id, po_id, rm_id, qty, price, unit_price`,
+      [parsedPoId, parsedRmId, parsedQty, parsedPrice, parsedUnitPrice],
     );
 
     res.status(201).json(result.rows[0]);

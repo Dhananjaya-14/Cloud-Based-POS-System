@@ -27,8 +27,8 @@ router.get("/", requireBranchAdminOrAdmin, getAllWaste);
 router.get("/:id", requireBranchAdminOrAdmin, getWasteById);
 router.post("/", requireBranchAdminOrAdmin, createWaste);
 
-// Admin and Branch Admin can edit or delete waste records
-router.put("/:id", requireBranchAdminOrAdmin, updateWaste);
-router.delete("/:id", requireBranchAdminOrAdmin, deleteWaste);
+// Only Admin can edit or delete waste records (audit integrity)
+router.put("/:id", requireAdmin, updateWaste);
+router.delete("/:id", requireAdmin, deleteWaste);
 
 export default router;

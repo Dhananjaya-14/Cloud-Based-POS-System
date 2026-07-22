@@ -10,7 +10,7 @@ function sanitizeName(value) {
 export async function getCompanies(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone" FROM "Company" ORDER BY "com_id"',
+      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id" FROM "Company" ORDER BY "com_id"',
     );
     res.json(result.rows);
   } catch (err) {
@@ -39,7 +39,7 @@ export async function getCompanyById(req, res, next) {
 
 export async function createCompany(req, res, next) {
   try {
-    const { com_name, c_status, c_email, reg_date, location, phone } = req.body;
+    const { com_name, c_status, c_email, reg_date, location, phone, package_id } = req.body;
     const sanitizedName = sanitizeName(com_name);
 
     if (!sanitizedName) {
@@ -48,10 +48,10 @@ export async function createCompany(req, res, next) {
     }
 
     const result = await pool.query(
-      `INSERT INTO "Company" ("com_name", "c_status", "c_email", "reg_date", "location", "phone")
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone"`,
-      [sanitizedName, c_status ?? true, c_email ?? null, reg_date ?? new Date(), location ?? null, phone ?? null],
+      `INSERT INTO "Company" ("com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id")
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id"`,
+      [sanitizedName, c_status ?? true, c_email ?? null, reg_date ?? new Date(), location ?? null, phone ?? null, package_id ?? null],
     );
 
     res.status(201).json(result.rows[0]);
@@ -67,11 +67,10 @@ export async function createCompany(req, res, next) {
 export async function updateCompany(req, res, next) {
   try {
     const { id } = req.params;
-    const { com_name, c_status, c_email, reg_date, location, phone } = req.body;
+    const { com_name, c_status, c_email, reg_date, location, phone, package_id } = req.body;
     const sanitizedName = com_name ? sanitizeName(com_name) : null;
 
-    // Require at least one valid field to update (simplified check)
-    if (!sanitizedName && c_status === undefined && !c_email && !reg_date && !location && !phone) {
+    if (!sanitizedName && c_status === undefined && !c_email && !reg_date && !location && !phone && package_id === undefined) {
       res.status(400);
       throw new Error("At least one field is required to update");
     }
@@ -92,10 +91,11 @@ export async function updateCompany(req, res, next) {
            "c_email"  = COALESCE($3, "c_email"),
            "reg_date" = COALESCE($4, "reg_date"),
            "location" = COALESCE($5, "location"),
-           "phone"    = COALESCE($6, "phone")
+           "phone"    = COALESCE($6, "phone"),
+           "package_id" = COALESCE($8, "package_id")
        WHERE "com_id" = $7
-       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone"`,
-      [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id],
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id"`,
+      [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null],
     );
 
     res.json(result.rows[0]);

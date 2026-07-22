@@ -116,14 +116,24 @@ const AdminSupplierManagement = () => {
         ...(filterBranch ? { b_id: filterBranch } : {}),
         ...(showDeleted ? { status: "inactive" } : {}),
       };
-      const [supList, branchList] = await Promise.all([
-        getSuppliers(params),
-        getBranches(),
-      ]);
-      setSuppliers(Array.isArray(supList) ? supList : []);
-      setBranches(Array.isArray(branchList) ? branchList : []);
-    } catch (err) {
-      showToast(err?.response?.data?.message || "Failed to load data", "error");
+      
+      // Fetch branches independently so a supplier 403 doesn't break the dropdown
+      try {
+        const branchList = await getBranches();
+        setBranches(Array.isArray(branchList) ? branchList : []);
+      } catch (err) {
+        console.error("Failed to fetch branches", err);
+        setBranches([]);
+      }
+
+      try {
+        const supList = await getSuppliers(params);
+        setSuppliers(Array.isArray(supList) ? supList : []);
+      } catch (err) {
+        showToast(err?.response?.data?.message || "Failed to load suppliers", "error");
+        setSuppliers([]);
+      }
+      
     } finally {
       setLoading(false);
     }
@@ -221,7 +231,8 @@ const AdminSupplierManagement = () => {
       }
       loadData();
     } catch (err) {
-      showToast(err?.response?.data?.message || "Failed to save supplier", "error");
+      const errMsg = err?.response?.data?.error || err?.response?.data?.message || "Failed to save supplier";
+      showToast(errMsg, "error");
     } finally {
       setSaving(false);
     }

@@ -8,11 +8,9 @@ const SupplierDetailView = ({ supplier, onBack }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
-  const [showWastageModal, setShowWastageModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [activeOrder, setActiveOrder] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [wastageData, setWastageData] = useState({});
-  const [modalStep, setModalStep] = useState("wastage"); // "wastage" or "payment"
 
   if (!supplier) {
     return <div className="p-5">Loading supplier details...</div>;
@@ -61,108 +59,25 @@ const SupplierDetailView = ({ supplier, onBack }) => {
     fetchOrderData();
   }, [supplier?.sup_id]);
 
-  const openWastageModal = (order) => {
+  const openPaymentModal = (order) => {
     setActiveOrder(order);
     setPaymentMethod("cash");
-    
-    // Initialize wastage data for all items
-    const initialWastage = {};
-    (order.items || []).forEach(item => {
-      initialWastage[item.rm_id] = {
-        wastage_type: "none",
-        wastage_value: 0,
-        selected_unit: item.unit || item.rm_unit,
-        reason: ""
-      };
-    });
-    setWastageData(initialWastage);
-    setModalStep("wastage");
-    setShowWastageModal(true);
-  };
-
-  const handleWastageChange = (rm_id, field, value) => {
-    setWastageData(prev => ({
-      ...prev,
-      [rm_id]: {
-        ...prev[rm_id],
-        [field]: value
-      }
-    }));
-  };
-
-  const getAvailableUnits = (baseUnit) => {
-    const lower = String(baseUnit || "").toLowerCase();
-    if (lower === "kg" || lower === "g") return ["kg", "g"];
-    if (lower === "l" || lower === "ml") return ["l", "ml"];
-    return [baseUnit];
-  };
-
-  const calculateFinalQty = (qty, inputUnit, baseUnit) => {
-    let finalQty = Number(qty) || 0;
-    if (!inputUnit || !baseUnit) return finalQty;
-    const from = String(inputUnit).toLowerCase();
-    const to = String(baseUnit).toLowerCase();
-    
-    if (from === "g" && to === "kg") finalQty /= 1000;
-    else if (from === "kg" && to === "g") finalQty *= 1000;
-    else if (from === "ml" && to === "l") finalQty /= 1000;
-    else if (from === "l" && to === "ml") finalQty *= 1000;
-    
-    return finalQty;
-  };
-
-  const calculateWasteQty = (rm_id, orderedQty, baseUnit) => {
-    const data = wastageData[rm_id];
-    if (!data || data.wastage_type === "none") return 0;
-    
-    if (data.wastage_type === "percentage") {
-      const waste = (Number(orderedQty) * (Number(data.wastage_value) || 0)) / 100;
-      return Math.round(waste * 1000) / 1000; // max 3 decimals
-    }
-    if (data.wastage_type === "fixed") {
-      return calculateFinalQty(data.wastage_value, data.selected_unit, baseUnit);
-    }
-    return 0;
+    setShowPaymentModal(true);
   };
 
   const handleConfirmReception = async () => {
     if (!activeOrder) return;
     setProcessingId(activeOrder.po_id);
-    setShowWastageModal(false);
+    setShowPaymentModal(false);
 
     try {
       const token = localStorage.getItem("token");
-      
-      // Format wastage array for backend
-      const wastagePayload = Object.entries(wastageData).map(([rm_id, data]) => {
-        const item = activeOrder.items.find(i => String(i.rm_id) === String(rm_id));
-        let finalWaste = Number(data.wastage_value) || 0;
-        
-        if (data.wastage_type === "fixed" && item) {
-          finalWaste = calculateFinalQty(data.wastage_value, data.selected_unit, item.unit || item.rm_unit);
-        }
-
-        return {
-          rm_id: Number(rm_id),
-          wastage_type: data.wastage_type,
-          wastage_value: finalWaste,
-          reason: data.reason || ""
-        };
-      });
-
-      const receiveRes = await fetch(`/api/purchase-orders/${activeOrder.po_id}/receive`, {
-        method: "POST",
+      const updateRes = await fetch(`/api/purchase-orders/${activeOrder.po_id}`, {
+        method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ 
-          wastage: wastagePayload,
-          reason: "" 
-        }),
+        body: JSON.stringify({ status: "received" }),
       });
-      
-      if (!receiveRes.ok) {
-         const errorData = await receiveRes.json();
-         throw new Error(errorData.message || "Failed to mark order as received");
-      }
+      if (!updateRes.ok) throw new Error("Failed to update order status");
 
       await fetch(`/api/supplier-payments`, {
         method: "POST",
@@ -177,7 +92,6 @@ const SupplierDetailView = ({ supplier, onBack }) => {
       await fetchOrderData();
     } catch (err) {
       console.error("Error processing order reception:", err);
-      alert(err.message);
     } finally {
       setProcessingId(null);
       setActiveOrder(null);
@@ -221,7 +135,7 @@ const SupplierDetailView = ({ supplier, onBack }) => {
               <div>
                 {order.status === "pending" ? (
                   <button
-                    onClick={() => openWastageModal(order)}
+                    onClick={() => openPaymentModal(order)}
                     disabled={processingId === order.po_id}
                     className="px-4 py-2 bg-indigo-600 text-white border-none rounded-lg font-semibold cursor-pointer hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                   >
@@ -253,8 +167,8 @@ const SupplierDetailView = ({ supplier, onBack }) => {
               <tbody>
                 {(order.items || []).map((item, idx) => (
                   <tr key={idx} className="border-b border-gray-100 last:border-0 bg-white hover:bg-gray-50">
-                    <td className="px-6 py-3 font-medium text-gray-900">{item.item_name || item.rm_name || item.pro_name}</td>
-                    <td className="px-6 py-3 text-gray-600">{item.qty} {item.unit || item.rm_unit}</td>
+                    <td className="px-6 py-3 font-medium text-gray-900">{item.rm_name}</td>
+                    <td className="px-6 py-3 text-gray-600">{item.qty} {item.unit}</td>
                     <td className="px-6 py-3 text-gray-600">Rs. {item.unit_price}</td>
                     <td className="px-6 py-3 text-gray-900 font-bold">Rs. {item.price}</td>
                   </tr>
@@ -265,182 +179,39 @@ const SupplierDetailView = ({ supplier, onBack }) => {
         ))
       )}
 
-      {/* Wastage and Payment modal */}
-      {showWastageModal && activeOrder && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-          <div className="bg-white rounded-2xl p-8 w-[600px] max-w-full shadow-2xl my-auto">
-            <h3 className="m-0 mb-2 text-gray-900 text-xl font-bold">
-              {modalStep === "wastage" ? "Record Wastage" : "Confirm Reception"}
-            </h3>
+      {/* Payment modal */}
+      {showPaymentModal && activeOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-8 w-[420px] max-w-full shadow-2xl">
+            <h3 className="m-0 mb-2 text-gray-900 text-xl font-bold">Confirm Reception</h3>
             <p className="text-gray-500 text-sm mb-6">
-              {modalStep === "wastage" 
-                ? `Record any wastage for Order #${activeOrder.po_id} before receiving to stock.`
-                : `Confirm receipt of Order #${activeOrder.po_id} and record payment.`}
+              Confirm receipt of Order #{activeOrder.po_id} and record payment.
             </p>
-            
-            {modalStep === "wastage" ? (
-              <div className="max-h-[60vh] overflow-y-auto pr-2 mb-6">
-                {(activeOrder.items || []).map((item, idx) => {
-                  const wasteQty = calculateWasteQty(item.rm_id, item.qty, item.unit || item.rm_unit);
-                  const netStock = Math.max(0, item.qty - wasteQty);
-                  const isExceeding = wasteQty > item.qty;
-                  
-                  return (
-                    <div key={idx} className="mb-6 p-4 border border-gray-200 rounded-xl bg-gray-50">
-                      <div className="flex justify-between items-center mb-3">
-                        <h4 className="m-0 font-bold text-gray-800">{item.item_name || item.rm_name || item.pro_name}</h4>
-                        <span className="text-sm font-semibold text-gray-600 bg-white px-3 py-1 rounded-full border border-gray-200">
-                          Ordered: {item.qty} {item.unit || item.rm_unit}
-                        </span>
-                      </div>
-                      
-                      <div className="flex gap-4 mb-4">
-                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                          <input 
-                            type="radio" 
-                            name={`waste_${item.rm_id}`} 
-                            checked={wastageData[item.rm_id]?.wastage_type === "none"}
-                            onChange={() => {
-                              handleWastageChange(item.rm_id, "wastage_type", "none");
-                              handleWastageChange(item.rm_id, "wastage_value", 0);
-                            }}
-                          />
-                          No wastage
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                          <input 
-                            type="radio" 
-                            name={`waste_${item.rm_id}`} 
-                            checked={wastageData[item.rm_id]?.wastage_type === "percentage"}
-                            onChange={() => handleWastageChange(item.rm_id, "wastage_type", "percentage")}
-                          />
-                          Percentage
-                        </label>
-                        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-                          <input 
-                            type="radio" 
-                            name={`waste_${item.rm_id}`} 
-                            checked={wastageData[item.rm_id]?.wastage_type === "fixed"}
-                            onChange={() => handleWastageChange(item.rm_id, "wastage_type", "fixed")}
-                          />
-                          Fixed quantity
-                        </label>
-                      </div>
-
-                      {wastageData[item.rm_id]?.wastage_type !== "none" && (
-                        <div className="mb-3 space-y-3">
-                          <div>
-                            <label className="block text-[12px] font-semibold text-gray-600 mb-1">
-                              {wastageData[item.rm_id]?.wastage_type === "percentage" ? "Waste Percentage (%)" : `Waste Quantity`}
-                            </label>
-                            <div className="flex gap-2">
-                              <input 
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={wastageData[item.rm_id]?.wastage_value === 0 ? "" : wastageData[item.rm_id]?.wastage_value}
-                                onChange={(e) => handleWastageChange(item.rm_id, "wastage_value", e.target.value)}
-                                className={`w-full px-3 py-2 rounded-lg border-2 text-sm outline-none transition-colors ${isExceeding ? 'border-red-400 focus:border-red-500' : 'border-gray-300 focus:border-indigo-500'}`}
-                                placeholder="Enter amount"
-                              />
-                              {wastageData[item.rm_id]?.wastage_type === "fixed" && (
-                                <select
-                                  value={wastageData[item.rm_id]?.selected_unit || item.unit || item.rm_unit}
-                                  onChange={(e) => handleWastageChange(item.rm_id, "selected_unit", e.target.value)}
-                                  className="w-[90px] px-2 py-2 rounded-lg border-2 border-gray-300 text-sm outline-none focus:border-indigo-500 transition-colors bg-gray-50"
-                                >
-                                  {getAvailableUnits(item.unit || item.rm_unit).map(u => (
-                                    <option key={u} value={u}>{u}</option>
-                                  ))}
-                                </select>
-                              )}
-                            </div>
-                          </div>
-                          <div>
-                            <label className="block text-[12px] font-semibold text-gray-600 mb-1">
-                              Reason
-                            </label>
-                            <input 
-                              type="text"
-                              value={wastageData[item.rm_id]?.reason || ""}
-                              onChange={(e) => handleWastageChange(item.rm_id, "reason", e.target.value)}
-                              className="w-full px-3 py-2 rounded-lg border-2 text-sm outline-none transition-colors border-gray-300 focus:border-indigo-500"
-                              placeholder="e.g. Spoiled, Damaged, Expired"
-                            />
-                          </div>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-200">
-                        <span className="text-sm font-semibold text-gray-600">Net to stock:</span>
-                        <span className={`font-bold ${isExceeding ? 'text-red-500' : 'text-indigo-600'}`}>
-                          {netStock} {item.unit || item.rm_unit}
-                        </span>
-                      </div>
-                      {isExceeding && (
-                        <p className="text-xs text-red-500 mt-1 mb-0">Waste cannot exceed ordered quantity.</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="mb-5">
-                <label className="block text-[13px] font-semibold text-gray-700 mb-2">Payment Method</label>
-                <select
-                  value={paymentMethod}
-                  onChange={e => setPaymentMethod(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-lg border-2 border-gray-300 text-sm outline-none focus:border-indigo-500 transition-colors"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="cheque">Cheque</option>
-                </select>
-              </div>
-            )}
-            
+            <div className="mb-5">
+              <label className="block text-[13px] font-semibold text-gray-700 mb-2">Payment Method</label>
+              <select
+                value={paymentMethod}
+                onChange={e => setPaymentMethod(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-lg border-2 border-gray-300 text-sm outline-none focus:border-indigo-500 transition-colors"
+              >
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cheque">Cheque</option>
+              </select>
+            </div>
             <div className="flex gap-3">
-              {modalStep === "wastage" ? (
-                <>
-                  <button 
-                    onClick={() => { setShowWastageModal(false); setActiveOrder(null); }} 
-                    className="flex-1 py-2.5 rounded-lg border-2 border-gray-300 bg-white font-semibold cursor-pointer text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={() => {
-                      // Check for validation errors before proceeding
-                      const hasError = (activeOrder.items || []).some(item => {
-                        return calculateWasteQty(item.rm_id, item.qty, item.unit || item.rm_unit) > item.qty;
-                      });
-                      if (hasError) {
-                        alert("Please fix wastage errors (waste cannot exceed ordered quantity) before proceeding.");
-                        return;
-                      }
-                      setModalStep("payment");
-                    }} 
-                    className="flex-1 py-2.5 rounded-lg border-none bg-indigo-600 text-white font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
-                  >
-                    Next →
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button 
-                    onClick={() => setModalStep("wastage")} 
-                    className="flex-1 py-2.5 rounded-lg border-2 border-gray-300 bg-white font-semibold cursor-pointer text-gray-700 hover:bg-gray-50 transition-colors"
-                  >
-                    ← Back
-                  </button>
-                  <button 
-                    onClick={handleConfirmReception} 
-                    className="flex-1 py-2.5 rounded-lg border-none bg-indigo-600 text-white font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
-                  >
-                    Confirm Received
-                  </button>
-                </>
-              )}
+              <button 
+                onClick={() => { setShowPaymentModal(false); setActiveOrder(null); }} 
+                className="flex-1 py-2.5 rounded-lg border-2 border-gray-300 bg-white font-semibold cursor-pointer text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleConfirmReception} 
+                className="flex-1 py-2.5 rounded-lg border-none bg-indigo-600 text-white font-semibold cursor-pointer hover:bg-indigo-700 transition-colors"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>

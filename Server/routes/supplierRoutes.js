@@ -15,11 +15,13 @@ import {
   requireBranchAdminOrAdmin,
   requireAdmin,
 } from "../middleware/authMiddleware.js";
+import { requireFeature } from "../middleware/saasMiddleware.js";
 
 const router = express.Router();
 
-// All routes require authentication
+// All routes require authentication + Suppliers module enabled in package
 router.use(requireAuth);
+router.use(requireFeature("has_suppliers"));
 
 // ── Collection routes ──────────────────────────────────────────────────────
 router.get("/",   requireBranchAdminOrAdmin, getSuppliers);
