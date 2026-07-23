@@ -11,7 +11,10 @@ const AddRawMaterials = () => {
   const primaryBlue = "#001F3F";
   const bgGrey = "#F9FAFB";
 
-  const { user } = useAuth();
+  const { user, features } = useAuth();
+
+  // If has_suppliers is not true, supplier section is hidden and skipped
+  const suppliersEnabled = features?.has_suppliers === true;
 
   const [supplier, setSupplier] = useState({
     sup_name: "",
@@ -59,9 +62,9 @@ const AddRawMaterials = () => {
   
 
   useEffect(() => {
-    fetchSuppliers();
+    if (suppliersEnabled) fetchSuppliers();
     fetchBranches();
-  }, []);
+  }, [suppliersEnabled]);
 
   const fetchSuppliers = async () => {
     try {
@@ -135,9 +138,9 @@ const AddRawMaterials = () => {
     else showToast("At least one ingredient is required.", "error");
   };
 
+  // ─── SUBMIT ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     try {
-
       const branchCandidate = Array.isArray(branches) && branches.length > 0 ? branches[0] : null;
       const branchId =
         user?.b_id ??
@@ -152,14 +155,69 @@ const AddRawMaterials = () => {
         return;
       }
 
-      // 1) create or reuse supplier
+      // ── PATH A: Suppliers DISABLED — save raw materials only (no PO) ──────
+      if (!suppliersEnabled) {
+        for (const item of materials) {
+          if (!item.rm_name || !item.unit) continue;
+
+          const normalizedName = item.rm_name.trim();
+          if (!VALID_UNITS.includes(item.unit)) {
+            throw new Error(`Unit "${item.unit}" is not valid. Allowed: ${VALID_UNITS.join(", ")}`);
+          }
+
+          const qty = Number(item.stock_qty);
+          if (isNaN(qty) || qty <= 0) {
+            throw new Error(`Quantity for "${normalizedName}" must be a positive number`);
+          }
+
+          const materialPayload = {
+            rm_name: normalizedName,
+            unit: item.unit,
+            stock_qty: qty,
+            record_level: Number(item.record_level) || 0,
+            B_id: Number(branchId),
+            com_id: user?.com_id ?? undefined,
+          };
+
+          let createRmRes = await fetchWithAuth("/api/raw-materials", {
+            method: "POST",
+            body: JSON.stringify(materialPayload),
+          });
+          let createRmParsed = await parseBody(createRmRes);
+
+          if (!createRmParsed.ok) {
+            if (createRmParsed.status === 409 && createRmParsed.body?.isInactive) {
+              // Restore inactive item
+              const restoreRes = await fetchWithAuth("/api/raw-materials", {
+                method: "POST",
+                body: JSON.stringify({ ...materialPayload, restore: true }),
+              });
+              const restoreParsed = await parseBody(restoreRes);
+              if (!restoreParsed.ok) {
+                throw new Error(restoreParsed.body?.message || `Failed to restore ${normalizedName}`);
+              }
+            } else if (createRmParsed.status === 409) {
+              throw new Error(`"${normalizedName}" already exists in the inventory list.`);
+            } else {
+              throw new Error(createRmParsed.body?.message || `Failed to save ${normalizedName}`);
+            }
+          }
+        }
+
+        showToast("Inventory Items Added Successfully", "success");
+        setMaterials([{ rm_name: "", unit: "", stock_qty: "", record_level: "", unit_price: "" }]);
+        return;
+      }
+
+      // ── PATH B: Suppliers ENABLED — full flow (supplier → PO → items) ──────
       let finalSupId;
       const existing = (Array.isArray(existingSuppliers) ? existingSuppliers : []).find(
         (s) => s.sup_email && s.sup_email.toLowerCase() === supplier.sup_email.toLowerCase()
       );
 
-      if (existing) finalSupId = existing.sup_id;
-      else {
+      if (existing) {
+        finalSupId = existing.sup_id;
+      } else {
         let validatedSupplier;
         try {
           validatedSupplier = clientValidateSupplier(supplier);
@@ -180,7 +238,7 @@ const AddRawMaterials = () => {
         fetchSuppliers();
       }
 
-      // 2) create purchase order (pending)
+      // Create purchase order (pending)
       const poPayload = {
         sup_id: finalSupId,
         B_id: Number(branchId),
@@ -197,7 +255,7 @@ const AddRawMaterials = () => {
       }
       const po_id = poParsed.body.po_id;
 
-      // 3) sequentially create materials and purchase-items
+      // Create materials and link to purchase order
       for (const item of materials) {
         if (!item.rm_name || !item.unit) continue;
 
@@ -230,38 +288,34 @@ const AddRawMaterials = () => {
         if (createRmParsed.ok) {
           rmData = createRmParsed.body;
         } else if (createRmParsed.status === 409) {
-          // --- RESTORE FLOW IMPLEMENTATION ---
-    
-            if (createRmParsed.body?.isInactive) {
-              const restoreRes = await fetchWithAuth("/api/raw-materials", {
-                method: "POST",
-                body: JSON.stringify({ ...materialPayload, restore: true }),
-              });
-              const restoreParsed = await parseBody(restoreRes);
-              if (restoreParsed.ok) {
-                rmData = restoreParsed.body;
-              } else {
-                throw new Error(restoreParsed.body?.message || `Failed to restore ${normalizedName}`);
-              }
+          if (createRmParsed.body?.isInactive) {
+            const restoreRes = await fetchWithAuth("/api/raw-materials", {
+              method: "POST",
+              body: JSON.stringify({ ...materialPayload, restore: true }),
+            });
+            const restoreParsed = await parseBody(restoreRes);
+            if (restoreParsed.ok) {
+              rmData = restoreParsed.body;
             } else {
-              throw new Error(` \"${normalizedName}\" already exists in the list.`);
+              throw new Error(restoreParsed.body?.message || `Failed to restore ${normalizedName}`);
             }
           } else {
-            // Active duplication handler fallback recovery logic
-            const listRes = await fetchWithAuth("/api/raw-materials", { method: "GET" });
-            const listParsed = await parseBody(listRes);
-            if (!listParsed.ok) throw new Error("Failed to recover existing raw material after duplicate error");
-            const listArray = Array.isArray(listParsed.body) ? listParsed.body : extractArray(listParsed.body);
-            const found = listArray.find(
-              (r) =>
-                r.rm_name &&
-                r.rm_name.trim().toLowerCase() === normalizedName.toLowerCase() &&
-                (r.B_id == null || String(r.B_id) === String(branchId))
-            );
-            if (!found) throw new Error(`Duplicate error but existing material "${normalizedName}" not found`);
-            rmData = found;
+            throw new Error(` \"${normalizedName}\" already exists in the list.`);
           }
-       
+        } else {
+          const listRes = await fetchWithAuth("/api/raw-materials", { method: "GET" });
+          const listParsed = await parseBody(listRes);
+          if (!listParsed.ok) throw new Error("Failed to recover existing raw material after duplicate error");
+          const listArray = Array.isArray(listParsed.body) ? listParsed.body : extractArray(listParsed.body);
+          const found = listArray.find(
+            (r) =>
+              r.rm_name &&
+              r.rm_name.trim().toLowerCase() === normalizedName.toLowerCase() &&
+              (r.B_id == null || String(r.B_id) === String(branchId))
+          );
+          if (!found) throw new Error(`Duplicate error but existing material "${normalizedName}" not found`);
+          rmData = found;
+        }
 
         const unitPrice = Number(item.unit_price) || 0;
         const piRes = await fetchWithAuth("/api/purchase-items", {
@@ -281,8 +335,6 @@ const AddRawMaterials = () => {
       }
 
       showToast("Inventory Items Added Successfully", "success");
-
-      // Reset form fields
       setSupplier({ sup_name: "", sup_email: "", sup_contact: "", sup_address: "" });
       setMaterials([{ rm_name: "", unit: "", stock_qty: "", record_level: "", unit_price: "" }]);
       fetchSuppliers();
@@ -308,11 +360,14 @@ const AddRawMaterials = () => {
         <div style={containerStyle}>
           <h2 style={{ color: "#101828", fontWeight: '700', fontSize: '24px', marginBottom: '20px' }}>Add Inventory Items</h2>
 
+          {/* Section 1: Inventory Items */}
           <div style={sectionStyle}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <span style={{ fontSize: 20, color: primaryTeal }}>📦</span>
-                <h3 style={{ margin: 0, color: primaryBlue, fontSize: 18, fontWeight: 600 }}>1. Incoming Inventory Items</h3>
+                <h3 style={{ margin: 0, color: primaryBlue, fontSize: 18, fontWeight: 600 }}>
+                  {suppliersEnabled ? "1. " : ""}Incoming Inventory Items
+                </h3>
               </div>
               <button onClick={addMaterialRow} style={{ background: 'none', border: `1px solid ${primaryTeal}`, padding: '8px 16px', borderRadius: '8px', color: primaryTeal, cursor: 'pointer', fontWeight: '600' }}>
                 + Add Another Item
@@ -323,15 +378,16 @@ const AddRawMaterials = () => {
             ))}
           </div>
 
-          <div style={sectionStyle}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 20, color: primaryTeal }}>👤</span>
-                <h3 style={{ margin: 0, color: primaryBlue, fontSize: 18, fontWeight: 600 }}>2. Supplier</h3>
+          {/* Section 2: Supplier — only shown when has_suppliers is enabled */}
+          {suppliersEnabled && (
+            <div style={sectionStyle}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 20, color: primaryTeal }}>👤</span>
+                  <h3 style={{ margin: 0, color: primaryBlue, fontSize: 18, fontWeight: 600 }}>2. Supplier</h3>
+                </div>
               </div>
-            </div>
 
-         
               <div>
                 <label style={labelStyle}>Select Existing Supplier</label>
                 <select
@@ -347,7 +403,8 @@ const AddRawMaterials = () => {
                   ))}
                 </select>
               </div>
-          </div>
+            </div>
+          )}
 
           <div style={{ textAlign: "right", marginTop: 20 }}>
             <button style={primaryBtnStyle} onClick={handleSubmit}>

@@ -240,7 +240,7 @@ function App() {
       <Route
         path="/admin/products"
         element={
-          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_inventory">
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminProductManagement />
           </ProtectedRoute>
         }
