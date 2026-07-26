@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaSearch, FaFilter, FaPlus, FaPen, FaTrash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
-import { getCompanies, createCompany, updateCompany, deleteCompany, getCurrentUser, setAuthToken, logout } from "../../services/api";
+import { getCompanies, createCompany, updateCompany, deleteCompany, getPackages, getCurrentUser, setAuthToken, logout } from "../../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
@@ -46,6 +46,7 @@ const HotelManagement = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [togglingId, setTogglingId] = useState(null);
   const { toasts, removeToast, toast } = useToast();
+  const [packages, setPackages] = useState([]);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [formData, setFormData] = useState({
@@ -56,6 +57,7 @@ const HotelManagement = () => {
     phone: "",
     date: "",
     status: true,
+    package_id: "",
   });
   const navigate = useNavigate();
   const location = useLocation();
@@ -88,7 +90,7 @@ const HotelManagement = () => {
 
   const openAddModal = () => {
     const today = new Date().toISOString().slice(0, 10);
-    setFormData({ id: null, name: "", location: "", email: "", phone: "", date: today, status: true });
+    setFormData({ id: null, name: "", location: "", email: "", phone: "", date: today, status: true, package_id: "" });
     setModalMode("add");
     setModalError("");
     setIsModalOpen(true);
@@ -103,6 +105,7 @@ const HotelManagement = () => {
       phone: company.phone || "",
       date: company.reg_date ? new Date(company.reg_date).toISOString().slice(0, 10) : "",
       status: company.c_status === true || String(company.c_status).toLowerCase() === "active",
+      package_id: company.package_id || "",
     });
     setModalMode("edit");
     setModalError("");
@@ -132,8 +135,9 @@ const HotelManagement = () => {
 
   const fetchData = async () => {
     try {
-      const data = await getCompanies();
-      setCompanies(Array.isArray(data) ? data : []);
+      const [companiesData, packagesData] = await Promise.all([getCompanies(), getPackages()]);
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setPackages(Array.isArray(packagesData) ? packagesData : []);
     } catch (err) {
       console.error("Fetch error:", err);
       if (err.response?.status === 401) {
@@ -195,6 +199,7 @@ setIsSaving(true);
         c_status: !!formData.status,
         c_email: formData.email,
         reg_date: formData.date || new Date().toISOString().slice(0, 10),
+        package_id: formData.package_id ? parseInt(formData.package_id, 10) : null,
       };
 
       if (modalMode === "add") {
@@ -602,6 +607,19 @@ setIsSaving(true);
                     <option value="Inactive">Inactive</option>
                   </select>
                 )}
+              </div>
+              <div>
+                <label style={labelStyle}>SaaS Package</label>
+                <select
+                  style={{ ...inputStyle, cursor: "pointer", color: formData.package_id ? "#374151" : "#9CA3AF" }}
+                  value={formData.package_id}
+                  onChange={e => setFormData({ ...formData, package_id: e.target.value })}
+                >
+                  <option value="">— Select a Package —</option>
+                  {packages.map(p => (
+                    <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 

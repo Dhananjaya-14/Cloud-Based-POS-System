@@ -12,13 +12,14 @@ import {
   updateBranch,
   deleteBranch,
 } from "../controllers/branchController.js";
+import { checkQuota } from "../middleware/saasMiddleware.js";
 
 const router = express.Router();
 
 router.use(requireAuth);
 router.get("/", requireCashierOrAbove, getBranches);
 router.get("/:id", requireWaiterOrAbove, getBranchById);
-router.post("/", requireAdmin, createBranch);
+router.post("/", requireAdmin, checkQuota("max_branches", "Branch"), createBranch);
 router.put("/:id", requireAdmin, updateBranch);
 router.delete("/:id", requireAdmin, deleteBranch);
 
