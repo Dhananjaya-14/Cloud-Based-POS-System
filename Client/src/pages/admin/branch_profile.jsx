@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaArrowLeft, FaEdit, FaTrashAlt } from "react-icons/fa";
+import { FaArrowLeft, FaEdit, FaTrashAlt, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AdminSidebar from "../../components/admin/Sidebar";
 import AdminHeader from "../../components/admin/Header";
@@ -63,6 +63,7 @@ const BranchProfile = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
 
   useEffect(() => {
     let mounted = true;
@@ -71,6 +72,7 @@ const BranchProfile = () => {
       try {
         setLoading(true);
         setError("");
+        setSuccessMessage("");
 
         let branchData = location.state?.branch || null;
 
@@ -116,6 +118,16 @@ const BranchProfile = () => {
     };
   }, [branchId, location.state]);
 
+  // Auto-dismiss success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
   const managerName = useMemo(() => {
     const first = manager?.u_fname || "";
     const last = manager?.u_lname || "";
@@ -158,10 +170,17 @@ const BranchProfile = () => {
       setDeleting(true);
       setDeleteError("");
       await deleteBranchById(branchId);
-      navigate(backPath);
+      
+      // Set success message with branch name
+      setSuccessMessage(`🗑️ Branch "${branch?.B_name || 'Branch'}" deleted successfully!`);
+      
+      // Close modal and navigate after short delay
+      setShowDeleteModal(false);
+      setTimeout(() => {
+        navigate(backPath);
+      }, 1500);
     } catch (err) {
       setDeleteError(err?.response?.data?.message || "Unable to delete branch. Please try again.");
-    } finally {
       setDeleting(false);
     }
   };
@@ -181,168 +200,224 @@ const BranchProfile = () => {
                 background: "#ffffff",
                 borderRadius: "0 0 10px 10px",
                 padding: "28px 34px",
+                position: "relative",
               }}
             >
-            <button
-              type="button"
-              onClick={() => navigate(backPath)}
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "8px",
-                border: "none",
-                background: "transparent",
-                color: "#5a5f6a",
-                cursor: "pointer",
-                fontWeight: 500,
-                fontSize: "0.98rem",
-                marginBottom: "20px",
-              }}
-            >
-              <FaArrowLeft /> Back to Branches
-            </button>
+              {/* Success Toast Message for Deletion */}
+              {successMessage && (
+                <div
+                  style={{
+                    position: "fixed",
+                    top: "80px",
+                    right: "20px",
+                    zIndex: 9999,
+                    backgroundColor: "#FEF2F2",
+                    borderLeft: "4px solid #EF4444",
+                    borderRadius: "8px",
+                    padding: "14px 18px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    maxWidth: "380px",
+                    width: "100%",
+                    animation: "slideInRight 0.3s ease-out",
+                  }}
+                >
+                  <div style={{ 
+                    flex: 1,
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    color: "#991B1B",
+                    lineHeight: "1.5"
+                  }}>
+                    {successMessage}
+                  </div>
+                  <button
+                    onClick={() => setSuccessMessage("")}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#991B1B",
+                      cursor: "pointer",
+                      padding: "4px",
+                      marginLeft: "12px",
+                      fontSize: "16px",
+                      opacity: 0.6,
+                      transition: "opacity 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.opacity = "1";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.opacity = "0.6";
+                    }}
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              )}
 
-            <h1
-              style={{
-                textAlign: "center",
-                margin: "0",
-                color: "#2d3d73",
-                fontWeight: 700,
-                fontSize: "40px",
-                lineHeight: 1,
-              }}
-            >
-              Branch Profile
-            </h1>
-
-            <div style={{ marginTop: "22px", borderBottom: "1px solid #e5e9f2" }}>
-              <span
+              <button
+                type="button"
+                onClick={() => navigate(backPath)}
                 style={{
-                  color: "#2f3cff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  border: "none",
+                  background: "transparent",
+                  color: "#5a5f6a",
+                  cursor: "pointer",
                   fontWeight: 500,
-                  fontSize: "1rem",
-                  padding: "0 10px 10px",
-                  display: "inline-block",
-                  borderBottom: "3px solid #2f3cff",
+                  fontSize: "0.98rem",
+                  marginBottom: "20px",
                 }}
               >
-                Profile
-              </span>
+                <FaArrowLeft /> Back to Branches
+              </button>
+
+              <h1
+                style={{
+                  textAlign: "center",
+                  margin: "0",
+                  color: "#2d3d73",
+                  fontWeight: 700,
+                  fontSize: "40px",
+                  lineHeight: 1,
+                }}
+              >
+                Branch Profile
+              </h1>
+
+              <div style={{ marginTop: "22px", borderBottom: "1px solid #e5e9f2" }}>
+                <span
+                  style={{
+                    color: "#2f3cff",
+                    fontWeight: 500,
+                    fontSize: "1rem",
+                    padding: "0 10px 10px",
+                    display: "inline-block",
+                    borderBottom: "3px solid #2f3cff",
+                  }}
+                >
+                  Profile
+                </span>
+              </div>
+
+              {loading ? (
+                <p style={{ color: "#5f6d8a", textAlign: "center", marginTop: "32px" }}>Loading branch profile...</p>
+              ) : error ? (
+                <p style={{ color: "#c0392b", textAlign: "center", marginTop: "32px" }}>{error}</p>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "110px 1fr",
+                      gap: "24px",
+                      alignItems: "start",
+                      marginTop: "34px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "92px",
+                        height: "92px",
+                        borderRadius: "50%",
+                        background: "linear-gradient(145deg, #4b84ff 0%, #1e3f9a 100%)",
+                        display: "grid",
+                        placeItems: "center",
+                        color: "#ffffff",
+                        fontSize: "2.2rem",
+                        fontWeight: 700,
+                        marginTop: "18px",
+                        boxShadow: "0 6px 15px rgba(100, 52, 18, 0.25)",
+                      }}
+                    >
+                      {branchInitial}
+                    </div>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+                        gap: "14px 18px",
+                      }}
+                    >
+                      <Field label="Branch Name" value={branch?.B_name} />
+                      <Field label="Branch Admin Name" value={managerName} />
+                      <Field label="Email" value={branch?.B_email} />
+                      <Field label="Username" value={username} />
+                      <Field label="Address" value={branch?.B_address} />
+                      <Field label="Password" value="**********" />
+                      <Field label="Contact Number" value={branch?.B_conNo} />
+                      <Field label="Status" value={branchStatusLabel} />
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      gap: "20px",
+                      marginTop: "84px",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigate(`/branch_profile/${branchId}/edit`, {
+                          state: { branch, manager },
+                        })
+                      }
+                      style={{
+                        border: "none",
+                        width: "128px",
+                        height: "44px",
+                        borderRadius: "10px",
+                        color: "white",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        background: "#22ba3f",
+                        fontWeight: 600,
+                        fontSize: "1.05rem",
+                      }}
+                    >
+                      <FaEdit /> Edit
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDeleteClick}
+                      style={{
+                        border: "none",
+                        width: "128px",
+                        height: "44px",
+                        borderRadius: "10px",
+                        color: "white",
+                        cursor: "pointer",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "8px",
+                        background: "#f24848",
+                        fontWeight: 600,
+                        fontSize: "1.05rem",
+                      }}
+                    >
+                      <FaTrashAlt /> Delete
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
-
-            {loading ? (
-              <p style={{ color: "#5f6d8a", textAlign: "center", marginTop: "32px" }}>Loading branch profile...</p>
-            ) : error ? (
-              <p style={{ color: "#c0392b", textAlign: "center", marginTop: "32px" }}>{error}</p>
-            ) : (
-              <>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "110px 1fr",
-                    gap: "24px",
-                    alignItems: "start",
-                    marginTop: "34px",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "92px",
-                      height: "92px",
-                      borderRadius: "50%",
-                      background: "linear-gradient(145deg, #4b84ff 0%, #1e3f9a 100%)",
-                      display: "grid",
-                      placeItems: "center",
-                      color: "#ffffff",
-                      fontSize: "2.2rem",
-                      fontWeight: 700,
-                      marginTop: "18px",
-                      boxShadow: "0 6px 15px rgba(100, 52, 18, 0.25)",
-                    }}
-                  >
-                    {branchInitial}
-                  </div>
-
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-                      gap: "14px 18px",
-                    }}
-                  >
-                    <Field label="Branch Name" value={branch?.B_name} />
-                    <Field label="Branch Admin Name" value={managerName} />
-                    <Field label="Email" value={branch?.B_email} />
-                    <Field label="Username" value={username} />
-                    <Field label="Address" value={branch?.B_address} />
-                    <Field label="Password" value="**********" />
-                    <Field label="Contact Number" value={branch?.B_conNo} />
-                    <Field label="Status" value={branchStatusLabel} />
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    gap: "20px",
-                    marginTop: "84px",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/branch_profile/${branchId}/edit`, {
-                        state: { branch, manager },
-                      })
-                    }
-                    style={{
-                      border: "none",
-                      width: "128px",
-                      height: "44px",
-                      borderRadius: "10px",
-                      color: "white",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      background: "#22ba3f",
-                      fontWeight: 600,
-                      fontSize: "1.05rem",
-                    }}
-                  >
-                    <FaEdit /> Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleDeleteClick}
-                    style={{
-                      border: "none",
-                      width: "128px",
-                      height: "44px",
-                      borderRadius: "10px",
-                      color: "white",
-                      cursor: "pointer",
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "8px",
-                      background: "#f24848",
-                      fontWeight: 600,
-                      fontSize: "1.05rem",
-                    }}
-                  >
-                    <FaTrashAlt /> Delete
-                  </button>
-                </div>
-              </>
-            )}
           </div>
         </div>
-      </div>
       </div>
 
       {showDeleteModal && (
@@ -467,6 +542,19 @@ const BranchProfile = () => {
           </div>
         </div>
       )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </>
   );
 };

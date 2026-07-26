@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { FaSearch, FaClock } from "react-icons/fa";
+import { FaSearch, FaClock, FaBell } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
-import { connectSocket } from "../../services/socket";
+import { connectSocket, getSocket } from "../../services/socket";
 import {
 	getBranchProducts,
 	getOrderItems,
@@ -71,6 +71,52 @@ const KitchenManagement = () => {
 	const [error, setError] = useState("");
 	const [updatingOrderId, setUpdatingOrderId] = useState(null);
 
+	// State for order notifications (persistent)
+	const [orderNotifications, setOrderNotifications] = useState(() => {
+		const userId = user?.u_id;
+		if (!userId) return [];
+		
+		const savedNotifications = sessionStorage.getItem(`kitchenOrderNotifications_${userId}`);
+		if (savedNotifications) {
+			try {
+				const parsed = JSON.parse(savedNotifications);
+				const now = new Date();
+				const validNotifications = parsed.filter(notif => {
+					const timestamp = new Date(notif.timestamp);
+					const diffMinutes = (now - timestamp) / (1000 * 60);
+					return diffMinutes < 60; // Keep notifications for up to 1 hour
+				});
+				if (validNotifications.length > 0) {
+					return validNotifications;
+				} else {
+					sessionStorage.removeItem(`kitchenOrderNotifications_${userId}`);
+					return [];
+				}
+			} catch (e) {
+				sessionStorage.removeItem(`kitchenOrderNotifications_${userId}`);
+				return [];
+			}
+		}
+		return [];
+	});
+
+	// Save order notifications to sessionStorage
+	useEffect(() => {
+		const userId = user?.u_id;
+		if (!userId) return;
+		
+		if (orderNotifications.length > 0) {
+			sessionStorage.setItem(`kitchenOrderNotifications_${userId}`, JSON.stringify(orderNotifications));
+		} else {
+			sessionStorage.removeItem(`kitchenOrderNotifications_${userId}`);
+		}
+	}, [orderNotifications, user?.u_id]);
+
+	// Dismiss a specific order notification
+	const dismissOrderNotification = (notificationId) => {
+		setOrderNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+	};
+
 	const loadKitchenData = useCallback(async (silent = false) => {
 		if (!silent) {
 			setLoading(true);
@@ -137,18 +183,66 @@ const KitchenManagement = () => {
 
 		loadData(false);
 
-		socket.on("order:created", () => scheduleRefresh(true));
-		socket.on("order:updated", () => scheduleRefresh(true));
-		socket.on("order:deleted", () => scheduleRefresh(true));
+		// Handler for new order created
+		const handleOrderCreated = (orderData) => {
+			console.log("New order created (kitchen):", orderData);
+			
+			// Check if this order belongs to this branch
+			if (orderData.b_id && Number(orderData.b_id) !== Number(branchId)) {
+				return;
+			}
+			
+			// Extract order ID - try multiple possible field names
+			const orderId = orderData.or_id || orderData.id || orderData.order_id || 
+						   orderData._id || orderData.OR_id || null;
+			
+			// Only show notification if we have a valid order ID and the order is pending
+			if (orderId && orderId !== "Unknown" && orderData.or_status === "pending") {
+				// Add notification to persistent queue
+				setOrderNotifications(prev => {
+					const existingNotif = prev.find(n => 
+						n.orderId === orderId && 
+						(new Date() - new Date(n.timestamp)) < 10000
+					);
+					if (existingNotif) return prev;
+					
+					return [...prev, {
+						id: Date.now() + Math.random(),
+						type: 'new_order',
+						message: `🍽️ New order #${orderId} received!`,
+						timestamp: new Date().toISOString(),
+						orderId: orderId
+					}];
+				});
+			}
+			
+			scheduleRefresh(true);
+		};
+
+		// Handler for order updated
+		const handleOrderUpdated = (orderData) => {
+			console.log("Order updated (kitchen):", orderData);
+			scheduleRefresh(true);
+		};
+
+		// Handler for order deleted
+		const handleOrderDeleted = (orderData) => {
+			console.log("Order deleted (kitchen):", orderData);
+			scheduleRefresh(true);
+		};
+
+		socket.on("order:created", handleOrderCreated);
+		socket.on("order:updated", handleOrderUpdated);
+		socket.on("order:deleted", handleOrderDeleted);
 
 		return () => {
 			isMounted = false;
 			if (refreshTimer) window.clearTimeout(refreshTimer);
-			socket.off("order:created");
-			socket.off("order:updated");
-			socket.off("order:deleted");
+			socket.off("order:created", handleOrderCreated);
+			socket.off("order:updated", handleOrderUpdated);
+			socket.off("order:deleted", handleOrderDeleted);
 		};
-	}, [loadKitchenData]);
+	}, [loadKitchenData, branchId]);
 
 	const branchProductMap = useMemo(() => {
 		return branchProducts.reduce((acc, product) => {
@@ -464,6 +558,97 @@ const KitchenManagement = () => {
 		<div className="min-h-screen bg-[#F4F7FB] flex flex-col">
 			<CashierHeader />
 
+			{/* Order Notifications Container */}
+			{orderNotifications.length > 0 && (
+				<div
+					style={{
+						position: 'fixed',
+						top: '80px',
+						right: '20px',
+						zIndex: 9999,
+						display: 'flex',
+						flexDirection: 'column',
+						gap: '12px',
+						maxWidth: '420px',
+						minWidth: '320px',
+						maxHeight: '70vh',
+						overflowY: 'auto',
+						paddingRight: '4px',
+					}}
+					className="order-notifications-container"
+				>
+					{orderNotifications.map((notification) => (
+						<div
+							key={notification.id}
+							style={{
+								backgroundColor: '#DBEAFE',
+								borderLeft: '4px solid #3B82F6',
+								borderRadius: '8px',
+								padding: '16px 20px',
+								boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+								display: 'flex',
+								flexDirection: 'column',
+								gap: '12px',
+								animation: 'slideInRight 0.3s ease-out',
+							}}
+						>
+							<div>
+								<div style={{ 
+									fontWeight: '600', 
+									fontSize: '15px',
+									color: '#1F2937',
+									marginBottom: '4px'
+								}}>
+									🍽️ New Order Received
+								</div>
+								<div style={{ 
+									fontSize: '14px', 
+									color: '#4B5563',
+									fontWeight: '500',
+									lineHeight: '1.5'
+								}}>
+									{notification.message}
+								</div>
+								<div style={{
+									fontSize: '11px',
+									color: '#9CA3AF',
+									marginTop: '4px',
+									fontWeight: '400'
+								}}>
+									{new Date(notification.timestamp).toLocaleTimeString()}
+								</div>
+							</div>
+							<button
+								onClick={() => dismissOrderNotification(notification.id)}
+								style={{
+									background: '#3B82F6',
+									color: 'white',
+									border: 'none',
+									borderRadius: '6px',
+									padding: '8px 16px',
+									fontSize: '13px',
+									fontWeight: '600',
+									cursor: 'pointer',
+									transition: 'all 0.2s',
+									alignSelf: 'flex-end',
+									minWidth: '70px',
+								}}
+								onMouseEnter={(e) => {
+									e.currentTarget.style.opacity = '0.85';
+									e.currentTarget.style.transform = 'scale(1.02)';
+								}}
+								onMouseLeave={(e) => {
+									e.currentTarget.style.opacity = '1';
+									e.currentTarget.style.transform = 'scale(1)';
+								}}
+							>
+								OK
+							</button>
+						</div>
+					))}
+				</div>
+			)}
+
 			<main className="flex-1">
 				<div className="max-w-none mx-0 px-4 sm:px-6 py-6">
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
@@ -527,6 +712,34 @@ const KitchenManagement = () => {
 					)}
 				</div>
 			</main>
+
+			<style>
+				{`
+					@keyframes slideInRight {
+						from {
+							transform: translateX(100%);
+							opacity: 0;
+						}
+						to {
+							transform: translateX(0);
+							opacity: 1;
+						}
+					}
+					
+					.order-notifications-container::-webkit-scrollbar {
+						width: 4px;
+					}
+					
+					.order-notifications-container::-webkit-scrollbar-track {
+						background: transparent;
+					}
+					
+					.order-notifications-container::-webkit-scrollbar-thumb {
+						background: rgba(0, 0, 0, 0.2);
+						border-radius: 10px;
+					}
+				`}
+			</style>
 		</div>
 	);
 };

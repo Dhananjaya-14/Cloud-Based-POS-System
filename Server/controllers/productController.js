@@ -1,6 +1,7 @@
+// Server/controllers/productController.js
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
-import { getIO, SOCKET_EVENTS } from "../utils/socket.js";
+import { getIO, SOCKET_EVENTS, getBranchInventoryRoom } from "../utils/socket.js";
 
 function normalizeComId(body) {
   // Support both `com_id` (API-friendly) and `Com_id` (exact DB column).
@@ -22,6 +23,13 @@ function isPositiveInt(value) {
 function isNonNegativeNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) && n >= 0;
+}
+
+function getActorMeta(req) {
+  return {
+    actor_id: req.user?.u_id ?? null,
+    actor_name: [req.user?.u_fname, req.user?.u_lname].filter(Boolean).join(" ") || req.user?.u_email || "Admin",
+  };
 }
 
 // GET /api/products
@@ -153,16 +161,47 @@ const insertParams = resolvedCatId
         }
       }
       
+      const productData = {
+        ...newProduct,
+        cat_name: categoryName,
+        add_ons: add_ons || { Cheese: true, Bacon: true },
+        stations: stations || { Kitchen: true, Bar: true }
+      };
+      
+      // Emit to company room for all users in the company
       io.to(`company_${com_id}`).emit(SOCKET_EVENTS.NEW_PRODUCT_ADDED, {
-        product: {
-          ...newProduct,
-          cat_name: categoryName,
-          add_ons: add_ons || { Cheese: true, Bacon: true },
-          stations: stations || { Kitchen: true, Bar: true }
-        },
+        product: productData,
         company_id: com_id,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...getActorMeta(req),
       });
+      
+      // Also emit to branch rooms for all branches in this company
+      // Get all branches for this company
+      try {
+        const branchesResult = await pool.query(
+          'SELECT "b_id" FROM "public"."Branch" WHERE "Com_id" = $1',
+          [com_id]
+        );
+        
+        branchesResult.rows.forEach(branch => {
+          const branchRoom = getBranchInventoryRoom(branch.b_id);
+          io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, {
+            branch_product: {
+              ...productData,
+              // Add branch specific fields if needed
+              branch_id: branch.b_id,
+              Bpro_id: newProduct.pro_id // Use the product ID as branch product ID initially
+            },
+            branch_id: branch.b_id,
+            company_id: com_id,
+            timestamp: new Date(),
+            ...getActorMeta(req),
+          });
+        });
+      } catch (branchErr) {
+        console.error('Error emitting to branch rooms:', branchErr);
+      }
       
       console.log(`Socket event emitted: New product ${newProduct.pro_name} added to company ${com_id}`);
     }
@@ -273,11 +312,39 @@ export async function updateProduct(req, res, next) {
     const io = getIO();
     if (io && updatedProduct) {
       const targetComId = com_id || originalComId;
+      
+      // Emit to company room
       io.to(`company_${targetComId}`).emit(SOCKET_EVENTS.PRODUCT_UPDATED, {
         product: updatedProduct,
         company_id: targetComId,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...getActorMeta(req),
       });
+      
+      // Also emit to all branch rooms in this company
+      try {
+        const branchesResult = await pool.query(
+          'SELECT "b_id" FROM "public"."Branch" WHERE "Com_id" = $1',
+          [targetComId]
+        );
+        
+        branchesResult.rows.forEach(branch => {
+          const branchRoom = getBranchInventoryRoom(branch.b_id);
+          io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
+            branch_product: {
+              ...updatedProduct,
+              branch_id: branch.b_id,
+              Bpro_id: updatedProduct.pro_id
+            },
+            branch_id: branch.b_id,
+            company_id: targetComId,
+            timestamp: new Date(),
+            ...getActorMeta(req),
+          });
+        });
+      } catch (branchErr) {
+        console.error('Error emitting product update to branch rooms:', branchErr);
+      }
       
       console.log(`Socket event emitted: Product ${updatedProduct.pro_name} updated in company ${targetComId}`);
     }
@@ -374,7 +441,8 @@ export async function deleteProduct(req, res, next) {
         pro_id: Number(id),
         pro_name: productName,
         company_id: targetComId,
-        timestamp: new Date()
+        timestamp: new Date(),
+        ...getActorMeta(req),
       });
     }
 

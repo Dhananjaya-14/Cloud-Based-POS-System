@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
+import ToastMessage from "../../components/branch-admin/ToastMessage";
+import { connectSocket, getSocket, SOCKET_EVENTS } from '../../services/socket';
+import { useAuth } from "../../context/AuthContext";
 import { getSuppliers } from "../../services/api";
-
 
 const SupplierDetailView = ({ supplier, onBack }) => {
   const [orders, setOrders] = useState([]);
@@ -225,18 +227,32 @@ const SupplierManagement = () => {
   const [suppliers, setSuppliers] = useState([]);
   const [selectedSupplier, setSelectedSupplier] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+  const [socketConnected, setSocketConnected] = useState(false);
   const [error, setError] = useState("");
-
-  useEffect(() => {
-    fetchSuppliers();
-  }, []);
+  const { user } = useAuth();
 
   const fetchSuppliers = async () => {
     setIsLoading(true);
     setError("");
     try {
-      const data = await getSuppliers();
-      setSuppliers(Array.isArray(data) ? data : []);
+      // Combine both approaches - try API service first, fallback to direct fetch
+      try {
+        const data = await getSuppliers();
+        setSuppliers(Array.isArray(data) ? data : []);
+      } catch (apiError) {
+        console.warn("API service failed, trying direct fetch:", apiError);
+        // Fallback to direct fetch
+        const token = localStorage.getItem("token");
+        const res = await fetch("/api/suppliers", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(`Failed to fetch suppliers (${res.status})`);
+        const data = await res.json();
+        const suppliersList = Array.isArray(data) ? data : data.suppliers || [];
+        setSuppliers(suppliersList);
+        localStorage.setItem('cached_suppliers', JSON.stringify(suppliersList));
+      }
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load suppliers");
     } finally {
@@ -244,11 +260,119 @@ const SupplierManagement = () => {
     }
   };
 
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast((t) => ({ ...t, show: false })), 4000);
+  };
+
+  // Initialize socket and listen for supplier events
+  useEffect(() => {
+    const companyId = user?.com_id;
+    if (!companyId) return;
+
+    // Connect to socket
+    const socket = connectSocket();
+    
+    const handleConnect = () => {
+      console.log('Socket connected in SupplierManagement');
+      setSocketConnected(true);
+    };
+
+    const handleDisconnect = () => {
+      console.log('Socket disconnected in SupplierManagement');
+      setSocketConnected(false);
+    };
+
+    // Listen for new supplier creation
+    const handleSupplierCreated = (newSupplier) => {
+      console.log('New supplier received via socket:', newSupplier);
+      setSuppliers(prevSuppliers => {
+        // Check if supplier already exists (prevent duplicates)
+        const exists = prevSuppliers.some(s => 
+          s.sup_id === newSupplier.sup_id || 
+          s.sup_email?.toLowerCase() === newSupplier.sup_email?.toLowerCase()
+        );
+        if (exists) {
+          console.log('Supplier already exists, skipping addition');
+          return prevSuppliers;
+        }
+        // Add new supplier to the list
+        const updated = [newSupplier, ...prevSuppliers];
+        localStorage.setItem('cached_suppliers', JSON.stringify(updated));
+        showToast(`New supplier "${newSupplier.sup_name}" added!`, "success");
+        return updated;
+      });
+    };
+
+    // Listen for supplier updates
+    const handleSupplierUpdated = (updatedSupplier) => {
+      console.log('Supplier updated via socket:', updatedSupplier);
+      setSuppliers(prevSuppliers => {
+        const updated = prevSuppliers.map(s => 
+          s.sup_id === updatedSupplier.sup_id ? { ...s, ...updatedSupplier } : s
+        );
+        localStorage.setItem('cached_suppliers', JSON.stringify(updated));
+        showToast(`Supplier "${updatedSupplier.sup_name}" updated`, "info");
+        return updated;
+      });
+    };
+
+    // Listen for supplier deletion
+    const handleSupplierDeleted = (data) => {
+      console.log('Supplier deleted via socket:', data);
+      setSuppliers(prevSuppliers => {
+        const deletedSupplier = prevSuppliers.find(s => s.sup_id === data.sup_id);
+        const updated = prevSuppliers.filter(s => s.sup_id !== data.sup_id);
+        localStorage.setItem('cached_suppliers', JSON.stringify(updated));
+        if (deletedSupplier) {
+          showToast(`Supplier "${deletedSupplier.sup_name}" deleted`, "info");
+        }
+        // If the deleted supplier was selected, clear selection
+        if (selectedSupplier?.sup_id === data.sup_id) {
+          setSelectedSupplier(null);
+        }
+        return updated;
+      });
+    };
+
+    // Set up socket event listeners
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('supplier:created', handleSupplierCreated);
+    socket.on('supplier:updated', handleSupplierUpdated);
+    socket.on('supplier:deleted', handleSupplierDeleted);
+
+    // If socket is already connected, call handleConnect
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    // Initial fetch
+    fetchSuppliers();
+
+    // Cleanup on unmount
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('supplier:created', handleSupplierCreated);
+      socket.off('supplier:updated', handleSupplierUpdated);
+      socket.off('supplier:deleted', handleSupplierDeleted);
+    };
+  }, [user?.com_id]);
+
   return (
     <div className="flex bg-gray-50 min-h-screen">
       <Sidebar />
       <div className="flex-1 ml-[240px]">
         <Header title="Suppliers" role="Branch Admin" />
+        {toast.show && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
+        
+        {/* Socket connection indicator */}
+        {socketConnected && (
+          <div className="fixed bottom-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs shadow-lg z-50">
+            Live Updates Active
+          </div>
+        )}
         
         <div className="p-8 max-w-[1200px] mx-auto">
           {selectedSupplier ? (

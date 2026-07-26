@@ -4,6 +4,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
 import { useAuth } from "../../context/AuthContext";
+import { getSocket, joinBranchInventoryRoom, SOCKET_EVENTS } from '../../services/socket';
 
 const AddRawMaterials = () => {
   const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
@@ -66,6 +67,100 @@ const AddRawMaterials = () => {
     fetchBranches();
   }, [suppliersEnabled]);
 
+  // Add WebSocket connection effect for inventory room
+  useEffect(() => {
+    // Join branch inventory room when component mounts to receive updates
+    const branchId = user?.b_id || user?.B_id;
+    if (branchId) {
+      const socket = getSocket();
+      if (socket && socket.connected) {
+        joinBranchInventoryRoom(branchId);
+        console.log(`Joined inventory room for branch ${branchId} from AddRawMaterials`);
+      } else if (socket) {
+        // If socket is not connected yet, wait for connection
+        const handleConnect = () => {
+          joinBranchInventoryRoom(branchId);
+          console.log(`Joined inventory room for branch ${branchId} after connection`);
+          socket.off('connect', handleConnect);
+        };
+        socket.on('connect', handleConnect);
+        
+        return () => {
+          socket.off('connect', handleConnect);
+        };
+      }
+    }
+  }, [user]);
+
+  // Listen for supplier updates to keep the dropdown fresh
+  useEffect(() => {
+    const companyId = user?.com_id;
+    if (!companyId) return;
+
+    const socket = getSocket();
+    
+    const handleSupplierCreated = (newSupplier) => {
+      console.log('New supplier detected via WebSocket, refreshing list:', newSupplier);
+      fetchSuppliers(); // Refresh the suppliers list
+      showToast(`New supplier "${newSupplier.sup_name}" added to directory`, "info");
+    };
+
+    const handleSupplierUpdated = (updatedSupplier) => {
+      console.log('Supplier updated via WebSocket, refreshing list:', updatedSupplier);
+      fetchSuppliers(); // Refresh the suppliers list
+      // If the current selected supplier is being updated, also update the form
+      if (supplier.sup_id === updatedSupplier.sup_id) {
+        setSupplier(updatedSupplier);
+        showToast(`Supplier "${updatedSupplier.sup_name}" has been updated`, "info");
+      }
+    };
+
+    const handleSupplierDeleted = (data) => {
+      console.log('Supplier deleted via WebSocket, refreshing list:', data);
+      fetchSuppliers(); // Refresh the suppliers list
+      // If the current selected supplier is being deleted, reset the form
+      if (supplier.sup_id === data.sup_id) {
+        setSupplier({
+          sup_name: "",
+          sup_email: "",
+          sup_contact: "",
+          sup_address: "",
+        });
+        setIsNewSupplier(true);
+        showToast(`Supplier has been deleted from the directory`, "info");
+      }
+    };
+
+    if (socket && socket.connected) {
+      socket.on('supplier:created', handleSupplierCreated);
+      socket.on('supplier:updated', handleSupplierUpdated);
+      socket.on('supplier:deleted', handleSupplierDeleted);
+      console.log('Supplier WebSocket listeners attached');
+    } else if (socket) {
+      const handleConnect = () => {
+        socket.on('supplier:created', handleSupplierCreated);
+        socket.on('supplier:updated', handleSupplierUpdated);
+        socket.on('supplier:deleted', handleSupplierDeleted);
+        console.log('Supplier WebSocket listeners attached after connection');
+        socket.off('connect', handleConnect);
+      };
+      socket.on('connect', handleConnect);
+      
+      return () => {
+        socket.off('connect', handleConnect);
+      };
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('supplier:created', handleSupplierCreated);
+        socket.off('supplier:updated', handleSupplierUpdated);
+        socket.off('supplier:deleted', handleSupplierDeleted);
+        console.log('Supplier WebSocket listeners removed');
+      }
+    };
+  }, [user?.com_id, supplier.sup_id]);
+
   const fetchSuppliers = async () => {
     try {
       const res = await fetchWithAuth("/api/suppliers", { method: "GET" });
@@ -85,7 +180,10 @@ const AddRawMaterials = () => {
         return;
       }
       const data = await res.json().catch(() => ([]));
-      setExistingSuppliers(extractArray(data));
+      const suppliersList = extractArray(data);
+      setExistingSuppliers(suppliersList);
+      // Also cache suppliers in localStorage
+      localStorage.setItem('cached_suppliers', JSON.stringify(suppliersList));
     } catch (err) {
       console.error("Error fetching suppliers:", err);
       setExistingSuppliers([]);
@@ -217,6 +315,7 @@ const AddRawMaterials = () => {
 
       if (existing) {
         finalSupId = existing.sup_id;
+        showToast(`Using existing supplier: ${supplier.sup_name}`, "info");
       } else {
         let validatedSupplier;
         try {
@@ -235,7 +334,8 @@ const AddRawMaterials = () => {
           throw new Error(parsed.body?.message || `Supplier creation failed (${parsed.status})`);
         }
         finalSupId = parsed.body.sup_id;
-        fetchSuppliers();
+        showToast(`New supplier "${supplier.sup_name}" created`, "success");
+        fetchSuppliers(); // Refresh the supplier list
       }
 
       // Create purchase order (pending)
@@ -287,7 +387,10 @@ const AddRawMaterials = () => {
 
         if (createRmParsed.ok) {
           rmData = createRmParsed.body;
+          // Show success message for each material created
+          console.log(`Material "${normalizedName}" created successfully with ID: ${rmData.rm_id}`);
         } else if (createRmParsed.status === 409) {
+          // Check if the material is inactive and needs to be restored
           if (createRmParsed.body?.isInactive) {
             const restoreRes = await fetchWithAuth("/api/raw-materials", {
               method: "POST",
@@ -300,21 +403,23 @@ const AddRawMaterials = () => {
               throw new Error(restoreParsed.body?.message || `Failed to restore ${normalizedName}`);
             }
           } else {
-            throw new Error(` \"${normalizedName}\" already exists in the list.`);
+            // Active duplication handler - find existing material
+            const listRes = await fetchWithAuth("/api/raw-materials", { method: "GET" });
+            const listParsed = await parseBody(listRes);
+            if (!listParsed.ok) throw new Error("Failed to recover existing raw material after duplicate error");
+            const listArray = Array.isArray(listParsed.body) ? listParsed.body : extractArray(listParsed.body);
+            const found = listArray.find(
+              (r) =>
+                r.rm_name &&
+                r.rm_name.trim().toLowerCase() === normalizedName.toLowerCase() &&
+                (r.B_id == null || String(r.B_id) === String(branchId))
+            );
+            if (!found) throw new Error(`Duplicate error but existing material "${normalizedName}" not found`);
+            rmData = found;
+            console.log(`Using existing material "${normalizedName}" with ID: ${rmData.rm_id}`);
           }
         } else {
-          const listRes = await fetchWithAuth("/api/raw-materials", { method: "GET" });
-          const listParsed = await parseBody(listRes);
-          if (!listParsed.ok) throw new Error("Failed to recover existing raw material after duplicate error");
-          const listArray = Array.isArray(listParsed.body) ? listParsed.body : extractArray(listParsed.body);
-          const found = listArray.find(
-            (r) =>
-              r.rm_name &&
-              r.rm_name.trim().toLowerCase() === normalizedName.toLowerCase() &&
-              (r.B_id == null || String(r.B_id) === String(branchId))
-          );
-          if (!found) throw new Error(`Duplicate error but existing material "${normalizedName}" not found`);
-          rmData = found;
+          throw new Error(createRmParsed.body?.message || `Failed to create ${normalizedName} (${createRmParsed.status})`);
         }
 
         const unitPrice = Number(item.unit_price) || 0;
@@ -396,6 +501,7 @@ const AddRawMaterials = () => {
                     const selected = existingSuppliers.find(s => s.sup_id === parseInt(e.target.value));
                     if (selected) setSupplier(selected);
                   }}
+                  value={supplier.sup_id || ""}
                 >
                   <option value="">-- Choose a Supplier --</option>
                   {existingSuppliers.map(sup => (
