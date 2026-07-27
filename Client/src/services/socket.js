@@ -43,6 +43,12 @@ export const SOCKET_EVENTS = {
   BRANCH_PRODUCT_DELETED: "branch_product_deleted",
   // PayHere payment events
   PAYHERE_PAYMENT_CONFIRMED: "payhere:payment_confirmed",
+  // Company management events
+  COMPANY_CREATED: "company:created",
+  COMPANY_UPDATED: "company:updated",
+  COMPANY_DELETED: "company:deleted",
+  JOIN_COMPANY_ROOM: "join_company_room",
+  LEAVE_COMPANY_ROOM: "leave_company_room",
 };
 
 export const getSocket = () => {
@@ -118,8 +124,17 @@ export const getSocketUrl = () => SOCKET_URL;
 export const joinCompanyRoom = (companyId) => {
   const socket = getSocket();
   if (socket && socket.connected && companyId) {
-    socket.emit("join_company_room", companyId);
+    socket.emit(SOCKET_EVENTS.JOIN_COMPANY_ROOM, companyId);
     console.log(`Joined company room ${companyId}`);
+  }
+};
+
+// Helper function to leave company room
+export const leaveCompanyRoom = (companyId) => {
+  const socket = getSocket();
+  if (socket && socket.connected && companyId) {
+    socket.emit(SOCKET_EVENTS.LEAVE_COMPANY_ROOM, companyId);
+    console.log(`Left company room ${companyId}`);
   }
 };
 
@@ -157,6 +172,41 @@ export const leaveBranchInventoryRoom = (branchId) => {
     socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, branchId);
     console.log(`Left inventory room for branch ${branchId}`);
   }
+};
+
+// Helper function to subscribe to company updates
+export const subscribeToCompanyUpdates = (callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const {
+    onCompanyCreated,
+    onCompanyUpdated,
+    onCompanyDeleted
+  } = callbacks;
+
+  if (onCompanyCreated) {
+    socket.on(SOCKET_EVENTS.COMPANY_CREATED, onCompanyCreated);
+  }
+  if (onCompanyUpdated) {
+    socket.on(SOCKET_EVENTS.COMPANY_UPDATED, onCompanyUpdated);
+  }
+  if (onCompanyDeleted) {
+    socket.on(SOCKET_EVENTS.COMPANY_DELETED, onCompanyDeleted);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onCompanyCreated) {
+      socket.off(SOCKET_EVENTS.COMPANY_CREATED, onCompanyCreated);
+    }
+    if (onCompanyUpdated) {
+      socket.off(SOCKET_EVENTS.COMPANY_UPDATED, onCompanyUpdated);
+    }
+    if (onCompanyDeleted) {
+      socket.off(SOCKET_EVENTS.COMPANY_DELETED, onCompanyDeleted);
+    }
+  };
 };
 
 // Helper function to listen for product updates
@@ -417,10 +467,12 @@ export default {
   getSocketUrl,
   SOCKET_EVENTS,
   joinCompanyRoom,
+  leaveCompanyRoom,
   joinBranchUserRoom,
   leaveBranchUserRoom,
   joinBranchInventoryRoom,
   leaveBranchInventoryRoom,
+  subscribeToCompanyUpdates,
   subscribeToProductUpdates,
   subscribeToRecipeUpdates,
   subscribeToSupplierUpdates,

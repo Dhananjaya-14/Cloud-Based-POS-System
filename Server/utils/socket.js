@@ -43,6 +43,12 @@ export const SOCKET_EVENTS = {
   BRANCH_PRODUCT_DELETED: "branch_product_deleted",
   // PayHere payment events
   PAYHERE_PAYMENT_CONFIRMED: "payhere:payment_confirmed",
+  // Company management events
+  COMPANY_CREATED: "company:created",
+  COMPANY_UPDATED: "company:updated",
+  COMPANY_DELETED: "company:deleted",
+  JOIN_COMPANY_ROOM: "join_company_room",
+  LEAVE_COMPANY_ROOM: "leave_company_room",
 };
 
 function extractSocketToken(socket) {
@@ -69,6 +75,26 @@ export const getBranchUserRoom = (branchId) => `branch_users_${branchId}`;
 
 // Helper function to get branch inventory room name
 export const getBranchInventoryRoom = (branchId) => `branch_${branchId}`;
+
+// Helper function to get company room name
+export const getCompanyRoom = (companyId) => `company_${companyId}`;
+
+// Helper function to emit company events
+export const emitCompanyEvent = (eventName, companyData, companyId = null) => {
+  if (!io) return false;
+  
+  if (companyId) {
+    const room = getCompanyRoom(companyId);
+    io.to(room).emit(eventName, companyData);
+    console.log(`Emitted ${eventName} to company room ${room}`, companyData);
+  } else {
+    // Emit to all connected clients (for super admins)
+    io.emit(eventName, companyData);
+    console.log(`Emitted ${eventName} to all clients`, companyData);
+  }
+  
+  return true;
+};
 
 // Helper function to emit branch product events
 export const emitBranchProductEvent = (branchId, eventName, data) => {
@@ -156,18 +182,28 @@ export const initializeSocket = (httpServer) => {
 
     // Join company-specific room
     if (socket.user?.com_id) {
-      const companyRoom = `company_${socket.user.com_id}`;
+      const companyRoom = getCompanyRoom(socket.user.com_id);
       socket.join(companyRoom);
       console.log(`Socket ${socket.id} joined company room: ${companyRoom}`);
     }
 
     // Listen for explicit join company room requests
-    socket.on("join_company_room", (companyId) => {
+    socket.on(SOCKET_EVENTS.JOIN_COMPANY_ROOM, (companyId) => {
       if (companyId) {
-        const companyRoom = `company_${companyId}`;
+        const companyRoom = getCompanyRoom(companyId);
         socket.join(companyRoom);
         console.log(`Socket ${socket.id} explicitly joined company room: ${companyRoom}`);
         socket.emit("company_room_joined", { companyId, room: companyRoom });
+      }
+    });
+
+    // Listen for leaving company room
+    socket.on(SOCKET_EVENTS.LEAVE_COMPANY_ROOM, (companyId) => {
+      if (companyId) {
+        const companyRoom = getCompanyRoom(companyId);
+        socket.leave(companyRoom);
+        console.log(`Socket ${socket.id} left company room: ${companyRoom}`);
+        socket.emit("company_room_left", { companyId, room: companyRoom });
       }
     });
 
@@ -334,6 +370,8 @@ export default {
   getCashierSocketRoom,
   getBranchUserRoom,
   getBranchInventoryRoom,
+  getCompanyRoom,
+  emitCompanyEvent,
   emitBranchProductEvent,
   emitUserEventToBranch,
   SOCKET_EVENTS,
