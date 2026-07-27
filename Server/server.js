@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { createServer } from "http";
 import { initializeSocket } from "./utils/socket.js";
+import { activityLogger } from "./utils/activityLogger.js";
 
 
 
@@ -81,6 +82,7 @@ app.use(
 app.use(express.json());
 // PayHere notify sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
+app.use(activityLogger);
 
 // ─────────────────────────────────────────────
 // HEALTH CHECK
