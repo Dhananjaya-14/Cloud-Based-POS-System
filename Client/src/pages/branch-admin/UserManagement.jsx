@@ -6,6 +6,7 @@ import {
   FaPen,
   FaPlus,
   FaSearch,
+  FaTimes,
   FaTrash,
   FaUserCheck,
   FaUserShield,
@@ -35,6 +36,7 @@ const UserManagement = () => {
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [currentUserBranch, setCurrentUserBranch] = useState(null);
+  const [toasts, setToasts] = useState([]);
 
   const accessibleRoles = useMemo(() => {
     return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
@@ -71,7 +73,7 @@ const UserManagement = () => {
     // Connect socket
     const socket = connectSocket();
     
-    // Get user info from token (you might need to decode the token)
+    // Get user info from token
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -87,7 +89,6 @@ const UserManagement = () => {
         socket.on(SOCKET_EVENTS.USER_CREATED, (newUserData) => {
           console.log("New user created:", newUserData);
           setUsers((prevUsers) => {
-            // Check if user already exists
             if (prevUsers.some(u => u.u_id === newUserData.u_id)) {
               return prevUsers;
             }
@@ -106,7 +107,7 @@ const UserManagement = () => {
         });
         
         // Listen for user deletion events
-        socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id }) => {
+        socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id, userName }) => {
           console.log("User deleted:", u_id);
           setUsers((prevUsers) => 
             prevUsers.filter((user) => user.u_id !== u_id)
@@ -201,11 +202,36 @@ const UserManagement = () => {
     setNewUser((prev) => ({ ...prev, [name]: value }));
   };
 
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
 
     if (!accessibleRoleIds.has(String(newUser.role_id))) {
-      window.alert("Please select a supported role.");
+      showToastMessage("Please select a supported role.", "error");
       return;
     }
 
@@ -225,9 +251,9 @@ const UserManagement = () => {
         role_id: accessibleRoles?.[0]?.role_id ? String(accessibleRoles[0].role_id) : "",
       });
 
-      // No need to call fetchData() as socket event will update the list
+      showToastMessage("User created successfully.", "success");
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Failed to create user.");
+      showToastMessage(err?.response?.data?.message || "Failed to create user.", "error");
     }
   };
 
@@ -239,10 +265,10 @@ const UserManagement = () => {
     try {
       setIsDeleting(true);
       await deleteUserById(deleteTargetUser.u_id);
+      showToastMessage(`User deleted successfully${deleteTargetUser.name ? `: ${deleteTargetUser.name}` : ""}.`, "success");
       setDeleteTargetUser(null);
-      // No need to call fetchData() as socket event will update the list
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Failed to delete user.");
+      showToastMessage(err?.response?.data?.message || "Failed to delete user.", "error");
     } finally {
       setIsDeleting(false);
     }
@@ -274,6 +300,59 @@ const UserManagement = () => {
             gap: "14px",
           }}
         >
+          {/* Toast Messages */}
+          {toasts.length > 0 && (
+            <div
+              style={{
+                position: "fixed",
+                top: "82px",
+                right: "20px",
+                zIndex: 9999,
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                width: "min(380px, calc(100vw - 32px))",
+              }}
+            >
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  style={{
+                    background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                    borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                    borderRadius: "8px",
+                    padding: "14px 16px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                    color: toast.type === "error" ? "#991B1B" : "#065F46",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    animation: "slideInRight 0.3s ease-out",
+                  }}
+                >
+                  <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeToast(toast.id)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "inherit",
+                      cursor: "pointer",
+                      opacity: 0.7,
+                      padding: "4px",
+                      display: "inline-flex",
+                    }}
+                    aria-label="Dismiss notification"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h1 style={{ fontSize: "30px", margin: 0, fontWeight: 700, color: "#2f3d72", letterSpacing: "0.3px", lineHeight: 1 }}>
               User Management
@@ -334,17 +413,21 @@ const UserManagement = () => {
                   size={12}
                 />
                 <input
+                  type="text"
+                  placeholder="Search users..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="Search by name, email, role, or branch"
                   style={{
                     width: "100%",
                     height: "34px",
-                    border: "1px solid #d8e0ed",
-                    borderRadius: "7px",
-                    padding: "0 12px 0 30px",
-                    color: "#3d4f73",
+                    padding: "0 10px 0 30px",
+                    border: "1px solid #dde3f0",
+                    borderRadius: "8px",
+                    background: "#f8fafd",
+                    color: "#1e2a48",
+                    fontSize: "13px",
                     boxSizing: "border-box",
+                    outline: "none",
                   }}
                 />
               </div>
@@ -453,28 +536,28 @@ const UserManagement = () => {
                           <Td>{branchName}</Td>
 
                           <Td>
-                                  <span
-                                    style={{
-                                      padding: "4px 10px",
-                                      borderRadius: "999px",
-                                      background: user.u_status === true || 
-                                                  String(user.u_status).toLowerCase() === "true" || 
-                                                  String(user.u_status).toLowerCase() === "active"
-                                                  ? "#dff6e4" : "#fee2e2",
-                                      color: user.u_status === true || 
+                            <span
+                              style={{
+                                padding: "4px 10px",
+                                borderRadius: "999px",
+                                background: user.u_status === true || 
                                             String(user.u_status).toLowerCase() === "true" || 
                                             String(user.u_status).toLowerCase() === "active"
-                                            ? "#20a048" : "#ef4444",
-                                      fontSize: "12px",
-                                      fontWeight: 700,
-                                    }}
-                                  >
-                                    {user.u_status === true || 
-                                    String(user.u_status).toLowerCase() === "true" || 
-                                    String(user.u_status).toLowerCase() === "active"
-                                    ? "Available" : "Inactive"}
-                                  </span>
-                                </Td>
+                                            ? "#dff6e4" : "#fee2e2",
+                                color: user.u_status === true || 
+                                      String(user.u_status).toLowerCase() === "true" || 
+                                      String(user.u_status).toLowerCase() === "active"
+                                      ? "#20a048" : "#ef4444",
+                                fontSize: "12px",
+                                fontWeight: 700,
+                              }}
+                            >
+                              {user.u_status === true || 
+                              String(user.u_status).toLowerCase() === "true" || 
+                              String(user.u_status).toLowerCase() === "active"
+                              ? "Available" : "Inactive"}
+                            </span>
+                          </Td>
 
                           <Td align="center">
                             <div style={{ display: "inline-flex", gap: "10px", justifyContent: "center" }}>
@@ -559,6 +642,20 @@ const UserManagement = () => {
           loading={isDeleting}
         />
       )}
+
+      {/* Add animation styles */}
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };

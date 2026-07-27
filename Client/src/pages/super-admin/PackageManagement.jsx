@@ -8,9 +8,9 @@ import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
 const AVAILABLE_MODULES = [
   { id: "has_inventory",  label: "Inventory & Products" },
+  { id: "has_kitchen",    label: "Kitchen Display (KOT)" },
   { id: "has_suppliers",  label: "Suppliers Management" },
   { id: "has_reports",    label: "Advanced Reports" },
-  { id: "has_kitchen",    label: "Kitchen Display (KOT)" },
   { id: "has_promotions", label: "Promotions & Discounts" },
 ];
 
@@ -90,10 +90,10 @@ const PackageManagement = () => {
 
       if (modalMode === "add") {
         await createPackage(payload);
-        toast.success("Package Created", `"${formData.package_name}" was added.`);
+        toast.success("Package Created Successfully");
       } else {
         await updatePackage(formData.package_id, payload);
-        toast.success("Package Updated", `"${formData.package_name}" was saved.`);
+        toast.success("Package Updated Successfully");
       }
       setIsModalOpen(false);
       fetchData();

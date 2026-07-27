@@ -114,6 +114,7 @@ const ProductDetails = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [toasts, setToasts] = useState([]);
   const [newAddOn, setNewAddOn] = useState("");
   const [newStation, setNewStation] = useState("");
 
@@ -226,6 +227,31 @@ const ProductDetails = () => {
     };
   }, [productId]);
 
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
+
   const imagePreview = useMemo(() => {
     if (isImageUrl(form.pro_image)) {
       return <img src={form.pro_image} alt={form.pro_name || "Product"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
@@ -256,13 +282,15 @@ const ProductDetails = () => {
   const handleSave = async () => {
     if (!productId) {
       setError("Missing product id");
+      showToastMessage("Missing product id", "error");
       return;
     }
 
     if (!form.pro_name.trim() || form.pro_price === "") {
-  setError("Product name and sales price are required");
-  return;
-}
+      setError("Product name and sales price are required");
+      showToastMessage("Product name and sales price are required", "error");
+      return;
+    }
 
     try {
       setSaving(true);
@@ -280,9 +308,12 @@ const ProductDetails = () => {
     });
       setProduct(updated);
       setSuccess("Product updated successfully");
+      showToastMessage("Product updated successfully.", "success");
       setTimeout(() => setSuccess(""), 2200);
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to update product");
+      const message = err?.response?.data?.message || "Failed to update product";
+      setError(message);
+      showToastMessage(message, "error");
     } finally {
       setSaving(false);
     }
@@ -291,6 +322,7 @@ const ProductDetails = () => {
   const handleDelete = async () => {
   if (!productId) {
     setError("Missing product id");
+    showToastMessage("Missing product id", "error");
     return;
   }
 
@@ -301,11 +333,13 @@ const ProductDetails = () => {
 
   if (!deleteAcknowledged) {
     setError("Please confirm the deletion acknowledgment first.");
+    showToastMessage("Please confirm the deletion acknowledgment first.", "error");
     return;
   }
 
   if (deleteOption === "branch" && !selectedBranchId) {
     setError("Please select a branch first.");
+    showToastMessage("Please select a branch first.", "error");
     return;
   }
 
@@ -319,9 +353,14 @@ const ProductDetails = () => {
       await deleteProduct(productId, null);
     }
 
-    navigate("/admin/products");
+    showToastMessage("Product deleted successfully.", "success");
+    setTimeout(() => {
+      navigate("/admin/products");
+    }, 700);
   } catch (err) {
-    setError(err?.response?.data?.message || "Failed to delete product");
+    const message = err?.response?.data?.message || "Failed to delete product";
+    setError(message);
+    showToastMessage(message, "error");
   } finally {
     setSaving(false);
   }
@@ -344,6 +383,57 @@ const ProductDetails = () => {
         <Header title="Product Management" />
 
         <div style={{ padding: "18px 20px 24px" }}>
+          {toasts.length > 0 && (
+            <div
+              style={{
+                position: "fixed",
+                top: "82px",
+                right: "20px",
+                zIndex: 10000,
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                width: "min(380px, calc(100vw - 32px))",
+              }}
+            >
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  style={{
+                    background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                    borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                    borderRadius: "8px",
+                    padding: "14px 16px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                    color: toast.type === "error" ? "#991B1B" : "#065F46",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                  }}
+                >
+                  <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeToast(toast.id)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "inherit",
+                      cursor: "pointer",
+                      opacity: 0.7,
+                      padding: "4px",
+                      display: "inline-flex",
+                    }}
+                    aria-label="Dismiss notification"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => navigate("/admin/products")}

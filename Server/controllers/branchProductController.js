@@ -1,6 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
-import { getIO } from "../utils/socket.js";
+import { getIO, SOCKET_EVENTS, getBranchInventoryRoom } from "../utils/socket.js";
 
 function convertToBaseUnit(quantity, fromUnit) {
   const unit = (fromUnit ?? "").toLowerCase().trim();
@@ -444,15 +444,28 @@ export async function createBranchProduct(req, res, next) {
 
     await client.query("COMMIT");
 
-    // Emit socket event for new branch product to cashier POS
+    // Emit socket event for new branch product to ALL branch admins
     const io = getIO();
     if (io) {
       const newProduct = toResponseRow(result.rows[0]);
-      io.to(`branch_${B_id}`).emit("new_branch_product_added", {
-        product: newProduct,
+      
+      // Emit to the specific branch room for inventory updates
+      const branchRoom = getBranchInventoryRoom(B_id);
+      io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, {
+        branch_product: newProduct,
         branch_id: B_id,
         timestamp: new Date()
       });
+      
+      // Also emit to all branch admin users via company room
+      const companyRoom = `company_${req.user.com_id}`;
+      io.to(companyRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, {
+        branch_product: newProduct,
+        branch_id: B_id,
+        timestamp: new Date(),
+        company_id: req.user.com_id
+      });
+      
       console.log(`🔔 Socket event emitted: New branch product "${pro_name}" added to branch ${B_id}`);
     }
 
@@ -646,11 +659,24 @@ export async function updateBranchProduct(req, res, next) {
     const io = getIO();
     if (io) {
       const updatedProduct = toResponseRow(result.rows[0]);
-      io.to(`branch_${branchId}`).emit("branch_product_updated", {
-        product: updatedProduct,
+      
+      // Emit to the specific branch room for inventory updates
+      const branchRoom = getBranchInventoryRoom(branchId);
+      io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
+        branch_product: updatedProduct,
         branch_id: branchId,
         timestamp: new Date()
       });
+      
+      // Also emit to all branch admin users via company room
+      const companyRoom = `company_${req.user.com_id}`;
+      io.to(companyRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
+        branch_product: updatedProduct,
+        branch_id: branchId,
+        timestamp: new Date(),
+        company_id: req.user.com_id
+      });
+      
       console.log(`🔔 Socket event emitted: Branch product "${updatedProduct.pro_name}" updated in branch ${branchId}`);
     }
 
@@ -727,12 +753,25 @@ export async function deleteBranchProduct(req, res, next) {
     // Emit socket event for deleted branch product
     const io = getIO();
     if (io) {
-      io.to(`branch_${branchBId}`).emit("branch_product_deleted", {
+      // Emit to the specific branch room for inventory updates
+      const branchRoom = getBranchInventoryRoom(branchBId);
+      io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, {
         Bpro_id: Bpro_id,
         pro_name: productName,
         branch_id: branchBId,
         timestamp: new Date()
       });
+      
+      // Also emit to all branch admin users via company room
+      const companyRoom = `company_${req.user.com_id}`;
+      io.to(companyRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, {
+        Bpro_id: Bpro_id,
+        pro_name: productName,
+        branch_id: branchBId,
+        timestamp: new Date(),
+        company_id: req.user.com_id
+      });
+      
       console.log(`🔔 Socket event emitted: Branch product "${productName}" deleted from branch ${branchBId}`);
     }
 

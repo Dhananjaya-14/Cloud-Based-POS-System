@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
@@ -13,6 +13,7 @@ import {
   deleteRecipeByProduct,
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { connectSocket, getSocket, SOCKET_EVENTS } from '../../services/socket';
 
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -43,8 +44,28 @@ const RecipeMapperDetail = () => {
   const [saving, setSaving] = useState(false);
   const [savingMapping, setSavingMapping] = useState(false);
   const [notice, setNotice] = useState("");
+  const [socketConnected, setSocketConnected] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
   const [branchId, setBranchId] = useState(null); 
+
+  // Load recipe data
+  const loadRecipeData = useCallback(async () => {
+    try {
+      const recipeResponse = await getRecipesByProduct(productId);
+      const ingredients = Array.isArray(recipeResponse?.ingredients)
+        ? recipeResponse.ingredients
+        : Array.isArray(recipeResponse)
+          ? recipeResponse
+          : [];
+      setRecipeItems(ingredients);
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        setRecipeItems([]);
+      } else {
+        console.error("Failed to load recipe:", err);
+      }
+    }
+  }, [productId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -80,6 +101,7 @@ const RecipeMapperDetail = () => {
           (item) => String(item?.pro_id) === String(productId)
         );
 
+        // Load recipe data with branch ID
         const recipeResponse = await getRecipesByProduct(productId, resolvedBid);
         const ingredients = Array.isArray(recipeResponse?.ingredients)
           ? recipeResponse.ingredients
@@ -96,11 +118,7 @@ const RecipeMapperDetail = () => {
         setRecipeItems(ingredients);
       } catch (err) {
         if (!isMounted) return;
-        if (err?.response?.status === 404) {
-          setRecipeItems([]);
-        } else {
-          setError(err?.response?.data?.message || "Failed to load recipe details");
-        }
+        setError(err?.response?.data?.message || "Failed to load recipe details");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -114,6 +132,109 @@ const RecipeMapperDetail = () => {
       isMounted = false;
     };
   }, [productId, user?.u_id]);
+
+  // WebSocket setup for real-time recipe updates
+  useEffect(() => {
+    const companyId = user?.com_id;
+    if (!companyId) return;
+
+    const socket = connectSocket();
+    
+    const handleConnect = () => {
+      console.log('Socket connected in RecipeMapperDetail');
+      setSocketConnected(true);
+    };
+
+    const handleDisconnect = () => {
+      console.log('Socket disconnected in RecipeMapperDetail');
+      setSocketConnected(false);
+    };
+
+    // Handle new ingredient added to current product
+    const handleRecipeCreated = (data) => {
+      console.log('Recipe created event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        // New ingredient for current product
+        setRecipeItems(prev => {
+          const exists = prev.some(item => item.rawmaterial_id === data.ingredient.rawmaterial_id);
+          if (exists) return prev;
+          const updated = [...prev, data.ingredient];
+          setNotice(`New ingredient "${data.ingredient.rm_name}" added to recipe`);
+          setTimeout(() => setNotice(""), 3000);
+          return updated;
+        });
+      }
+    };
+
+    // Handle bulk recipe creation
+    const handleBulkRecipeCreated = (data) => {
+      console.log('Bulk recipe created event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems(data.ingredients);
+        setNotice(`Recipe updated with ${data.ingredients.length} ingredients`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Handle ingredient update
+    const handleRecipeUpdated = (data) => {
+      console.log('Recipe updated event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems(prev => 
+          prev.map(item => 
+            item.recipe_id === data.ingredient.recipe_id 
+              ? { ...item, ...data.ingredient }
+              : item
+          )
+        );
+        setNotice(`Ingredient "${data.ingredient.rm_name}" quantity updated`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Handle ingredient deletion
+    const handleRecipeDeleted = (data) => {
+      console.log('Recipe deleted event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems(prev => prev.filter(item => item.recipe_id !== data.recipe_id));
+        setNotice(`Ingredient removed from recipe`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Handle product recipe cleared
+    const handleProductCleared = (data) => {
+      console.log('Product recipe cleared event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems([]);
+        setNotice(`All ingredients removed from this recipe`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Set up socket event listeners
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('recipe:created', handleRecipeCreated);
+    socket.on('recipe:bulk_created', handleBulkRecipeCreated);
+    socket.on('recipe:updated', handleRecipeUpdated);
+    socket.on('recipe:deleted', handleRecipeDeleted);
+    socket.on('recipe:product_cleared', handleProductCleared);
+
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('recipe:created', handleRecipeCreated);
+      socket.off('recipe:bulk_created', handleBulkRecipeCreated);
+      socket.off('recipe:updated', handleRecipeUpdated);
+      socket.off('recipe:deleted', handleRecipeDeleted);
+      socket.off('recipe:product_cleared', handleProductCleared);
+    };
+  }, [user?.com_id, productId]);
 
   const categoryMap = useMemo(() => {
     const map = new Map();
@@ -216,14 +337,16 @@ const RecipeMapperDetail = () => {
 
       await createRecipeBulk(payload);
 
-const refreshed = await getRecipesByProduct(productId, branchId);
-const ingredients = Array.isArray(refreshed?.ingredients)
-  ? refreshed.ingredients
-  : Array.isArray(refreshed)
-    ? refreshed
-    : [];
-setRecipeItems(ingredients);
-setShowSuccessPopup(true); // ← show popup instead ✅
+      // Refresh recipe data after saving
+      const refreshed = await getRecipesByProduct(productId, branchId);
+      const ingredients = Array.isArray(refreshed?.ingredients)
+        ? refreshed.ingredients
+        : Array.isArray(refreshed)
+          ? refreshed
+          : [];
+      setRecipeItems(ingredients);
+      setShowSuccessPopup(true);
+      setNotice("Ingredients mapping saved.");
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save ingredients mapping");
     } finally {
@@ -240,6 +363,13 @@ setShowSuccessPopup(true); // ← show popup instead ✅
       <Sidebar />
       <div style={{ marginLeft: 240, minHeight: "100vh", background: "#F6F7FB" }}>
         <Header title="Recipe Mapper" showAddUserIcon={false} />
+
+        {/* Socket connection indicator */}
+        {socketConnected && (
+          <div className="fixed bottom-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs shadow-lg z-50">
+            Live Updates Active
+          </div>
+        )}
 
         <div style={{ padding: "20px 30px 40px" }}>
           <button
@@ -338,7 +468,20 @@ setShowSuccessPopup(true); // ← show popup instead ✅
             </div>
           )}
 
-          
+          {notice && (
+            <div
+              style={{
+                background: "#D1FAE5",
+                color: "#065F46",
+                padding: "10px 14px",
+                borderRadius: "10px",
+                fontSize: "13px",
+                marginBottom: "18px",
+              }}
+            >
+              {notice}
+            </div>
+          )}
 
           <div
             style={{
@@ -509,7 +652,9 @@ setShowSuccessPopup(true); // ← show popup instead ✅
           </div>
         </div>
       </div>
-    {showSuccessPopup && (
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
         <div
           style={{
             position: "fixed",

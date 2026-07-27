@@ -57,12 +57,16 @@ export default function SalesSummaryReport() {
         const [year, month] = filters.selectedMonth.split("-").map(Number);
         const week = Number(filters.selectedWeek);
 
-
         const daysInMonth = new Date(year, month, 0).getDate();
         const startDay = (week - 1) * 7 + 1;
         let endDay = startDay + 6;
 
+        // Check if this is the last week (week 5) or if endDay exceeds month days
         if (week === 5 || endDay > daysInMonth) {
+          endDay = daysInMonth;
+        }
+
+        if (endDay > daysInMonth) {
           endDay = daysInMonth;
         }
 
@@ -104,33 +108,33 @@ export default function SalesSummaryReport() {
   }, [user?.b_id]);
 
   useEffect(() => {
-        let mounted = true;
-    
-        const loadBranch = async () => {
-          const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
-          if (fromUser) {
-            if (mounted) setBranchName(fromUser);
-            return;
-          }
-    
-          if (user?.b_id) {
-            try {
-              const res = await getBranchById(user.b_id);
-              const branch = res?.data ?? res;
-              if (mounted) setBranchName(branch?.B_name ?? branch?.b_name ?? "");
-            } catch {
-              if (mounted) setBranchName("");
-            }
-          } else {
-            if (mounted) setBranchName("");
-          }
-        };
-    
-        loadBranch();
-        return () => {
-          mounted = false;
-        };
-      }, [user]);
+    let mounted = true;
+
+    const loadBranch = async () => {
+      const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
+      if (fromUser) {
+        if (mounted) setBranchName(fromUser);
+        return;
+      }
+
+      if (user?.b_id) {
+        try {
+          const res = await getBranchById(user.b_id);
+          const branch = res?.data ?? res;
+          if (mounted) setBranchName(branch?.B_name ?? branch?.b_name ?? "");
+        } catch {
+          if (mounted) setBranchName("");
+        }
+      } else {
+        if (mounted) setBranchName("");
+      }
+    };
+
+    loadBranch();
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
 
   // Excel export logic
   const exportExcel = () => {
@@ -221,10 +225,10 @@ export default function SalesSummaryReport() {
     // FILTER INFO 
     let filterLabel = "Daily";
     if (filters.filterType === "weekly") {
-       filterLabel = `Week: ${activeRange.from} to ${activeRange.to}`;
+      filterLabel = `Week: ${activeRange.from} to ${activeRange.to}`;
     }
     if (filters.filterType === "monthly") {
-       filterLabel = `Month: ${filters.selectedMonth}`;
+      filterLabel = `Month: ${filters.selectedMonth}`;
     }
     if (filters.filterType === "custom") {
       filterLabel = `${filters.fromDate} to ${filters.toDate}`;
@@ -311,7 +315,7 @@ export default function SalesSummaryReport() {
             className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150"
           >
             <FaFilePdf className="text-base" />
-             Export PDF
+            Export PDF
           </button>
         </div>
 
@@ -471,16 +475,16 @@ export default function SalesSummaryReport() {
         
         {/* Table & Data Handling */}
         {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="flex items-center gap-1.5 h-6">
-                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
-                </div>
-                <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
-                        Please wait...
-                </span>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="flex items-center gap-1.5 h-6">
+              <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
             </div>
+            <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
+              Please wait...
+            </span>
+          </div>
         ) : (
           <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
             <table className="w-full min-w-max">
@@ -514,7 +518,6 @@ export default function SalesSummaryReport() {
                         .map((col) => {
                           const cellValue = row[col.key];
 
-                          
                           if (col.key === "total_cost" || col.key === "tax" || col.key === "total_cost_with_tax" || col.key === "totalCostWtax") {
                             return (
                               <td key={col.key} className="p-4 text-sm text-gray-600">
@@ -531,13 +534,13 @@ export default function SalesSummaryReport() {
                             );
                           }
 
-                        if (col.key === "pay_time" && cellValue) {
-                          return (
-                            <td key={col.key} className="p-4 text-sm text-gray-600">
-                              {cellValue.split(".")[0]}
-                            </td>
-                          );
-                        }
+                          if (col.key === "pay_time" && cellValue) {
+                            return (
+                              <td key={col.key} className="p-4 text-sm text-gray-600">
+                                {cellValue.split(".")[0]}
+                              </td>
+                            );
+                          }
 
                           return (
                             <td key={col.key} className="p-4 text-sm text-gray-600">

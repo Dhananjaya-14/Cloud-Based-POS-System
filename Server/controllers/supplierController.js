@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { getIO } from "../utils/socket.js";
 
 function parsePositiveInt(value, fieldName) {
   const parsed = Number(value);
@@ -138,8 +139,7 @@ export async function getSupplierById(req, res, next) {
   }
 }
 
-// Only Company Admin  or Super Admin can create suppliers
-
+// Only Company Admin or Super Admin can create suppliers
 export async function createSupplier(req, res, next) {
   const client = await pool.connect();
   try {
@@ -263,6 +263,21 @@ export async function createSupplier(req, res, next) {
     );
 
     await client.query("COMMIT");
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      if (io && resolvedComId) {
+        // Emit to company room for all branch admins in this company
+        const companyRoom = `company_${resolvedComId}`;
+        io.to(companyRoom).emit("supplier:created", { ...newSupplier, b_id });
+        console.log(`Emitted supplier:created to room ${companyRoom}`, newSupplier);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for supplier creation:", socketErr);
+      // Don't fail the request if socket emission fails
+    }
+
     res.status(201).json({ ...newSupplier, b_id });
   } catch (err) {
     await client.query("ROLLBACK");
@@ -373,10 +388,8 @@ export async function getSupplierBranches(req, res, next) {
   }
 }
 
-
 export async function updateSupplier(req, res, next) {
   try {
- 
     if (req.user.role_id === ROLES.BRANCH_ADMIN) {
       res.status(403);
       throw new Error("Branch Admins cannot edit suppliers.");
@@ -479,7 +492,21 @@ export async function updateSupplier(req, res, next) {
       ],
     );
 
-    res.json(result.rows[0]);
+    const updatedSupplier = result.rows[0];
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      if (io && resolvedComId) {
+        const companyRoom = `company_${resolvedComId}`;
+        io.to(companyRoom).emit("supplier:updated", updatedSupplier);
+        console.log(`Emitted supplier:updated to room ${companyRoom}`, updatedSupplier);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for supplier update:", socketErr);
+    }
+
+    res.json(updatedSupplier);
   } catch (err) {
     next(err);
   }
@@ -494,7 +521,8 @@ export async function deleteSupplier(req, res, next) {
 
     const id = parsePositiveInt(req.params.id, "sup_id");
 
-    let existQuery = `SELECT sup_id, is_active FROM "SUPPLIER" WHERE sup_id = $1`;
+    // ── Existence & Scoping check ──
+    let existQuery = `SELECT sup_id, "Com_id", is_active FROM "SUPPLIER" WHERE sup_id = $1`;
     const existParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       existQuery += ` AND "Com_id" = $2`;
@@ -505,21 +533,48 @@ export async function deleteSupplier(req, res, next) {
       res.status(404);
       throw new Error("Supplier not found");
     }
+
+    const resolvedComId = existCheck.rows[0].Com_id;
+
+    // Check if supplier is already inactive
     if (!existCheck.rows[0].is_active) {
       res.status(409);
       throw new Error("Supplier is already deactivated.");
     }
 
+    // Check if supplier has purchase orders
+    const poCheck = await pool.query(
+      `SELECT po_id FROM purchase_order WHERE sup_id = $1 LIMIT 1`,
+      [id],
+    );
+    if (poCheck.rows.length > 0) {
+      res.status(409);
+      throw new Error("Cannot deactivate supplier with existing purchase orders. Archive orders first.");
+    }
+
+    // Soft delete - set is_active to FALSE
     await pool.query(
       `UPDATE "SUPPLIER" SET is_active = FALSE WHERE sup_id = $1`,
       [id]
     );
+
+    // Emit socket event for deletion
+    try {
+      const io = getIO();
+      if (io && resolvedComId) {
+        const companyRoom = `company_${resolvedComId}`;
+        io.to(companyRoom).emit("supplier:deleted", { sup_id: id });
+        console.log(`Emitted supplier:deleted to room ${companyRoom} for supplier ${id}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for supplier deletion:", socketErr);
+    }
+
     res.status(204).send();
   } catch (err) {
     next(err);
   }
 }
-
 
 export async function restoreSupplier(req, res, next) {
   try {
@@ -530,7 +585,7 @@ export async function restoreSupplier(req, res, next) {
 
     const id = parsePositiveInt(req.params.id, "sup_id");
 
-    let existQuery = `SELECT sup_id, is_active FROM "SUPPLIER" WHERE sup_id = $1`;
+    let existQuery = `SELECT sup_id, is_active, "Com_id" FROM "SUPPLIER" WHERE sup_id = $1`;
     const existParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       existQuery += ` AND "Com_id" = $2`;
@@ -546,14 +601,28 @@ export async function restoreSupplier(req, res, next) {
       throw new Error("Supplier is already active.");
     }
 
+    const resolvedComId = existCheck.rows[0].Com_id;
+
     const result = await pool.query(
       `UPDATE "SUPPLIER" SET is_active = TRUE WHERE sup_id = $1
        RETURNING sup_id, sup_name, sup_email, sup_contact, sup_address, is_active`,
       [id]
     );
+
+    // Emit socket event for restoration
+    try {
+      const io = getIO();
+      if (io && resolvedComId) {
+        const companyRoom = `company_${resolvedComId}`;
+        io.to(companyRoom).emit("supplier:restored", result.rows[0]);
+        console.log(`Emitted supplier:restored to room ${companyRoom} for supplier ${id}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for supplier restoration:", socketErr);
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     next(err);
   }
 }
-

@@ -1,13 +1,17 @@
-import React, { useState, useEffect, useMemo } from 'react';
+// Client/src/pages/branch-admin/InventoryDashboard.jsx
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/branch-admin/Sidebar';
 import Header from '../../components/branch-admin/Header';
 import ReorderModal from '../../components/branch-admin/ReorderModal';
 import EditMaterialModal from '../../components/branch-admin/EditMaterialModal';
 import StatCard from '../../components/branch-admin/StatCard';
+import { connectSocket, getSocket, joinBranchInventoryRoom, leaveBranchInventoryRoom, SOCKET_EVENTS } from '../../services/socket';
+import { useAuth } from '../../context/AuthContext';
 
 const InventoryDashboard = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const getCachedMaterials = () => {
     const saved = localStorage.getItem('cached_materials');
@@ -26,19 +30,15 @@ const InventoryDashboard = () => {
   const [selectedMaterial, setSelectedMaterial] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [socketConnected, setSocketConnected] = useState(false);
 
-  useEffect(() => {
-    fetchMaterials();
-  }, []);
+  // Get current user's branch ID
+  const currentBranchId = useMemo(() => {
+    return user?.b_id || user?.B_id || null;
+  }, [user]);
 
-  const extractArray = (data) => {
-    if (Array.isArray(data)) return data;
-    if (Array.isArray(data?.data)) return data.data;
-    if (Array.isArray(data?.materials)) return data.materials;
-    return [];
-  };
-
-  const fetchMaterials = async () => {
+  // Fetch materials function
+  const fetchMaterials = useCallback(async () => {
     try {
       const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
       const res = await fetch('/api/raw-materials', {
@@ -57,7 +57,94 @@ const InventoryDashboard = () => {
     } finally {
       setIsLoading(false);
     }
+  }, [navigate]);
+
+  const extractArray = (data) => {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.data)) return data.data;
+    if (Array.isArray(data?.materials)) return data.materials;
+    return [];
   };
+
+  // Initialize socket and join branch room
+  useEffect(() => {
+    if (!currentBranchId) return;
+
+    // Connect to socket
+    const socket = connectSocket();
+    
+    const handleConnect = () => {
+      console.log('Socket connected in InventoryDashboard');
+      setSocketConnected(true);
+      // Join branch-specific room for inventory updates
+      joinBranchInventoryRoom(currentBranchId);
+    };
+
+    const handleDisconnect = () => {
+      console.log('Socket disconnected in InventoryDashboard');
+      setSocketConnected(false);
+    };
+
+    // Listen for new inventory items
+    const handleInventoryCreated = (newMaterial) => {
+      console.log('New inventory item received via socket:', newMaterial);
+      setMaterials(prevMaterials => {
+        // Check if material already exists (prevent duplicates)
+        const exists = prevMaterials.some(m => 
+          m.rm_id === newMaterial.rm_id || 
+          m.rm_name?.toLowerCase() === newMaterial.rm_name?.toLowerCase()
+        );
+        if (exists) {
+          console.log('Material already exists, skipping addition');
+          return prevMaterials;
+        }
+        // Add new material to the list
+        const updated = [newMaterial, ...prevMaterials];
+        localStorage.setItem('cached_materials', JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    // Listen for inventory updates
+    const handleInventoryUpdated = (updatedMaterial) => {
+      console.log('Inventory item updated via socket:', updatedMaterial);
+      setMaterials(prevMaterials => {
+        const updated = prevMaterials.map(m => 
+          m.rm_id === updatedMaterial.rm_id ? { ...m, ...updatedMaterial } : m
+        );
+        localStorage.setItem('cached_materials', JSON.stringify(updated));
+        return updated;
+      });
+    };
+
+    // Set up socket event listeners
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on(SOCKET_EVENTS.INVENTORY_CREATED, handleInventoryCreated);
+    socket.on(SOCKET_EVENTS.INVENTORY_UPDATED, handleInventoryUpdated);
+
+    // If socket is already connected, join room immediately
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    // Cleanup on unmount
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off(SOCKET_EVENTS.INVENTORY_CREATED, handleInventoryCreated);
+      socket.off(SOCKET_EVENTS.INVENTORY_UPDATED, handleInventoryUpdated);
+      
+      if (currentBranchId) {
+        leaveBranchInventoryRoom(currentBranchId);
+      }
+    };
+  }, [currentBranchId]);
+
+  // Initial fetch
+  useEffect(() => {
+    fetchMaterials();
+  }, [fetchMaterials]);
 
   const stats = useMemo(() => {
     const list = Array.isArray(materials) ? materials : [];
@@ -101,6 +188,13 @@ const InventoryDashboard = () => {
         <Header title="Inventory Management" />
 
         <div className="p-8 bg-gray-50 min-h-screen">
+          {/* Socket connection indicator (optional) */}
+          {socketConnected && (
+            <div className="fixed bottom-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs shadow-lg z-50">
+              Live Updates Active
+            </div>
+          )}
+
           {/* STAT CARDS BASED ON IMAGE_A300BA.PNG */}
           <div className="flex gap-6 mb-8">
             <StatCard 

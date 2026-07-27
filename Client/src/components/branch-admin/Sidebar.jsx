@@ -212,7 +212,6 @@ const Sidebar = () => {
               <>
                 {subItem("Inventory", "/branch-admin/inventory")}
                 {subItem("Add Inventory Item", "/branch-admin/raw-ingredient")}
-                {/* Supplier Directory — locked if package has no has_suppliers */}
                 {isLocked("has_suppliers")
                   ? lockedSubItem("Supplier Directory")
                   : subItem("Supplier Directory", "/branch-admin/suppliers")
