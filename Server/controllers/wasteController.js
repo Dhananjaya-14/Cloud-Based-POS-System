@@ -32,8 +32,11 @@ function isValidReason(value) {
 function toResponseRow(row) {
   return {
     waste_id: row.waste_id,
-    rm_id: row.rm_id,
-    rm_name: row.rm_name,
+    rm_id: row.rm_id || null,
+    pro_id: row.pro_id || null,
+    rm_name: row.rm_name || null,
+    pro_name: row.pro_name || null,
+    unit: row.unit,
     waste_qty: parseFloat(row.waste_qty),
     reason: row.reason ?? null,
     recorded_at: row.recorded_at,
@@ -46,12 +49,12 @@ function toResponseRow(row) {
 export const createWaste = async (req, res, next) => {
   const client = await pool.connect();
   try {
-    const { rm_id, waste_qty, reason } = req.body;
+    const { rm_id, pro_id, waste_qty, reason, unit } = req.body;
 
     // ── Presence checks ──────────────────────
-    if (rm_id === undefined || rm_id === null) {
+    if (!rm_id && !pro_id) {
       res.status(400);
-      throw new Error("rm_id is required.");
+      throw new Error("Either rm_id or pro_id is required.");
     }
     if (waste_qty === undefined || waste_qty === null) {
       res.status(400);
@@ -59,9 +62,13 @@ export const createWaste = async (req, res, next) => {
     }
 
     // ── Type / range checks ──────────────────
-    if (!isPositiveInt(rm_id)) {
+    if (rm_id && !isPositiveInt(rm_id)) {
       res.status(400);
       throw new Error("rm_id must be a positive integer.");
+    }
+    if (pro_id && !isPositiveInt(pro_id)) {
+      res.status(400);
+      throw new Error("pro_id must be a positive integer.");
     }
     if (!isValidQty(waste_qty)) {
       res.status(400);
@@ -77,21 +84,52 @@ export const createWaste = async (req, res, next) => {
     }
 
     const safeQty = roundQty(waste_qty);
+    const finalUnit = unit || 'pcs';
+    const userBranchId = req.user?.b_id || req.user?.B_id || null;
 
     await client.query("BEGIN");
 
-    // ── Raw material must exist ──────────────
-    const rmCheck = await client.query(
-      'SELECT "rm_id", "rm_name", "stock_qty" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
-      [rm_id],
-    );
-    if (rmCheck.rows.length === 0) {
-      await client.query("ROLLBACK");
-      res.status(404);
-      throw new Error("Raw material not found.");
+    let currentStock = 0;
+    let itemName = "";
+    
+    if (rm_id) {
+      // ── Raw material must exist ──────────────
+      const rmCheck = await client.query(
+        'SELECT "rm_id", "rm_name", "stock_qty" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
+        [rm_id],
+      );
+      if (rmCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        res.status(404);
+        throw new Error("Raw material not found.");
+      }
+      currentStock = parseFloat(rmCheck.rows[0].stock_qty);
+      itemName = rmCheck.rows[0].rm_name;
+    } else if (pro_id) {
+      // ── Product must exist ──────────────
+      // For now, waste is recorded for products. We will reduce branch product quantity if needed, or global.
+      // Waste table has pro_id, so we assume Branch_Product.
+      const user = req.user; // Assuming requireAuth middleware adds user
+      const b_id = user ? user.B_id : null; 
+      
+      let query = 'SELECT "pro_id", "pro_name", "pro_quantity" FROM "public"."Branch_Product" WHERE "pro_id" = $1';
+      const params = [pro_id];
+      
+      if (b_id) {
+        query += ' AND "B_id" = $2';
+        params.push(b_id);
+      }
+      
+      const proCheck = await client.query(query, params);
+      
+      if (proCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        res.status(404);
+        throw new Error("Product not found in this branch.");
+      }
+      currentStock = parseFloat(proCheck.rows[0].pro_quantity);
+      itemName = proCheck.rows[0].pro_name;
     }
-
-    const currentStock = parseFloat(rmCheck.rows[0].stock_qty);
 
     // ── Business rule: can't waste more than you have ──
     if (safeQty > currentStock) {
@@ -113,29 +151,47 @@ export const createWaste = async (req, res, next) => {
 
     // ── Insert waste record ──────────────────
     const wasteResult = await client.query(
-      `INSERT INTO "public"."Waste" ("rm_id", "waste_qty", "reason", "recorded_at")
-       VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-       RETURNING "waste_id", "rm_id", "waste_qty", "reason", "recorded_at"`,
-      [rm_id, safeQty, reason?.trim() ?? null],
+      `INSERT INTO "public"."Waste" ("rm_id", "pro_id", "waste_qty", "reason", "recorded_at", "b_id")
+       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5)
+       RETURNING "waste_id", "rm_id", "pro_id", "waste_qty", "reason", "recorded_at"`,
+      [rm_id || null, pro_id || null, safeQty, reason?.trim() ?? null, userBranchId],
     );
 
     // ── Reduce stock ─────────────────────────
-    await client.query(
-      'UPDATE "public"."Raw_Material" SET "stock_qty" = "stock_qty" - $1 WHERE "rm_id" = $2',
-      [safeQty, rm_id],
-    );
+    if (rm_id) {
+      await client.query(
+        'UPDATE "public"."Raw_Material" SET "stock_qty" = "stock_qty" - $1 WHERE "rm_id" = $2',
+        [safeQty, rm_id],
+      );
+    } else if (pro_id) {
+      const user = req.user;
+      const b_id = user ? user.B_id : null;
+      if (b_id) {
+        await client.query(
+          'UPDATE "public"."Branch_Product" SET "pro_quantity" = "pro_quantity" - $1 WHERE "pro_id" = $2 AND "B_id" = $3',
+          [safeQty, pro_id, b_id],
+        );
+      } else {
+        await client.query(
+          'UPDATE "public"."Branch_Product" SET "pro_quantity" = "pro_quantity" - $1 WHERE "pro_id" = $2',
+          [safeQty, pro_id],
+        );
+      }
+    }
 
     await client.query("COMMIT");
 
     const newStock = currentStock - safeQty;
-    const percentage = ((safeQty / currentStock) * 100).toFixed(2);
+    const percentage = currentStock > 0 ? ((safeQty / currentStock) * 100).toFixed(2) : "0.00";
 
     res.status(201).json({
       message: "Waste recorded and stock updated.",
       data: {
         ...toResponseRow({
           ...wasteResult.rows[0],
-          rm_name: rmCheck.rows[0].rm_name,
+          rm_name: rm_id ? itemName : null,
+          pro_name: pro_id ? itemName : null,
+          unit: finalUnit
         }),
         stock_before: currentStock,
         stock_after: newStock,
@@ -155,20 +211,36 @@ export const createWaste = async (req, res, next) => {
 // ─────────────────────────────────────────────
 export const getAllWaste = async (req, res, next) => {
   try {
-    const result = await pool.query(
-      `SELECT
+    const userBranchId = req.user?.b_id || req.user?.B_id || null;
+
+    let query = `SELECT
         w."waste_id",
         w."rm_id",
+        w."pro_id",
         rm."rm_name",
+        bp."pro_name",
         w."waste_qty",
+        rm."unit" as rm_unit,
         w."reason",
         w."recorded_at"
        FROM "public"."Waste" w
-       JOIN "public"."Raw_Material" rm ON rm."rm_id" = w."rm_id"
-       ORDER BY w."recorded_at" DESC`,
-    );
+       LEFT JOIN "public"."Raw_Material" rm ON rm."rm_id" = w."rm_id"
+       LEFT JOIN "public"."Branch_Product" bp ON bp."pro_id" = w."pro_id"`;
+      const params = [];
 
-    res.json(result.rows.map(toResponseRow));
+    if (userBranchId) {
+      query += ` WHERE w."b_id" = $1`;
+      params.push(userBranchId);
+    }
+
+    query += ` ORDER BY w."recorded_at" DESC`;
+
+    const result = await pool.query(query, params);
+
+    res.json(result.rows.map(r => ({
+      ...toResponseRow(r),
+      unit: r.rm_unit || 'pcs'
+    })));
   } catch (err) {
     next(err);
   }
@@ -223,12 +295,15 @@ export const getWasteById = async (req, res, next) => {
       `SELECT
         w."waste_id",
         w."rm_id",
+        w."pro_id",
         rm."rm_name",
+        bp."pro_name",
         w."waste_qty",
         w."reason",
         w."recorded_at"
        FROM "public"."Waste" w
-       JOIN "public"."Raw_Material" rm ON rm."rm_id" = w."rm_id"
+       LEFT JOIN "public"."Raw_Material" rm ON rm."rm_id" = w."rm_id"
+       LEFT JOIN "public"."Branch_Product" bp ON bp."pro_id" = w."pro_id"
        WHERE w."waste_id" = $1`,
       [id],
     );
@@ -246,9 +321,6 @@ export const getWasteById = async (req, res, next) => {
 
 // ─────────────────────────────────────────────
 // PUT /api/waste/:id
-// Only quantity and reason can be updated.
-// Stock is adjusted by the DIFFERENCE from old qty.
-// recorded_at is intentionally NOT updated — it's the original event timestamp.
 // ─────────────────────────────────────────────
 export const updateWaste = async (req, res, next) => {
   const client = await pool.connect();
@@ -261,37 +333,34 @@ export const updateWaste = async (req, res, next) => {
       throw new Error("Invalid waste id.");
     }
 
-    // ── At least one field required ──────────
     if (waste_qty === undefined && reason === undefined) {
       res.status(400);
-      throw new Error(
-        "At least one field (waste_qty, reason) must be provided.",
-      );
+      throw new Error("At least one field (waste_qty, reason) must be provided.");
     }
 
     if (waste_qty !== undefined && !isValidQty(waste_qty)) {
       res.status(400);
-      throw new Error(
-        "waste_qty must be a positive number no greater than 9999999.999.",
-      );
+      throw new Error("waste_qty must be a positive number no greater than 9999999.999.");
     }
     if (!isValidReason(reason)) {
       res.status(400);
-      throw new Error(
-        "reason must be a non-empty string under 255 characters.",
-      );
+      throw new Error("reason must be a non-empty string under 255 characters.");
     }
 
     await client.query("BEGIN");
 
-    // ── Fetch existing record ────────────────
+    // Fetch existing record
     const oldWaste = await client.query(
-      `SELECT w."waste_id", w."rm_id", w."waste_qty", rm."stock_qty", rm."rm_name"
+      `SELECT w."waste_id", w."rm_id", w."pro_id", w."waste_qty", 
+              rm."stock_qty" as rm_stock, rm."rm_name",
+              bp."pro_quantity" as pro_stock, bp."pro_name", bp."B_id"
        FROM "public"."Waste" w
-       JOIN "public"."Raw_Material" rm ON rm."rm_id" = w."rm_id"
+       LEFT JOIN "public"."Raw_Material" rm ON rm."rm_id" = w."rm_id"
+       LEFT JOIN "public"."Branch_Product" bp ON bp."pro_id" = w."pro_id"
        WHERE w."waste_id" = $1`,
       [id],
     );
+    
     if (oldWaste.rows.length === 0) {
       await client.query("ROLLBACK");
       res.status(404);
@@ -300,36 +369,37 @@ export const updateWaste = async (req, res, next) => {
 
     const old = oldWaste.rows[0];
     const oldQty = parseFloat(old.waste_qty);
-    const currentStock = parseFloat(old.stock_qty);
+    const isRM = !!old.rm_id;
+    const currentStock = parseFloat(isRM ? old.rm_stock : old.pro_stock);
     const safeNewQty = waste_qty !== undefined ? roundQty(waste_qty) : oldQty;
-    const diff = safeNewQty - oldQty; // positive = more waste, negative = less waste
+    const diff = safeNewQty - oldQty; 
 
-    // ── Business rule: increasing waste needs enough stock ──
     if (diff > 0 && diff > currentStock) {
       await client.query("ROLLBACK");
       res.status(400);
-      throw new Error(
-        `Insufficient stock to increase waste by ${diff}. Current stock is ${currentStock}.`,
-      );
+      throw new Error(`Insufficient stock to increase waste by ${diff}. Current stock is ${currentStock}.`);
     }
 
-    // ── Update waste record (recorded_at intentionally unchanged) ──
     const result = await client.query(
       `UPDATE "public"."Waste"
-       SET
-         "waste_qty" = $1,
-         "reason"    = COALESCE($2, "reason")
+       SET "waste_qty" = $1, "reason" = COALESCE($2, "reason")
        WHERE "waste_id" = $3
-       RETURNING "waste_id", "rm_id", "waste_qty", "reason", "recorded_at"`,
+       RETURNING "waste_id", "rm_id", "pro_id", "waste_qty", "reason", "recorded_at"`,
       [safeNewQty, reason?.trim() ?? null, id],
     );
 
-    // ── Adjust stock by difference ───────────
     if (diff !== 0) {
-      await client.query(
-        'UPDATE "public"."Raw_Material" SET "stock_qty" = "stock_qty" - $1 WHERE "rm_id" = $2',
-        [diff, old.rm_id],
-      );
+      if (isRM) {
+        await client.query(
+          'UPDATE "public"."Raw_Material" SET "stock_qty" = "stock_qty" - $1 WHERE "rm_id" = $2',
+          [diff, old.rm_id],
+        );
+      } else {
+        await client.query(
+          'UPDATE "public"."Branch_Product" SET "pro_quantity" = "pro_quantity" - $1 WHERE "pro_id" = $2 AND "B_id" = $3',
+          [diff, old.pro_id, old.B_id],
+        );
+      }
     }
 
     await client.query("COMMIT");
@@ -340,6 +410,7 @@ export const updateWaste = async (req, res, next) => {
         ...toResponseRow({
           ...result.rows[0],
           rm_name: old.rm_name,
+          pro_name: old.pro_name,
         }),
         stock_before: currentStock,
         stock_after: currentStock - diff,
@@ -355,7 +426,6 @@ export const updateWaste = async (req, res, next) => {
 
 // ─────────────────────────────────────────────
 // DELETE /api/waste/:id
-// Restores wasted qty back to stock.
 // ─────────────────────────────────────────────
 export const deleteWaste = async (req, res, next) => {
   const client = await pool.connect();
@@ -369,9 +439,8 @@ export const deleteWaste = async (req, res, next) => {
 
     await client.query("BEGIN");
 
-    // ── Fetch record before delete ───────────
     const wasteRecord = await client.query(
-      'SELECT "rm_id", "waste_qty" FROM "public"."Waste" WHERE "waste_id" = $1',
+      'SELECT "rm_id", "pro_id", "waste_qty" FROM "public"."Waste" WHERE "waste_id" = $1',
       [id],
     );
     if (wasteRecord.rows.length === 0) {
@@ -380,34 +449,53 @@ export const deleteWaste = async (req, res, next) => {
       throw new Error("Waste record not found.");
     }
 
-    const { rm_id, waste_qty } = wasteRecord.rows[0];
+    const { rm_id, pro_id, waste_qty } = wasteRecord.rows[0];
     const restoreQty = parseFloat(waste_qty);
+    let currentStock = 0;
 
-    // ── Business rule: restored stock must not exceed NUMERIC(10,3) max ──
-    const rmCheck = await client.query(
-      'SELECT "stock_qty" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
-      [rm_id],
-    );
-    const currentStock = parseFloat(rmCheck.rows[0].stock_qty);
-    if (currentStock + restoreQty > 9999999.999) {
-      await client.query("ROLLBACK");
-      res.status(400);
-      throw new Error(
-        "Cannot restore stock: restoring this waste would exceed the maximum stock limit.",
+    if (rm_id) {
+      const rmCheck = await client.query(
+        'SELECT "stock_qty" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
+        [rm_id],
       );
+      currentStock = parseFloat(rmCheck.rows[0].stock_qty);
+      if (currentStock + restoreQty > 9999999.999) {
+        await client.query("ROLLBACK");
+        res.status(400);
+        throw new Error("Cannot restore stock: restoring this waste would exceed the maximum limit.");
+      }
+      await client.query(
+        'UPDATE "public"."Raw_Material" SET "stock_qty" = "stock_qty" + $1 WHERE "rm_id" = $2',
+        [restoreQty, rm_id],
+      );
+    } else if (pro_id) {
+      const user = req.user;
+      const b_id = user ? user.B_id : null;
+      let query = 'SELECT "pro_quantity" FROM "public"."Branch_Product" WHERE "pro_id" = $1';
+      const params = [pro_id];
+      if (b_id) {
+        query += ' AND "B_id" = $2';
+        params.push(b_id);
+      }
+      const proCheck = await client.query(query, params);
+      
+      if (proCheck.rows.length > 0) {
+        currentStock = parseFloat(proCheck.rows[0].pro_quantity);
+        if (currentStock + restoreQty > 9999999.999) {
+          await client.query("ROLLBACK");
+          res.status(400);
+          throw new Error("Cannot restore stock: limit exceeded.");
+        }
+        
+        let updateQuery = 'UPDATE "public"."Branch_Product" SET "pro_quantity" = "pro_quantity" + $1 WHERE "pro_id" = $2';
+        if (b_id) {
+          updateQuery += ' AND "B_id" = $3';
+        }
+        await client.query(updateQuery, [restoreQty, ...params]);
+      }
     }
 
-    // ── Restore stock ────────────────────────
-    await client.query(
-      'UPDATE "public"."Raw_Material" SET "stock_qty" = "stock_qty" + $1 WHERE "rm_id" = $2',
-      [restoreQty, rm_id],
-    );
-
-    // ── Delete record ────────────────────────
-    await client.query('DELETE FROM "public"."Waste" WHERE "waste_id" = $1', [
-      id,
-    ]);
-
+    await client.query('DELETE FROM "public"."Waste" WHERE "waste_id" = $1', [id]);
     await client.query("COMMIT");
 
     res.json({

@@ -13,6 +13,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
+import ReorderModal from "../../components/branch-admin/ReorderModal";
 import { getBranchProducts, updateBranchProduct, deleteBranchProduct, addBranchProductStock, getBranchProductIngredientStatus } from "../../services/api";
 import { 
   getSocket, 
@@ -95,10 +96,19 @@ const mapApiProductToTableItem = (product) => {
   const lowStockLimit = Number(product.low_stock_limit ?? 10);
   const price = Number(product.pro_price ?? 0);
   const imageUrl = resolveProductImage(product.pro_image);
+  const productType = product.product_type || "made_to_order";
+
+  // made_to_order products' status depends on ingredient stock (calculated
+  // server-side via RECIPE/Raw_Material). pre_made/finished products use
+  // their own pro_quantity vs low_stock_limit instead.
+  const status =
+    productType === "made_to_order"
+      ? product.calculated_status || "In stock"
+      : getStockStatus(quantity, lowStockLimit);
 
   return {
     id: product.Bpro_id,
-    product_type: product.product_type || "made_to_order",
+    product_type: productType,
     imageUrl,
     imageAlt: product.pro_name || "Product",
     name: product.pro_name,
@@ -107,7 +117,7 @@ const mapApiProductToTableItem = (product) => {
     price: `$${price.toFixed(2)}`,
     discount: "0%",
     stock: quantity,
-    status: getStockStatus(quantity, lowStockLimit),
+    status,
     _original: product
   };
 };
@@ -941,8 +951,21 @@ const ProductManagement = () => {
         </div>
       )}
 
-      {/* Stock Add Modal */}
+      {/* Stock Add Modal / Reorder Modal */}
       {stockModalItem && (
+        stockModalItem.product_type === 'finished' ? (
+          <ReorderModal
+            material={stockModalItem}
+            onClose={() => {
+              setStockModalItem(null);
+              setStockModalQty("");
+            }}
+            onSuccess={() => {
+              setStockModalItem(null);
+              setStockModalQty("");
+            }}
+          />
+        ) : (
         <div style={{
           position: "fixed",
           inset: 0,
@@ -1014,6 +1037,7 @@ const ProductManagement = () => {
             </div>
           </div>
         </div>
+        )
       )}
 
       <style>{`
