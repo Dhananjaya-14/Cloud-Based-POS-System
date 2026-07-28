@@ -49,6 +49,10 @@ export const SOCKET_EVENTS = {
   COMPANY_DELETED: "company:deleted",
   JOIN_COMPANY_ROOM: "join_company_room",
   LEAVE_COMPANY_ROOM: "leave_company_room",
+  // Branch events
+  BRANCH_CREATED: "branch:created",
+  BRANCH_UPDATED: "branch:updated",
+  BRANCH_DELETED: "branch:deleted",
 };
 
 function extractSocketToken(socket) {
@@ -114,6 +118,24 @@ export const emitUserEventToBranch = (branchId, eventName, userData) => {
   return true;
 };
 
+// Helper function to emit branch events
+export const emitBranchEvent = (eventName, branchData, branchId = null) => {
+  if (!io) return false;
+  
+  // Always emit to the branch-updates room for super admins
+  io.to(BRANCH_UPDATE_ROOM).emit(eventName, branchData);
+  console.log(`Emitted ${eventName} to BRANCH_UPDATE_ROOM`, branchData);
+  
+  // Also emit to company-specific room if branch has company ID
+  if (branchData?.com_id) {
+    const companyRoom = getCompanyRoom(branchData.com_id);
+    io.to(companyRoom).emit(eventName, branchData);
+    console.log(`Emitted ${eventName} to company room ${companyRoom}`, branchData);
+  }
+  
+  return true;
+};
+
 export const initializeSocket = (httpServer) => {
   if (io) {
     return io;
@@ -142,6 +164,7 @@ export const initializeSocket = (httpServer) => {
       socket.user = jwt.verify(token, process.env.JWT_SECRET);
       return next();
     } catch (error) {
+      console.error("Socket auth error:", error.message);
       return next(new Error("Unauthorized socket connection."));
     }
   });
@@ -158,6 +181,7 @@ export const initializeSocket = (httpServer) => {
     // Join existing rooms based on role
     if ([ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.BRANCH_ADMIN].includes(roleId)) {
       socket.join(BRANCH_UPDATE_ROOM);
+      console.log(`Socket ${socket.id} joined BRANCH_UPDATE_ROOM`);
       
       // For branch admins, join their specific branch user room
       if (roleId === ROLES.BRANCH_ADMIN && branchId) {
@@ -263,6 +287,13 @@ export const initializeSocket = (httpServer) => {
       }
     });
 
+    // Listen for explicit join branch update room
+    socket.on("join_branch_updates", () => {
+      socket.join(BRANCH_UPDATE_ROOM);
+      console.log(`Socket ${socket.id} explicitly joined BRANCH_UPDATE_ROOM`);
+      socket.emit("branch_updates_joined", { room: BRANCH_UPDATE_ROOM });
+    });
+
     socket.emit("socket:ready", {
       message: "WebSocket connection established",
       socketId: socket.id,
@@ -308,6 +339,7 @@ export const getIO = () => {
 
 export const emitSocketEvent = (eventName, payload, options = {}) => {
   if (!io) {
+    console.warn(`Socket.io not initialized, cannot emit ${eventName}`);
     return false;
   }
 
@@ -315,8 +347,7 @@ export const emitSocketEvent = (eventName, payload, options = {}) => {
   if (process.env.NODE_ENV !== "production") {
     try {
       const roomInfo = options.room ? ` to room=${options.room}` : " to all";
-      // eslint-disable-next-line no-console
-      console.log(`Socket emit -> ${eventName}${roomInfo}`, payload);
+      console.log(`Socket emit -> ${eventName}${roomInfo}`, JSON.stringify(payload, null, 2));
     } catch (e) {
       // ignore logging errors
     }
@@ -374,6 +405,7 @@ export default {
   emitCompanyEvent,
   emitBranchProductEvent,
   emitUserEventToBranch,
+  emitBranchEvent,
   SOCKET_EVENTS,
   BRANCH_SOCKET_ROOM,
   KITCHEN_SOCKET_ROOM,

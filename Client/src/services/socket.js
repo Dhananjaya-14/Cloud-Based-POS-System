@@ -49,6 +49,10 @@ export const SOCKET_EVENTS = {
   COMPANY_DELETED: "company:deleted",
   JOIN_COMPANY_ROOM: "join_company_room",
   LEAVE_COMPANY_ROOM: "leave_company_room",
+  // Branch events
+  BRANCH_CREATED: "branch:created",
+  BRANCH_UPDATED: "branch:updated",
+  BRANCH_DELETED: "branch:deleted",
 };
 
 export const getSocket = () => {
@@ -68,24 +72,26 @@ export const getSocket = () => {
 
     if (import.meta.env.MODE !== "production") {
       socket.on("connect", () => {
-        console.debug("socket connected", socket.id);
+        console.debug("✅ socket connected", socket.id);
         reconnectAttempts = 0;
+        // Auto-join branch updates room
+        socket.emit("join_branch_updates");
       });
 
       socket.on("disconnect", (reason) => {
-        console.debug("socket disconnected", reason);
+        console.debug("❌ socket disconnected", reason);
       });
 
       socket.on("connect_error", (err) => {
-        console.debug("socket connect_error", err.message || err);
+        console.debug("⚠️ socket connect_error", err.message || err);
         reconnectAttempts++;
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          console.error("Max reconnection attempts reached");
+          console.error("❌ Max reconnection attempts reached");
         }
       });
 
       socket.onAny((event, ...args) => {
-        console.debug("socket event received", event, args);
+        console.debug("📡 socket event received", event, args);
       });
     }
   }
@@ -120,12 +126,21 @@ export const disconnectSocket = () => {
 
 export const getSocketUrl = () => SOCKET_URL;
 
+// Helper function to join branch updates room
+export const joinBranchUpdatesRoom = () => {
+  const socket = getSocket();
+  if (socket && socket.connected) {
+    socket.emit("join_branch_updates");
+    console.log("✅ Joined branch updates room");
+  }
+};
+
 // Helper function to join company room
 export const joinCompanyRoom = (companyId) => {
   const socket = getSocket();
   if (socket && socket.connected && companyId) {
     socket.emit(SOCKET_EVENTS.JOIN_COMPANY_ROOM, companyId);
-    console.log(`Joined company room ${companyId}`);
+    console.log(`✅ Joined company room ${companyId}`);
   }
 };
 
@@ -472,6 +487,7 @@ export default {
   leaveBranchUserRoom,
   joinBranchInventoryRoom,
   leaveBranchInventoryRoom,
+  joinBranchUpdatesRoom,
   subscribeToCompanyUpdates,
   subscribeToProductUpdates,
   subscribeToRecipeUpdates,
