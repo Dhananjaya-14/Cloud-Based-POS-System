@@ -28,6 +28,7 @@ const Sidebar = () => {
     "/branch-admin/inventory",
     "/branch-admin/raw-ingredient",
     "/branch-admin/recipe-mapper",
+    "/branch-admin/waste-management",
   ];
   const statisticsPaths = [
     "/branch-admin/sales-revenue",
@@ -216,6 +217,7 @@ const Sidebar = () => {
                   ? lockedSubItem("Supplier Directory")
                   : subItem("Supplier Directory", "/branch-admin/suppliers")
                 }
+                {subItem("Waste Management", "/branch-admin/waste-management")}
                 {subItem("Recipe Mapper", "/branch-admin/recipe-mapper")}
               </>
             )}
