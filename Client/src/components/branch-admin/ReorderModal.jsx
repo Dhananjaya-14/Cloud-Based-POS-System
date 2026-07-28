@@ -103,7 +103,7 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         credentials: 'include',
         body: JSON.stringify({
           po_id: order.po_id,
-          rm_id: material.rm_id,
+          ...(material.rm_id ? { rm_id: material.rm_id } : { pro_id: material._original?.pro_id || material.pro_id }),
           qty: parseFloat(formData.quantity),
           unit_price: parseFloat(formData.unitPrice),
           price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)
@@ -143,7 +143,7 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         ) : (
           <>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">Reorder: {material?.rm_name}</h2>
+              <h2 className="text-xl font-bold text-gray-800">Reorder: {material?.rm_name || material?.name || material?.pro_name}</h2>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
 

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from "react";
+import ReceiveOrderModal from "./ReceiveOrderModal";
 
-const SupplierDetailView = ({ supplier, onBack }) => {
+const SupplierDetailView = ({ supplier, onBack, showToast }) => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
+  const [selectedOrder, setSelectedOrder] = useState(null);
 
   // 1. COMPONENT GUARD: Prevent rendering if supplier is missing
   if (!supplier) {
@@ -55,27 +57,32 @@ const SupplierDetailView = ({ supplier, onBack }) => {
     fetchOrderData();
   }, [supplier?.sup_id]); // Use optional chaining in dependency array
 
-  const onMarkAsReceived = async (order) => {
-    const method = window.prompt("Enter Payment Method (cash/card/cheque):", "cash");
+  const onMarkAsReceived = (order) => {
+    setSelectedOrder(order);
+  };
+
+  const handleConfirmReceipt = async (wastagePayload, method, reason) => {
     if (!method) return;
 
-    setProcessingId(order.po_id);
+    setProcessingId(selectedOrder.po_id);
     try {
       const token = localStorage.getItem("token");
 
-      await fetch(`/api/purchase-orders/${order.po_id}/status`, {
-        method: 'PATCH',
+      // 1. Mark as received and process wastage/stock
+      await fetch(`/api/purchase-orders/${selectedOrder.po_id}/receive`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ status: 'received' })
+        body: JSON.stringify({ wastage: wastagePayload, reason })
       });
 
-      const totalAmount = order.items.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+      // 2. Process supplier payment
+      const totalAmount = selectedOrder.items.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
       await fetch(`/api/supplier-payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({
           sup_id: supplier.sup_id,
-          po_id: order.po_id,
+          po_id: selectedOrder.po_id,
           amount: totalAmount,
           method: method.toLowerCase(),
           payment_date: new Date().toISOString()
@@ -83,8 +90,11 @@ const SupplierDetailView = ({ supplier, onBack }) => {
       });
 
       await fetchOrderData();
+      setSelectedOrder(null);
+      if (showToast) showToast("Order marked as received successfully!", "success");
     } catch (err) {
-      alert("Error: " + err.message);
+      if (showToast) showToast(err.message, "error");
+      else alert("Error: " + err.message);
     } finally {
       setProcessingId(null);
     }
@@ -138,6 +148,14 @@ const SupplierDetailView = ({ supplier, onBack }) => {
           </table>
         </div>
       ))}
+
+      {selectedOrder && (
+        <ReceiveOrderModal
+          order={selectedOrder}
+          onClose={() => setSelectedOrder(null)}
+          onConfirm={handleConfirmReceipt}
+        />
+      )}
     </div>
   );
 };

@@ -63,7 +63,7 @@ import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
 import WaiterPos from './pages/waiter/WaiterPos';
 import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
 import AdminSupplierManagement from './pages/admin/SupplierManagement';
-
+import WasteManagement from './pages/branch-admin/WasteManagement';
 
 function App() {
   return (
@@ -240,7 +240,7 @@ function App() {
       <Route
         path="/admin/products"
         element={
-          <ProtectedRoute allowedRoles={[2, 6]}>
+          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_inventory">
             <AdminProductManagement />
           </ProtectedRoute>
         }
@@ -361,8 +361,16 @@ function App() {
             <InventoryDashboard />
           </ProtectedRoute>
         }
+      />
 
-        />
+      <Route
+        path="/branch-admin/waste-management"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <WasteManagement />
+          </ProtectedRoute>
+        }
+      />
 
       <Route
         path="/branch-admin/sales-revenue"

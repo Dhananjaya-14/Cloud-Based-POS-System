@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { emitBranchProductEvent, SOCKET_EVENTS } from "../utils/socket.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -527,6 +528,7 @@ export async function updatePurchaseOrderStatus(req, res, next) {
     }
 
     const currentStatus = existing.rows[0].status;
+    const poBranchId = existing.rows[0].b_id;
 
     if (currentStatus === "received" && status !== "received") {
       res.status(409);
@@ -557,31 +559,55 @@ export async function updatePurchaseOrderStatus(req, res, next) {
     try {
       await client.query("BEGIN");
 
-      // If the target status is 'received', add each purchase_item.qty to the corresponding Raw_Material.stock_qty
+      // If the target status is 'received', add each purchase_item.qty to the corresponding Raw_Material.stock_qty or Branch_Product.stock
       if (status === "received") {
         const items = await client.query(
-          `SELECT rm_id, qty FROM purchase_item WHERE po_id = $1`,
+          `SELECT rm_id, pro_id, qty FROM purchase_item WHERE po_id = $1`,
           [id],
         );
 
-        // Update each raw material stock
+        // Update each stock
         for (const it of items.rows) {
           const adjQty = Number(it.qty) || 0;
           if (adjQty === 0) continue;
 
-          const updateRes = await client.query(
-            `UPDATE "Raw_Material"
-             SET stock_qty = COALESCE(stock_qty, 0) + $1
-             WHERE rm_id = $2
-             RETURNING rm_id`,
-            [adjQty, it.rm_id],
-          );
+          if (it.rm_id) {
+            const updateRes = await client.query(
+              `UPDATE "Raw_Material"
+               SET stock_qty = COALESCE(stock_qty, 0) + $1
+               WHERE rm_id = $2
+               RETURNING rm_id`,
+              [adjQty, it.rm_id],
+            );
 
-          if (updateRes.rows.length === 0) {
-            // Raw material missing or out-of-scope — abort
-            await client.query("ROLLBACK");
-            res.status(404);
-            throw new Error(`Raw material with id ${it.rm_id} not found`);
+            if (updateRes.rows.length === 0) {
+              await client.query("ROLLBACK");
+              res.status(404);
+              throw new Error(`Raw material with id ${it.rm_id} not found`);
+            }
+          } else if (it.pro_id) {
+            const updateRes = await client.query(
+              `UPDATE "Branch_Product"
+               SET "pro_quantity" = COALESCE("pro_quantity", 0) + $1
+               WHERE "pro_id" = $2 AND "B_id" = $3
+               RETURNING "Bpro_id", "pro_quantity"`,
+              [adjQty, it.pro_id, poBranchId],
+            );
+
+            if (updateRes.rows.length === 0) {
+              await client.query("ROLLBACK");
+              res.status(404);
+              throw new Error(`Product with id ${it.pro_id} not found in this branch`);
+            }
+
+            // Emit real-time update so POS and Product Management pages refresh instantly
+            emitBranchProductEvent(poBranchId, SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
+              branch_product: {
+                Bpro_id: updateRes.rows[0].Bpro_id,
+                pro_id: it.pro_id,
+                pro_quantity: updateRes.rows[0].pro_quantity,
+              }
+            });
           }
         }
       }
@@ -608,10 +634,162 @@ export async function updatePurchaseOrderStatus(req, res, next) {
   } catch (err) {
     next(err);
   }
+}// ─── POST /api/purchase-orders/:id/receive ──────────────────────────────────────
+export async function receiveWithWastage(req, res, next) {
+  try {
+    const id = parsePositiveInt(req.params.id, "po_id");
+    const { wastage = [], reason } = req.body;
+    const { b_id, role_id, com_id } = req.user;
+    
+    // ── Existence & Scoping check ──
+    let existQuery = `
+      SELECT po.po_id, po.status, po.b_id
+      FROM purchase_order po
+      JOIN "Branch" b ON b."B_id" = po.b_id
+      WHERE po.po_id = $1
+    `;
+    const existParams = [id];
+    if (role_id !== ROLES.SUPER_ADMIN) {
+      existQuery += ` AND b.com_id = $2`;
+      existParams.push(com_id);
+      if (b_id) {
+        existQuery += ` AND po.b_id = $3`;
+        existParams.push(b_id);
+      }
+    }
+    const existing = await pool.query(existQuery, existParams);
+    if (existing.rows.length === 0) {
+      res.status(404);
+      throw new Error("Purchase order not found");
+    }
+
+    const currentStatus = existing.rows[0].status;
+    const poBranchId = existing.rows[0].b_id;
+
+    if (currentStatus === "received") {
+      res.status(409);
+      throw new Error("Purchase order is already received");
+    }
+
+    // Perform the status update, stock adjustments, and waste records in a single transaction
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+
+      const items = await client.query(
+        `SELECT rm_id, pro_id, qty FROM purchase_item WHERE po_id = $1`,
+        [id],
+      );
+
+      if (items.rows.length === 0) {
+        await client.query("ROLLBACK");
+        res.status(422);
+        throw new Error(
+          "Cannot mark order as received — no purchase items exist for this order",
+        );
+      }
+
+      // Create a map of wastage for quick lookup
+      const wastageMap = {};
+      for (const w of wastage) {
+        if (w.rm_id) wastageMap['rm_'+w.rm_id] = w;
+        else if (w.pro_id) wastageMap['pro_'+w.pro_id] = w;
+      }
+
+      // Update each stock and insert waste record
+      // NOTE: Wastage tracking currently applies ONLY to raw materials (rm_id).
+      // External/pre-made products (pro_id) always receive their full ordered quantity.
+      for (const it of items.rows) {
+        const grossQty = Number(it.qty) || 0;
+        const wasteData = it.rm_id ? (wastageMap['rm_'+it.rm_id] || {}) : {};
+        const wasteQty = it.rm_id ? (Number(wasteData.waste_qty) || 0) : 0;
+        const netQty = grossQty - wasteQty;
+
+        if (netQty < 0) {
+           await client.query("ROLLBACK");
+           res.status(400);
+           throw new Error(`Waste quantity cannot be greater than received quantity for item`);
+        }
+
+        // Add net quantity to stock
+        if (netQty > 0) {
+          if (it.rm_id) {
+            const updateRes = await client.query(
+              `UPDATE "Raw_Material"
+               SET stock_qty = COALESCE(stock_qty, 0) + $1
+               WHERE rm_id = $2
+               RETURNING rm_id`,
+              [netQty, it.rm_id],
+            );
+
+            if (updateRes.rows.length === 0) {
+              await client.query("ROLLBACK");
+              res.status(404);
+              throw new Error(`Raw material with id ${it.rm_id} not found`);
+            }
+          } else if (it.pro_id) {
+            const updateRes = await client.query(
+              `UPDATE "Branch_Product"
+               SET "pro_quantity" = COALESCE("pro_quantity", 0) + $1
+               WHERE "pro_id" = $2 AND "B_id" = $3
+               RETURNING "Bpro_id", "pro_quantity"`,
+              [netQty, it.pro_id, poBranchId],
+            );
+
+            if (updateRes.rows.length === 0) {
+              await client.query("ROLLBACK");
+              res.status(404);
+              throw new Error(`Product with id ${it.pro_id} not found in this branch`);
+            }
+
+            // Emit real-time update so POS and Product Management pages refresh instantly
+            emitBranchProductEvent(poBranchId, SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
+              branch_product: {
+                Bpro_id: updateRes.rows[0].Bpro_id,
+                pro_id: it.pro_id,
+                pro_quantity: updateRes.rows[0].pro_quantity,
+              }
+            });
+          }
+        }
+
+        // Insert waste record if there's any waste
+        // Insert waste record — raw materials only
+        if (it.rm_id && wasteQty > 0) {
+          const wType = wasteData.wastage_type || 'fixed';
+          const wVal = Number(wasteData.wastage_value) || wasteQty;
+
+          await client.query(
+            `INSERT INTO "public"."Waste" ("rm_id", "waste_qty", "reason", "recorded_at", "b_id", "po_id", "gross_received", "net_received", "wastage_type", "wastage_value", "u_id")
+             VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5, $6, $7, $8, $9, $10)`,
+            [it.rm_id, wasteQty, reason || `Damaged during delivery (PO #${id})`, poBranchId, id, grossQty, netQty, wType, wVal, req.user.u_id]
+          );
+        }
+      }
+
+      // Update purchase_order status + received_date
+      const result = await client.query(
+        `UPDATE purchase_order
+         SET
+           status        = 'received',
+           received_date = CURRENT_TIMESTAMP
+         WHERE po_id = $1
+         RETURNING po_id, sup_id, b_id, status, order_date, received_date`,
+        [id],
+      );
+
+      await client.query("COMMIT");
+      res.json(result.rows[0]);
+    } catch (txErr) {
+      await client.query("ROLLBACK");
+      throw txErr;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    next(err);
+  }
 }
-
-
-
 
 // ─── DELETE /api/purchase-orders/:id ─────────────────────────────────────────
 export async function deletePurchaseOrder(req, res, next) {
