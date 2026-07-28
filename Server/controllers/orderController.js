@@ -41,10 +41,10 @@ const VALID_TYPES = ["dine-in", "takeaway", "delivery"];
 // Legal status transitions for a POS system
 // Key = current status, Value = allowed next statuses
 const STATUS_TRANSITIONS = {
-  pending: ["preparing", "cancelled"],
+  pending:   ["preparing", "completed", "cancelled"],
   preparing: ["completed", "cancelled"],
-  completed: [], // terminal — no further changes
-  cancelled: [], // terminal — no further changes
+  completed: [],
+  cancelled: [], 
 };
 
 // ─────────────────────────────────────────────
