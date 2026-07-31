@@ -46,7 +46,7 @@ api.interceptors.response.use(
         });
       }
     }
-    
+
     // Only handle 401 for non-activity log endpoints
     if (error.response?.status === 401) {
       console.warn("[AUTH] 401 — token expired or invalid. Clearing session and redirecting to login.");
@@ -257,7 +257,7 @@ export const getOrders = async (params = {}) => {
 
 export const getOrderById = async (orderId) => {
   const response = await api.get(`/orders/${orderId}`);
-  return response.data?.data || null;
+  return res.data?.data ?? res.data ?? [];
 };
 
 export const createOrder = async (orderData) => {
@@ -630,13 +630,13 @@ export const getBranchComparison = async () => {
 };
 
 // --- Transactions / purchases helpers ---
-export const getOrderById = async (orderId) => {
-  const response = await api.get(`/orders/${orderId}`);
-  return response.data?.data || null;
-};
+// export const getOrderById = async (orderId) => {
+//   const response = await api.get(`/orders/${orderId}`);
+//   return response.data?.data || null;
+// };
 
-  return res.data?.data ?? res.data ?? [];
-};
+//   return res.data?.data ?? res.data ?? [];
+// };
 
 export const getPurchaseOrderById = async (
   id
