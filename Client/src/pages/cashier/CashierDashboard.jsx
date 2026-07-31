@@ -7,6 +7,7 @@ import { getOrders, getDashboardStats, getSalesDetailsReport } from "../../servi
 import { connectSocket } from "../../services/socket";
 import {
   addOrderReadyAlert,
+  addOrderRejectedAlert,
   dismissOrderReadyAlert,
   loadOrderReadyAlerts,
   saveOrderReadyAlerts,
@@ -124,9 +125,24 @@ const CashierDashboard = () => {
     };
 
     socket.on("order:ready", handleOrderReady);
+    socket.on("order:rejected", handleOrderRejected);
+
+    function handleOrderRejected(order) {
+      if (!order) return;
+      if (user?.u_id && order.u_id && Number(order.u_id) !== Number(user.u_id)) {
+        return;
+      }
+
+      setOrderReadyAlerts((currentAlerts) => {
+        const nextAlerts = addOrderRejectedAlert(currentAlerts, order);
+        saveOrderReadyAlerts(user?.u_id, nextAlerts);
+        return nextAlerts;
+      });
+    }
 
     return () => {
       socket.off("order:ready", handleOrderReady);
+      socket.off("order:rejected", handleOrderRejected);
     };
   }, [loadTodayOrders, user?.u_id]);
 

@@ -963,7 +963,13 @@ export const updateOrderStatus = async (req, res) => {
       });
     }
 
-    res.status(200).json({ success: true, data: updatedOrder });
+if (status === "cancelled") {
+  emitSocketEvent("order:rejected", updatedOrder, {
+    room: getCashierSocketRoom(updatedOrder.u_id),
+  });
+}
+
+res.status(200).json({ success: true, data: updatedOrder });
   } catch (err) {
     if (err.code === "23514") {
       return res.status(400).json({

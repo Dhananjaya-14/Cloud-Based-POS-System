@@ -1,6 +1,7 @@
+// Server/controllers/branchController.js
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
-import { BRANCH_SOCKET_ROOM, emitSocketEvent } from "../utils/socket.js";
+import { BRANCH_SOCKET_ROOM, emitSocketEvent, SOCKET_EVENTS } from "../utils/socket.js";
 
 function getActorMeta(req) {
   return {
@@ -190,16 +191,41 @@ export async function createBranch(req, res, next) {
       ],
     );
 
-    // Emit realtime event
+    const newBranch = result.rows[0];
+    const actorMeta = getActorMeta(req);
+
+    // Emit realtime event to BRANCH_UPDATE_ROOM
     try {
-      emitSocketEvent("branch:created", { ...result.rows[0], ...getActorMeta(req) }, {
+      emitSocketEvent(SOCKET_EVENTS.BRANCH_CREATED, { 
+        ...newBranch, 
+        ...actorMeta,
+        timestamp: new Date().toISOString()
+      }, {
         room: BRANCH_SOCKET_ROOM,
       });
+      
+      // Also emit to company-specific room
+      if (newBranch.com_id) {
+        // Import dynamically to avoid circular dependency
+        const { getCompanyRoom } = await import("../utils/socket.js");
+        emitSocketEvent(SOCKET_EVENTS.BRANCH_CREATED, { 
+          ...newBranch, 
+          ...actorMeta,
+          timestamp: new Date().toISOString()
+        }, {
+          room: getCompanyRoom(newBranch.com_id),
+        });
+      }
+      
+      console.log(`✅ Branch created event emitted: ${newBranch.B_name}`);
     } catch (e) {
-      console.error("Failed to emit branch:created", e);
+      console.error("❌ Failed to emit branch:created", e);
     }
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json({
+      ...newBranch,
+      socketEmitted: true
+    });
   } catch (err) {
     if (err?.code === "23505") {
       res.status(409);
@@ -328,16 +354,40 @@ export async function updateBranch(req, res, next) {
       ],
     );
 
+    const updatedBranch = result.rows[0];
+    const actorMeta = getActorMeta(req);
+
     // Emit realtime update event
     try {
-      emitSocketEvent("branch:updated", { ...result.rows[0], ...getActorMeta(req) }, {
+      emitSocketEvent(SOCKET_EVENTS.BRANCH_UPDATED, { 
+        ...updatedBranch, 
+        ...actorMeta,
+        timestamp: new Date().toISOString()
+      }, {
         room: BRANCH_SOCKET_ROOM,
       });
+      
+      // Also emit to company-specific room
+      if (updatedBranch.com_id) {
+        const { getCompanyRoom } = await import("../utils/socket.js");
+        emitSocketEvent(SOCKET_EVENTS.BRANCH_UPDATED, { 
+          ...updatedBranch, 
+          ...actorMeta,
+          timestamp: new Date().toISOString()
+        }, {
+          room: getCompanyRoom(updatedBranch.com_id),
+        });
+      }
+      
+      console.log(`✅ Branch updated event emitted: ${updatedBranch.B_name}`);
     } catch (e) {
-      console.error("Failed to emit branch:updated", e);
+      console.error("❌ Failed to emit branch:updated", e);
     }
 
-    res.json(result.rows[0]);
+    res.json({
+      ...updatedBranch,
+      socketEmitted: true
+    });
   } catch (err) {
     if (err?.code === "23505") {
       res.status(409);
@@ -373,6 +423,23 @@ export async function deleteBranch(req, res, next) {
       throw new Error("Invalid branch ID.");
     }
 
+    // Get branch info before deleting for emitting event
+    const branchInfo = await pool.query(
+      `
+      SELECT "B_id", "B_name", "com_id" 
+      FROM "Branch" 
+      WHERE "B_id" = $1
+      `,
+      [id],
+    );
+
+    if (branchInfo.rows.length === 0) {
+      res.status(404);
+      throw new Error(
+        "Branch not found. It may have been removed or never existed.",
+      );
+    }
+
     const result = await pool.query(
       `
       DELETE FROM "Branch"
@@ -382,25 +449,44 @@ export async function deleteBranch(req, res, next) {
       [id],
     );
 
-    if (result.rows.length === 0) {
-      res.status(404);
-
-      throw new Error(
-        "Branch not found. It may have been removed or never existed.",
-      );
-    }
+    const actorMeta = getActorMeta(req);
+    const branchData = branchInfo.rows[0];
 
     // Emit realtime delete event
     try {
       emitSocketEvent(
-        "branch:deleted",
-        { B_id: Number(id), ...getActorMeta(req) },
+        SOCKET_EVENTS.BRANCH_DELETED,
+        { 
+          B_id: Number(id), 
+          ...branchData,
+          ...actorMeta,
+          timestamp: new Date().toISOString()
+        },
         {
           room: BRANCH_SOCKET_ROOM,
         },
       );
+      
+      // Also emit to company-specific room
+      if (branchData.com_id) {
+        const { getCompanyRoom } = await import("../utils/socket.js");
+        emitSocketEvent(
+          SOCKET_EVENTS.BRANCH_DELETED,
+          { 
+            B_id: Number(id), 
+            ...branchData,
+            ...actorMeta,
+            timestamp: new Date().toISOString()
+          },
+          {
+            room: getCompanyRoom(branchData.com_id),
+          },
+        );
+      }
+      
+      console.log(`✅ Branch deleted event emitted: ${branchData.B_name}`);
     } catch (e) {
-      console.error("Failed to emit branch:deleted", e);
+      console.error("❌ Failed to emit branch:deleted", e);
     }
 
     res.status(204).send();

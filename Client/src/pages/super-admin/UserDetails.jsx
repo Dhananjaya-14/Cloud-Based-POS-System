@@ -5,12 +5,16 @@ import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import { getUsers, getRoles, getBranches, getCompanies, updateUser, setAuthToken, logout } from "../../services/api";
 import Spinner from "../../components/super-admin/Spinner";
+import { useToast, ToastContainer } from "../../components/super-admin/Toast";
+import { connectSocket } from "../../services/socket";
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^07[0-9]{8}$/;
 
 const UserDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { toast, toasts, removeToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -45,12 +49,13 @@ const UserDetails = () => {
       return;
     }
     setAuthToken(token);
+    // Connect to socket for real-time updates
+    connectSocket();
     fetchData();
   }, [id, navigate]);
 
   const fetchData = async () => {
     try {
-      // Fetch users to find the specific one, plus roles, branches, and companies
       const [usersData, rolesData, branchesData, companiesData] = await Promise.all([
         getUsers(),
         getRoles(),
@@ -63,7 +68,7 @@ const UserDetails = () => {
       setCompanies(Array.isArray(companiesData) ? companiesData : []);
 
       const user = (Array.isArray(usersData) ? usersData : []).find(
-        (u) => u.u_id.toString() === id
+        (u) => u.u_id?.toString() === id
       );
 
       if (user) {
@@ -121,32 +126,46 @@ const UserDetails = () => {
     setPhoneError("");
 
     if (!formData.firstName || !formData.lastName || !formData.email) {
-      setErrorMessage("Please fill in all required fields.");
+      const msg = "Please fill in all required fields.";
+      setErrorMessage(msg);
+      toast.error("Error", msg);
       return;
     }
 
     if (!EMAIL_RE.test(formData.email.trim())) {
-      setEmailError("Please enter a valid email address (e.g. name@example.com).");
+      const msg = "Please enter a valid email address (e.g. name@example.com).";
+      setEmailError(msg);
+      toast.error("Error", msg);
       return;
     }
 
     if (formData.contactNumber && !PHONE_RE.test(formData.contactNumber.trim())) {
-      setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
+      const msg = "Phone number must be 10 digits and start with 07 (e.g. 0771234567).";
+      setPhoneError(msg);
+      toast.error("Error", msg);
       return;
     }
 
     if (formData.password && formData.password !== formData.confirmPassword) {
-      setErrorMessage("Passwords do not match.");
+      const msg = "Passwords do not match.";
+      setErrorMessage(msg);
+      toast.error("Error", msg);
       return;
     }
 
-    if (parseInt(formData.userRole) === 6) {
+    const roleId = parseInt(formData.userRole);
+    
+    if (roleId === 6) {
       // Super Admin needs no company or branch
-    } else if (parseInt(formData.userRole) === 2 && !formData.assignedCompany) {
-      setErrorMessage("Please select an Assigned Company/Hotel for the Admin role.");
+    } else if (roleId === 2 && !formData.assignedCompany) {
+      const msg = "Please select an Assigned Company/Hotel for the Admin role.";
+      setErrorMessage(msg);
+      toast.error("Error", msg);
       return;
-    } else if (parseInt(formData.userRole) !== 2 && !formData.assignedBranch) {
-      setErrorMessage("Please select an Assigned Branch.");
+    } else if (roleId !== 2 && !formData.assignedBranch) {
+      const msg = "Please select an Assigned Branch.";
+      setErrorMessage(msg);
+      toast.error("Error", msg);
       return;
     }
 
@@ -156,20 +175,22 @@ const UserDetails = () => {
         u_fname: formData.firstName,
         u_lname: formData.lastName,
         u_email: formData.email,
-        u_connumber: formData.contactNumber,
-        role_id: parseInt(formData.userRole),
-        // Password only if changed
+        u_connumber: formData.contactNumber || null,
+        role_id: roleId,
         ...(formData.password && { u_pw: formData.password }),
         u_status: formData.activeStatus,
-        com_id: parseInt(formData.userRole) === 2 && formData.assignedCompany ? parseInt(formData.assignedCompany) : null,
-        b_id: parseInt(formData.userRole) !== 2 && parseInt(formData.userRole) !== 6 && formData.assignedBranch ? parseInt(formData.assignedBranch) : null,
+        com_id: roleId === 2 && formData.assignedCompany ? parseInt(formData.assignedCompany) : null,
+        b_id: roleId !== 2 && roleId !== 6 && formData.assignedBranch ? parseInt(formData.assignedBranch) : null,
       };
 
       await updateUser(id, payload);
+      toast.success("Success", "User details updated successfully!");
       navigate("/super-admin/users", { state: { successMessage: "User details updated successfully!" } });
     } catch (err) {
       console.error("Error updating user:", err);
-      setErrorMessage(err.response?.data?.message || err.message || "Failed to update user.");
+      const errorMsg = err.response?.data?.message || err.message || "Failed to update user.";
+      setErrorMessage(errorMsg);
+      toast.error("Error", errorMsg);
     } finally {
       setIsSaving(false);
     }
@@ -450,6 +471,8 @@ const UserDetails = () => {
           </div>
         </div>
       </div>
+      
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 };

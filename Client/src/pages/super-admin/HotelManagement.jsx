@@ -7,6 +7,8 @@ import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
+import { connectSocket, subscribeToCompanyUpdates, SOCKET_EVENTS } from "../../services/socket";
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^07[0-9]{8}$/;
 
@@ -62,6 +64,44 @@ const HotelManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // WebSocket subscription cleanup
+  useEffect(() => {
+    // Connect to socket
+    const socket = connectSocket();
+    
+    // Subscribe to company updates
+    const unsubscribe = subscribeToCompanyUpdates({
+      onCompanyCreated: (newCompany) => {
+        console.log("Company created via WebSocket:", newCompany);
+        setCompanies(prev => [...prev, newCompany]);
+        toast.success("New Company Added", `"${newCompany.com_name}" was added by another admin.`);
+      },
+      onCompanyUpdated: (updatedCompany) => {
+        console.log("Company updated via WebSocket:", updatedCompany);
+        setCompanies(prev => 
+          prev.map(c => 
+            c.com_id === updatedCompany.com_id ? updatedCompany : c
+          )
+        );
+        toast.info("Company Updated", `"${updatedCompany.com_name}" was updated by another admin.`);
+      },
+      onCompanyDeleted: (deletedCompany) => {
+        console.log("Company deleted via WebSocket:", deletedCompany);
+        setCompanies(prev => 
+          prev.filter(c => c.com_id !== deletedCompany.com_id)
+        );
+        toast.warning("Company Deleted", `"${deletedCompany.com_name}" was deleted by another admin.`);
+      }
+    });
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
+
   const handleToggleStatus = async (companyId, currentStatus) => {
     setTogglingId(companyId);
     try {
@@ -78,11 +118,12 @@ const HotelManagement = () => {
 
       // Call API
       await updateCompany(companyId, { c_status: nextStatus });
+      toast.success("Status Updated", `Company status changed to ${nextStatus ? "Active" : "Inactive"}`);
     } catch (err) {
       console.error("Error toggling company status:", err);
       // Revert on error
       fetchData();
-      alert("Failed to update status: " + (err.response?.data?.message || err.message));
+      toast.error("Update Failed", err.response?.data?.message || err.message || "Failed to update status");
     } finally {
       setTogglingId(null);
     }
@@ -182,12 +223,12 @@ const HotelManagement = () => {
       setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
       return;
     }
+    
     const today = new Date().toISOString().slice(0, 10);
     if (modalMode === "add" && formData.date < today) {
       setModalError("Registered date cannot be in the past.");
       return;
     }
-    setIsSaving(true);
 
     setIsSaving(true);
     setModalError("");
@@ -202,20 +243,34 @@ const HotelManagement = () => {
         package_id: formData.package_id ? parseInt(formData.package_id, 10) : null,
       };
 
+      let response;
       if (modalMode === "add") {
-        await createCompany(payload);
+        response = await createCompany(payload);
         toast.success("Company Created", `"${formData.name}" was successfully added.`);
+        // Optimistically add to list
+        setCompanies(prev => [...prev, response]);
       } else {
-        await updateCompany(formData.id, payload);
+        response = await updateCompany(formData.id, payload);
         toast.success("Company Updated", `"${formData.name}" details were saved.`);
+        // Optimistically update in list
+        setCompanies(prev => 
+          prev.map(c => 
+            c.com_id === formData.id ? response : c
+          )
+        );
       }
 
       setIsModalOpen(false);
-      fetchData();
+      // Refresh data to ensure consistency
+      await fetchData();
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Error saving company:", err);
-      setModalError(err.response?.data?.message || err.message || "Failed to save company.");
+      const errorMsg = err.response?.data?.message || err.message || "Failed to save company.";
+      setModalError(errorMsg);
+      toast.error("Save Failed", errorMsg);
+      // Revert optimistic update by refreshing
+      await fetchData();
     } finally {
       setIsSaving(false);
     }
@@ -251,11 +306,19 @@ const HotelManagement = () => {
     try {
       await deleteCompany(companyToDelete.com_id);
       setIsDeleteModalOpen(false);
-      fetchData();
       toast.success("Company Deleted", `"${companyToDelete?.com_name}" was removed.`);
+      // Optimistically remove from list
+      setCompanies(prev => 
+        prev.filter(c => c.com_id !== companyToDelete.com_id)
+      );
+      await fetchData(); // Refresh to ensure consistency
     } catch (err) {
       console.error("Error deleting company:", err);
-      setDeleteError(err.response?.data?.message || err.message || "Failed to delete company.");
+      const errorMsg = err.response?.data?.message || err.message || "Failed to delete company.";
+      setDeleteError(errorMsg);
+      toast.error("Delete Failed", errorMsg);
+      // Revert by refreshing
+      await fetchData();
     } finally {
       setIsDeleting(false);
     }
