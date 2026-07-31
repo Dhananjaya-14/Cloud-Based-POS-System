@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
-import { emitUserEventToBranch, emitSocketEvent, SOCKET_EVENTS, getBranchUserRoom } from "../utils/socket.js";
+import { emitUserEventToBranch, emitSocketEvent, SOCKET_EVENTS, getBranchUserRoom, getCompanyRoom } from "../utils/socket.js";
 
 // Helper to hash password when provided
 async function hashPassword(password) {
@@ -215,27 +215,43 @@ export async function createUser(req, res, next) {
     const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [role_id || newUser.role_id]);
     const roleName = roleRes.rows[0]?.role_name || "Unknown";
 
-    // Prepare user with details
+    // Get company name and branch name
+    let companyName = null;
+    let branchName = null;
+    
+    if (com_id) {
+      const companyRes = await pool.query('SELECT com_name FROM "Company" WHERE com_id = $1', [com_id]);
+      companyName = companyRes.rows[0]?.com_name || null;
+    }
+    
+    if (B_id) {
+      const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [B_id]);
+      branchName = branchRes.rows[0]?.B_name || null;
+    }
+
+    // Prepare user with details for socket emission
     const userWithDetails = {
       ...newUser,
       role_name: roleName,
+      company_name: companyName,
+      branch_name: branchName,
       ...getActorMeta(req),
     };
 
-    // Emit socket event to notify branch admins about new user
-    if (B_id) {
-      // Get branch name for the user
-      const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [B_id]);
-      const branchName = branchRes.rows[0]?.B_name || null;
-      userWithDetails.branch_name = branchName;
-      
-      emitUserEventToBranch(B_id, SOCKET_EVENTS.USER_CREATED, userWithDetails);
-    }
-
-    // Also emit to company room for company admins
+    // Emit socket event to ALL super admins and relevant rooms
+    // Emit to global room for super admins
+    emitSocketEvent(SOCKET_EVENTS.USER_CREATED, userWithDetails, { room: "branch-updates" });
+    
+    // Emit to company room for company admins
     if (com_id) {
-      const companyRoom = `company_${com_id}`;
+      const companyRoom = getCompanyRoom(com_id);
       emitSocketEvent(SOCKET_EVENTS.USER_CREATED, userWithDetails, { room: companyRoom });
+    }
+    
+    // Emit to branch room for branch admins
+    if (B_id) {
+      const branchUserRoom = getBranchUserRoom(B_id);
+      emitSocketEvent(SOCKET_EVENTS.USER_CREATED, userWithDetails, { room: branchUserRoom });
     }
 
     res.status(201).json(newUser);
@@ -370,30 +386,44 @@ export async function updateUser(req, res, next) {
     const roleRes = await pool.query('SELECT role_name FROM "Role" WHERE role_id = $1', [targetRoleId]);
     const roleName = roleRes.rows[0]?.role_name || "Unknown";
 
+    // Get company name and branch name
+    let companyName = null;
+    let branchName = null;
+    
+    if (com_id) {
+      const companyRes = await pool.query('SELECT com_name FROM "Company" WHERE com_id = $1', [com_id]);
+      companyName = companyRes.rows[0]?.com_name || null;
+    }
+    
+    if (B_id) {
+      const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [B_id]);
+      branchName = branchRes.rows[0]?.B_name || null;
+    }
+
     const userWithDetails = {
       ...updatedUser,
       role_name: roleName,
+      company_name: companyName,
+      branch_name: branchName,
       ...getActorMeta(req),
     };
 
     // Emit socket events for user updates
-    const finalBranchId = B_id || oldBranchId;
-    
-    if (finalBranchId) {
-      const branchRes = await pool.query('SELECT "B_name" FROM "Branch" WHERE "B_id" = $1', [finalBranchId]);
-      const branchName = branchRes.rows[0]?.B_name || null;
-      userWithDetails.branch_name = branchName;
-      
-      // If branch changed, notify both old and new branches
-      if (oldBranchId && oldBranchId !== finalBranchId) {
-        emitUserEventToBranch(oldBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), ...getActorMeta(req) });
-      }
-      emitUserEventToBranch(finalBranchId, SOCKET_EVENTS.USER_UPDATED, userWithDetails);
-    }
+    // Emit to global room for super admins
+    emitSocketEvent(SOCKET_EVENTS.USER_UPDATED, userWithDetails, { room: "branch-updates" });
 
-    // Emit to company rooms so all logged-in company admins receive the update.
-    [...new Set([oldComId, com_id].filter(Boolean))].forEach((companyId) => {
-      emitSocketEvent(SOCKET_EVENTS.USER_UPDATED, userWithDetails, { room: `company_${companyId}` });
+    // Emit to company rooms
+    const companyIds = [oldComId, com_id].filter(Boolean);
+    companyIds.forEach((companyId) => {
+      const companyRoom = getCompanyRoom(companyId);
+      emitSocketEvent(SOCKET_EVENTS.USER_UPDATED, userWithDetails, { room: companyRoom });
+    });
+
+    // Emit to branch rooms
+    const branchIds = [oldBranchId, B_id].filter(Boolean);
+    branchIds.forEach((branchId) => {
+      const branchUserRoom = getBranchUserRoom(branchId);
+      emitSocketEvent(SOCKET_EVENTS.USER_UPDATED, userWithDetails, { room: branchUserRoom });
     });
 
     res.json(updatedUser);
@@ -419,7 +449,7 @@ export async function deleteUser(req, res, next) {
     }
     
     const userToDelete = await pool.query(
-      `SELECT u_id, "B_id", "com_id", u_fname, u_lname FROM "User" WHERE u_id = $1 ${branchFilter}`,
+      `SELECT u_id, "B_id", "com_id", u_fname, u_lname, role_id FROM "User" WHERE u_id = $1 ${branchFilter}`,
       getUserParams
     );
     
@@ -430,6 +460,7 @@ export async function deleteUser(req, res, next) {
     
     const userBranchId = userToDelete.rows[0].B_id;
     const userComId = userToDelete.rows[0].com_id;
+    const userRoleId = userToDelete.rows[0].role_id;
     const userName = `${userToDelete.rows[0].u_fname || ''} ${userToDelete.rows[0].u_lname || ''}`.trim() || 'User';
     
     const params = [id];
@@ -447,15 +478,28 @@ export async function deleteUser(req, res, next) {
       throw new Error("User not found");
     }
 
-    // Emit socket event to notify branch admins about user deletion
-    if (userBranchId) {
-      emitUserEventToBranch(userBranchId, SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName, ...getActorMeta(req) });
-    }
+    // Prepare deletion payload
+    const deletionPayload = { 
+      u_id: parseInt(id), 
+      userName,
+      actor_id: req.user?.u_id ?? null,
+      actor_name: [req.user?.u_fname, req.user?.u_lname].filter(Boolean).join(" ") || req.user?.u_email || "Admin",
+    };
+
+    // Emit socket event to notify about user deletion
+    // Emit to global room for super admins
+    emitSocketEvent(SOCKET_EVENTS.USER_DELETED, deletionPayload, { room: "branch-updates" });
 
     // Emit to company room
     if (userComId) {
-      const companyRoom = `company_${userComId}`;
-      emitSocketEvent(SOCKET_EVENTS.USER_DELETED, { u_id: parseInt(id), userName, ...getActorMeta(req) }, { room: companyRoom });
+      const companyRoom = getCompanyRoom(userComId);
+      emitSocketEvent(SOCKET_EVENTS.USER_DELETED, deletionPayload, { room: companyRoom });
+    }
+
+    // Emit to branch room
+    if (userBranchId) {
+      const branchUserRoom = getBranchUserRoom(userBranchId);
+      emitSocketEvent(SOCKET_EVENTS.USER_DELETED, deletionPayload, { room: branchUserRoom });
     }
 
     res.status(204).send();

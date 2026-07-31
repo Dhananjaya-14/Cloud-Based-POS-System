@@ -7,6 +7,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
+import { connectSocket, subscribeToUserUpdates } from "../../services/socket";
 
 // Helper to get initials
 const getInitials = (name) => {
@@ -45,22 +46,6 @@ const RoleBadge = ({ role }) => {
   );
 };
 
-const StatusBadge = ({ status }) => {
-  const s = String(status || "").toLowerCase();
-  const isActive = s === "active" || s === "true" || status === true;
-  return (
-    <span style={{
-      padding: "4px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600,
-      background: isActive ? "#DCFCE7" : "#FEE2E2",
-      color: isActive ? "#16A34A" : "#EF4444",
-      display: "inline-flex", alignItems: "center", gap: 6
-    }}>
-      <div style={{ width: 6, height: 6, borderRadius: "50%", background: isActive ? "#16A34A" : "#EF4444" }} />
-      {isActive ? "Active" : "Inactive"}
-    </span>
-  );
-};
-
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -73,38 +58,12 @@ const UserManagement = () => {
   const [userToDelete, setUserToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [togglingId, setTogglingId] = useState(null);
-  const { toasts, removeToast, toast } = useToast();
+  const { toast, toasts, removeToast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const handleToggleStatus = async (userId, currentStatus) => {
-    setTogglingId(userId);
-    try {
-      const s = String(currentStatus || "").toLowerCase();
-      const isActive = s === "active" || s === "true" || currentStatus === true;
-      const nextStatus = !isActive;
-
-      // Optimistic update locally
-      setUsers((prev) =>
-        prev.map((u) =>
-          u.u_id === userId ? { ...u, u_status: nextStatus } : u
-        )
-      );
-
-      // Call API
-      await updateUser(userId, { u_status: nextStatus });
-    } catch (err) {
-      console.error("Error toggling user status:", err);
-      // Revert on error
-      fetchData();
-      alert("Failed to update status: " + (err.response?.data?.message || err.message));
-    } finally {
-      setTogglingId(null);
-    }
-  };
-
+  // Connect to socket and subscribe to user updates
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -112,12 +71,51 @@ const UserManagement = () => {
       return;
     }
     setAuthToken(token);
+    
+    // Connect to socket
+    const socket = connectSocket();
+    
+    // Subscribe to user updates
+    const unsubscribe = subscribeToUserUpdates({
+      onUserCreated: (newUser) => {
+        console.log("🆕 New user created via socket:", newUser);
+        setUsers(prevUsers => {
+          // Check if user already exists (prevent duplicates)
+          const exists = prevUsers.some(u => u.u_id === newUser.u_id);
+          if (exists) return prevUsers;
+          return [...prevUsers, newUser];
+        });
+        toast.success("New User Added", `${newUser.u_fname} ${newUser.u_lname} was added by ${newUser.actor_name || 'an admin'}`);
+      },
+      onUserUpdated: (updatedUser) => {
+        console.log("✏️ User updated via socket:", updatedUser);
+        setUsers(prevUsers => 
+          prevUsers.map(u => 
+            u.u_id === updatedUser.u_id ? { ...u, ...updatedUser } : u
+          )
+        );
+        toast.info("User Updated", `${updatedUser.u_fname} ${updatedUser.u_lname} was updated by ${updatedUser.actor_name || 'an admin'}`);
+      },
+      onUserDeleted: (deletedUser) => {
+        console.log("🗑️ User deleted via socket:", deletedUser);
+        setUsers(prevUsers => 
+          prevUsers.filter(u => u.u_id !== deletedUser.u_id)
+        );
+        toast.info("User Deleted", `${deletedUser.userName || 'A user'} was deleted by ${deletedUser.actor_name || 'an admin'}`);
+      }
+    });
+
     fetchData();
 
     if (location.state?.successMessage) {
-      toast.success("User Created", location.state.successMessage);
+      toast.success("Success", location.state.successMessage);
       window.history.replaceState({}, document.title);
     }
+
+    // Cleanup on unmount
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
   }, [navigate, location.state]);
 
   const openDeleteModal = (user) => {
@@ -147,6 +145,33 @@ const UserManagement = () => {
     }
   };
 
+  const handleToggleStatus = async (userId, currentStatus) => {
+    setTogglingId(userId);
+    try {
+      const s = String(currentStatus || "").toLowerCase();
+      const isActive = s === "active" || s === "true" || currentStatus === true;
+      const nextStatus = !isActive;
+
+      // Optimistic update locally
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.u_id === userId ? { ...u, u_status: nextStatus } : u
+        )
+      );
+
+      // Call API
+      await updateUser(userId, { u_status: nextStatus });
+      toast.success("Status Updated", "User status was successfully updated.");
+    } catch (err) {
+      console.error("Error toggling user status:", err);
+      // Revert on error
+      fetchData();
+      toast.error("Error", err.response?.data?.message || err.message || "Failed to update status");
+    } finally {
+      setTogglingId(null);
+    }
+  };
+
   const handleDeleteUser = async () => {
     if (!userToDelete?.u_id) return;
     setIsDeleting(true);
@@ -154,11 +179,13 @@ const UserManagement = () => {
     try {
       await deleteUserById(userToDelete.u_id);
       setIsDeleteModalOpen(false);
-      fetchData();
       toast.success("User Deleted", "The user was permanently removed.");
+      // Socket event will handle the removal, but we also fetch to be safe
+      fetchData();
     } catch (err) {
       console.error("Error deleting user:", err);
       setErrorMessage(err.response?.data?.message || err.message || "Failed to delete user.");
+      toast.error("Error", err.response?.data?.message || err.message || "Failed to delete user.");
     } finally {
       setIsDeleting(false);
     }
@@ -561,8 +588,5 @@ const pageBtnStyle = {
   cursor: "pointer",
   fontWeight: 500,
 };
-
-const labelStyle = { display: "block", fontSize: 12, fontWeight: 700, color: "#6B7280", letterSpacing: "0.5px", marginBottom: 6 };
-const inputStyle = { width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid #D1D5DB", outline: "none", fontSize: 14, boxSizing: "border-box", color: "#111827" };
 
 export default UserManagement;

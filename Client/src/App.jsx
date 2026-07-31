@@ -40,6 +40,7 @@ import ProductSalesReport from './pages/branch-admin/ProductSalesReport';
 import RawMaterialStockReport from './pages/branch-admin/RawMaterialStockReport';
 import RawMaterialConsumptionReport from './pages/branch-admin/RawMaterialConsumptionReport';
 import SalesDetailsReport from './pages/cashier/SalesDetailsReport';
+import ActivityLog from './pages/super-admin/ActivityLog';
 
 const BranchProfileRouter = () => {
   const { user } = useAuth();
@@ -114,6 +115,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[6]}>
             <SuperAdminUserDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/activity-log"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <ActivityLog />
           </ProtectedRoute>
         }
       />

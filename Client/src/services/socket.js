@@ -189,6 +189,44 @@ export const leaveBranchInventoryRoom = (branchId) => {
   }
 };
 
+// Helper function to subscribe to user updates (for super admins and admins)
+export const subscribeToUserUpdates = (callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const {
+    onUserCreated,
+    onUserUpdated,
+    onUserDeleted
+  } = callbacks;
+
+  // Join branch updates room for super admins
+  joinBranchUpdatesRoom();
+
+  if (onUserCreated) {
+    socket.on(SOCKET_EVENTS.USER_CREATED, onUserCreated);
+  }
+  if (onUserUpdated) {
+    socket.on(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+  }
+  if (onUserDeleted) {
+    socket.on(SOCKET_EVENTS.USER_DELETED, onUserDeleted);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onUserCreated) {
+      socket.off(SOCKET_EVENTS.USER_CREATED, onUserCreated);
+    }
+    if (onUserUpdated) {
+      socket.off(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+    }
+    if (onUserDeleted) {
+      socket.off(SOCKET_EVENTS.USER_DELETED, onUserDeleted);
+    }
+  };
+};
+
 // Helper function to subscribe to company updates
 export const subscribeToCompanyUpdates = (callbacks) => {
   const socket = getSocket();
@@ -407,17 +445,6 @@ export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
     joinBranchInventoryRoom(branchId);
   }
 
-  // Also join company room for cross-branch updates
-  const token = localStorage.getItem("token");
-  if (token) {
-    try {
-      // Parse JWT to get company_id (or get from auth context)
-      // For simplicity, we'll listen on branch room only
-    } catch (e) {
-      console.warn("Could not parse JWT for company room join");
-    }
-  }
-
   if (onBranchProductAdded) {
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, onBranchProductAdded);
   }
@@ -488,6 +515,7 @@ export default {
   joinBranchInventoryRoom,
   leaveBranchInventoryRoom,
   joinBranchUpdatesRoom,
+  subscribeToUserUpdates,
   subscribeToCompanyUpdates,
   subscribeToProductUpdates,
   subscribeToRecipeUpdates,
