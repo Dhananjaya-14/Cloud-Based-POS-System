@@ -130,6 +130,15 @@ function App() {
       />
 
       <Route
+        path="/admin/activity-log"
+        element={
+          <ProtectedRoute allowedRoles={[2, 6]}>
+            <ActivityLog />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
         path="/super-admin/branches"
         element={
           <ProtectedRoute allowedRoles={[6]}>

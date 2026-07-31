@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import AdminSidebar from "../../components/admin/Sidebar";
+import AdminHeader from "../../components/admin/Header";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import Spinner from "../../components/super-admin/Spinner";
@@ -347,6 +350,13 @@ const PurgeModal = ({ onConfirm, onCancel }) => {
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────────
 const ActivityLog = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentRoleId = Number(user?.role_id ?? storedUser?.role_id);
+  const isSuperAdmin = currentRoleId === 6;
+  const canManageLogs = isSuperAdmin;
+  const ShellSidebar = isSuperAdmin ? Sidebar : AdminSidebar;
+  const ShellHeader = isSuperAdmin ? Header : AdminHeader;
 
   // Data
   const [logs, setLogs]       = useState([]);
@@ -499,16 +509,17 @@ const ActivityLog = () => {
   const loginCount   = summary?.byAction?.find((a) => a.action_type === "LOGIN")?.count ?? 0;
   const createCount  = summary?.byAction?.find((a) => a.action_type === "CREATE")?.count ?? 0;
   const deleteCount  = summary?.byAction?.find((a) => a.action_type === "DELETE")?.count ?? 0;
+  const tableHeaders = ["#", "User", "Company / Branch", "Action", "Module", "Description", "IP Address", "Timestamp"];
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9", fontFamily: "'Inter', sans-serif" }}>
-      <Sidebar />
+      <ShellSidebar />
 
       <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
-        <Header title="Activity Log" />
+        <ShellHeader title="Activity Log" />
 
         <div style={{ padding: "24px 28px", flex: 1 }}>
 
@@ -607,26 +618,27 @@ const ActivityLog = () => {
                   <FaSync size={12} /> Refresh
                 </button>
 
-                {/* Purge */}
-                <button
-                  id="btn-purge-logs"
-                  onClick={() => setShowPurge(true)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "9px 16px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#FEE2E2",
-                    color: "#DC2626",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontSize: 13,
-                  }}
-                >
-                  <FaBan size={12} /> Bulk Purge
-                </button>
+                {canManageLogs && (
+                  <button
+                    id="btn-purge-logs"
+                    onClick={() => setShowPurge(true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "9px 16px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#FEE2E2",
+                      color: "#DC2626",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontSize: 13,
+                    }}
+                  >
+                    <FaBan size={12} /> Bulk Purge
+                  </button>
+                )}
               </div>
             </div>
 
@@ -806,7 +818,7 @@ const ActivityLog = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
                   <thead>
                     <tr style={{ background: "#F9FAFB" }}>
-                      {["#", "User", "Company / Branch", "Action", "Module", "Description", "IP Address", "Timestamp", ""].map((h) => (
+                      {[...tableHeaders, ...(canManageLogs ? [""] : [])].map((h) => (
                         <th
                           key={h}
                           style={{
@@ -921,34 +933,35 @@ const ActivityLog = () => {
                             </span>
                           </td>
 
-                          {/* Delete */}
-                          <td style={{ ...cellStyle, textAlign: "center" }}>
-                            <button
-                              id={`btn-delete-log-${log.log_id || idx}`}
-                              title="Delete this log entry"
-                              onClick={() => setDeleteTarget(log.log_id || idx)}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                color: "#FCA5A5",
-                                fontSize: 14,
-                                padding: "4px 8px",
-                                borderRadius: 6,
-                                transition: "color 0.2s, background 0.2s",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.color = "#DC2626";
-                                e.currentTarget.style.background = "#FEE2E2";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.color = "#FCA5A5";
-                                e.currentTarget.style.background = "none";
-                              }}
-                            >
-                              <FaTrash />
-                            </button>
-                          </td>
+                          {canManageLogs && (
+                            <td style={{ ...cellStyle, textAlign: "center" }}>
+                              <button
+                                id={`btn-delete-log-${log.log_id || idx}`}
+                                title="Delete this log entry"
+                                onClick={() => setDeleteTarget(log.log_id || idx)}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  color: "#FCA5A5",
+                                  fontSize: 14,
+                                  padding: "4px 8px",
+                                  borderRadius: 6,
+                                  transition: "color 0.2s, background 0.2s",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = "#DC2626";
+                                  e.currentTarget.style.background = "#FEE2E2";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = "#FCA5A5";
+                                  e.currentTarget.style.background = "none";
+                                }}
+                              >
+                                <FaTrash />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -1057,7 +1070,7 @@ const ActivityLog = () => {
       </div>
 
       {/* ── Modals ──────────────────────────────────────────────── */}
-      {deleteTarget && (
+      {canManageLogs && deleteTarget && (
         <ConfirmModal
           title="Delete Log Entry"
           message="Are you sure you want to permanently delete this log entry? This action cannot be undone."
@@ -1067,7 +1080,7 @@ const ActivityLog = () => {
         />
       )}
 
-      {showPurge && (
+      {canManageLogs && showPurge && (
         <PurgeModal
           onConfirm={handlePurge}
           onCancel={() => setShowPurge(false)}

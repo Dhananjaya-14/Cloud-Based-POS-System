@@ -1,13 +1,24 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
 
+const toNumber = (value) => {
+  if (value == null || value === "") {
+    return null;
+  }
+
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
 // ─────────────────────────────────────────────
 // GET /api/activity-logs
 // Query params: page, limit, u_id, com_id, b_id, module_name, action_type, from, to, search
 // ─────────────────────────────────────────────
 export async function getActivityLogs(req, res, next) {
   try {
-    const { role_id, com_id: tokenComId, b_id: tokenBId } = req.user;
+    const roleId = toNumber(req.user?.role_id);
+    const tokenComId = toNumber(req.user?.com_id);
+    const tokenBId = toNumber(req.user?.b_id);
 
     // ── pagination ──────────────────────────────────────
     const page  = Math.max(1, parseInt(req.query.page)  || 1);
@@ -30,11 +41,11 @@ export async function getActivityLogs(req, res, next) {
     const values     = [];
 
     // Role-based scoping
-    if (role_id === ROLES.ADMIN && tokenComId != null) {
+    if (roleId === ROLES.ADMIN && tokenComId != null) {
       // Company admin → see only their company's logs
       conditions.push(`al.com_id = $${values.length + 1}`);
       values.push(tokenComId);
-    } else if (role_id === ROLES.BRANCH_ADMIN && tokenBId != null) {
+    } else if (roleId === ROLES.BRANCH_ADMIN && tokenBId != null) {
       // Branch admin → see only their branch's logs
       conditions.push(`al.b_id = $${values.length + 1}`);
       values.push(tokenBId);
@@ -48,13 +59,13 @@ export async function getActivityLogs(req, res, next) {
     }
 
     // Company filter (Super Admin only; others are already scoped)
-    if (qComId && role_id === ROLES.SUPER_ADMIN) {
+    if (qComId && roleId === ROLES.SUPER_ADMIN) {
       conditions.push(`al.com_id = $${values.length + 1}`);
       values.push(parseInt(qComId));
     }
 
     // Branch filter
-    if (qBId && (role_id === ROLES.SUPER_ADMIN || role_id === ROLES.ADMIN)) {
+    if (qBId && (roleId === ROLES.SUPER_ADMIN || roleId === ROLES.ADMIN)) {
       conditions.push(`al.b_id = $${values.length + 1}`);
       values.push(parseInt(qBId));
     }
@@ -146,7 +157,9 @@ export async function getActivityLogs(req, res, next) {
 export async function getActivityLogById(req, res, next) {
   try {
     const { id } = req.params;
-    const { role_id, com_id: tokenComId, b_id: tokenBId } = req.user;
+    const roleId = toNumber(req.user?.role_id);
+    const tokenComId = toNumber(req.user?.com_id);
+    const tokenBId = toNumber(req.user?.b_id);
 
     const result = await pool.query(
       `SELECT
@@ -181,11 +194,11 @@ export async function getActivityLogById(req, res, next) {
     const log = result.rows[0];
 
     // Scope enforcement
-    if (role_id === ROLES.ADMIN && log.com_id !== tokenComId) {
+    if (roleId === ROLES.ADMIN && Number(log.com_id) !== tokenComId) {
       res.status(403);
       throw new Error("You do not have permission to view this log entry");
     }
-    if (role_id === ROLES.BRANCH_ADMIN && log.b_id !== tokenBId) {
+    if (roleId === ROLES.BRANCH_ADMIN && Number(log.b_id) !== tokenBId) {
       res.status(403);
       throw new Error("You do not have permission to view this log entry");
     }
@@ -202,15 +215,17 @@ export async function getActivityLogById(req, res, next) {
 // ─────────────────────────────────────────────
 export async function getActivityLogSummary(req, res, next) {
   try {
-    const { role_id, com_id: tokenComId, b_id: tokenBId } = req.user;
+    const roleId = toNumber(req.user?.role_id);
+    const tokenComId = toNumber(req.user?.com_id);
+    const tokenBId = toNumber(req.user?.b_id);
 
     const conditions = [];
     const values     = [];
 
-    if (role_id === ROLES.ADMIN && tokenComId != null) {
+    if (roleId === ROLES.ADMIN && tokenComId != null) {
       conditions.push(`com_id = $${values.length + 1}`);
       values.push(tokenComId);
-    } else if (role_id === ROLES.BRANCH_ADMIN && tokenBId != null) {
+    } else if (roleId === ROLES.BRANCH_ADMIN && tokenBId != null) {
       conditions.push(`b_id = $${values.length + 1}`);
       values.push(tokenBId);
     }

@@ -12,6 +12,7 @@ import {
   FaTag,
   FaFileAlt,
   FaTruck,
+  FaClipboardList,
   FaLock,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
@@ -113,6 +114,7 @@ const Sidebar = () => {
             {menuItem(<FaTag />, "Promotions", "/admin/promotions", isLocked("has_promotions"))}
             {menuItem(<FaTruck />, "Suppliers", "/admin/suppliers", isLocked("has_suppliers"))}
             {menuItem(<FaFileAlt />, "Reports", "/admin/sales-details", isLocked("has_reports"))}
+            {menuItem(<FaClipboardList />, "Activity Log", "/admin/activity-log")}
           </div>
         </div>
 
