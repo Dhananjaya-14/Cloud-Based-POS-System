@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { BRANCH_SOCKET_ROOM, SOCKET_EVENTS, emitSocketEvent } from "../utils/socket.js";
 import { ROLES } from "../middleware/authMiddleware.js";
 
 const toNumber = (value) => {
@@ -299,6 +300,16 @@ export async function deleteActivityLog(req, res, next) {
       throw new Error("Activity log not found");
     }
 
+    emitSocketEvent(
+      SOCKET_EVENTS.ACTIVITY_LOG_CHANGED,
+      {
+        type: "deleted",
+        log_ids: result.rows.map((row) => row.log_id),
+        deleted_count: result.rowCount,
+      },
+      { room: BRANCH_SOCKET_ROOM },
+    );
+
     res.status(204).send();
   } catch (err) {
     next(err);
@@ -333,6 +344,19 @@ export async function purgeActivityLogs(req, res, next) {
     const result = await pool.query(
       `DELETE FROM public.activity_log WHERE ${conditions.join(" AND ")} RETURNING log_id`,
       values
+    );
+
+    emitSocketEvent(
+      SOCKET_EVENTS.ACTIVITY_LOG_CHANGED,
+      {
+        type: "purged",
+        log_ids: result.rows.map((row) => row.log_id),
+        deleted_count: result.rowCount,
+        before,
+        com_id: com_id ? parseInt(com_id) : null,
+        b_id: b_id ? parseInt(b_id) : null,
+      },
+      { room: BRANCH_SOCKET_ROOM },
     );
 
     res.json({ deleted: result.rowCount });

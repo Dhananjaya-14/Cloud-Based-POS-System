@@ -6,6 +6,7 @@ import AdminHeader from "../../components/admin/Header";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import Spinner from "../../components/super-admin/Spinner";
+import { connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import {
   getActivityLogs,
   getActivityLogSummary,
@@ -445,6 +446,23 @@ const ActivityLog = () => {
     fetchLogs();
     fetchSummary();
   }, [navigate, fetchLogs, fetchSummary]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+
+    const socket = connectSocket();
+    const handleActivityLogChanged = () => {
+      fetchLogs();
+      fetchSummary();
+    };
+
+    socket.on(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, handleActivityLogChanged);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, handleActivityLogChanged);
+    };
+  }, [fetchLogs, fetchSummary]);
 
   // ── delete single ─────────────────────────────────────────────────────────────
   const handleDelete = async () => {
