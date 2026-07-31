@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaArrowLeft, FaCheck } from "react-icons/fa";
+import { FaArrowLeft, FaCheck, FaTimes } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
@@ -11,6 +11,19 @@ import StatusToggle from "../../components/admin/StatusToggle";
 import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { getBranches, getRoles, getUserById, updateUser } from "../../services/api";
+
+function getComIdFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const userData = JSON.parse(window.atob(base64));
+    return userData.com_id || null;
+  } catch {
+    return null;
+  }
+}
 
 const EditUser = () => {
     const { userId } = useParams();
@@ -34,6 +47,7 @@ const EditUser = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [showSuccessToast, setShowSuccessToast] = useState(false);
+    const [toasts, setToasts] = useState([]);
 
     const resolvedUserId = useMemo(() => {
         return String(userId || "").trim();
@@ -95,6 +109,36 @@ const EditUser = () => {
         loadPageData();
     }, [resolvedUserId]);
 
+    useEffect(() => {
+        if (toasts.length === 0) return undefined;
+
+        const timer = setTimeout(() => {
+            setToasts((prev) => prev.slice(1));
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [toasts]);
+
+    const showToastMessage = (message, type = "success") => {
+        setToasts((prev) => [
+            ...prev,
+            {
+                id: Date.now() + Math.random(),
+                message,
+                type,
+            },
+        ]);
+    };
+
+    const removeToast = (toastId) => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+    };
+
+    const setSubmitError = (message) => {
+        setErrorMessage(message);
+        showToastMessage(message, "error");
+    };
+
     const roleOptions = useMemo(() => {
         if (!roles.length) {
             return [{ label: "No roles available", value: "" }];
@@ -107,6 +151,11 @@ const EditUser = () => {
                 value: String(roleItem.role_id),
             }));
     }, [roles]);
+        const isAdminRole = useMemo(() => {
+    const selectedRole = roles.find(r => String(r.role_id) === String(formData.role));
+    const roleName = selectedRole?.role_name?.toLowerCase() || "";
+    return roleName.includes("admin") && !roleName.includes("branch");
+    }, [roles, formData.role]);
 
     const branchOptions = useMemo(() => {
         if (!branches.length) {
@@ -127,22 +176,22 @@ const EditUser = () => {
         }
 
         if (!resolvedUserId) {
-            setErrorMessage("User id is missing. Open this page from User Management.");
+            setSubmitError("User id is missing. Open this page from User Management.");
             return;
         }
 
         if (!formData.firstName || !formData.lastName || !formData.email) {
-            setErrorMessage("First name, last name and email are required");
+            setSubmitError("First name, last name and email are required");
             return;
         }
 
         if (formData.password && formData.password !== formData.confirmPassword) {
-            setErrorMessage("Password and confirm password do not match");
+            setSubmitError("Password and confirm password do not match");
             return;
         }
 
         if (!formData.role) {
-            setErrorMessage("Please select a user role");
+            setSubmitError("Please select a user role");
             return;
         }
 
@@ -154,8 +203,20 @@ const EditUser = () => {
                 u_email: formData.email,
                 u_connumber: formData.contactNumber || null,
                 role_id: Number(formData.role),
-                b_id: formData.branch ? Number(formData.branch) : null,
-            };
+                };
+
+                // If Admin role → send com_id automatically
+                if (isAdminRole) {
+                const com_id = getComIdFromToken();
+                if (!com_id) {
+                    setSubmitError("Could not determine company. Please re-login.");
+                    return;
+                }
+                payload.com_id = com_id;
+                payload.b_id = null; // clear branch for Admin
+                } else {
+                payload.b_id = formData.branch ? Number(formData.branch) : null;
+                }
 
             if (formData.password) {
                 payload.u_pw = formData.password;
@@ -163,7 +224,7 @@ const EditUser = () => {
 
             await updateUser(resolvedUserId, payload);
 
-            setShowSuccessToast(true);
+            showToastMessage("User details updated successfully.", "success");
             setFormData((prev) => ({
                 ...prev,
                 password: "",
@@ -171,7 +232,9 @@ const EditUser = () => {
             }));
             setIsEditMode(false);
         } catch (error) {
-            setErrorMessage(error?.response?.data?.message || "Failed to update user");
+            const message = error?.response?.data?.message || "Failed to update user";
+            setErrorMessage(message);
+            showToastMessage(message, "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -334,12 +397,14 @@ const EditUser = () => {
                                             onChange={(event) => updateField("role", event.target.value)}
                                             options={roleOptions}
                                         />
+                                        {!isAdminRole && (
                                         <FormSelect
                                             label="Assigned Branch"
                                             value={formData.branch}
                                             onChange={(event) => updateField("branch", event.target.value)}
                                             options={branchOptions}
                                         />
+                                        )}
                                         <StatusToggle
                                             checked={formData.isActive}
                                             onChange={(event) => updateField("isActive", event.target.checked)}
@@ -392,6 +457,57 @@ const EditUser = () => {
                     </div>
                 </div>
             </div>
+
+            {toasts.length > 0 && (
+                <div
+                    style={{
+                        position: "fixed",
+                        top: "82px",
+                        right: "20px",
+                        zIndex: 10000,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: "10px",
+                        width: "min(380px, calc(100vw - 32px))",
+                    }}
+                >
+                    {toasts.map((toast) => (
+                        <div
+                            key={toast.id}
+                            style={{
+                                background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                                borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                                borderRadius: "8px",
+                                padding: "14px 16px",
+                                boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                                color: toast.type === "error" ? "#991B1B" : "#065F46",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "12px",
+                            }}
+                        >
+                            <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => removeToast(toast.id)}
+                                style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "inherit",
+                                    cursor: "pointer",
+                                    opacity: 0.7,
+                                    padding: "4px",
+                                    display: "inline-flex",
+                                }}
+                                aria-label="Dismiss notification"
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
 
             {showSuccessToast && (
                 <div

@@ -92,6 +92,7 @@ const BranchProfileEdit = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
   const [form, setForm] = useState({
     B_name: "",
     B_email: "",
@@ -110,6 +111,7 @@ const BranchProfileEdit = () => {
       try {
         setLoading(true);
         setError("");
+        setSuccessMessage("");
 
         let branchData = location.state?.branch || null;
         let managerData = location.state?.manager || null;
@@ -165,6 +167,16 @@ const BranchProfileEdit = () => {
     };
   }, [branchId, location.state]);
 
+  // Auto-dismiss success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => {
+        setSuccessMessage("");
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
   const branchInitial = useMemo(() => {
     const name = form.B_name || branch?.B_name || "B";
     return name.charAt(0).toUpperCase();
@@ -214,6 +226,7 @@ const BranchProfileEdit = () => {
     try {
       setSaving(true);
       setError("");
+      setSuccessMessage("");
 
       const branchPayload = {
         B_name: form.B_name.trim(),
@@ -254,9 +267,16 @@ const BranchProfileEdit = () => {
 
       updateLocalState(nextBranch, updatedManager);
 
-      navigate(`/branch_profile/${branchId}`, {
-        state: { branch: nextBranch, manager: updatedManager },
-      });
+      // Set success message
+      setSuccessMessage(`✅ Branch "${nextBranch.B_name}" updated successfully!`);
+
+      // Navigate back to profile after short delay
+      setTimeout(() => {
+        navigate(`/branch_profile/${branchId}`, {
+          state: { branch: nextBranch, manager: updatedManager },
+        });
+      }, 1500);
+      
     } catch (err) {
       setError(err?.response?.data?.message || "Unable to save branch profile.");
     } finally {
@@ -278,8 +298,64 @@ const BranchProfileEdit = () => {
               background: "#ffffff",
               borderRadius: "0 0 10px 10px",
               padding: "28px 34px",
+              position: "relative",
             }}
           >
+            {/* Success Toast Message */}
+            {successMessage && (
+              <div
+                style={{
+                  position: "fixed",
+                  top: "80px",
+                  right: "20px",
+                  zIndex: 9999,
+                  backgroundColor: "#F0FDF4",
+                  borderLeft: "4px solid #22C55E",
+                  borderRadius: "8px",
+                  padding: "14px 18px",
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  maxWidth: "380px",
+                  width: "100%",
+                  animation: "slideInRight 0.3s ease-out",
+                }}
+              >
+                <div style={{ 
+                  flex: 1,
+                  fontSize: "14px",
+                  fontWeight: "500",
+                  color: "#065F46",
+                  lineHeight: "1.5"
+                }}>
+                  {successMessage}
+                </div>
+                <button
+                  onClick={() => setSuccessMessage("")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    color: "#065F46",
+                    cursor: "pointer",
+                    padding: "4px",
+                    marginLeft: "12px",
+                    fontSize: "16px",
+                    opacity: 0.6,
+                    transition: "opacity 0.2s",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "0.6";
+                  }}
+                >
+                  <FaTimes />
+                </button>
+              </div>
+            )}
+
             <button
               type="button"
               onClick={goToProfile}
@@ -463,6 +539,19 @@ const BranchProfileEdit = () => {
           </div>
         </div>
       </div>
+
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };

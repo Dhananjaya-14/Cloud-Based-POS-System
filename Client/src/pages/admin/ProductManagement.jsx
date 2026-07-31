@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
+// Client/src/pages/admin/ProductManagement.jsx
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FaBell,
@@ -6,12 +7,20 @@ import {
   FaChevronDown,
   FaExclamationTriangle,
   FaSearch,
+  FaTimes,
+  FaTrash,
 } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
-import { getProducts, updateProduct } from "../../services/api";
+import { getProducts, updateProduct, deleteProduct, deleteBranchProduct, getBranches } from "../../services/api";
+import { 
+  connectSocket, 
+  getSocket, 
+  SOCKET_EVENTS,
+  joinCompanyRoom,
+} from "../../services/socket";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -86,6 +95,7 @@ const mapApiProductToTableItem = (product) => {
 
   return {
     id: product.pro_id,
+    product_type: product.product_type || "made_to_order",
     imageUrl,
     imageAlt: product.pro_name || "Product",
     name: product.pro_name,
@@ -95,6 +105,7 @@ const mapApiProductToTableItem = (product) => {
     discount: "0%",
     stock: quantity,
     status: getStockStatus(quantity),
+    _original: product
   };
 };
 
@@ -107,7 +118,214 @@ const ProductManagement = () => {
   const [updatingStockId, setUpdatingStockId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 4;
+  const [userCompanyId, setUserCompanyId] = useState(null);
+  const isSubscribedRef = useRef(false);
+  
+  // Delete modal states
+  const [showDeletePopup, setShowDeletePopup] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleteTargetName, setDeleteTargetName] = useState("");
+  const [deleteOption, setDeleteOption] = useState("complete");
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  
+  // State for real-time notifications - stored as an array in sessionStorage
+  const [notifications, setNotifications] = useState(() => {
+    const savedNotifications = sessionStorage.getItem('adminProductNotifications');
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        const now = new Date();
+        const validNotifications = parsed.filter(notif => {
+          const timestamp = new Date(notif.timestamp);
+          const diffMinutes = (now - timestamp) / (1000 * 60);
+          return diffMinutes < 60;
+        });
+        if (validNotifications.length > 0) {
+          return validNotifications;
+        } else {
+          sessionStorage.removeItem('adminProductNotifications');
+          return [];
+        }
+      } catch (e) {
+        sessionStorage.removeItem('adminProductNotifications');
+        return [];
+      }
+    }
+    return [];
+  });
 
+  // Save notifications to sessionStorage whenever they change
+  useEffect(() => {
+    if (notifications.length > 0) {
+      sessionStorage.setItem('adminProductNotifications', JSON.stringify(notifications));
+    } else {
+      sessionStorage.removeItem('adminProductNotifications');
+    }
+  }, [notifications]);
+
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
+
+  // Connect to socket and join company room
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    try {
+      const userData = JSON.parse(localStorage.getItem("user") || "{}");
+      if (userData.com_id) {
+        setUserCompanyId(userData.com_id);
+      }
+    } catch (e) {
+      console.error("Failed to parse user data", e);
+    }
+
+    const socket = connectSocket();
+    socket.auth = { token };
+
+    const handleConnect = () => {
+      console.log("Socket connected for admin product management");
+      if (userCompanyId) {
+        joinCompanyRoom(userCompanyId);
+        console.log(`Joined company room: ${userCompanyId}`);
+      }
+    };
+
+    socket.on("connect", handleConnect);
+
+    if (socket.connected && userCompanyId) {
+      joinCompanyRoom(userCompanyId);
+    }
+
+    return () => {
+      socket.off("connect", handleConnect);
+    };
+  }, [userCompanyId]);
+
+  // Subscribe to product updates
+  useEffect(() => {
+    if (!userCompanyId || isSubscribedRef.current) return;
+    isSubscribedRef.current = true;
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    // Handler for new product added
+    const handleNewProduct = (data) => {
+      console.log("New product added via socket (admin):", data);
+      if (data.product && data.company_id === userCompanyId) {
+        setProducts(prev => {
+          const exists = prev.some(p => p.pro_id === data.product.pro_id);
+          if (exists) return prev;
+          return [...prev, data.product];
+        });
+        
+        setNotifications(prev => {
+          const productName = data.product.pro_name || 'Product';
+          const existingNotif = prev.find(n => 
+            n.type === 'add' && 
+            n.productName === productName && 
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
+          if (existingNotif) return prev;
+          
+          return [...prev, {
+            id: Date.now() + Math.random(),
+            type: 'add',
+            message: `📦 New product added: "${productName}"`,
+            timestamp: new Date().toISOString(),
+            productName: productName
+          }];
+        });
+      }
+    };
+
+    // Handler for product updated
+    const handleProductUpdated = (data) => {
+      console.log("Product updated via socket (admin):", data);
+      if (data.product && data.company_id === userCompanyId) {
+        setProducts(prev => 
+          prev.map(p => 
+            p.pro_id === data.product.pro_id 
+              ? { ...p, ...data.product }
+              : p
+          )
+        );
+        
+        setNotifications(prev => {
+          const productName = data.product.pro_name || 'Product';
+          const existingNotif = prev.find(n => 
+            n.type === 'update' && 
+            n.productName === productName && 
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
+          if (existingNotif) return prev;
+          
+          return [...prev, {
+            id: Date.now() + Math.random(),
+            type: 'update',
+            message: `✏️ Product updated: "${productName}"`,
+            timestamp: new Date().toISOString(),
+            productName: productName
+          }];
+        });
+      }
+    };
+
+    // Handler for product deleted
+    const handleProductDeleted = (data) => {
+      console.log("Product deleted via socket (admin):", data);
+      if (data.pro_id && data.company_id === userCompanyId) {
+        const deletedProduct = products.find(p => p.pro_id === data.pro_id);
+        const productName = deletedProduct?.pro_name || data.pro_name || 'Product';
+        
+        setProducts(prev => 
+          prev.filter(p => p.pro_id !== data.pro_id)
+        );
+        
+        
+        
+      }
+    };
+
+    socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
+    socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
+    socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+
+    return () => {
+      isSubscribedRef.current = false;
+      socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
+      socket.off(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
+      socket.off(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+    };
+  }, [userCompanyId, products]);
+
+  // Load initial products
   useEffect(() => {
     let isMounted = true;
 
@@ -115,9 +333,13 @@ const ProductManagement = () => {
       try {
         setLoading(true);
         setError("");
-        const response = await getProducts();
+        const [response, branchList] = await Promise.all([
+          getProducts(),
+          getBranches(),
+        ]);
         if (!isMounted) return;
         setProducts(Array.isArray(response) ? response : []);
+        setBranches(Array.isArray(branchList) ? branchList : []);
       } catch (err) {
         if (!isMounted) return;
         setError(err?.response?.data?.message || "Failed to load products");
@@ -203,8 +425,11 @@ const ProductManagement = () => {
             : item
         )
       );
+      showToastMessage(`Stock updated for "${existing.pro_name || "Product"}".`, "success");
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to update stock quantity");
+      const message = err?.response?.data?.message || "Failed to update stock quantity";
+      setError(message);
+      showToastMessage(message, "error");
     } finally {
       setUpdatingStockId(null);
     }
@@ -219,7 +444,67 @@ const ProductManagement = () => {
   };
 
   const handleDeleteProduct = (productId) => {
-    navigate(`/admin/products/${productId}/delete`);
+    const product = products.find(p => p.pro_id === productId);
+    if (product) {
+      setDeleteTargetId(productId);
+      setDeleteTargetName(product.pro_name || "Product");
+      setShowDeletePopup(true);
+      setDeleteOption("complete");
+      setSelectedBranchId("");
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTargetId) return;
+    
+    try {
+      setIsDeleting(true);
+      setError("");
+      
+      if (deleteOption === "complete") {
+        await deleteProduct(deleteTargetId);
+      } else if (deleteOption === "branch" && selectedBranchId) {
+        await deleteBranchProduct(deleteTargetId, selectedBranchId);
+      } else {
+        setError("Please select a branch for branch deletion");
+        setIsDeleting(false);
+        return;
+      }
+
+      // Remove from local state
+      setProducts(prev => prev.filter(p => p.pro_id !== deleteTargetId));
+      
+      // Show success notification
+      
+      showToastMessage(`Product "${deleteTargetName}" deleted successfully.`, "success");
+      
+      // Close popup
+      setShowDeletePopup(false);
+      setDeleteTargetId(null);
+      setDeleteTargetName("");
+      setSelectedBranchId("");
+      setDeleteOption("complete");
+    } catch (err) {
+      const message = err?.response?.data?.message || "Failed to delete product";
+      setError(message);
+      showToastMessage(message, "error");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const closeDeletePopup = () => {
+    if (isDeleting) return;
+    setShowDeletePopup(false);
+    setDeleteTargetId(null);
+    setDeleteTargetName("");
+    setSelectedBranchId("");
+    setDeleteOption("complete");
+    setError("");
+  };
+
+  const dismissNotification = (notificationId) => {
+    setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
   };
 
   return (
@@ -236,6 +521,62 @@ const ProductManagement = () => {
             minHeight: "calc(100vh - 70px)",
           }}
         >
+          {/* Toast Notifications */}
+          {toasts.length > 0 && (
+            <div
+              style={{
+                position: 'fixed',
+                top: '82px',
+                right: '20px',
+                zIndex: 10000,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                width: 'min(380px, calc(100vw - 32px))',
+              }}
+            >
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  style={{
+                    background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4',
+                    borderLeft: `4px solid ${toast.type === 'error' ? '#EF4444' : '#22C55E'}`,
+                    borderRadius: '8px',
+                    padding: '14px 16px',
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    color: toast.type === 'error' ? '#991B1B' : '#065F46',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                  }}
+                >
+                  <span style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeToast(toast.id)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      color: 'inherit',
+                      cursor: 'pointer',
+                      opacity: 0.7,
+                      padding: '4px',
+                      display: 'inline-flex',
+                    }}
+                    aria-label="Dismiss notification"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+         
+              
+            
+
           <div
             style={{
               display: "flex",
@@ -408,12 +749,12 @@ const ProductManagement = () => {
 
           <ProductItemsTable
             products={paginatedProducts}
-            onDecreaseStock={(id) => handleAdjustStock(id, -1)}
-            onIncreaseStock={(id) => handleAdjustStock(id, 1)}
+            hideStockColumn={true}
+            hideStatusColumn={true}
+            showTypeColumn={true}
             onViewProduct={handleViewProduct}
             onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}
-            updatingStockId={updatingStockId}
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={tableProducts.length}
@@ -423,6 +764,193 @@ const ProductManagement = () => {
           />
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeletePopup && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 10000,
+          }}
+          onClick={closeDeletePopup}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "16px",
+              padding: "32px",
+              maxWidth: "480px",
+              width: "90%",
+              maxHeight: "90vh",
+              overflowY: "auto",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "20px" }}>
+              <div
+                style={{
+                  background: "#FEE2E2",
+                  borderRadius: "50%",
+                  width: "48px",
+                  height: "48px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <FaTrash color="#DC2626" size={20} />
+              </div>
+              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "700", color: "#111827" }}>
+                Delete Product
+              </h2>
+            </div>
+
+            <p style={{ margin: "0 0 20px 0", color: "#4B5563", fontSize: "15px", lineHeight: "1.6" }}>
+              Are you sure you want to delete <strong>"{deleteTargetName}"</strong>?
+            </p>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "14px", color: "#374151" }}>
+                Delete Option
+              </label>
+              <div style={{ display: "flex", gap: "12px", flexDirection: "column" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    value="complete"
+                    checked={deleteOption === "complete"}
+                    onChange={(e) => setDeleteOption(e.target.value)}
+                  />
+                  <span>Complete Deletion (from all branches)</span>
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "14px", cursor: "pointer" }}>
+                  <input
+                    type="radio"
+                    value="branch"
+                    checked={deleteOption === "branch"}
+                    onChange={(e) => setDeleteOption(e.target.value)}
+                  />
+                  <span>Delete from specific branch only</span>
+                </label>
+              </div>
+            </div>
+
+            {deleteOption === "branch" && (
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", marginBottom: "8px", fontWeight: "600", fontSize: "14px", color: "#374151" }}>
+                  Select Branch
+                </label>
+                <select
+                  value={selectedBranchId}
+                  onChange={(e) => setSelectedBranchId(e.target.value)}
+                  style={{
+                    width: "100%",
+                    height: "42px",
+                    borderRadius: "8px",
+                    border: "1px solid #D1D5DB",
+                    padding: "0 12px",
+                    fontSize: "14px",
+                    outline: "none",
+                    background: "white",
+                  }}
+                >
+                  <option value="">Select a branch...</option>
+                  {branches.map((branch) => (
+                    <option key={branch.branch_id} value={branch.branch_id}>
+                      {branch.branch_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {error && (
+              <div style={{ 
+                background: "#FEE2E2", 
+                color: "#991B1B", 
+                padding: "10px 12px", 
+                borderRadius: "8px",
+                marginBottom: "16px",
+                fontSize: "14px"
+              }}>
+                {error}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={closeDeletePopup}
+                disabled={isDeleting}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: "8px",
+                  border: "1px solid #D1D5DB",
+                  background: "white",
+                  color: "#374151",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: isDeleting ? "not-allowed" : "pointer",
+                  opacity: isDeleting ? 0.6 : 1,
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                disabled={isDeleting || (deleteOption === "branch" && !selectedBranchId)}
+                style={{
+                  padding: "10px 24px",
+                  borderRadius: "8px",
+                  border: "none",
+                  background: "#DC2626",
+                  color: "white",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: (isDeleting || (deleteOption === "branch" && !selectedBranchId)) ? "not-allowed" : "pointer",
+                  opacity: (isDeleting || (deleteOption === "branch" && !selectedBranchId)) ? 0.6 : 1,
+                }}
+              >
+                {isDeleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        
+        .notifications-container::-webkit-scrollbar {
+          width: 4px;
+        }
+        
+        .notifications-container::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        
+        .notifications-container::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.2);
+          border-radius: 10px;
+        }
+      `}</style>
     </div>
   );
 };

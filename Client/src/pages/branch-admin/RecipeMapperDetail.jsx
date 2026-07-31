@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
@@ -13,6 +13,7 @@ import {
   deleteRecipeByProduct,
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { connectSocket, getSocket, SOCKET_EVENTS } from '../../services/socket';
 
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -43,6 +44,28 @@ const RecipeMapperDetail = () => {
   const [saving, setSaving] = useState(false);
   const [savingMapping, setSavingMapping] = useState(false);
   const [notice, setNotice] = useState("");
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [branchId, setBranchId] = useState(null); 
+
+  // Load recipe data
+  const loadRecipeData = useCallback(async () => {
+    try {
+      const recipeResponse = await getRecipesByProduct(productId);
+      const ingredients = Array.isArray(recipeResponse?.ingredients)
+        ? recipeResponse.ingredients
+        : Array.isArray(recipeResponse)
+          ? recipeResponse
+          : [];
+      setRecipeItems(ingredients);
+    } catch (err) {
+      if (err?.response?.status === 404) {
+        setRecipeItems([]);
+      } else {
+        console.error("Failed to load recipe:", err);
+      }
+    }
+  }, [productId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,18 +76,21 @@ const RecipeMapperDetail = () => {
         setError("");
         setNotice("");
 
-        const [categoryList, branchList, materials] = await Promise.all([
+        const [categoryList, branchList] = await Promise.all([
           getCategories(),
           getBranches(),
-          getRawMaterials(),
         ]);
 
         const branch =
           branchList?.find((item) => String(item.U_id) === String(user?.u_id)) ||
           branchList?.[0];
 
-        let branchProducts = branch?.B_id
-          ? await getBranchProducts(branch.B_id)
+        const resolvedBid = branch?.B_id ?? null;
+
+        const materials = await getRawMaterials(resolvedBid ? { b_id: resolvedBid } : {});
+
+        let branchProducts = resolvedBid
+          ? await getBranchProducts(resolvedBid)
           : [];
 
         if (!Array.isArray(branchProducts) || branchProducts.length === 0) {
@@ -75,7 +101,8 @@ const RecipeMapperDetail = () => {
           (item) => String(item?.pro_id) === String(productId)
         );
 
-        const recipeResponse = await getRecipesByProduct(productId);
+        // Load recipe data with branch ID
+        const recipeResponse = await getRecipesByProduct(productId, resolvedBid);
         const ingredients = Array.isArray(recipeResponse?.ingredients)
           ? recipeResponse.ingredients
           : Array.isArray(recipeResponse)
@@ -84,17 +111,14 @@ const RecipeMapperDetail = () => {
 
         if (!isMounted) return;
 
+        setBranchId(resolvedBid);
         setCategories(Array.isArray(categoryList) ? categoryList : []);
         setRawMaterials(Array.isArray(materials) ? materials : []);
         setProduct(foundProduct || null);
         setRecipeItems(ingredients);
       } catch (err) {
         if (!isMounted) return;
-        if (err?.response?.status === 404) {
-          setRecipeItems([]);
-        } else {
-          setError(err?.response?.data?.message || "Failed to load recipe details");
-        }
+        setError(err?.response?.data?.message || "Failed to load recipe details");
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -108,6 +132,109 @@ const RecipeMapperDetail = () => {
       isMounted = false;
     };
   }, [productId, user?.u_id]);
+
+  // WebSocket setup for real-time recipe updates
+  useEffect(() => {
+    const companyId = user?.com_id;
+    if (!companyId) return;
+
+    const socket = connectSocket();
+    
+    const handleConnect = () => {
+      console.log('Socket connected in RecipeMapperDetail');
+      setSocketConnected(true);
+    };
+
+    const handleDisconnect = () => {
+      console.log('Socket disconnected in RecipeMapperDetail');
+      setSocketConnected(false);
+    };
+
+    // Handle new ingredient added to current product
+    const handleRecipeCreated = (data) => {
+      console.log('Recipe created event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        // New ingredient for current product
+        setRecipeItems(prev => {
+          const exists = prev.some(item => item.rawmaterial_id === data.ingredient.rawmaterial_id);
+          if (exists) return prev;
+          const updated = [...prev, data.ingredient];
+          setNotice(`New ingredient "${data.ingredient.rm_name}" added to recipe`);
+          setTimeout(() => setNotice(""), 3000);
+          return updated;
+        });
+      }
+    };
+
+    // Handle bulk recipe creation
+    const handleBulkRecipeCreated = (data) => {
+      console.log('Bulk recipe created event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems(data.ingredients);
+        setNotice(`Recipe updated with ${data.ingredients.length} ingredients`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Handle ingredient update
+    const handleRecipeUpdated = (data) => {
+      console.log('Recipe updated event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems(prev => 
+          prev.map(item => 
+            item.recipe_id === data.ingredient.recipe_id 
+              ? { ...item, ...data.ingredient }
+              : item
+          )
+        );
+        setNotice(`Ingredient "${data.ingredient.rm_name}" quantity updated`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Handle ingredient deletion
+    const handleRecipeDeleted = (data) => {
+      console.log('Recipe deleted event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems(prev => prev.filter(item => item.recipe_id !== data.recipe_id));
+        setNotice(`Ingredient removed from recipe`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Handle product recipe cleared
+    const handleProductCleared = (data) => {
+      console.log('Product recipe cleared event received:', data);
+      if (data.pro_id === parseInt(productId)) {
+        setRecipeItems([]);
+        setNotice(`All ingredients removed from this recipe`);
+        setTimeout(() => setNotice(""), 3000);
+      }
+    };
+
+    // Set up socket event listeners
+    socket.on('connect', handleConnect);
+    socket.on('disconnect', handleDisconnect);
+    socket.on('recipe:created', handleRecipeCreated);
+    socket.on('recipe:bulk_created', handleBulkRecipeCreated);
+    socket.on('recipe:updated', handleRecipeUpdated);
+    socket.on('recipe:deleted', handleRecipeDeleted);
+    socket.on('recipe:product_cleared', handleProductCleared);
+
+    if (socket.connected) {
+      handleConnect();
+    }
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('disconnect', handleDisconnect);
+      socket.off('recipe:created', handleRecipeCreated);
+      socket.off('recipe:bulk_created', handleBulkRecipeCreated);
+      socket.off('recipe:updated', handleRecipeUpdated);
+      socket.off('recipe:deleted', handleRecipeDeleted);
+      socket.off('recipe:product_cleared', handleProductCleared);
+    };
+  }, [user?.com_id, productId]);
 
   const categoryMap = useMemo(() => {
     const map = new Map();
@@ -191,7 +318,7 @@ const RecipeMapperDetail = () => {
       setError("");
       setNotice("");
 
-      await deleteRecipeByProduct(productId);
+      await deleteRecipeByProduct(productId, branchId);
 
       if (recipeItems.length === 0) {
         setNotice("Recipe cleared.");
@@ -200,6 +327,7 @@ const RecipeMapperDetail = () => {
 
       const payload = {
         pro_id: Number(productId),
+        b_id: branchId,
         ingredients: recipeItems.map((item) => ({
           rawmaterial_id: Number(item.rawmaterial_id),
           quantity_req: Number(item.quantity_req),
@@ -209,13 +337,15 @@ const RecipeMapperDetail = () => {
 
       await createRecipeBulk(payload);
 
-      const refreshed = await getRecipesByProduct(productId);
+      // Refresh recipe data after saving
+      const refreshed = await getRecipesByProduct(productId, branchId);
       const ingredients = Array.isArray(refreshed?.ingredients)
         ? refreshed.ingredients
         : Array.isArray(refreshed)
           ? refreshed
           : [];
       setRecipeItems(ingredients);
+      setShowSuccessPopup(true);
       setNotice("Ingredients mapping saved.");
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to save ingredients mapping");
@@ -233,6 +363,13 @@ const RecipeMapperDetail = () => {
       <Sidebar />
       <div style={{ marginLeft: 240, minHeight: "100vh", background: "#F6F7FB" }}>
         <Header title="Recipe Mapper" showAddUserIcon={false} />
+
+        {/* Socket connection indicator */}
+        {socketConnected && (
+          <div className="fixed bottom-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs shadow-lg z-50">
+            Live Updates Active
+          </div>
+        )}
 
         <div style={{ padding: "20px 30px 40px" }}>
           <button
@@ -334,8 +471,8 @@ const RecipeMapperDetail = () => {
           {notice && (
             <div
               style={{
-                background: "#ECFDF3",
-                color: "#027A48",
+                background: "#D1FAE5",
+                color: "#065F46",
                 padding: "10px 14px",
                 borderRadius: "10px",
                 fontSize: "13px",
@@ -515,6 +652,81 @@ const RecipeMapperDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+        >
+          <div
+            style={{
+              width: "min(92vw, 430px)",
+              background: "#EBEBEB",
+              borderRadius: "22px",
+              padding: "32px 20px",
+              textAlign: "center",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                width: "62px",
+                height: "62px",
+                borderRadius: "50%",
+                background: "#0E5BA8",
+                margin: "0 auto 16px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <span style={{ color: "#fff", fontSize: "28px" }}>✓</span>
+            </div>
+
+            <h2
+              style={{
+                margin: "0 0 20px",
+                fontSize: "18px",
+                lineHeight: 1.4,
+                fontWeight: "600",
+                color: "#0E5BA8",
+              }}
+            >
+              Ingredients mapping
+              <br />
+              saved Successfully!
+            </h2>
+
+            <button
+              onClick={() => setShowSuccessPopup(false)}
+              style={{
+                width: "100%",
+                height: "52px",
+                border: "none",
+                borderRadius: "12px",
+                background: "#0E5BA8",
+                color: "#fff",
+                fontSize: "15px",
+                fontWeight: "500",
+                cursor: "pointer",
+              }}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
     </>
   );
 };

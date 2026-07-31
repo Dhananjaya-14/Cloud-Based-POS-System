@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaArrowLeft, FaCheck } from "react-icons/fa";
+import { FaArrowLeft, FaCheck, FaTimes } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
@@ -11,6 +11,22 @@ import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { createUser, getBranches, getRoles } from "../../services/api";
 import {Link} from 'react-router-dom';
+const PHONE_RE = /^07[0-9]{8}$/;
+
+
+function getComIdFromToken() {
+  try {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const userData = JSON.parse(window.atob(base64));
+    return userData.com_id || null;
+  } catch {
+    return null;
+  }
+}
+
 const AddUser = () => {
 	const [formData, setFormData] = useState({
 		firstName: "",
@@ -28,7 +44,14 @@ const AddUser = () => {
 	const [isLoadingOptions, setIsLoadingOptions] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
+	const [phoneError, setPhoneError] = useState("");
 	const [showSuccessToast, setShowSuccessToast] = useState(false);
+	const [toasts, setToasts] = useState([]);
+
+	const isAdminRole = roles.find(r => String(r.role_id) === String(formData.role))
+                         ?.role_name?.toLowerCase().includes("admin") &&
+                    !roles.find(r => String(r.role_id) === String(formData.role))
+                         ?.role_name?.toLowerCase().includes("branch");
 
 	const updateField = (field, value) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -63,6 +86,36 @@ const AddUser = () => {
 		loadOptions();
 	}, []);
 
+	useEffect(() => {
+		if (toasts.length === 0) return undefined;
+
+		const timer = setTimeout(() => {
+			setToasts((prev) => prev.slice(1));
+		}, 5000);
+
+		return () => clearTimeout(timer);
+	}, [toasts]);
+
+	const showToastMessage = (message, type = "success") => {
+		setToasts((prev) => [
+			...prev,
+			{
+				id: Date.now() + Math.random(),
+				message,
+				type,
+			},
+		]);
+	};
+
+	const removeToast = (toastId) => {
+		setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+	};
+
+	const setSubmitError = (message) => {
+		setErrorMessage(message);
+		showToastMessage(message, "error");
+	};
+
 	const roleOptions = useMemo(() => {
 		if (!roles.length) {
 			return [{ label: "No roles available", value: "" }];
@@ -90,35 +143,56 @@ const AddUser = () => {
 	const handleSubmit = async (event) => {
 		event.preventDefault();
 		setErrorMessage("");
+		setPhoneError("");
 
 		if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-			setErrorMessage("First name, last name, email and password are required");
+			setSubmitError("First name, last name, email and password are required");
+			return;
+		}
+
+		if (formData.contactNumber && !PHONE_RE.test(formData.contactNumber.trim())) {
+			setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
+			showToastMessage("Phone number must be 10 digits and start with 07.", "error");
 			return;
 		}
 
 		if (formData.password !== formData.confirmPassword) {
-			setErrorMessage("Password and confirm password do not match");
+			setSubmitError("Password and confirm password do not match");
 			return;
 		}
 
 		if (!formData.role) {
-			setErrorMessage("Please select a user role");
+			setSubmitError("Please select a user role");
 			return;
 		}
 
 		try {
 			setIsSubmitting(true);
-			await createUser({
-				u_fname: formData.firstName,
-				u_lname: formData.lastName,
-				u_email: formData.email,
-				u_pw: formData.password,
-				u_connumber: formData.contactNumber || null,
-				role_id: Number(formData.role),
-				b_id: formData.branch ? Number(formData.branch) : null,
-			});
+			const payload = {
+  u_fname: formData.firstName,
+  u_lname: formData.lastName,
+  u_email: formData.email,
+  u_pw: formData.password,
+  u_connumber: formData.contactNumber || null,
+  role_id: Number(formData.role),
+};
 
-			setShowSuccessToast(true);
+			// If Admin role → send com_id automatically from token
+			if (isAdminRole) {
+			const com_id = getComIdFromToken();
+			if (!com_id) {
+				setSubmitError("Could not determine company. Please re-login.");
+				return;
+			}
+			payload.com_id = com_id;
+			} else {
+			// Other roles → send branch id
+			payload.b_id = formData.branch ? Number(formData.branch) : null;
+			}
+
+			await createUser(payload);
+
+			showToastMessage("User account created successfully.", "success");
 			setFormData((prev) => ({
 				...prev,
 				firstName: "",
@@ -129,7 +203,9 @@ const AddUser = () => {
 				confirmPassword: "",
 			}));
 		} catch (error) {
-			setErrorMessage(error?.response?.data?.message || "Failed to create user");
+			const message = error?.response?.data?.message || "Failed to create user";
+			setErrorMessage(message);
+			showToastMessage(message, "error");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -247,39 +323,52 @@ const AddUser = () => {
 										value={formData.email}
 										onChange={(event) => updateField("email", event.target.value)}
 									/>
-									<FormField
-										label="Contact Number"
-										value={formData.contactNumber}
-										onChange={(event) => updateField("contactNumber", event.target.value)}
-									/>
+									<div>
+										<FormField
+											label="Contact Number"
+											placeholder="07XXXXXXXX"
+											value={formData.contactNumber}
+											onChange={(event) => {
+												const digitsOnly = event.target.value.replace(/[^0-9]/g, "");
+												updateField("contactNumber", digitsOnly);
+												setPhoneError("");
+											}}
+										/>
+										{phoneError && (
+											<p style={{ margin: "4px 0 0", color: "#C62828", fontSize: "13px" }}>
+												{phoneError}
+											</p>
+										)}
+									</div>
 								</div>
 
 								<div
 									style={{
 										display: "grid",
-										gridTemplateColumns: "1fr 1fr 190px",
+										gridTemplateColumns: isAdminRole ? "1fr 190px" : "1fr 1fr 190px",
 										gap: "20px",
 										alignItems: "start",
 									}}
-								>
+									>
 									<FormSelect
 										label="User Role"
 										value={formData.role}
 										onChange={(event) => updateField("role", event.target.value)}
 										options={roleOptions}
 									/>
-									<FormSelect
+									{!isAdminRole && (
+										<FormSelect
 										label="Assigned Branch"
 										value={formData.branch}
 										onChange={(event) => updateField("branch", event.target.value)}
 										options={branchOptions}
-									/>
+										/>
+									)}
 									<StatusToggle
 										checked={formData.isActive}
 										onChange={(event) => updateField("isActive", event.target.checked)}
 									/>
-								</div>
-
+									</div>
 								<PasswordField
 									label="Password"
 									value={formData.password}
@@ -322,6 +411,57 @@ const AddUser = () => {
 					</div>
 				</div>
 			</div>
+
+			{toasts.length > 0 && (
+				<div
+					style={{
+						position: "fixed",
+						top: "82px",
+						right: "20px",
+						zIndex: 10000,
+						display: "flex",
+						flexDirection: "column",
+						gap: "10px",
+						width: "min(380px, calc(100vw - 32px))",
+					}}
+				>
+					{toasts.map((toast) => (
+						<div
+							key={toast.id}
+							style={{
+								background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+								borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+								borderRadius: "8px",
+								padding: "14px 16px",
+								boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+								color: toast.type === "error" ? "#991B1B" : "#065F46",
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								gap: "12px",
+							}}
+						>
+							<span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+							<button
+								type="button"
+								onClick={() => removeToast(toast.id)}
+								style={{
+									border: "none",
+									background: "transparent",
+									color: "inherit",
+									cursor: "pointer",
+									opacity: 0.7,
+									padding: "4px",
+									display: "inline-flex",
+								}}
+								aria-label="Dismiss notification"
+							>
+								<FaTimes />
+							</button>
+						</div>
+					))}
+				</div>
+			)}
 
 			{showSuccessToast && (
 				<div

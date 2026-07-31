@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { FaSearch, FaFilter, FaPlus, FaPen, FaTrash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
-import { getCompanies, createCompany, updateCompany, deleteCompany, getCurrentUser, setAuthToken, logout } from "../../services/api";
+import { getCompanies, createCompany, updateCompany, deleteCompany, getPackages, getCurrentUser, setAuthToken, logout } from "../../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^07[0-9]{8}$/;
 
 const StatusBadge = ({ status }) => {
   const statusStr = String(status || "").toLowerCase();
@@ -44,6 +46,9 @@ const HotelManagement = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [togglingId, setTogglingId] = useState(null);
   const { toasts, removeToast, toast } = useToast();
+  const [packages, setPackages] = useState([]);
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [formData, setFormData] = useState({
     id: null,
     name: "",
@@ -52,6 +57,7 @@ const HotelManagement = () => {
     phone: "",
     date: "",
     status: true,
+    package_id: "",
   });
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,7 +90,7 @@ const HotelManagement = () => {
 
   const openAddModal = () => {
     const today = new Date().toISOString().slice(0, 10);
-    setFormData({ id: null, name: "", location: "", email: "", phone: "", date: today, status: true });
+    setFormData({ id: null, name: "", location: "", email: "", phone: "", date: today, status: true, package_id: "" });
     setModalMode("add");
     setModalError("");
     setIsModalOpen(true);
@@ -99,6 +105,7 @@ const HotelManagement = () => {
       phone: company.phone || "",
       date: company.reg_date ? new Date(company.reg_date).toISOString().slice(0, 10) : "",
       status: company.c_status === true || String(company.c_status).toLowerCase() === "active",
+      package_id: company.package_id || "",
     });
     setModalMode("edit");
     setModalError("");
@@ -128,8 +135,9 @@ const HotelManagement = () => {
 
   const fetchData = async () => {
     try {
-      const data = await getCompanies();
-      setCompanies(Array.isArray(data) ? data : []);
+      const [companiesData, packagesData] = await Promise.all([getCompanies(), getPackages()]);
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setPackages(Array.isArray(packagesData) ? packagesData : []);
     } catch (err) {
       console.error("Fetch error:", err);
       if (err.response?.status === 401) {
@@ -142,11 +150,45 @@ const HotelManagement = () => {
   };
 
   const handleSave = async () => {
-    if (!formData.name) {
-      setModalError("Please fill in company name.");
-      return;
-    }
-    
+    setEmailError("");
+    setPhoneError("");
+
+   if (!formData.name.trim()) {
+  setModalError("Please fill in company name.");
+  return;
+}
+
+if (!formData.location.trim()) {
+  setModalError("Please fill in company location.");
+  return;
+}
+
+if (!formData.email.trim()) {
+  setEmailError("Please enter a contact email address.");
+  return;
+}
+
+if (!EMAIL_RE.test(formData.email.trim())) {
+  setEmailError("Please enter a valid email address (e.g. name@example.com).");
+  return;
+}
+
+if (!formData.phone.trim()) {
+  setPhoneError("Please enter a phone number.");
+  return;
+}
+
+if (!PHONE_RE.test(formData.phone.trim())) {
+  setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
+  return;
+}
+const today = new Date().toISOString().slice(0, 10);
+if (modalMode === "add" && formData.date < today) {
+  setModalError("Registered date cannot be in the past.");
+  return;
+}
+setIsSaving(true);
+
     setIsSaving(true);
     setModalError("");
     try {
@@ -157,6 +199,7 @@ const HotelManagement = () => {
         c_status: !!formData.status,
         c_email: formData.email,
         reg_date: formData.date || new Date().toISOString().slice(0, 10),
+        package_id: formData.package_id ? parseInt(formData.package_id, 10) : null,
       };
 
       if (modalMode === "add") {
@@ -507,15 +550,35 @@ const HotelManagement = () => {
               </div>
               <div>
                 <label style={labelStyle}>Contact Email</label>
-                <input type="email" placeholder="Enter email" style={inputStyle} value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
+                <input
+                  type="email"
+                  placeholder="Enter email"
+                  style={{ ...inputStyle, borderColor: emailError ? "#EF4444" : "#D1D5DB" }}
+                  value={formData.email}
+                  onChange={e => { setFormData({...formData, email: e.target.value}); setEmailError(""); }}
+                />
+                {emailError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{emailError}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Phone Number</label>
-                <input type="text" placeholder="Enter phone number" style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} />
+                <input
+                  type="text"
+                  placeholder="07XXXXXXXX"
+                  maxLength={10}
+                  style={{ ...inputStyle, borderColor: phoneError ? "#EF4444" : "#D1D5DB" }}
+                  value={formData.phone}
+                  onChange={e => {
+                    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+                    setFormData({...formData, phone: digitsOnly});
+                    setPhoneError("");
+                  }}
+                />
+                {phoneError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{phoneError}</p>}
               </div>
               <div>
                 <label style={labelStyle}>Registered Date</label>
-                <input type="date" style={inputStyle} value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                <input type="date" style={inputStyle} value={formData.date}  min={new Date().toISOString().slice(0, 10)} 
+                onChange={e => setFormData({...formData, date: e.target.value})} />
               </div>
               <div>
                 <label style={labelStyle}>Status</label>
@@ -544,6 +607,19 @@ const HotelManagement = () => {
                     <option value="Inactive">Inactive</option>
                   </select>
                 )}
+              </div>
+              <div>
+                <label style={labelStyle}>SaaS Package</label>
+                <select
+                  style={{ ...inputStyle, cursor: "pointer", color: formData.package_id ? "#374151" : "#9CA3AF" }}
+                  value={formData.package_id}
+                  onChange={e => setFormData({ ...formData, package_id: e.target.value })}
+                >
+                  <option value="">— Select a Package —</option>
+                  {packages.map(p => (
+                    <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
+                  ))}
+                </select>
               </div>
             </div>
 

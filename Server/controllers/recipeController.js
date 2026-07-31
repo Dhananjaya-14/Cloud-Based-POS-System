@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { getIO } from "../utils/socket.js";
 
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
 
@@ -33,6 +34,7 @@ function toResponseRow(row) {
     quantity_req: parseFloat(row.quantity_req), // return as number, not string
     pro_id: row.pro_id,
     rawmaterial_id: row.rawmaterial_id,
+    b_id: row.b_id,
     // enriched fields (present only in getRecipesByProduct)
     ...(row.rm_name !== undefined && { rm_name: row.rm_name }),
     rm_unit: row.rm_unit || row.unit || "",
@@ -40,9 +42,6 @@ function toResponseRow(row) {
   };
 }
 
-// ─────────────────────────────────────────────
-// GET /api/recipes
-// ─────────────────────────────────────────────
 // ─────────────────────────────────────────────
 // GET /api/recipes
 // ─────────────────────────────────────────────
@@ -129,7 +128,8 @@ export async function getRecipeById(req, res, next) {
 export async function getRecipesByProduct(req, res, next) {
   try {
     const { pro_id } = req.params;
-    const { role_id, com_id } = req.user;
+    const { role_id, com_id, b_id: userBid } = req.user;
+    const b_id = req.query.b_id ? Number(req.query.b_id) : (userBid ?? null);
 
     if (!isPositiveInt(pro_id)) {
       res.status(400);
@@ -149,11 +149,19 @@ export async function getRecipesByProduct(req, res, next) {
       throw new Error("You do not have permission to view recipes for this product.");
     }
 
+    const queryParams = [pro_id];
+    let branchFilter = "";
+    if (b_id) {
+      branchFilter = ` AND r."b_id" = $2`;
+      queryParams.push(b_id);
+    }
+
     const result = await pool.query(
       `SELECT
         r."recipe_id",
         r."quantity_req",
         r."pro_id",
+        r."b_id",
         r."rawmaterial_ID" AS "rawmaterial_id",
         p."pro_name",
         rm."rm_name",
@@ -161,9 +169,9 @@ export async function getRecipesByProduct(req, res, next) {
       FROM "public"."RECIPE" r
       JOIN "public"."Product"      p  ON p."pro_id" = r."pro_id"
       JOIN "public"."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
-      WHERE r."pro_id" = $1
+      WHERE r."pro_id" = $1${branchFilter}
       ORDER BY r."recipe_id"`,
-      [pro_id],
+      queryParams,
     );
 
     res.json({
@@ -182,7 +190,7 @@ export async function getRecipesByProduct(req, res, next) {
 // ─────────────────────────────────────────────
 export async function createRecipe(req, res, next) {
   try {
-    const { quantity_req, pro_id, rawmaterial_id, unit } = req.body;
+    const { quantity_req, pro_id, rawmaterial_id, unit, b_id } = req.body;
 
     if (unit !== undefined && unit !== null && !VALID_UNITS.includes(unit)) {
       res.status(400);
@@ -235,7 +243,7 @@ export async function createRecipe(req, res, next) {
 
     // ── Business rule: raw material must exist and belong to the user's company ──
     const rmCheck = await pool.query(
-      'SELECT "rm_id", "Com_id" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
+      'SELECT "rm_id", "Com_id", "rm_name", "unit" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
       [rawmaterial_id],
     );
     if (rmCheck.rows.length === 0) {
@@ -263,18 +271,38 @@ export async function createRecipe(req, res, next) {
     const safeQty = roundQuantity(quantity_req);
 
     const result = await pool.query(
-      `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit")
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit", "b_id")
+       VALUES ($1, $2, $3, $4, $5)
        RETURNING
          "recipe_id",
          "quantity_req",
          "pro_id",
          "rawmaterial_ID" AS "rawmaterial_id",
-         "unit"`,
-      [safeQty, pro_id, rawmaterial_id, unit || null],
+         "unit",
+         "b_id"`,
+      [safeQty, pro_id, rawmaterial_id, unit || null, b_id],
     );
 
-    res.status(201).json(toResponseRow(result.rows[0]));
+    const newRecipe = toResponseRow(result.rows[0]);
+    newRecipe.rm_name = rmCheck.rows[0].rm_name;
+    newRecipe.rm_unit = unit || rmCheck.rows[0].unit;
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      if (io && req.user.com_id) {
+        const companyRoom = `company_${req.user.com_id}`;
+        io.to(companyRoom).emit("recipe:created", {
+          pro_id: parseInt(pro_id),
+          ingredient: newRecipe
+        });
+        console.log(`Emitted recipe:created to room ${companyRoom} for product ${pro_id}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for recipe creation:", socketErr);
+    }
+
+    res.status(201).json(newRecipe);
   } catch (err) {
     if (err?.code === "23503") {
       res.status(400);
@@ -304,12 +332,16 @@ export async function createRecipe(req, res, next) {
 export async function createRecipeBulk(req, res, next) {
   const client = await pool.connect();
   try {
-    const { pro_id, ingredients } = req.body;
+    const { pro_id, b_id, ingredients } = req.body;
 
     // ── Presence checks ──────────────────────
     if (pro_id === undefined || pro_id === null) {
       res.status(400);
       throw new Error("pro_id is required.");
+    }
+    if (b_id === undefined || b_id === null) {
+      res.status(400);
+      throw new Error("b_id is required.");
     }
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
       res.status(400);
@@ -318,6 +350,10 @@ export async function createRecipeBulk(req, res, next) {
     if (!isPositiveInt(pro_id)) {
       res.status(400);
       throw new Error("pro_id must be a positive integer.");
+    }
+    if (!isPositiveInt(b_id)) {
+      res.status(400);
+      throw new Error("b_id must be a positive integer.");
     }
 
     // ── Cap ingredient list — realistic kitchen recipe ──
@@ -381,28 +417,33 @@ export async function createRecipeBulk(req, res, next) {
       throw new Error("You do not have permission to add a recipe to this product.");
     }
 
-    // ── Verify each raw material belongs to user's company ─────────────────────
+    // ── Verify each raw material belongs to user's company and the given branch ──
+    const rmIdsList = ingredients.map((i) => i.rawmaterial_id);
+    let rmCheckQuery = 'SELECT "rm_id", "rm_name", "unit", "Com_id", "b_id" FROM "public"."Raw_Material" WHERE "rm_id" = ANY($1)';
+    const rmCheckParams = [rmIdsList];
+    
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-      const rmIdsList = ingredients.map((i) => i.rawmaterial_id);
-      const rmCheck = await pool.query(
-        'SELECT "rm_id" FROM "public"."Raw_Material" WHERE "rm_id" = ANY($1) AND "Com_id" = $2',
-        [rmIdsList, req.user.com_id]
-      );
-      if (rmCheck.rows.length !== rmIdsList.length) {
-        res.status(403);
-        throw new Error("One or more raw materials do not exist or do not belong to your company.");
-      }
+      rmCheckQuery += ` AND "Com_id" = $2 AND "b_id" = $3`;
+      rmCheckParams.push(req.user.com_id, b_id);
+    }
+    
+    const rmCheck = await pool.query(rmCheckQuery, rmCheckParams);
+    if (rmCheck.rows.length !== rmIdsList.length) {
+      res.status(403);
+      throw new Error("One or more raw materials do not exist or do not belong to your branch.");
     }
 
-    // ── Check no existing recipe entries for this product ──
+    const rmMap = new Map(rmCheck.rows.map(rm => [rm.rm_id, rm]));
+
+    // ── Check no existing recipe entries for this product+branch combo ──
     const existingCheck = await pool.query(
-      'SELECT "recipe_id" FROM "public"."RECIPE" WHERE "pro_id" = $1 LIMIT 1',
-      [pro_id],
+      'SELECT "recipe_id" FROM "public"."RECIPE" WHERE "pro_id" = $1 AND "b_id" = $2 LIMIT 1',
+      [pro_id, b_id],
     );
     if (existingCheck.rows.length > 0) {
       res.status(409);
       throw new Error(
-        "This product already has a recipe. Use POST /api/recipes to add individual ingredients or PUT /api/recipes/:id to update.",
+        "This product already has a recipe for this branch. Delete it first before saving a new one.",
       );
     }
 
@@ -412,21 +453,43 @@ export async function createRecipeBulk(req, res, next) {
     const inserted = [];
     for (const item of ingredients) {
       const safeQty = roundQuantity(item.quantity_req);
+      const rmInfo = rmMap.get(item.rawmaterial_id);
       const result = await client.query(
-        `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit")
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO "public"."RECIPE" ("quantity_req", "pro_id", "rawmaterial_ID", "unit", "b_id")
+         VALUES ($1, $2, $3, $4, $5)
          RETURNING
            "recipe_id",
            "quantity_req",
            "pro_id",
+           "b_id",
            "rawmaterial_ID" AS "rawmaterial_id",
-           "unit"`,
-        [safeQty, pro_id, item.rawmaterial_id, item.unit || null],
+           "unit",
+           "b_id"`,
+        [safeQty, pro_id, item.rawmaterial_id, item.unit || null, b_id],
       );
-      inserted.push(toResponseRow(result.rows[0]));
+      const newItem = toResponseRow(result.rows[0]);
+      newItem.rm_name = rmInfo.rm_name;
+      newItem.rm_unit = item.unit || rmInfo.unit;
+      inserted.push(newItem);
     }
 
     await client.query("COMMIT");
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      if (io && req.user.com_id) {
+        const companyRoom = `company_${req.user.com_id}`;
+        io.to(companyRoom).emit("recipe:bulk_created", {
+          pro_id: parseInt(pro_id),
+          pro_name: productCheck.rows[0].pro_name,
+          ingredients: inserted
+        });
+        console.log(`Emitted recipe:bulk_created to room ${companyRoom} for product ${pro_id} with ${inserted.length} ingredients`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for bulk recipe creation:", socketErr);
+    }
 
     res.status(201).json({
       pro_id: parseInt(pro_id),
@@ -447,7 +510,7 @@ export async function createRecipeBulk(req, res, next) {
       res.status(409);
       return next(
         new Error(
-          "Duplicate entry: one or more raw materials are already in this recipe.",
+          "Duplicate entry: one or more raw materials are already in this recipe for this branch.",
         ),
       );
     }
@@ -507,7 +570,7 @@ export async function updateRecipe(req, res, next) {
 
     // ── Record must exist and belong to user's company ────────────────────
     let existQuery = `
-      SELECT r."recipe_id", r."pro_id", r."rawmaterial_ID" AS "rawmaterial_id"
+      SELECT r."recipe_id", r."pro_id", r."rawmaterial_ID" AS "rawmaterial_id", p."Com_id"
       FROM "public"."RECIPE" r
       JOIN "public"."Product" p ON p."pro_id" = r."pro_id"
       WHERE r."recipe_id" = $1
@@ -538,15 +601,21 @@ export async function updateRecipe(req, res, next) {
     }
 
     // If new rawmaterial_id is provided, verify it belongs to user's company
-    if (rawmaterial_id !== undefined && role_id !== ROLES.SUPER_ADMIN) {
+    let rmInfo = null;
+    if (rawmaterial_id !== undefined) {
       const rmCheck = await pool.query(
-        'SELECT "Com_id" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
+        'SELECT "rm_id", "rm_name", "unit", "Com_id" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
         [rawmaterial_id],
       );
-      if (rmCheck.rows.length === 0 || rmCheck.rows[0].Com_id !== com_id) {
+      if (rmCheck.rows.length === 0) {
+        res.status(404);
+        throw new Error("Raw material not found.");
+      }
+      if (role_id !== ROLES.SUPER_ADMIN && rmCheck.rows[0].Com_id !== com_id) {
         res.status(403);
         throw new Error("You do not have permission to use this raw material.");
       }
+      rmInfo = rmCheck.rows[0];
     }
 
     // ── Business rule: no duplicate combo after update ──
@@ -591,7 +660,38 @@ export async function updateRecipe(req, res, next) {
       ],
     );
 
-    res.json(toResponseRow(result.rows[0]));
+    const updatedRecipe = toResponseRow(result.rows[0]);
+    if (rmInfo) {
+      updatedRecipe.rm_name = rmInfo.rm_name;
+      updatedRecipe.rm_unit = unit || rmInfo.unit;
+    } else if (quantity_req !== undefined) {
+      // Fetch rm_name for the current rawmaterial_id
+      const nameCheck = await pool.query(
+        'SELECT "rm_name", "unit" FROM "public"."Raw_Material" WHERE "rm_id" = $1',
+        [current.rawmaterial_id],
+      );
+      if (nameCheck.rows.length > 0) {
+        updatedRecipe.rm_name = nameCheck.rows[0].rm_name;
+        updatedRecipe.rm_unit = unit || nameCheck.rows[0].unit;
+      }
+    }
+
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      if (io && current.Com_id) {
+        const companyRoom = `company_${current.Com_id}`;
+        io.to(companyRoom).emit("recipe:updated", {
+          pro_id: finalProId,
+          ingredient: updatedRecipe
+        });
+        console.log(`Emitted recipe:updated to room ${companyRoom} for recipe ${id}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for recipe update:", socketErr);
+    }
+
+    res.json(updatedRecipe);
   } catch (err) {
     if (err?.code === "23503") {
       res.status(400);
@@ -628,7 +728,7 @@ export async function deleteRecipe(req, res, next) {
 
     // Verify recipe exists and belongs to the company
     let checkQuery = `
-      SELECT r."recipe_id"
+      SELECT r."recipe_id", r."pro_id", p."Com_id"
       FROM "public"."RECIPE" r
       JOIN "public"."Product" p ON p."pro_id" = r."pro_id"
       WHERE r."recipe_id" = $1
@@ -644,10 +744,27 @@ export async function deleteRecipe(req, res, next) {
       throw new Error("Recipe not found.");
     }
 
+    const recipeInfo = existCheck.rows[0];
+
     await pool.query(
       'DELETE FROM "public"."RECIPE" WHERE "recipe_id" = $1',
       [id],
     );
+
+    // Emit socket event for deletion
+    try {
+      const io = getIO();
+      if (io && recipeInfo.Com_id) {
+        const companyRoom = `company_${recipeInfo.Com_id}`;
+        io.to(companyRoom).emit("recipe:deleted", {
+          pro_id: recipeInfo.pro_id,
+          recipe_id: parseInt(id)
+        });
+        console.log(`Emitted recipe:deleted to room ${companyRoom} for recipe ${id}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for recipe deletion:", socketErr);
+    }
 
     res.status(204).send();
   } catch (err) {
@@ -670,7 +787,9 @@ export async function deleteRecipe(req, res, next) {
 export async function deleteRecipeByProduct(req, res, next) {
   try {
     const { pro_id } = req.params;
-    const { role_id, com_id } = req.user;
+    const { role_id, com_id, b_id: userBid } = req.user;
+    // b_id can be passed as a query param (for super admin) or taken from the JWT
+    const b_id = req.query.b_id ? Number(req.query.b_id) : (userBid ?? null);
 
     if (!isPositiveInt(pro_id)) {
       res.status(400);
@@ -690,13 +809,35 @@ export async function deleteRecipeByProduct(req, res, next) {
       throw new Error("You do not have permission to delete recipes for this product.");
     }
 
+    const deleteParams = [pro_id];
+    let branchFilter = "";
+    if (b_id) {
+      branchFilter = ` AND "b_id" = $2`;
+      deleteParams.push(b_id);
+    }
+
     const result = await pool.query(
-      'DELETE FROM "public"."RECIPE" WHERE "pro_id" = $1 RETURNING "recipe_id"',
-      [pro_id],
+      `DELETE FROM "public"."RECIPE" WHERE "pro_id" = $1${branchFilter} RETURNING "recipe_id"`,
+      deleteParams,
     );
 
+    // Emit socket event for bulk deletion
+    try {
+      const io = getIO();
+      if (io && productCheck.rows[0].Com_id) {
+        const companyRoom = `company_${productCheck.rows[0].Com_id}`;
+        io.to(companyRoom).emit("recipe:product_cleared", {
+          pro_id: parseInt(pro_id),
+          deleted_count: result.rows.length
+        });
+        console.log(`Emitted recipe:product_cleared to room ${companyRoom} for product ${pro_id}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for product recipe clear:", socketErr);
+    }
+
     res.json({
-      message: `Deleted ${result.rows.length} recipe entries for product ${pro_id}.`,
+      message: `Deleted ${result.rows.length} recipe entries for product ${pro_id}${b_id ? ` in branch ${b_id}` : ''}.`,
       deleted_count: result.rows.length,
     });
   } catch (err) {

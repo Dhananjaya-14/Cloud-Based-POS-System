@@ -37,7 +37,7 @@ import branchProductRoutes from "./routes/branchProductRoutes.js";
 import recipeRoutes from "./routes/recipeRouter.js";
 
 // Raw Materials & Inventory
-import rawMaterialRoutes from "./routes/rawmaterialRoutes.js";
+import rawMaterialRoutes from "./routes/rawMaterialRoutes.js";
 import wasteRoutes from "./routes/wasteRoutes.js";
 
 // Suppliers & Purchasing
@@ -61,6 +61,9 @@ import productRoutes from "./routes/productRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 
 import dashboardRoutes from "./routes/dashboardRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import payhereRoutes from "./routes/payhereRoutes.js";
+import packageRoutes from "./routes/packageRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
@@ -77,6 +80,8 @@ app.use(
   }),
 );
 app.use(express.json());
+// PayHere notify sends application/x-www-form-urlencoded
+app.use(express.urlencoded({ extended: true }));
 
 // ─────────────────────────────────────────────
 // HEALTH CHECK
@@ -141,6 +146,15 @@ app.use("/api/dashboard", dashboardRoutes);
 
 // Stats
 app.use("/api/stats", statsRoutes);
+
+//Reports
+app.use("/api/reports", reportRoutes);
+
+// PayHere Payment Gateway
+app.use("/api/payhere", payhereRoutes);
+
+// SaaS Package Management
+app.use("/api/packages", packageRoutes);
 
 // ─────────────────────────────────────────────
 // ERROR HANDLING (must be last)

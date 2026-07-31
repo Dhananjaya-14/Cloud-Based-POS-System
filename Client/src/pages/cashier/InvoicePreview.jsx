@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaPrint, FaTimes } from "react-icons/fa";
 import { printReceipt } from "../../utils/printReceipt";
-import { createPayment, updatePayment } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 const defaultState = {
   orderId: "INV-0000000",
@@ -28,6 +28,7 @@ const defaultState = {
 const InvoicePreview = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { token } = useAuth();
 
   const invoice = useMemo(() => ({
     ...defaultState,
@@ -35,6 +36,7 @@ const InvoicePreview = () => {
   }), [location.state]);
 
   const [isPaid, setIsPaid] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // To prevent double-clicks
 
   useEffect(() => {
     if (isPaid) {
@@ -55,69 +57,45 @@ const InvoicePreview = () => {
   };
 
   const handlePay = async () => {
+    if (isSubmitting || isPaid) return;
+
+    setIsSubmitting(true);
+
+    const mappedMethod = String(invoice.paymentMethod).toLowerCase() === "cash" ? "cash" : "card";
+    const orderIdParsed = parseInt(String(invoice.orderId).replace(/[^0-9]/g, ""), 10) || 1;
+    const paymentPayload = {
+      pay_method: mappedMethod,
+      pay_status: "paid",
+      pay_date: new Date().toISOString().split('T')[0],
+      pay_amount: Number(invoice.total),
+      or_id: orderIdParsed,
+    };
+
     try {
-      // Prepare payment payload (status defaults to pending)
-      const payload = {
-        pay_method: (invoice.paymentMethod || "cash").toLowerCase(),
-        pay_date: new Date().toISOString().split('T')[0],
-        pay_amount: Number(invoice.total ?? 0),
-        // Extract numeric order ID from formatted string like "INV-000123"
-        or_id: Number(typeof invoice.orderId === "string" ? invoice.orderId.replace(/\D/g, "") : invoice.orderId) || 0,
-      };
-      // Create the payment (pending)
-      const payment = await createPayment(payload);
-      // Immediately mark it as paid to trigger socket event
-      await updatePayment(payment.p_id, {
-        pay_method: payload.pay_method,
-        pay_status: "paid",
-        pay_date: payload.pay_date,
-        pay_amount: payload.pay_amount,
-        or_id: payload.or_id,
+      const response = await fetch("/api/payments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token && { "Authorization": `Bearer ${token}` }),
+        },
+        body: JSON.stringify(paymentPayload),
       });
-      setIsPaid(true);
-    } catch (err) {
-      console.error("Payment failed:", err);
-      alert("Payment could not be processed. Please try again.");
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setIsPaid(true);
+      } else {
+        alert(`Payment Failed: ${result.message}\n${result.errors ? result.errors.map(e => `- ${e.field}: ${e.message}`).join('\n') : ''
+          }`);
+      }
+    } catch (error) {
+      console.error("Payment Submission Error:", error);
+      alert("Network or Server error occurred.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
-
-  // const handlePay = async () => {
-  //   try {
-  //     const rawOrderId = invoice.orderId;
-
-  //     const or_id =
-  //       typeof rawOrderId === "string"
-  //         ? Number(rawOrderId.replace(/\D/g, ""))
-  //         : Number(rawOrderId);
-
-  //     if (!or_id) throw new Error("Invalid order ID");
-
-  //     const pay_amount = Number(invoice.total);
-  //     if (isNaN(pay_amount)) throw new Error("Invalid payment amount");
-
-  //     const pay_date = new Date().toLocaleDateString("en-CA");
-
-  //     const payload = {
-  //       pay_method: (invoice.paymentMethod || "cash").toLowerCase(),
-  //       pay_date,
-  //       pay_amount,
-  //       or_id,
-  //       pay_status: "paid",
-  //     };
-
-  //     const payment = await createPayment(payload);
-
-  //     if (!payment?.p_id) {
-  //       throw new Error("Payment creation failed: missing p_id");
-  //     }
-
-  //     setIsPaid(true);
-  //   } catch (err) {
-  //     console.error("Payment failed:", err);
-  //     alert("Payment could not be processed. Please try again.");
-  //   }
-  // };
-
   return (
     <>
       {isPaid && (
@@ -219,21 +197,19 @@ const InvoicePreview = () => {
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 shadow-sm">
-              <div className="space-y-1.5 text-xs text-slate-600 sm:text-sm">
-                <div className="flex items-center justify-between">
-                  <span>Subtotal</span>
-                  <span className="font-semibold text-slate-900">${subtotal}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span>Discount</span>
-                  <span className="font-semibold text-slate-900">{discount}%</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-slate-200 pt-2.5 text-sm font-semibold text-slate-900">
-                  <span>Grand Total</span>
-                  <span className="text-xl tracking-tight sm:text-2xl">${grandTotal}</span>
-                </div>
+            <section className="flex flex-col gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Payment Method</div>
+                <div className="mt-1 text-sm font-semibold text-emerald-600 sm:text-base">{invoice.paymentMethod} Payment</div>
               </div>
+              <button
+                type="button"
+                onClick={handlePay}
+                disabled={isPaid || isSubmitting}
+                className="inline-flex items-center justify-center rounded-xl bg-[#55C24A] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#49b03f] disabled:cursor-default disabled:opacity-70 sm:text-sm"
+              >
+                {isPaid ? "PAID" : isSubmitting ? "PROCESSING..." : "PAY NOW"}
+              </button>
             </section>
 
             <section className="flex flex-col gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">

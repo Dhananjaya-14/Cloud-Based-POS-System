@@ -7,6 +7,31 @@ import {
 } from "../utils/socket.js";
 import { adjustStockForOrderItem } from "./orderItemController.js";
 
+
+// Unit conversion for recipe ingredients
+function convertRecipeQty(recipeQty, recipeUnit, stockUnit) {
+  const rUnit = String(recipeUnit || "").toLowerCase().trim();
+  const sUnit = String(stockUnit || "").toLowerCase().trim();
+
+  if (rUnit === sUnit || !rUnit || !sUnit) return recipeQty;
+
+  // Weight conversions
+  if (rUnit === "g" && sUnit === "kg") return recipeQty / 1000;
+  if (rUnit === "kg" && sUnit === "g") return recipeQty * 1000;
+  if (rUnit === "mg" && sUnit === "g") return recipeQty / 1000;
+  if (rUnit === "mg" && sUnit === "kg") return recipeQty / 1_000_000;
+
+  // Volume conversions
+  if (rUnit === "ml" && sUnit === "l") return recipeQty / 1000;
+  if (rUnit === "l" && sUnit === "ml") return recipeQty * 1000;
+
+  // Count conversions
+  if (rUnit === "pcs" && sUnit === "dozen") return recipeQty / 12;
+  if (rUnit === "units" && sUnit === "dozen") return recipeQty / 12;
+
+  return recipeQty;
+}
+
 // ─────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────
@@ -42,8 +67,8 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
     return "or_totalCostWtax must be a non-negative number";
   }
   if (or_tax !== undefined && or_tax !== null) {
-    if (isNaN(tax) || tax < 0 || tax > 100) {
-      return "or_tax must be a number between 0 and 100";
+    if (isNaN(tax) || tax < 0) {
+      return "or_tax must be a number greater than or equal to 0";
     }
   }
   if (costWtx < cost) {
@@ -51,10 +76,10 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
   }
   // Sanity check: cost with tax should roughly match (within 1% tolerance for rounding)
   if (or_tax !== undefined && or_tax !== null && !isNaN(tax)) {
-    const expected = parseFloat((cost * (1 + tax / 100)).toFixed(2));
+    const expected = parseFloat((cost + tax).toFixed(2));
     const diff = Math.abs(expected - costWtx);
     if (diff > 0.05) {
-      return `or_totalCostWtax (${costWtx}) does not match or_totalcost * (1 + tax/100) = ${expected}`;
+      return `or_totalCostWtax (${costWtx}) does not match or_totalcost + or_tax = ${expected}`;
     }
   }
   return null;
@@ -92,6 +117,109 @@ function validateStatusTransition(currentStatus, newStatus) {
   }
   return null;
 }
+
+// ─────────────────────────────────────────────
+// GET /orders — list all orders (with filters)
+// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────
+// POST /orders/check-stock — validate ingredient availability BEFORE order creation
+// Body: { items: [{ Bpro_id, pro_quantity }] }
+// ─────────────────────────────────────────────
+export const checkOrderStock = async (req, res) => {
+  try {
+    const { items } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: "items array is required" });
+    }
+
+    // required[rawmaterial_ID] = { name, unit, stock_qty, required }
+    const required = new Map();
+    const shortages = [];
+
+    for (const item of items) {
+      const { Bpro_id, pro_quantity } = item;
+      if (!Bpro_id || !pro_quantity) continue;
+
+      const bp = await pool.query(
+        `SELECT bp.pro_id, bp.pro_quantity AS branch_qty, bp.pro_name, p.product_type 
+         FROM public."Branch_Product" bp
+         JOIN public."Product" p ON p.pro_id = bp.pro_id
+         WHERE bp."Bpro_id" = $1`,
+        [Bpro_id],
+      );
+      if (!bp.rows.length) continue;
+
+      const pro_id = bp.rows[0].pro_id;
+      const productType = bp.rows[0].product_type;
+      const branchQty = Number(bp.rows[0].branch_qty || 0);
+      const proName = bp.rows[0].pro_name;
+
+      if (productType !== 'made_to_order') {
+        // For pre_made and finished, check branch showcase quantity directly
+        if (branchQty < pro_quantity) {
+          shortages.push({
+            ingredient: proName + " (Product Stock)",
+            required: pro_quantity,
+            available: branchQty,
+            unit: "units",
+          });
+        }
+      } else {
+        // For made_to_order, check recipe raw materials
+        const recipes = await pool.query(
+          `SELECT r."rawmaterial_ID", r."quantity_req", r."unit" AS recipe_unit,
+                  rm."rm_name", rm."stock_qty", rm."unit" AS stock_unit
+           FROM public."RECIPE" r
+           JOIN public."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
+           WHERE r."pro_id" = $1`,
+          [pro_id],
+        );
+
+        for (const recipe of recipes.rows) {
+          const rawQty = recipe.quantity_req * pro_quantity;
+          const neededQty = convertRecipeQty(
+            rawQty,
+            recipe.recipe_unit,
+            recipe.stock_unit,
+          );
+
+          const key = recipe.rawmaterial_ID;
+          if (!required.has(key)) {
+            required.set(key, {
+              rm_name: recipe.rm_name,
+              unit: recipe.stock_unit,
+              stock_qty: Number(recipe.stock_qty),
+              required: 0,
+            });
+          }
+          required.get(key).required += neededQty;
+        }
+      }
+    }
+
+    const ingredientShortages = [...required.values()]
+      .filter((r) => r.required > r.stock_qty)
+      .map((r) => ({
+        ingredient: r.rm_name,
+        required: Number(r.required.toFixed(2)),
+        available: r.stock_qty,
+        unit: r.unit || "",
+      }));
+
+    shortages.push(...ingredientShortages);
+
+    if (shortages.length > 0) {
+      return res.status(200).json({ success: false, shortages });
+    }
+
+    return res.status(200).json({ success: true });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
 
 // ─────────────────────────────────────────────
 // GET /orders — list all orders (with filters)
@@ -204,6 +332,10 @@ export const createOrder = async (req, res) => {
       u_id,
       b_id,
       table_id,
+      or_notes = null,
+      or_addons = null,
+      or_addons_price = 0,
+      or_allergies = null,
     } = req.body;
 
     // ── Required fields ──
@@ -303,8 +435,8 @@ export const createOrder = async (req, res) => {
 
     const { rows } = await pool.query(
       `INSERT INTO "ORDER"
-         (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type, cust_id, u_id, b_id, table_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type, cust_id, u_id, b_id, table_id, or_notes, or_addons, or_addons_price, or_allergies)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [
         parseFloat(or_tax),
@@ -316,6 +448,10 @@ export const createOrder = async (req, res) => {
         u_id,
         b_id,
         table_id ?? null,
+        or_notes,
+        or_addons,
+        parseFloat(or_addons_price),
+        or_allergies,
       ],
     );
 
@@ -366,10 +502,15 @@ export const updateOrder = async (req, res) => {
       u_id,
       b_id,
       table_id,
+      or_notes = null,
+      or_addons = null,
+      or_addons_price = 0,
+      or_allergies = null,
     } = req.body;
 
     // ── Required fields for full update ──
     const missing = [];
+    if (or_tax === undefined) missing.push("or_tax");
     if (or_totalcost === undefined) missing.push("or_totalcost");
     if (or_totalCostWtax === undefined) missing.push("or_totalCostWtax");
     if (!or_status) missing.push("or_status");
@@ -450,8 +591,12 @@ export const updateOrder = async (req, res) => {
          cust_id            = $6,
          u_id               = $7,
          b_id               = $8,
-         table_id           = $9
-       WHERE or_id = $10
+         table_id           = $9,
+         or_notes           = $10,
+         or_addons          = $11,
+         or_addons_price    = $12,
+         or_allergies       = $13
+       WHERE or_id = $14
        RETURNING *`,
       [
         parseFloat(or_tax),
@@ -463,6 +608,10 @@ export const updateOrder = async (req, res) => {
         u_id,
         b_id,
         table_id ?? null,
+        or_notes,
+        or_addons,
+        parseFloat(or_addons_price),
+        or_allergies,
         id,
       ],
     );
@@ -510,6 +659,10 @@ export const patchOrder = async (req, res) => {
       "u_id",
       "b_id",
       "table_id",
+      "or_notes",
+      "or_addons",
+      "or_addons_price",
+      "or_allergies",
     ];
 
     // Filter to only fields present in the request body
@@ -606,7 +759,7 @@ export const patchOrder = async (req, res) => {
     for (const key of Object.keys(incoming)) {
       const col = key === "or_totalCostWtax" ? `"or_totalCostWtax"` : key;
       updates.push(`${col} = $${i++}`);
-      const numericFields = ["or_tax", "or_totalcost", "or_totalCostWtax"];
+      const numericFields = ["or_tax", "or_totalcost", "or_totalCostWtax", "or_addons_price"];
       values.push(
         numericFields.includes(key) ? parseFloat(incoming[key]) : incoming[key],
       );
@@ -684,23 +837,133 @@ export const updateOrderStatus = async (req, res) => {
       return res.status(400).json({ success: false, error: transitionError });
     }
 
-    const { rows } = await pool.query(
-      `UPDATE "ORDER" SET or_status = $1 WHERE or_id = $2 RETURNING *`,
-      [status, id],
-    );
+    const client = await pool.connect();
+    let updatedOrder;
 
-    emitSocketEvent(
-      "order:updated",
-      rows[0]
-    );
+    try {
+      await client.query("BEGIN");
 
-    if (status === "completed") {
-      emitSocketEvent("order:ready", rows[0], {
-        room: getCashierSocketRoom(rows[0].u_id),
+      const { rows } = await client.query(
+        `UPDATE "ORDER" SET or_status = $1 WHERE or_id = $2 RETURNING *`,
+        [status, id],
+      );
+      updatedOrder = rows[0];
+
+      // ── When Kitchen ACCEPTS order → deduct raw material ingredients (made_to_order only) ──
+      if (status === "preparing") {
+        // Get all made_to_order items in this order
+        const orderItems = await client.query(
+          `SELECT oi."Bpro_id", oi.pro_quantity, bp."pro_id", bp."B_id"
+       FROM public."ORDER_ITEM" oi
+       JOIN public."Branch_Product" bp ON bp."Bpro_id" = oi."Bpro_id"
+       JOIN public."Product" p ON p.pro_id = bp.pro_id
+       WHERE oi.order_id = $1
+         AND p.product_type = 'made_to_order'`,
+          [id]
+        );
+
+        for (const item of orderItems.rows) {
+          const { pro_id, pro_quantity, B_id } = item;
+
+          // Get recipe ingredients for this product
+          const recipes = await client.query(
+            `SELECT r."rawmaterial_ID", r."quantity_req",
+                COALESCE(r."unit", rm."unit") AS recipe_unit,
+                rm."unit" AS stock_unit
+         FROM public."RECIPE" r
+         JOIN public."Raw_Material" rm 
+           ON rm."rm_id" = r."rawmaterial_ID"
+         WHERE r."pro_id" = $1`,
+            [pro_id]
+          );
+
+          for (const recipe of recipes.rows) {
+            const rawQty = recipe.quantity_req * pro_quantity;
+            const convertedQty = convertRecipeQty(
+              rawQty,
+              recipe.recipe_unit,
+              recipe.stock_unit
+            );
+
+            await client.query(
+              `UPDATE public."Raw_Material"
+           SET stock_qty = GREATEST(0, stock_qty - $1)
+           WHERE rm_id = $2`,
+              [convertedQty, recipe.rawmaterial_ID]
+            );
+          }
+        }
+      }
+
+      // ── When order is CANCELLED after kitchen accepted → restore raw material ingredients ──
+      if (status === "cancelled" && currentStatus === "preparing") {
+        const orderItems = await client.query(
+          `SELECT oi."Bpro_id", oi.pro_quantity, bp."pro_id", bp."B_id"
+       FROM public."ORDER_ITEM" oi
+       JOIN public."Branch_Product" bp ON bp."Bpro_id" = oi."Bpro_id"
+       JOIN public."Product" p ON p.pro_id = bp.pro_id
+       WHERE oi.order_id = $1
+         AND p.product_type = 'made_to_order'`,
+          [id]
+        );
+
+        for (const item of orderItems.rows) {
+          const { pro_id, pro_quantity } = item;
+
+          const recipes = await client.query(
+            `SELECT r."rawmaterial_ID", r."quantity_req",
+                COALESCE(r."unit", rm."unit") AS recipe_unit,
+                rm."unit" AS stock_unit
+         FROM public."RECIPE" r
+         JOIN public."Raw_Material" rm 
+           ON rm."rm_id" = r."rawmaterial_ID"
+         WHERE r."pro_id" = $1`,
+            [pro_id]
+          );
+
+          for (const recipe of recipes.rows) {
+            const rawQty = recipe.quantity_req * pro_quantity;
+            const convertedQty = convertRecipeQty(
+              rawQty,
+              recipe.recipe_unit,
+              recipe.stock_unit
+            );
+
+            await client.query(
+              `UPDATE public."Raw_Material"
+           SET stock_qty = stock_qty + $1
+           WHERE rm_id = $2`,
+              [convertedQty, recipe.rawmaterial_ID]
+            );
+          }
+        }
+      }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(500).json({
+        success: false,
+        error: err.message
       });
     }
 
-    res.status(200).json({ success: true, data: rows[0] });
+    client.release();
+
+    emitSocketEvent(
+      "order:updated",
+      updatedOrder,
+      { room: KITCHEN_SOCKET_ROOM },
+    );
+
+    if (status === "completed") {
+      emitSocketEvent("order:ready", updatedOrder, {
+        room: getCashierSocketRoom(updatedOrder.u_id),
+      });
+    }
+
+    res.status(200).json({ success: true, data: updatedOrder });
   } catch (err) {
     if (err.code === "23514") {
       return res.status(400).json({
@@ -762,12 +1025,16 @@ export const deleteOrder = async (req, res) => {
 
       // Fetch all items in the order to restore their raw materials
       const itemsResult = await client.query(
-        `SELECT "Bpro_id", pro_quantity FROM public."ORDER_ITEM" WHERE order_id = $1`,
+        `SELECT oi."Bpro_id", oi.pro_quantity, bp.pro_id, bp."B_id", p.product_type
+         FROM public."ORDER_ITEM" oi
+         JOIN public."Branch_Product" bp ON bp."Bpro_id" = oi."Bpro_id"
+         JOIN public."Product" p ON p.pro_id = bp.pro_id
+         WHERE oi.order_id = $1`,
         [id]
       );
 
       for (const item of itemsResult.rows) {
-        await adjustStockForOrderItem(client, item.Bpro_id, item.pro_quantity, "add");
+        await adjustStockForOrderItem(client, item, item.pro_quantity, "add");
       }
 
       await client.query(`DELETE FROM public."ORDER_ITEM" WHERE order_id = $1`, [

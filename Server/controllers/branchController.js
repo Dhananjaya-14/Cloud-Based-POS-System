@@ -2,6 +2,13 @@ import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
 import { BRANCH_SOCKET_ROOM, emitSocketEvent } from "../utils/socket.js";
 
+function getActorMeta(req) {
+  return {
+    actor_id: req.user?.u_id ?? null,
+    actor_name: [req.user?.u_fname, req.user?.u_lname].filter(Boolean).join(" ") || req.user?.u_email || "Admin",
+  };
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9\s\-().]{7,20}$/;
 
@@ -185,7 +192,7 @@ export async function createBranch(req, res, next) {
 
     // Emit realtime event
     try {
-      emitSocketEvent("branch:created", result.rows[0], {
+      emitSocketEvent("branch:created", { ...result.rows[0], ...getActorMeta(req) }, {
         room: BRANCH_SOCKET_ROOM,
       });
     } catch (e) {
@@ -323,7 +330,7 @@ export async function updateBranch(req, res, next) {
 
     // Emit realtime update event
     try {
-      emitSocketEvent("branch:updated", result.rows[0], {
+      emitSocketEvent("branch:updated", { ...result.rows[0], ...getActorMeta(req) }, {
         room: BRANCH_SOCKET_ROOM,
       });
     } catch (e) {
@@ -387,7 +394,7 @@ export async function deleteBranch(req, res, next) {
     try {
       emitSocketEvent(
         "branch:deleted",
-        { B_id: Number(id) },
+        { B_id: Number(id), ...getActorMeta(req) },
         {
           room: BRANCH_SOCKET_ROOM,
         },

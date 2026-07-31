@@ -1,3 +1,4 @@
+// Client/src/pages/branch-admin/AddProduct.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -19,7 +20,7 @@ import {
   getProducts,
 } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
-import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
+import { getSocket, connectSocket, SOCKET_EVENTS, joinCompanyRoom } from "../../services/socket";
 
 const pageStyle = {
   display: "flex",
@@ -196,6 +197,7 @@ const AddProduct = () => {
   const [branchId, setBranchId] = useState(null);
   const [showNewProductToast, setShowNewProductToast] = useState(false);
   const [newProductName, setNewProductName] = useState("");
+  const companyId = user?.com_id;
 
   // Load initial data
   const loadData = async () => {
@@ -225,7 +227,7 @@ const AddProduct = () => {
     }
   };
 
-  // Setup WebSocket listeners
+  // Setup WebSocket listeners for new products (from main product catalog)
   useEffect(() => {
     const socket = getSocket();
     
@@ -234,20 +236,20 @@ const AddProduct = () => {
       connectSocket();
     }
 
-    // Join branch room if branchId is available
-    if (branchId && socket.connected) {
-      socket.emit(SOCKET_EVENTS.JOIN_BRANCH_ROOM, branchId);
+    // Join company room for product updates
+    if (companyId && socket.connected) {
+      joinCompanyRoom(companyId);
     }
 
-    // Listen for new products
+    // Listen for new products added to the main catalog
     const handleNewProduct = (data) => {
       console.log("New product received:", data);
       
       // Add the new product to the products list
       setProducts((prevProducts) => {
         // Check if product already exists
-        const exists = prevProducts.some(p => p.pro_id === data.product.pro_id);
-        if (!exists) {
+        const exists = prevProducts.some(p => p.pro_id === data.product?.pro_id);
+        if (!exists && data.product) {
           setNewProductName(data.product.pro_name);
           setShowNewProductToast(true);
           setTimeout(() => setShowNewProductToast(false), 3000);
@@ -261,11 +263,8 @@ const AddProduct = () => {
 
     return () => {
       socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
-      if (branchId && socket.connected) {
-        socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, branchId);
-      }
     };
-  }, [branchId]);
+  }, [companyId]);
 
   useEffect(() => {
     loadData();
@@ -298,6 +297,7 @@ const AddProduct = () => {
         return {
           ...product,
           quantity: value.quantity,
+          lowStockLimit: value.lowStockLimit,
         };
       })
       .filter(Boolean);
@@ -317,7 +317,22 @@ const AddProduct = () => {
       return {
         ...prev,
         [key]: {
-          quantity: 1,
+          quantity: 0,
+          lowStockLimit: 10,
+        },
+      };
+    });
+  };
+
+  const updateLowStockLimit = (productId, value) => {
+    setSelectedItems((prev) => {
+      const key = String(productId);
+      if (!prev[key]) return prev;
+      return {
+        ...prev,
+        [key]: {
+          ...prev[key],
+          lowStockLimit: value,
         },
       };
     });
@@ -374,16 +389,18 @@ const AddProduct = () => {
       }
 
       for (const item of selectedList) {
+        const itemState = selectedItems[String(item.pro_id)] || {};
         await createBranchProduct({
           pro_name: item.pro_name,
           pro_shortname: toShortName(item.pro_name),
           pro_image: item.pro_image || "N/A",
           pro_des: `${item.pro_name} imported from Product`,
-          pro_quantity: Number(item.quantity || 0),
+          pro_quantity: 0,
           pro_price: Number(item.pro_price ?? 0),
           cat_id: resolvedCategoryId,
           pro_id: Number(item.pro_id),
           B_id: branchId,
+          low_stock_limit: Number(itemState.lowStockLimit ?? 10),
         });
       }
 
@@ -570,13 +587,13 @@ const AddProduct = () => {
                           </div>
                         </div>
 
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "10px", marginTop: "14px" }}>
+                        <div style={{ marginTop: "14px" }}>
                           <ProductChip label="Catalog price" value={`$${price.toFixed(2)}`} />
-                          <ProductChip label="Qty on hand" value={stock} />
-                        </div>
+                            </div>
                       </button>
                     );
                   })}
+                  
                 </div>
               )}
             </div>
@@ -653,7 +670,7 @@ const AddProduct = () => {
                       lineHeight: 1.6,
                     }}
                   >
-                    Click any remaining product on the left to add it to the order. You can adjust the quantity here before saving.
+                    Click any remaining product on the left to add it to your branch. Stock quantity will be 0 by default. You can update it later from the product page.
                   </div>
                 ) : (
                   <div style={{ maxHeight: "310px", overflowY: "auto", paddingRight: "2px" }}>
@@ -695,54 +712,32 @@ const AddProduct = () => {
                             </button>
                           </div>
 
-                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: "12px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                              <button
-                                type="button"
-                                onClick={() => updateSelectedQuantity(item.pro_id, quantity - 1)}
+                          {item.product_type !== 'made_to_order' && (
+                            <div style={{ marginTop: "10px" }}>
+                              <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#64748B", marginBottom: "4px" }}>
+                                Low stock limit
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={itemState.lowStockLimit ?? 10}
+                                onChange={(e) => updateLowStockLimit(item.pro_id, e.target.value)}
                                 style={{
-                                  ...actionButtonStyle,
-                                  width: "32px",
+                                  width: "100%",
                                   height: "32px",
-                                  background: "#F8FAFC",
+                                  borderRadius: "8px",
                                   border: "1px solid #E2E8F0",
-                                  color: "#334155",
+                                  padding: "0 10px",
+                                  fontSize: "13px",
+                                  outline: "none",
                                 }}
-                              >
-                                <FaMinus size={10} />
-                              </button>
-
-                              <div
-                                style={{
-                                  width: "50px",
-                                  textAlign: "center",
-                                  fontSize: "14px",
-                                  fontWeight: "800",
-                                  color: "#0F172A",
-                                }}
-                              >
-                                {quantity}
-                              </div>
-
-                              <button
-                                type="button"
-                                onClick={() => updateSelectedQuantity(item.pro_id, quantity + 1)}
-                                style={{
-                                  ...actionButtonStyle,
-                                  width: "32px",
-                                  height: "32px",
-                                  background: "#F8FAFC",
-                                  border: "1px solid #E2E8F0",
-                                  color: "#334155",
-                                }}
-                              >
-                                <FaPlus size={10} />
-                              </button>
+                              />
                             </div>
+                          )}
 
-                            <div style={{ fontSize: "13px", fontWeight: "700", color: "#0F172A" }}>
-                              $ {itemTotal.toFixed(2)}
-                            </div>
+                          <div style={{ marginTop: "10px", fontSize: "12px", color: "#64748B", background: "#F8FAFC", borderRadius: "8px", padding: "8px 10px" }}>
+                            ℹ️ Stock quantity will be set to 0. 
+                            Update it later from the product page.
                           </div>
                         </div>
                       );
@@ -759,8 +754,7 @@ const AddProduct = () => {
                 }}
               >
                 <ProductChip label="Total selected" value={selectedCount} />
-                <ProductChip label="Total units" value={totalUnits} />
-                <ProductChip label="Estimated value" value={`$${estimatedValue.toFixed(2)}`} />
+                
               </div>
 
               <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>

@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { getIO } from "../utils/socket.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ export async function getRawMaterials(req, res, next) {
               CASE WHEN stock_qty <= record_level THEN true ELSE false END AS low_stock
        FROM "Raw_Material"`;
 
-    const conditions = [];
+    const conditions = ["rm_status = TRUE"];
     const params = [];
 
     if (role_id !== ROLES.SUPER_ADMIN) {
@@ -130,7 +131,7 @@ export async function getLowStockMaterials(req, res, next) {
               (record_level - stock_qty) AS shortage_qty
        FROM "Raw_Material"`;
 
-    const conditions = ["stock_qty <= record_level"];
+    const conditions = ["stock_qty <= record_level","rm_status = TRUE"];
     const params = [];
 
     if (role_id !== ROLES.SUPER_ADMIN) {
@@ -170,7 +171,7 @@ export async function getRawMaterialById(req, res, next) {
     let query = `SELECT rm_id, rm_name, unit, stock_qty, record_level,
               CASE WHEN stock_qty <= record_level THEN true ELSE false END AS low_stock
        FROM "Raw_Material"
-       WHERE rm_id = $1`;
+       WHERE rm_id = $1 AND rm_status = TRUE`;
     const params = [id];
 
     if (role_id !== ROLES.SUPER_ADMIN) {
@@ -204,7 +205,8 @@ export async function createRawMaterial(req, res, next) {
       res.status(400);
       throw new Error("Request body must be a JSON object");
     }
-
+    const {restore}=req.body;
+    
     const body = sanitizeBody(req.body, [
       "rm_name",
       "unit",
@@ -235,11 +237,11 @@ export async function createRawMaterial(req, res, next) {
     }
 
     // ── Numeric validation ──
-    const stockQty =
+    const stockQtyVal =
       stock_qty !== undefined
         ? parseNonNegativeDecimal(stock_qty, "stock_qty")
         : 0;
-    const recordLevel =
+    const recordLevelVal =
       record_level !== undefined
         ? parseNonNegativeDecimal(record_level, "record_level")
         : 0;
@@ -255,17 +257,17 @@ export async function createRawMaterial(req, res, next) {
     }
 
     // ── NEW: cap at DB column max NUMERIC(10,3) ──
-    if (stockQty > 9999999.999) {
+    if (stockQtyVal > 9999999.999) {
       res.status(400);
       throw new Error("stock_qty value is unrealistically high");
     }
-    if (recordLevel > 99999.999) {
+    if (recordLevelVal > 99999.999) {
       res.status(400);
       throw new Error("record_level value is unrealistically high");
     }
 
     // ── NEW: reorder level sanity — should not exceed stock ──
-    if (recordLevel > stockQty && stockQty > 0) {
+    if (recordLevelVal > stockQtyVal && stockQtyVal > 0) {
       res.status(400);
       throw new Error(
         "record_level (reorder point) should not exceed the initial stock_qty",
@@ -273,12 +275,12 @@ export async function createRawMaterial(req, res, next) {
     }
 
     // ── Duplicate name check & resolved com_id / b_id ──
-    let dupQuery = 'SELECT rm_id FROM "Raw_Material" WHERE LOWER(rm_name) = LOWER($1)';
+    let dupQuery = 'SELECT rm_id, rm_status FROM "Raw_Material" WHERE LOWER(rm_name) = LOWER($1)';
     const dupParams = [rm_name];
 
-    let resolvedComId = null;
-    let resolvedBId = null;
-
+    let resolvedComId = req.user.role_id !== ROLES.SUPER_ADMIN ? req.user.com_id : (req.body.com_id || null);
+    let resolvedBId = req.user.role_id !== ROLES.SUPER_ADMIN ? (req.user.b_id || parsePositiveInt(req.body.b_id || req.body.B_id, "b_id")) : (req.body.b_id || null);
+   
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       resolvedComId = req.user.com_id;
       dupQuery += ` AND "Com_id" = $2`;
@@ -311,25 +313,96 @@ export async function createRawMaterial(req, res, next) {
       }
     }
 
-    const dupCheck = await pool.query(dupQuery, dupParams);
+    const dupCheck = await pool.query(
+      dupQuery.replace(
+        "SELECT rm_id",
+        "SELECT rm_id, rm_status, stock_qty, unit, record_level"
+      ),
+      dupParams
+    );
+
     if (dupCheck.rows.length > 0) {
-      res.status(409);
-      throw new Error(`A raw material named "${rm_name}" already exists`);
+      const existing = dupCheck.rows[0];
+
+      // Restore request
+      if (req.body.restore === true && existing.rm_status === false) {
+        const restoreResult = await pool.query(
+          `
+          UPDATE "Raw_Material"
+          SET
+            rm_status = TRUE,
+            stock_qty = $1,
+            record_level = $2,
+            unit = $3
+          WHERE rm_id = $4
+          RETURNING *
+          `,
+          [
+            stockQtyVal,
+            recordLevelVal,
+            unitLower,
+            existing.rm_id,
+          ]
+        );
+
+        return res.status(200).json({
+          restored: true,
+          message: `"${rm_name}" restored successfully`,
+          ...restoreResult.rows[0],
+        });
+      }
+
+      // Existing inactive material
+      if (existing.rm_status === false) {
+        return res.status(409).json({
+          message: `"${rm_name}" already exists but is inactive`,
+          isInactive: true,
+          rm_id: existing.rm_id,
+        });
+      }
+
+      // Existing active material
+      return res.status(409).json({
+        message: `A raw material named "${rm_name}" already exists`,
+      });
     }
 
     const result = await pool.query(
       `INSERT INTO "Raw_Material" (rm_name, unit, stock_qty, record_level, "Com_id", b_id)
        VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING rm_id, rm_name, unit, stock_qty, record_level`,
-      [rm_name, unitLower, stockQty, recordLevel, resolvedComId, resolvedBId],
+       RETURNING rm_id, rm_name, unit, stock_qty, record_level,
+                 CASE WHEN stock_qty <= record_level THEN true ELSE false END AS low_stock`,
+      [rm_name, unitLower, stockQtyVal, recordLevelVal, resolvedComId, resolvedBId],
     );
 
-    res.status(201).json(result.rows[0]);
+    const newMaterial = result.rows[0];
+    
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      if (io && resolvedBId) {
+        // Emit to branch-specific room
+        const branchRoom = `branch_${resolvedBId}`;
+        io.to(branchRoom).emit("inventory:created", newMaterial);
+        console.log(`Emitted inventory:created to room ${branchRoom}`, newMaterial);
+        
+        // Also emit to company room for cross-branch updates if needed
+        if (resolvedComId) {
+          const companyRoom = `company_${resolvedComId}`;
+          io.to(companyRoom).emit("inventory:created_company", { branchId: resolvedBId, material: newMaterial });
+          console.log(`Emitted inventory:created_company to room ${companyRoom}`);
+        }
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event:", socketErr);
+      // Don't fail the request if socket emission fails
+    }
+
+    res.status(201).json(newMaterial);
   } catch (err) {
     next(err);
   }
 }
-
 
 // ─── PUT /api/raw-materials/:id ───────────────────────────────────────────────
 export async function updateRawMaterial(req, res, next) {
@@ -357,8 +430,8 @@ export async function updateRawMaterial(req, res, next) {
 
     const { rm_name, unit, stock_qty, record_level } = body;
 
-    // ── Existence & Scoping check ──
-    let existQuery = 'SELECT rm_id, rm_name FROM "Raw_Material" WHERE rm_id = $1';
+    // ── Existence & Scoping check with branch info ──
+    let existQuery = 'SELECT rm_id, rm_name, b_id, "Com_id" FROM "Raw_Material" WHERE rm_id = $1';
     const existParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       existQuery += ` AND "Com_id" = $2`;
@@ -373,6 +446,8 @@ export async function updateRawMaterial(req, res, next) {
       res.status(404);
       throw new Error("Raw material not found");
     }
+
+    const existingMaterial = existing.rows[0];
 
     // ── Name validation ──
     if (rm_name !== undefined) {
@@ -410,16 +485,16 @@ export async function updateRawMaterial(req, res, next) {
     }
 
     // ── Numeric validation ──
-    let stockQty = null;
-    let recordLevel = null;
+    let stockQtyVal = null;
+    let recordLevelVal = null;
 
     if (stock_qty !== undefined) {
       if (typeof stock_qty === "boolean") {
         res.status(400);
         throw new Error("stock_qty must be a number");
       }
-      stockQty = parseNonNegativeDecimal(stock_qty, "stock_qty");
-      if (stockQty > 9999999.999) {
+      stockQtyVal = parseNonNegativeDecimal(stock_qty, "stock_qty");
+      if (stockQtyVal > 9999999.999) {
         res.status(400);
         throw new Error("stock_qty value is unrealistically high");
       }
@@ -430,8 +505,8 @@ export async function updateRawMaterial(req, res, next) {
         res.status(400);
         throw new Error("record_level must be a number");
       }
-      recordLevel = parseNonNegativeDecimal(record_level, "record_level");
-      if (recordLevel > 99999.999) {
+      recordLevelVal = parseNonNegativeDecimal(record_level, "record_level");
+      if (recordLevelVal > 99999.999) {
         res.status(400);
         throw new Error("record_level value is unrealistically high");
       }
@@ -439,10 +514,10 @@ export async function updateRawMaterial(req, res, next) {
 
     // ── NEW: if both are provided, reorder level should not exceed stock ──
     if (
-      stockQty !== null &&
-      recordLevel !== null &&
-      recordLevel > stockQty &&
-      stockQty > 0
+      stockQtyVal !== null &&
+      recordLevelVal !== null &&
+      recordLevelVal > stockQtyVal &&
+      stockQtyVal > 0
     ) {
       res.status(400);
       throw new Error(
@@ -460,10 +535,29 @@ export async function updateRawMaterial(req, res, next) {
        WHERE rm_id = $5
        RETURNING rm_id, rm_name, unit, stock_qty, record_level,
                  CASE WHEN stock_qty <= record_level THEN true ELSE false END AS low_stock`,
-      [rm_name ?? null, unitLower, stockQty, recordLevel, id],
+      [rm_name ?? null, unitLower, stockQtyVal, recordLevelVal, id],
     );
 
-    res.json(result.rows[0]);
+    const updatedMaterial = result.rows[0];
+    
+    // Emit socket event for real-time updates
+    try {
+      const io = getIO();
+      if (io && existingMaterial.b_id) {
+        const branchRoom = `branch_${existingMaterial.b_id}`;
+        io.to(branchRoom).emit("inventory:updated", updatedMaterial);
+        console.log(`Emitted inventory:updated to room ${branchRoom}`, updatedMaterial);
+        
+        if (existingMaterial.Com_id) {
+          const companyRoom = `company_${existingMaterial.Com_id}`;
+          io.to(companyRoom).emit("inventory:updated_company", { branchId: existingMaterial.b_id, material: updatedMaterial });
+        }
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event:", socketErr);
+    }
+
+    res.json(updatedMaterial);
   } catch (err) {
     next(err);
   }
@@ -520,7 +614,7 @@ export async function adjustStock(req, res, next) {
 
     const adjRounded = parseFloat(adjValue.toFixed(3));
 
-    let existQuery = 'SELECT rm_id, rm_name, stock_qty, record_level, unit FROM "Raw_Material" WHERE rm_id = $1';
+    let existQuery = 'SELECT rm_id, rm_name, stock_qty, record_level, unit, b_id, "Com_id" FROM "Raw_Material" WHERE rm_id = $1';
     const existParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       existQuery += ` AND "Com_id" = $2`;
@@ -559,7 +653,21 @@ export async function adjustStock(req, res, next) {
       [adjRounded, id],
     );
 
-    res.json(result.rows[0]);
+    const updatedMaterial = result.rows[0];
+    
+    // Emit socket event for stock adjustments
+    try {
+      const io = getIO();
+      if (io && current.b_id) {
+        const branchRoom = `branch_${current.b_id}`;
+        io.to(branchRoom).emit("inventory:updated", updatedMaterial);
+        console.log(`Emitted inventory:updated (stock adjustment) to room ${branchRoom}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for stock adjustment:", socketErr);
+    }
+
+    res.json(updatedMaterial);
   } catch (err) {
     next(err);
   }
@@ -570,7 +678,7 @@ export async function deleteRawMaterial(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "rm_id");
 
-    let existQuery = 'SELECT stock_qty FROM "Raw_Material" WHERE rm_id = $1';
+    let existQuery = 'SELECT stock_qty, b_id, "Com_id" FROM "Raw_Material" WHERE rm_id = $1';
     const existParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       existQuery += ` AND "Com_id" = $2`;
@@ -585,25 +693,50 @@ export async function deleteRawMaterial(req, res, next) {
       res.status(404);
       throw new Error("Raw material not found");
     }
-    if (parseFloat(stockCheck.rows[0].stock_qty) > 0) {
+    
+    const materialToDelete = stockCheck.rows[0];
+    
+    if (parseFloat(materialToDelete.stock_qty) > 0) {
       res.status(409);
       throw new Error(
         "Cannot delete raw material while it still has stock. Set stock to 0 first.",
       );
     }
 
-    await pool.query(
-      'DELETE FROM "Raw_Material" WHERE rm_id = $1 RETURNING rm_id',
-      [id],
+    // Soft delete - set rm_status to FALSE instead of hard delete
+    const result = await pool.query(
+      `
+      UPDATE "Raw_Material"
+      SET rm_status = FALSE
+      WHERE rm_id = $1
+      RETURNING rm_id, rm_name
+      `,
+      [id]
     );
 
-    res.status(204).send();
+    // Emit socket event for deletion
+    try {
+      const io = getIO();
+      if (io && materialToDelete.b_id) {
+        const branchRoom = `branch_${materialToDelete.b_id}`;
+        io.to(branchRoom).emit("inventory:deleted", { rm_id: id });
+        console.log(`Emitted inventory:deleted to room ${branchRoom} for material ${id}`);
+      }
+    } catch (socketErr) {
+      console.error("Failed to emit socket event for deletion:", socketErr);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Raw material deactivated successfully",
+    });
   } catch (err) {
     if (err?.code === "23503") {
-      res.status(409);
-      return next(
-        new Error("Cannot delete raw material because it is used in recipes"),
-      );
+      return res.status(409).json({
+        message: "Foreign key violation",
+        constraint: err.constraint,
+        detail: err.detail,
+      });
     }
     next(err);
   }

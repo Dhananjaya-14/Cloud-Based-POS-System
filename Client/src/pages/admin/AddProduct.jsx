@@ -1,6 +1,7 @@
+// Client/src/pages/admin/AddProduct.jsx
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaCheck, FaChevronDown, FaUpload } from "react-icons/fa";
+import { FaCheck, FaChevronDown, FaTimes, FaUpload } from "react-icons/fa";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
 import { createProduct, getCategories } from "../../services/api";
@@ -46,14 +47,12 @@ const AddProduct = () => {
   const { user } = useAuth();
   const [form, setForm] = useState({
     pro_name: "",
-    pro_qty: "",
     pro_price: "",
     pro_image: "",
     com_id: "",
     cat_id: "",
+    product_type: "made_to_order",
     add_ons: {
-      Cheese: true,
-      Bacon: true,
     },
     stations: {
       Kitchen: true,
@@ -61,6 +60,12 @@ const AddProduct = () => {
     },
   });
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+  const [toasts, setToasts] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [newAddOn, setNewAddOn] = useState("");
+  const [newStation, setNewStation] = useState("");
 
   const toggleCheckbox = (group, key) => {
     setForm((prev) => ({
@@ -71,8 +76,6 @@ const AddProduct = () => {
       },
     }));
   };
-  const [newAddOn, setNewAddOn] = useState("");
-  const [newStation, setNewStation] = useState("");
 
   const handleAddAddOn = () => {
     if (!newAddOn.trim()) return;
@@ -99,9 +102,6 @@ const AddProduct = () => {
     }));
     setNewStation("");
   };
-  const [error, setError] = useState("");
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
-  const [categories, setCategories] = useState([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -137,6 +137,31 @@ const AddProduct = () => {
     };
   }, [user?.com_id]);
 
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
+
   const handleChange = (field) => (event) => {
     setForm((prev) => ({ ...prev, [field]: event.target.value }));
   };
@@ -146,35 +171,34 @@ const AddProduct = () => {
       setSubmitting(true);
       setError("");
 
-      if (!form.pro_name.trim() || form.pro_qty === "" || form.pro_price === "") {
-        setError("Product Name, Quantity, and Sales Price are required");
+      if (!form.pro_name.trim() || form.pro_price === "") {
+        setError("Product Name and Sales Price are required");
+        showToastMessage("Product Name and Sales Price are required", "error");
         return;
       }
 
       const payload = {
         pro_name: form.pro_name.trim(),
-        pro_qty: Number(form.pro_qty),
         pro_price: Number(form.pro_price),
         pro_image: form.pro_image.trim() || "N/A",
         com_id: Number(form.com_id || user?.com_id || 1),
         cat_id: Number(form.cat_id) || undefined,
         add_ons: form.add_ons,
         stations: form.stations,
+        product_type: form.product_type,
       };
 
       const response = await createProduct(payload);
       
       // Socket event will be emitted from server, so we just show success
       setShowSuccessToast(true);
+      showToastMessage("Product added successfully.", "success");
       setForm((prev) => ({
         ...prev,
         pro_name: "",
-        pro_qty: "",
         pro_price: "",
         pro_image: "",
         add_ons: {
-          Cheese: true,
-          Bacon: true,
         },
         stations: {
           Kitchen: true,
@@ -182,7 +206,9 @@ const AddProduct = () => {
         },
       }));
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to save product");
+      const message = err?.response?.data?.message || "Failed to save product";
+      setError(message);
+      showToastMessage(message, "error");
     } finally {
       setSubmitting(false);
     }
@@ -200,66 +226,71 @@ const AddProduct = () => {
             Add New Product
           </h1>
 
+          {error && (
+            <div style={{ 
+              background: "#FEE2E2", 
+              color: "#991B1B", 
+              padding: "12px", 
+              borderRadius: "8px",
+              marginBottom: "20px"
+            }}>
+              {error}
+            </div>
+          )}
+
           <div style={{ display: "grid", gridTemplateColumns: "1.06fr 1fr", gap: "22px", alignItems: "start" }}>
             <div>
               <div style={cardStyle}>
                 <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: "12px", marginBottom: "10px" }}>
                   <div>
                     <label style={labelStyle}>Product Name</label>
-                    <input style={inputStyle} value={form.pro_name} onChange={handleChange("pro_name")} />
+                    <input 
+                      style={inputStyle} 
+                      value={form.pro_name} 
+                      onChange={handleChange("pro_name")} 
+                      placeholder="Enter product name"
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>Short Name</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="Short name" />
                   </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: "12px", marginBottom: "10px" }}>
-                  <div>
-                    <label style={labelStyle}>Category</label>
-                    <div style={{ position: "relative" }}>
-                      <select
-                        value={form.cat_id}
-                        onChange={handleChange("cat_id")}
-                        style={{
-                          ...inputStyle,
-                          appearance: "none",
-                          WebkitAppearance: "none",
-                          MozAppearance: "none",
-                          paddingRight: "30px",
-                        }}
-                      >
-                        {categories.length === 0 ? (
-                          <option value="">Loading...</option>
-                        ) : (
-                          categories.map((cat) => (
-                            <option key={cat.cat_id} value={cat.cat_id}>
-                              {cat.cat_name}
-                            </option>
-                          ))
-                        )}
-                      </select>
-                      <FaChevronDown
-                        size={10}
-                        color="#475569"
-                        style={{
-                          position: "absolute",
-                          right: "14px",
-                          top: "50%",
-                          transform: "translateY(-50%)",
-                          pointerEvents: "none",
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Quantity</label>
-                    <input
-                      type="number"
-                      min="0"
-                      style={inputStyle}
-                      value={form.pro_qty}
-                      onChange={handleChange("pro_qty")}
+                <div style={{ marginBottom: "10px" }}>
+                  <label style={labelStyle}>Category</label>
+                  <div style={{ position: "relative" }}>
+                    <select
+                      value={form.cat_id}
+                      onChange={handleChange("cat_id")}
+                      style={{
+                        ...inputStyle,
+                        appearance: "none",
+                        WebkitAppearance: "none",
+                        MozAppearance: "none",
+                        paddingRight: "30px",
+                      }}
+                    >
+                      {categories.length === 0 ? (
+                        <option value="">Loading...</option>
+                      ) : (
+                        categories.map((cat) => (
+                          <option key={cat.cat_id} value={cat.cat_id}>
+                            {cat.cat_name}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <FaChevronDown
+                      size={10}
+                      color="#475569"
+                      style={{
+                        position: "absolute",
+                        right: "14px",
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        pointerEvents: "none",
+                      }}
                     />
                   </div>
                 </div>
@@ -291,6 +322,7 @@ const AddProduct = () => {
                   />
                 </div>
 
+                {/* Description and Product Type Section - Fixed merge conflict */}
                 <div>
                   <label style={labelStyle}>Description</label>
                   <textarea
@@ -300,7 +332,49 @@ const AddProduct = () => {
                       resize: "none",
                       paddingTop: "8px",
                     }}
+                    placeholder="Product description"
                   />
+                </div>
+
+                <div style={{ marginTop: "10px" }}>
+                  <label style={labelStyle}>Product Type</label>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "10px", marginTop: "6px" }}>
+                    {[
+                      { value: "made_to_order", label: "Made to Order", desc: "Cook when ordered", icon: "🍳" },
+                      { value: "pre_made", label: "Pre-made", desc: "Made in advance", icon: "🥐" },
+                      { value: "finished", label: "External", desc: "Bought from outside", icon: "🥤" },
+                    ].map((type) => (
+                      <div
+                        key={type.value}
+                        onClick={() => setForm({ ...form, product_type: type.value })}
+                        style={{
+                          border: form.product_type === type.value
+                            ? "2px solid #0E6DCF"
+                            : "1px solid #C9DDF3",
+                          borderRadius: "12px",
+                          padding: "12px 10px",
+                          cursor: "pointer",
+                          background: form.product_type === type.value
+                            ? "#EFF6FF"
+                            : "#F7FAFD",
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: "24px", marginBottom: "6px" }}>{type.icon}</div>
+                        <div style={{
+                          fontSize: "13px",
+                          fontWeight: "700",
+                          color: form.product_type === type.value ? "#0E6DCF" : "#333",
+                          marginBottom: "4px",
+                        }}>
+                          {type.label}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "#888" }}>
+                          {type.desc}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -317,6 +391,7 @@ const AddProduct = () => {
                       style={inputStyle}
                       value={form.pro_price}
                       onChange={handleChange("pro_price")}
+                      placeholder="0.00"
                     />
                   </div>
                   <div>
@@ -331,7 +406,7 @@ const AddProduct = () => {
                           paddingRight: "30px",
                         }}
                       >
-                        <option></option>
+                        <option>None</option>
                       </select>
                       <FaChevronDown
                         size={10}
@@ -351,17 +426,17 @@ const AddProduct = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
                   <div>
                     <label style={labelStyle}>Cost Price</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="0.00" />
                   </div>
                   <div>
                     <label style={labelStyle}>Product Code</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="Auto-generated" />
                   </div>
                 </div>
 
                 <div style={{ width: "calc(50% - 6px)" }}>
                   <label style={labelStyle}>Discount</label>
-                  <input style={inputStyle} />
+                  <input style={inputStyle} placeholder="0%" />
                 </div>
               </div>
             </div>
@@ -369,7 +444,7 @@ const AddProduct = () => {
             <div>
               <h2 style={{ ...sectionTitleStyle, fontSize: "30px", marginBottom: "10px" }}>Modifiers</h2>
 
-              <div style={{ ...cardStyle, minHeight: "386px", display: "flex", flexDirection: "column", padding: "12px" }}>
+              <div style={{ ...cardStyle, minHeight: "100px", display: "flex", flexDirection: "column", padding: "12px" }}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "16px" }}>
                   <div
                     style={{
@@ -505,7 +580,8 @@ const AddProduct = () => {
                     </div>
                   </div>
                 </div>
-
+                
+                {/* Track Inventory Section - Added from the HEAD version */}
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                   <div style={{ fontSize: "16px", fontWeight: "700", lineHeight: 1 }}>Track Inventory</div>
                   <div
@@ -534,16 +610,16 @@ const AddProduct = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "4px" }}>
                   <div>
                     <label style={{ ...labelStyle, marginBottom: "6px" }}>Current stock</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="0" />
                   </div>
                   <div>
                     <label style={{ ...labelStyle, marginBottom: "6px" }}>Low stock</label>
-                    <input style={inputStyle} />
+                    <input style={inputStyle} placeholder="10" />
                   </div>
                 </div>
               </div>
 
-              <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginTop: "100px", paddingRight: "2px", marginRight: "20px" }}>
+              <div style={{ display: "flex", justifyContent: "center", gap: "24px", marginTop: "24px", paddingRight: "2px", marginRight: "20px" }}>
                 <button
                   type="button"
                   onClick={() => navigate("/admin/products")}
@@ -582,89 +658,59 @@ const AddProduct = () => {
                   {submitting ? "Saving..." : "Save Product"}
                 </button>
               </div>
-              {error && <div style={{ marginTop: "12px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>}
             </div>
           </div>
         </div>
       </div>
 
-      {showSuccessToast && (
+      {toasts.length > 0 && (
         <div
           style={{
             position: "fixed",
-            inset: 0,
-            background: "rgba(0,0,0,0.12)",
+            top: "82px",
+            right: "20px",
+            zIndex: 10000,
             display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 9999,
+            flexDirection: "column",
+            gap: "10px",
+            width: "min(380px, calc(100vw - 32px))",
           }}
         >
-          <div
-            style={{
-              width: "min(92vw, 430px)",
-              height: "min(70vw, 350px)",
-              background: "#EBEBEB",
-              borderRadius: "22px",
-              padding: "14px 20px 14px",
-              textAlign: "center",
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "center",
-            }}
-          >
+          {toasts.map((toast) => (
             <div
+              key={toast.id}
               style={{
-                width: "62px",
-                height: "62px",
-                borderRadius: "50%",
-                background: "#0E5BA8",
-                margin: "0 auto 10px",
+                background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                borderRadius: "8px",
+                padding: "14px 16px",
+                boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                color: toast.type === "error" ? "#991B1B" : "#065F46",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center",
+                justifyContent: "space-between",
+                gap: "12px",
               }}
             >
-              <FaCheck size={30} color="#fff" />
+              <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+              <button
+                type="button"
+                onClick={() => removeToast(toast.id)}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  color: "inherit",
+                  cursor: "pointer",
+                  opacity: 0.7,
+                  padding: "4px",
+                  display: "inline-flex",
+                }}
+                aria-label="Dismiss notification"
+              >
+                <FaTimes />
+              </button>
             </div>
-
-            <h2
-              style={{
-                margin: "0",
-                fontSize: "18px",
-                lineHeight: 1.2,
-                fontWeight: "600",
-                color: "#0E5BA8",
-              }}
-            >
-              New Product has been
-              <br />
-              Added
-              <br />
-              Successfully
-            </h2>
-
-            <button
-              onClick={() => {
-                setShowSuccessToast(false);
-                navigate("/admin/products");
-              }}
-              style={{
-                marginTop: "16px",
-                width: "100%",
-                height: "52px",
-                border: "none",
-                borderRadius: "12px",
-                background: "#0E5BA8",
-                color: "#fff",
-                fontSize: "15px",
-                fontWeight: "500",
-                cursor: "pointer",
-              }}
-            >
-              Continue
-            </button>
-          </div>
+          ))}
         </div>
       )}
     </div>

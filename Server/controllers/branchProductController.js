@@ -1,6 +1,15 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
-import { getIO } from "../utils/socket.js";
+import { getIO, SOCKET_EVENTS, getBranchInventoryRoom } from "../utils/socket.js";
+
+function convertToBaseUnit(quantity, fromUnit) {
+  const unit = (fromUnit ?? "").toLowerCase().trim();
+  if (unit === "g")  return quantity / 1000;
+  if (unit === "mg") return quantity / 1000000;
+  if (unit === "ml") return quantity / 1000;
+  if (unit === "cl") return quantity / 100;
+  return quantity;
+}
 
 function fieldOrNull(value) {
   // Convert `undefined` -> null (so COALESCE keeps the existing DB value).
@@ -39,6 +48,20 @@ function toResponseRow(row) {
     }
   }
 
+  let calculated_status = "In stock";
+  
+  if (row.product_type === 'made_to_order') {
+    if (row.rm_status === 0) calculated_status = "Out of stock";
+    else if (row.rm_status === 1) calculated_status = "Low stock";
+    else calculated_status = "In stock";
+  } else {
+    const qty = Number(row.pro_quantity || 0);
+    const limit = Number(row.low_stock_limit || 10);
+    if (qty <= 0) calculated_status = "Out of stock";
+    else if (qty <= limit) calculated_status = "Low stock";
+    else calculated_status = "In stock";
+  }
+
   return {
     Bpro_id: row.Bpro_id,
     pro_name: row.pro_name,
@@ -51,7 +74,10 @@ function toResponseRow(row) {
     pro_id: row.pro_id,
     B_id: row.B_id,
     cat_name: row.cat_name,
+    low_stock_limit: row.low_stock_limit,
+    product_type: row.product_type,
     stations: stations || {},
+    calculated_status,
   };
 }
 
@@ -154,8 +180,23 @@ export async function getBranchProducts(req, res, next) {
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
         bp."B_id",
+        bp."low_stock_limit",
         c."cat_name",
-        p."stations"
+        p."stations",
+        p."product_type",
+        (
+          SELECT MIN(
+            CASE 
+              WHEN rm."stock_qty" <= 0 THEN 0
+              WHEN rm."stock_qty" <= COALESCE(rm."record_level", 10) THEN 1
+              ELSE 2
+            END
+          )
+          FROM "public"."RECIPE" r
+          JOIN "public"."Raw_Material" rm ON r."rawmaterial_ID" = rm."rm_id"
+          WHERE r."pro_id" = bp."pro_id"
+            AND (rm."b_id" = bp."B_id" OR rm."b_id" IS NULL)
+        ) AS rm_status
       FROM "public"."Branch_Product" bp
       LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
       LEFT JOIN "public"."Product"   p ON bp."pro_id" = p."pro_id"
@@ -216,8 +257,23 @@ export async function getBranchProductById(req, res, next) {
         bp."Cat_id" AS "cat_id",
         bp."pro_id",
         bp."B_id",
+        bp."low_stock_limit",
         c."cat_name",
-        p."stations"
+        p."stations",
+        p."product_type",
+        (
+          SELECT MIN(
+            CASE 
+              WHEN rm."stock_qty" <= 0 THEN 0
+              WHEN rm."stock_qty" <= COALESCE(rm."record_level", 10) THEN 1
+              ELSE 2
+            END
+          )
+          FROM "public"."RECIPE" r
+          JOIN "public"."Raw_Material" rm ON r."rawmaterial_ID" = rm."rm_id"
+          WHERE r."pro_id" = bp."pro_id"
+            AND (rm."b_id" = bp."B_id" OR rm."b_id" IS NULL)
+        ) AS rm_status
       FROM "public"."Branch_Product" bp
       LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
       LEFT JOIN "public"."Product"   p ON bp."pro_id" = p."pro_id"
@@ -257,6 +313,7 @@ export async function createBranchProduct(req, res, next) {
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
     const B_id = req.body?.B_id;
+    const low_stock_limit = req.body?.low_stock_limit;
 
     if (
       !pro_name ||
@@ -311,6 +368,10 @@ export async function createBranchProduct(req, res, next) {
       res.status(400);
       throw new Error("B_id must be a positive integer");
     }
+    if (low_stock_limit !== undefined && !isNonNegativeNumber(low_stock_limit)) {
+      res.status(400);
+      throw new Error("low_stock_limit must be a non-negative number");
+    }
 
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
       const branchCheck = await client.query('SELECT "com_id" FROM "public"."Branch" WHERE "B_id" = $1', [B_id]);
@@ -328,36 +389,17 @@ export async function createBranchProduct(req, res, next) {
 
     await client.query("BEGIN");
 
-    // Lock and check the base product stock
-    const productStock = await client.query(
-      'SELECT "pro_qty" FROM "public"."Product" WHERE "pro_id" = $1 FOR UPDATE',
-      [pro_id]
-    );
-    if (productStock.rows.length === 0) {
-      res.status(404);
-      throw new Error("Base product not found");
-    }
+   const neededQty = Number(pro_quantity);
 
-    const currentBaseQty = Number(productStock.rows[0].pro_qty ?? 0);
-    const neededQty = Number(pro_quantity);
-    if (neededQty > currentBaseQty) {
-      res.status(400);
-      throw new Error(`Insufficient stock in main hotel: only ${currentBaseQty} available`);
-    }
-
-    // Deduct from main stock
-    await client.query(
-      'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" - $1 WHERE "pro_id" = $2',
-      [neededQty, pro_id]
-    );
+   const resolvedLowStockLimit = low_stock_limit !== undefined ? Number(low_stock_limit) : 10;
 
     const result = await client.query(
       `
       WITH inserted AS (
         INSERT INTO "public"."Branch_Product"
-          ("pro_name", " pro_shortname", " pro_image", " pro_des", "pro_quantity", " Pro_Price", "Cat_id", "pro_id", "B_id")
+          ("pro_name", " pro_shortname", " pro_image", " pro_des", "pro_quantity", " Pro_Price", "Cat_id", "pro_id", "B_id", "low_stock_limit")
         VALUES
-          ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING *
       )
       SELECT
@@ -371,27 +413,60 @@ export async function createBranchProduct(req, res, next) {
         i."Cat_id" AS "cat_id",
         i."pro_id",
         i."B_id",
-        p."stations"
+        i."low_stock_limit",
+        p."stations",
+        p."product_type",
+        (
+          SELECT MIN(
+            CASE 
+              WHEN rm."stock_qty" <= 0 THEN 0
+              WHEN rm."stock_qty" <= COALESCE(rm."record_level", 10) THEN 1
+              ELSE 2
+            END
+          )
+          FROM "public"."RECIPE" r
+          JOIN "public"."Raw_Material" rm ON r."rawmaterial_ID" = rm."rm_id"
+          WHERE r."pro_id" = i."pro_id"
+            AND (rm."b_id" = i."B_id" OR rm."b_id" IS NULL)
+        ) AS rm_status
       FROM inserted i
       LEFT JOIN "public"."Product" p ON i."pro_id" = p."pro_id"
       `,
-      [pro_name, pro_shortname, pro_image, pro_des, pro_quantity, pro_price, Cat_id, pro_id, B_id]
+      [pro_name, pro_shortname, pro_image, pro_des, pro_quantity, pro_price, Cat_id, pro_id, B_id, resolvedLowStockLimit]
     );
 
-    // Deduct raw-material ingredients via recipe mapper (pre-made product prep)
-    await adjustRecipeIngredients(client, Number(pro_id), Number(B_id), neededQty, "subtract");
+    const newBranchProduct = result.rows[0];
+    const productType = newBranchProduct.product_type;
+
+    if (productType === 'pre_made') {
+      // Deduct raw-material ingredients via recipe mapper (pre-made product prep)
+      await adjustRecipeIngredients(client, Number(pro_id), Number(B_id), neededQty, "subtract");
+    }
 
     await client.query("COMMIT");
 
-    // Emit socket event for new branch product to cashier POS
+    // Emit socket event for new branch product to ALL branch admins
     const io = getIO();
     if (io) {
       const newProduct = toResponseRow(result.rows[0]);
-      io.to(`branch_${B_id}`).emit("new_branch_product_added", {
-        product: newProduct,
+      
+      // Emit to the specific branch room for inventory updates
+      const branchRoom = getBranchInventoryRoom(B_id);
+      io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, {
+        branch_product: newProduct,
         branch_id: B_id,
         timestamp: new Date()
       });
+      
+      // Also emit to all branch admin users via company room
+      const companyRoom = `company_${req.user.com_id}`;
+      io.to(companyRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, {
+        branch_product: newProduct,
+        branch_id: B_id,
+        timestamp: new Date(),
+        company_id: req.user.com_id
+      });
+      
       console.log(`🔔 Socket event emitted: New branch product "${pro_name}" added to branch ${B_id}`);
     }
 
@@ -429,6 +504,7 @@ export async function updateBranchProduct(req, res, next) {
     const Cat_id = normalizeCatId(req.body);
     const pro_id = req.body?.pro_id;
     const B_id = normalizeBranchId(req.body);
+    const low_stock_limit = req.body?.low_stock_limit;
 
     if (pro_name !== undefined && (typeof pro_name !== "string" || pro_name.trim().length === 0)) {
       res.status(400);
@@ -469,19 +545,24 @@ export async function updateBranchProduct(req, res, next) {
       res.status(400);
       throw new Error("B_id must be a positive integer");
     }
+    if (low_stock_limit !== undefined && !isNonNegativeNumber(low_stock_limit)) {
+      res.status(400);
+      throw new Error("low_stock_limit must be a non-negative number");
+    }
 
     await client.query("BEGIN");
 
     let checkQuery = `
-      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id"
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id", p."product_type"
       FROM "public"."Branch_Product" bp
+      JOIN "public"."Product" p ON bp."pro_id" = p."pro_id"
     `;
     let checkParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2 FOR UPDATE`;
+      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2 FOR UPDATE OF bp`;
       checkParams.push(req.user.com_id);
     } else {
-      checkQuery += ` WHERE bp."Bpro_id" = $1 FOR UPDATE`;
+      checkQuery += ` WHERE bp."Bpro_id" = $1 FOR UPDATE OF bp`;
     }
     const existing = await client.query(checkQuery, checkParams);
     if (existing.rows.length === 0) {
@@ -493,41 +574,17 @@ export async function updateBranchProduct(req, res, next) {
     const baseProId = existing.rows[0].pro_id;
     const branchId = existing.rows[0].B_id;
 
-    if (pro_quantity !== undefined) {
+    const productType = existing.rows[0].product_type;
+
+    if (pro_quantity !== undefined && productType === 'pre_made') {
       const newBranchQty = Number(pro_quantity);
       const diff = newBranchQty - oldBranchQty;
 
       if (diff !== 0) {
-        // Lock and check the base product stock
-        const baseProductRes = await client.query(
-          'SELECT "pro_qty" FROM "public"."Product" WHERE "pro_id" = $1 FOR UPDATE',
-          [baseProId]
-        );
-        if (baseProductRes.rows.length === 0) {
-          res.status(404);
-          throw new Error("Base product not found");
-        }
-
-        const currentBaseQty = Number(baseProductRes.rows[0].pro_qty ?? 0);
-
         if (diff > 0) {
-          if (diff > currentBaseQty) {
-            res.status(400);
-            throw new Error(`Insufficient stock in main hotel: only ${currentBaseQty} available`);
-          }
-          // Deduct from main stock
-          await client.query(
-            'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" - $1 WHERE "pro_id" = $2',
-            [diff, baseProId]
-          );
           // Deduct additional raw-material ingredients (more products prepped)
           await adjustRecipeIngredients(client, baseProId, branchId, diff, "subtract");
         } else {
-          // Return to main stock
-          await client.query(
-            'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" + $1 WHERE "pro_id" = $2',
-            [Math.abs(diff), baseProId]
-          );
           // Restore raw-material ingredients (fewer products → return ingredients)
           await adjustRecipeIngredients(client, baseProId, branchId, Math.abs(diff), "add");
         }
@@ -547,8 +604,9 @@ export async function updateBranchProduct(req, res, next) {
           " Pro_Price" = COALESCE($6, " Pro_Price"),
           "Cat_id" = COALESCE($7, "Cat_id"),
           "pro_id" = COALESCE($8, "pro_id"),
-          "B_id" = COALESCE($9, "B_id")
-        WHERE "Bpro_id" = $10
+          "B_id" = COALESCE($9, "B_id"),
+          "low_stock_limit" = COALESCE($10, "low_stock_limit")
+        WHERE "Bpro_id" = $11
         RETURNING *
       )
       SELECT
@@ -562,7 +620,22 @@ export async function updateBranchProduct(req, res, next) {
         u."Cat_id" AS "cat_id",
         u."pro_id",
         u."B_id",
-        p."stations"
+        u."low_stock_limit",
+        p."stations",
+        p."product_type",
+        (
+          SELECT MIN(
+            CASE 
+              WHEN rm."stock_qty" <= 0 THEN 0
+              WHEN rm."stock_qty" <= COALESCE(rm."record_level", 10) THEN 1
+              ELSE 2
+            END
+          )
+          FROM "public"."RECIPE" r
+          JOIN "public"."Raw_Material" rm ON r."rawmaterial_ID" = rm."rm_id"
+          WHERE r."pro_id" = u."pro_id"
+            AND (rm."b_id" = u."B_id" OR rm."b_id" IS NULL)
+        ) AS rm_status
       FROM updated u
       LEFT JOIN "public"."Product" p ON u."pro_id" = p."pro_id"
       `,
@@ -576,6 +649,7 @@ export async function updateBranchProduct(req, res, next) {
         fieldOrNull(Cat_id),
         fieldOrNull(pro_id),
         fieldOrNull(B_id),
+        fieldOrNull(low_stock_limit),
         id,
       ]
     );
@@ -586,11 +660,24 @@ export async function updateBranchProduct(req, res, next) {
     const io = getIO();
     if (io) {
       const updatedProduct = toResponseRow(result.rows[0]);
-      io.to(`branch_${branchId}`).emit("branch_product_updated", {
-        product: updatedProduct,
+      
+      // Emit to the specific branch room for inventory updates
+      const branchRoom = getBranchInventoryRoom(branchId);
+      io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
+        branch_product: updatedProduct,
         branch_id: branchId,
         timestamp: new Date()
       });
+      
+      // Also emit to all branch admin users via company room
+      const companyRoom = `company_${req.user.com_id}`;
+      io.to(companyRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
+        branch_product: updatedProduct,
+        branch_id: branchId,
+        timestamp: new Date(),
+        company_id: req.user.com_id
+      });
+      
       console.log(`🔔 Socket event emitted: Branch product "${updatedProduct.pro_name}" updated in branch ${branchId}`);
     }
 
@@ -622,15 +709,16 @@ export async function deleteBranchProduct(req, res, next) {
     await client.query("BEGIN");
 
     let checkQuery = `
-      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id", bp."pro_name"
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id", bp."pro_name", p."product_type"
       FROM "public"."Branch_Product" bp
+      JOIN "public"."Product" p ON bp."pro_id" = p."pro_id"
     `;
     let checkParams = [id];
     if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2 FOR UPDATE`;
+      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2 FOR UPDATE OF bp`;
       checkParams.push(req.user.com_id);
     } else {
-      checkQuery += ` WHERE bp."Bpro_id" = $1 FOR UPDATE`;
+      checkQuery += ` WHERE bp."Bpro_id" = $1 FOR UPDATE OF bp`;
     }
     const existing = await client.query(checkQuery, checkParams);
     if (existing.rows.length === 0) {
@@ -644,12 +732,9 @@ export async function deleteBranchProduct(req, res, next) {
     const productName = existing.rows[0].pro_name;
     const Bpro_id = existing.rows[0].Bpro_id;
 
-    if (remainingQty > 0) {
-      // Return remaining stock to the base product
-      await client.query(
-        'UPDATE "public"."Product" SET "pro_qty" = "pro_qty" + $1 WHERE "pro_id" = $2',
-        [remainingQty, baseProId]
-      );
+    const productType = existing.rows[0].product_type;
+
+    if (remainingQty > 0 && productType === 'pre_made') {
       // Restore raw-material ingredients for remaining unsold units
       await adjustRecipeIngredients(client, baseProId, branchBId, remainingQty, "add");
     }
@@ -669,12 +754,25 @@ export async function deleteBranchProduct(req, res, next) {
     // Emit socket event for deleted branch product
     const io = getIO();
     if (io) {
-      io.to(`branch_${branchBId}`).emit("branch_product_deleted", {
+      // Emit to the specific branch room for inventory updates
+      const branchRoom = getBranchInventoryRoom(branchBId);
+      io.to(branchRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, {
         Bpro_id: Bpro_id,
         pro_name: productName,
         branch_id: branchBId,
         timestamp: new Date()
       });
+      
+      // Also emit to all branch admin users via company room
+      const companyRoom = `company_${req.user.com_id}`;
+      io.to(companyRoom).emit(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, {
+        Bpro_id: Bpro_id,
+        pro_name: productName,
+        branch_id: branchBId,
+        timestamp: new Date(),
+        company_id: req.user.com_id
+      });
+      
       console.log(`🔔 Socket event emitted: Branch product "${productName}" deleted from branch ${branchBId}`);
     }
 
@@ -684,5 +782,200 @@ export async function deleteBranchProduct(req, res, next) {
     next(err);
   } finally {
     client.release();
+  }
+}
+
+// POST /api/branch_products/:id/add-stock
+export async function addStock(req, res, next) {
+  const client = await pool.connect();
+  try {
+    const { id } = req.params;
+    const { quantity } = req.body;
+
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid branch product id");
+    }
+
+    if (!isPositiveInt(quantity)) {
+      res.status(400);
+      throw new Error("Quantity must be a positive integer");
+    }
+
+    await client.query("BEGIN");
+
+    let checkQuery = `
+      SELECT bp."Bpro_id", bp."pro_quantity", bp."pro_id", bp."B_id", p."product_type", bp."pro_name"
+      FROM "public"."Branch_Product" bp
+      JOIN "public"."Product" p ON bp."pro_id" = p."pro_id"
+    `;
+    let checkParams = [id];
+    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
+      checkQuery += ` JOIN "public"."Branch" b ON bp."B_id" = b."B_id" WHERE bp."Bpro_id" = $1 AND b."com_id" = $2 FOR UPDATE OF bp`;
+      checkParams.push(req.user.com_id);
+    } else {
+      checkQuery += ` WHERE bp."Bpro_id" = $1 FOR UPDATE OF bp`;
+    }
+    const existing = await client.query(checkQuery, checkParams);
+    if (existing.rows.length === 0) {
+      res.status(404);
+      throw new Error("Branch product not found");
+    }
+
+    const branchProduct = existing.rows[0];
+    const productType = branchProduct.product_type;
+    const baseProId = branchProduct.pro_id;
+    const branchId = branchProduct.B_id;
+    const currentQty = Number(branchProduct.pro_quantity ?? 0);
+    const addedQty = Number(quantity);
+
+    if (productType === 'made_to_order') {
+      res.status(400);
+      throw new Error("Cannot add manual stock to made-to-order products");
+    }
+
+    if (productType === 'pre_made') {
+      // Deduct raw-material ingredients via recipe mapper
+      await adjustRecipeIngredients(client, baseProId, branchId, addedQty, "subtract");
+    }
+
+    const newQty = currentQty + addedQty;
+
+    const result = await client.query(
+      `
+      WITH updated AS (
+        UPDATE "public"."Branch_Product"
+        SET "pro_quantity" = $1
+        WHERE "Bpro_id" = $2
+        RETURNING *
+      )
+      SELECT
+        u."Bpro_id",
+        u."pro_name",
+        u." pro_shortname" AS "pro_shortname",
+        u." pro_image" AS "pro_image",
+        u." pro_des" AS "pro_des",
+        u."pro_quantity",
+        u." Pro_Price" AS "pro_price",
+        u."Cat_id" AS "cat_id",
+        u."pro_id",
+        u."B_id",
+        u."low_stock_limit",
+        p."stations",
+        p."product_type",
+        (
+          SELECT MIN(
+            CASE 
+              WHEN rm."stock_qty" <= 0 THEN 0
+              WHEN rm."stock_qty" <= COALESCE(rm."record_level", 10) THEN 1
+              ELSE 2
+            END
+          )
+          FROM "public"."RECIPE" r
+          JOIN "public"."Raw_Material" rm ON r."rawmaterial_ID" = rm."rm_id"
+          WHERE r."pro_id" = u."pro_id"
+            AND (rm."b_id" = u."B_id" OR rm."b_id" IS NULL)
+        ) AS rm_status
+      FROM updated u
+      LEFT JOIN "public"."Product" p ON u."pro_id" = p."pro_id"
+      `,
+      [newQty, id]
+    );
+
+    await client.query("COMMIT");
+
+    // Emit socket event
+    const io = getIO();
+    if (io) {
+      const updatedProduct = toResponseRow(result.rows[0]);
+      io.to(`branch_${branchId}`).emit("branch_product_updated", {
+        product: updatedProduct,
+        branch_id: branchId,
+        timestamp: new Date()
+      });
+      console.log(`🔔 Socket event emitted: Branch product "${branchProduct.pro_name}" stock added in branch ${branchId}`);
+    }
+
+    res.json(toResponseRow(result.rows[0]));
+  } catch (err) {
+    await client.query("ROLLBACK");
+    next(err);
+  } finally {
+    client.release();
+  }
+}
+
+export async function getIngredientStatus(req, res, next) {
+  try {
+    const { id } = req.params;
+    if (!isPositiveInt(id)) {
+      res.status(400);
+      throw new Error("Invalid branch product id");
+    }
+
+    const bpResult = await pool.query(
+      `SELECT bp."pro_id", bp."B_id", p."product_type"
+       FROM "public"."Branch_Product" bp
+       JOIN "public"."Product" p ON bp."pro_id" = p."pro_id"
+       WHERE bp."Bpro_id" = $1`,
+      [id]
+    );
+
+    if (bpResult.rows.length === 0) {
+      res.status(404);
+      throw new Error("Branch product not found");
+    }
+
+    const { pro_id, B_id, product_type } = bpResult.rows[0];
+
+    const ingredients = await pool.query(
+      `SELECT
+         rm."rm_id",
+         rm."rm_name",
+         rm."stock_qty",
+         rm."unit",
+         COALESCE(rm."record_level", 10) AS "record_level",
+         r."quantity_req",
+         COALESCE(r."unit", rm."unit") AS "recipe_unit",
+         CASE
+           WHEN rm."stock_qty" <= 0 THEN 'out'
+           WHEN rm."stock_qty" <= COALESCE(rm."record_level", 10) THEN 'low'
+           ELSE 'ok'
+         END AS "status"
+       FROM "public"."RECIPE" r
+       JOIN "public"."Raw_Material" rm ON rm."rm_id" = r."rawmaterial_ID"
+       WHERE r."pro_id" = $1
+         AND (rm."b_id" = $2 OR rm."b_id" IS NULL)
+       ORDER BY
+         CASE
+           WHEN rm."stock_qty" <= 0 THEN 0
+           WHEN rm."stock_qty" <= COALESCE(rm."record_level", 10) THEN 1
+           ELSE 2
+         END ASC,
+         rm."rm_name" ASC`,
+      [pro_id, B_id]
+    );
+
+    const hasOut = ingredients.rows.some(r => r.status === 'out');
+    const hasLow = ingredients.rows.some(r => r.status === 'low');
+    const overallStatus = hasOut ? 'out' : hasLow ? 'low' : 'ok';
+
+    res.json({
+      success: true,
+      product_type,
+      overall_status: overallStatus,
+      ingredients: ingredients.rows.map(row => ({
+        rm_id: row.rm_id,
+        rm_name: row.rm_name,
+        required_qty: Number(row.quantity_req),
+        recipe_unit: row.recipe_unit,
+        stock_qty: Number(row.stock_qty),
+        stock_unit: row.unit,
+        record_level: Number(row.record_level),
+        status: row.status,
+      })),
+    });
+  } catch (err) {
+    next(err);
   }
 }

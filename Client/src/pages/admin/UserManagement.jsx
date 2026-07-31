@@ -6,6 +6,7 @@ import {
   FaPen,
   FaPlus,
   FaSearch,
+  FaTimes,
   FaTrash,
   FaUserCheck,
   FaUserShield,
@@ -20,6 +21,7 @@ import {
   getRoles,
   getUsers,
 } from "../../services/api";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 
 const UserManagement = () => {
   const navigate = useNavigate();
@@ -33,6 +35,7 @@ const UserManagement = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [toasts, setToasts] = useState([]);
 
   const [newUser, setNewUser] = useState({
     u_fname: "",
@@ -45,7 +48,82 @@ const UserManagement = () => {
 
   useEffect(() => {
     fetchData();
+    const cleanupSocketConnection = setupSocketConnection();
+    
+    return () => {
+      cleanupSocketConnection?.();
+    };
   }, []);
+
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const setupSocketConnection = () => {
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+
+    const socket = connectSocket();
+
+    const handleUserCreated = (newUserData) => {
+      console.log("New user created (admin):", newUserData);
+      setUsers((prevUsers) => {
+        if (prevUsers.some((u) => u.u_id === newUserData.u_id)) {
+          return prevUsers;
+        }
+        return [...prevUsers, newUserData];
+      });
+    };
+
+    const handleUserUpdated = (updatedUserData) => {
+      console.log("User updated (admin):", updatedUserData);
+      setUsers((prevUsers) =>
+        prevUsers.map((user) =>
+          user.u_id === updatedUserData.u_id ? updatedUserData : user
+        )
+      );
+    };
+
+    const handleUserDeleted = ({ u_id }) => {
+      console.log("User deleted (admin):", u_id);
+      setUsers((prevUsers) =>
+        prevUsers.filter((user) => user.u_id !== u_id)
+      );
+    };
+
+    socket.on(SOCKET_EVENTS.USER_CREATED, handleUserCreated);
+    socket.on(SOCKET_EVENTS.USER_UPDATED, handleUserUpdated);
+    socket.on(SOCKET_EVENTS.USER_DELETED, handleUserDeleted);
+
+    return () => {
+      const activeSocket = getSocket();
+      if (!activeSocket) return;
+      activeSocket.off(SOCKET_EVENTS.USER_CREATED, handleUserCreated);
+      activeSocket.off(SOCKET_EVENTS.USER_UPDATED, handleUserUpdated);
+      activeSocket.off(SOCKET_EVENTS.USER_DELETED, handleUserDeleted);
+    };
+  };
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
 
   const fetchData = async () => {
     try {
@@ -78,11 +156,9 @@ const UserManagement = () => {
     }, {});
   }, [roles]);
 
-  const branchMapByUser = useMemo(() => {
+  const branchMap = useMemo(() => {
     return branches.reduce((acc, branch) => {
-      if (branch.U_id) {
-        acc[String(branch.U_id)] = branch.B_name;
-      }
+      acc[String(branch.B_id)] = branch.B_name;
       return acc;
     }, {});
   }, [branches]);
@@ -95,7 +171,7 @@ const UserManagement = () => {
       const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim().toLowerCase();
       const email = (user.u_email || "").toLowerCase();
       const roleName = (roleMap[String(user.role_id)] || "Unknown").toLowerCase();
-      const branchName = (branchMapByUser[String(user.u_id)] || "-").toLowerCase();
+      const branchName = (branchMap[String(user.b_id)] || "-").toLowerCase();
 
       const matchesSearch =
         !normalizedSearch ||
@@ -108,9 +184,8 @@ const UserManagement = () => {
 
       return matchesSearch && matchesRole;
     });
-  }, [users, searchTerm, roleFilter, roleMap, branchMapByUser]);
+  }, [users, searchTerm, roleFilter, roleMap, branchMap]);
 
-  // UX Fix: Removed itemsPerPage limitations so all matching records show at once
   const visibleUsers = filteredUsers;
 
   const totalUsers = users.length;
@@ -142,9 +217,10 @@ const UserManagement = () => {
         role_id: roles?.[0]?.role_id ? String(roles[0].role_id) : "",
       });
 
-      fetchData();
+      // No need to call fetchData() as socket event will update the list
+      showToastMessage("User created successfully.", "success");
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Failed to create user.");
+      showToastMessage(err?.response?.data?.message || "Failed to create user.", "error");
     }
   };
 
@@ -156,10 +232,11 @@ const UserManagement = () => {
     try {
       setIsDeleting(true);
       await deleteUserById(deleteTargetUser.u_id);
+      showToastMessage(`User deleted successfully${deleteTargetUser.name ? `: ${deleteTargetUser.name}` : ""}.`, "success");
       setDeleteTargetUser(null);
-      fetchData();
+      // No need to call fetchData() as socket event will update the list
     } catch (err) {
-      window.alert(err?.response?.data?.message || "Failed to delete user.");
+      showToastMessage(err?.response?.data?.message || "Failed to delete user.", "error");
     } finally {
       setIsDeleting(false);
     }
@@ -185,13 +262,65 @@ const UserManagement = () => {
           style={{
             flex: 1,
             overflow: "hidden",
-            padding: "14px 18px 16px",
-            display: "flex",
-            flexDirection: "column",
-            gap: "14px",
-          }}
-        >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+	            padding: "14px 18px 16px",
+	            display: "flex",
+	            flexDirection: "column",
+	            gap: "14px",
+	          }}
+	        >
+	          {toasts.length > 0 && (
+            <div
+              style={{
+                position: "fixed",
+                top: "82px",
+                right: "20px",
+                zIndex: 9999,
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                width: "min(380px, calc(100vw - 32px))",
+              }}
+            >
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  style={{
+                    background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                    borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                    borderRadius: "8px",
+                    padding: "14px 16px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                    color: toast.type === "error" ? "#991B1B" : "#065F46",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                    animation: "slideInRight 0.3s ease-out",
+                  }}
+                >
+                  <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeToast(toast.id)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "inherit",
+                      cursor: "pointer",
+                      opacity: 0.7,
+                      padding: "4px",
+                      display: "inline-flex",
+                    }}
+                    aria-label="Dismiss notification"
+                  >
+                    <FaTimes />
+	                  </button>
+	                </div>
+	              ))}
+	            </div>
+		          )}
+
+		          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h1 style={{ fontSize: "30px", margin: 0, fontWeight: 700, color: "#2f3d72", letterSpacing: "0.3px", lineHeight: 1 }}>
               User Management
             </h1>
@@ -323,7 +452,6 @@ const UserManagement = () => {
             ) : error ? (
               <p style={{ textAlign: "center", color: "#cf3e3e", margin: "22px 0" }}>{error}</p>
             ) : (
-              // UX Fix: Enabled independent clean y-scrolling inside the table element container
               <div style={{ flex: 1, minHeight: 0, overflowY: "auto", paddingRight: "4px" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <thead style={{ position: "sticky", top: 0, zIndex: 1, background: "#fff" }}>
@@ -341,7 +469,7 @@ const UserManagement = () => {
                       const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim() || "Unknown User";
                       const initials = `${(user.u_fname || "U").charAt(0)}${(user.u_lname || "S").charAt(0)}`.toUpperCase();
                       const roleName = roleMap[String(user.role_id)] || "Unknown";
-                      const branchName = branchMapByUser[String(user.u_id)] || "-";
+                      const branchName = branchMap[String(user.b_id)] || "-";
 
                       return (
                         <tr key={user.u_id}>
@@ -443,7 +571,6 @@ const UserManagement = () => {
                   </tbody>
                 </table>
 
-                {/* Simplified Data Metric Counter Footnote */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 6px 4px" }}>
                   <div style={{ color: "#6b7280", fontSize: 13, fontWeight: 500 }}>
                     Showing {visibleUsers.length} of {totalUsers} registered users
@@ -477,11 +604,25 @@ const UserManagement = () => {
           loading={isDeleting}
         />
       )}
+
+      {/* Add animation styles */}
+      <style>{`
+        @keyframes slideInRight {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </div>
   );
 };
 
-// Child presentational layout elements stay the same...
+// Child presentational layout elements
 const StatCard = ({ icon, title, value, bg, iconBg }) => {
   return (
     <div
@@ -753,19 +894,3 @@ const DeleteConfirmModal = ({ userName, onClose, onConfirm, loading }) => {
 };
 
 export default UserManagement;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { FaArrowLeft, FaCheck } from "react-icons/fa";
+import { FaArrowLeft, FaCheck, FaTimes } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
@@ -34,6 +34,7 @@ const EditUser = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [errorMessage, setErrorMessage] = useState("");
     const [showSuccessToast, setShowSuccessToast] = useState(false);
+    const [toasts, setToasts] = useState([]);
 
     const accessibleRoles = useMemo(() => {
         return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
@@ -52,6 +53,31 @@ const EditUser = () => {
     };
 
     useEffect(() => {
+        if (toasts.length === 0) return undefined;
+
+        const timer = setTimeout(() => {
+            setToasts((prev) => prev.slice(1));
+        }, 5000);
+
+        return () => clearTimeout(timer);
+    }, [toasts]);
+
+    const showToastMessage = (message, type = "success") => {
+        setToasts((prev) => [
+            ...prev,
+            {
+                id: Date.now() + Math.random(),
+                message,
+                type,
+            },
+        ]);
+    };
+
+    const removeToast = (toastId) => {
+        setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+    };
+
+    useEffect(() => {
         const loadPageData = async () => {
             try {
                 setErrorMessage("");
@@ -59,7 +85,9 @@ const EditUser = () => {
                 setIsLoadingUser(true);
 
                 if (!resolvedUserId) {
-                    setErrorMessage("User id is missing. Open this page from User Management.");
+                    const msg = "User id is missing. Open this page from User Management.";
+                    setErrorMessage(msg);
+                    showToastMessage(msg, "error");
                     return;
                 }
 
@@ -78,7 +106,9 @@ const EditUser = () => {
 
                 const userRoleId = userData?.role_id ? String(userData.role_id) : "";
                 if (userRoleId && !allowedRoles.some((role) => String(role.role_id) === userRoleId)) {
-                    setErrorMessage("This user role is not available in branch admin.");
+                    const msg = "This user role is not available in branch admin.";
+                    setErrorMessage(msg);
+                    showToastMessage(msg, "error");
                     return;
                 }
 
@@ -96,10 +126,14 @@ const EditUser = () => {
                     branch: defaultBranchValue,
                     password: "",
                     confirmPassword: "",
-                    isActive: true,
+                    isActive: userData?.u_status === true || 
+            String(userData?.u_status).toLowerCase() === "true" ||
+            String(userData?.u_status).toLowerCase() === "active",
                 });
             } catch (error) {
-                setErrorMessage(error?.response?.data?.message || "Failed to load user details");
+                const msg = error?.response?.data?.message || "Failed to load user details";
+                setErrorMessage(msg);
+                showToastMessage(msg, "error");
             } finally {
                 setIsLoadingOptions(false);
                 setIsLoadingUser(false);
@@ -139,27 +173,27 @@ const EditUser = () => {
         }
 
         if (!resolvedUserId) {
-            setErrorMessage("User id is missing. Open this page from User Management.");
+            showToastMessage("User id is missing. Open this page from User Management.", "error");
             return;
         }
 
         if (!formData.firstName || !formData.lastName || !formData.email) {
-            setErrorMessage("First name, last name and email are required");
+            showToastMessage("First name, last name and email are required", "error");
             return;
         }
 
         if (formData.password && formData.password !== formData.confirmPassword) {
-            setErrorMessage("Password and confirm password do not match");
+            showToastMessage("Password and confirm password do not match", "error");
             return;
         }
 
         if (!formData.role) {
-            setErrorMessage("Please select a user role");
+            showToastMessage("Please select a user role", "error");
             return;
         }
 
         if (!accessibleRoles.some((role) => String(role.role_id) === String(formData.role))) {
-            setErrorMessage("Please select a supported role");
+            showToastMessage("Please select a supported role", "error");
             return;
         }
 
@@ -171,7 +205,8 @@ const EditUser = () => {
                 u_email: formData.email,
                 u_connumber: formData.contactNumber || null,
                 role_id: Number(formData.role),
-            };
+                u_status: formData.isActive,
+                };
 
             if (formData.password) {
                 payload.u_pw = formData.password;
@@ -179,15 +214,17 @@ const EditUser = () => {
 
             await updateUser(resolvedUserId, payload);
 
-            setShowSuccessToast(true);
-            setFormData((prev) => ({
-                ...prev,
-                password: "",
-                confirmPassword: "",
-            }));
+            // Show success toast immediately
+            showToastMessage("User details updated successfully!", "success");
+            
             setIsEditMode(false);
+            // Show the success modal
+            setShowSuccessToast(true);
+            
         } catch (error) {
-            setErrorMessage(error?.response?.data?.message || "Failed to update user");
+            const message = error?.response?.data?.message || "Failed to update user";
+            setErrorMessage(message);
+            showToastMessage(message, "error");
         } finally {
             setIsSubmitting(false);
         }
@@ -237,18 +274,7 @@ const EditUser = () => {
                     </div>
 
                     <div style={{ maxWidth: "980px", margin: "0 auto" }}>
-                        <h1
-                            style={{
-                                margin: "0 0 22px",
-                                textAlign: "center",
-                                fontSize: "42px",
-                                fontWeight: "700",
-                                color: "#111",
-                            }}
-                        >
-                            User Details
-                        </h1>
-
+                       
                         <div
                             style={{
                                 display: "grid",
@@ -409,85 +435,59 @@ const EditUser = () => {
                 </div>
             </div>
 
-            {showSuccessToast && (
+            {/* Toast Messages */}
+            {toasts.length > 0 && (
                 <div
                     style={{
                         position: "fixed",
-                        inset: 0,
-                        background: "rgba(0,0,0,0.12)",
+                        top: "82px",
+                        right: "20px",
+                        zIndex: 10000,
                         display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 9999,
+                        flexDirection: "column",
+                        gap: "10px",
+                        width: "min(380px, calc(100vw - 32px))",
                     }}
                 >
-                    <div
-                        style={{
-                            width: "min(92vw, 430px)",
-                            height: "min(70vw, 350px)",
-                            background: "#EBEBEB",
-                            borderRadius: "22px",
-                            padding: "14px 20px 14px",
-                            textAlign: "center",
-                            display: "flex",
-                            flexDirection: "column",
-                            justifyContent: "center",
-                        }}
-                    >
+                    {toasts.map((toast) => (
                         <div
+                            key={toast.id}
                             style={{
-                                width: "62px",
-                                height: "62px",
-                                borderRadius: "50%",
-                                background: "#0E5BA8",
-                                margin: "0 auto 10px",
+                                background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                                borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                                borderRadius: "8px",
+                                padding: "14px 16px",
+                                boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                                color: toast.type === "error" ? "#991B1B" : "#065F46",
                                 display: "flex",
                                 alignItems: "center",
-                                justifyContent: "center",
+                                justifyContent: "space-between",
+                                gap: "12px",
                             }}
                         >
-                            <FaCheck size={30} color="#fff" />
+                            <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                            <button
+                                type="button"
+                                onClick={() => removeToast(toast.id)}
+                                style={{
+                                    border: "none",
+                                    background: "transparent",
+                                    color: "inherit",
+                                    cursor: "pointer",
+                                    opacity: 0.7,
+                                    padding: "4px",
+                                    display: "inline-flex",
+                                }}
+                                aria-label="Dismiss notification"
+                            >
+                                <FaTimes />
+                            </button>
                         </div>
-
-                        <h2
-                            style={{
-                                margin: "0",
-                                fontSize: "18px",
-                                lineHeight: 1.2,
-                                fontWeight: "600",
-                                color: "#0E5BA8",
-                            }}
-                        >
-                            User details
-                            <br />
-                            updated
-                            <br />
-                            Successfully
-                        </h2>
-
-                        <button
-                            onClick={() => {
-                                setShowSuccessToast(false);
-                                navigate("/branch-admin/users");
-                            }}
-                            style={{
-                                marginTop: "16px",
-                                width: "100%",
-                                height: "52px",
-                                border: "none",
-                                borderRadius: "12px",
-                                background: "#0E5BA8",
-                                color: "#fff",
-                                fontSize: "15px",
-                                fontWeight: "500",
-                                cursor: "pointer",
-                            }}
-                        >
-                            Countinue
-                        </button>
-                    </div>
+                    ))}
                 </div>
             )}
+
+            
         </div>
     );
 };

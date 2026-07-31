@@ -3,7 +3,7 @@ import { FaArrowLeft, FaChevronDown, FaCheck, FaMinus, FaPlus, FaTimes } from "r
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
-import { deleteProduct, getCategories, getProductById, updateProduct } from "../../services/api";
+import { deleteProduct, getCategories, getProductById, updateProduct, getBranches } from "../../services/api";
 
 const cardStyle = {
   border: "1px solid #D9E4F2",
@@ -114,6 +114,7 @@ const ProductDetails = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [toasts, setToasts] = useState([]);
   const [newAddOn, setNewAddOn] = useState("");
   const [newStation, setNewStation] = useState("");
 
@@ -143,6 +144,9 @@ const ProductDetails = () => {
     setNewStation("");
   };
   const [deleteAcknowledged, setDeleteAcknowledged] = useState(false);
+  const [deleteOption, setDeleteOption] = useState("complete");
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("");
   const [categories, setCategories] = useState([]);
   const [product, setProduct] = useState(null);
   const [form, setForm] = useState({
@@ -173,10 +177,12 @@ const ProductDetails = () => {
         setLoading(true);
         setError("");
 
-        const [productData, categoryData] = await Promise.all([
+        const [productData, categoryData, branchData] = await Promise.all([
           getProductById(productId),
           getCategories().catch(() => []),
+          getBranches().catch(() => []),
         ]);
+        setBranches(Array.isArray(branchData) ? branchData : []);
 
         if (!mounted) {
           return;
@@ -221,6 +227,31 @@ const ProductDetails = () => {
     };
   }, [productId]);
 
+  useEffect(() => {
+    if (toasts.length === 0) return undefined;
+
+    const timer = setTimeout(() => {
+      setToasts((prev) => prev.slice(1));
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [toasts]);
+
+  const showToastMessage = (message, type = "success") => {
+    setToasts((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        message,
+        type,
+      },
+    ]);
+  };
+
+  const removeToast = (toastId) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
+  };
+
   const imagePreview = useMemo(() => {
     if (isImageUrl(form.pro_image)) {
       return <img src={form.pro_image} alt={form.pro_name || "Product"} style={{ width: "100%", height: "100%", objectFit: "cover" }} />;
@@ -251,11 +282,13 @@ const ProductDetails = () => {
   const handleSave = async () => {
     if (!productId) {
       setError("Missing product id");
+      showToastMessage("Missing product id", "error");
       return;
     }
 
-    if (!form.pro_name.trim() || form.pro_qty === "" || form.pro_price === "") {
-      setError("Product name, quantity, and sales price are required");
+    if (!form.pro_name.trim() || form.pro_price === "") {
+      setError("Product name and sales price are required");
+      showToastMessage("Product name and sales price are required", "error");
       return;
     }
 
@@ -266,51 +299,72 @@ const ProductDetails = () => {
       const cat_id = selectedCategoryObj ? selectedCategoryObj.cat_id : null;
 
       const updated = await updateProduct(productId, {
-        pro_name: form.pro_name.trim(),
-        pro_qty: Number(form.pro_qty),
-        pro_price: Number(form.pro_price),
-        pro_image: form.pro_image.trim() || null,
-        cat_id: cat_id,
-        add_ons: form.add_ons,
-        stations: form.stations,
-      });
+      pro_name: form.pro_name.trim(),
+      pro_price: Number(form.pro_price),
+      pro_image: form.pro_image.trim() || null,
+      cat_id: cat_id,
+      add_ons: form.add_ons,
+      stations: form.stations,
+    });
       setProduct(updated);
       setSuccess("Product updated successfully");
+      showToastMessage("Product updated successfully.", "success");
       setTimeout(() => setSuccess(""), 2200);
     } catch (err) {
-      setError(err?.response?.data?.message || "Failed to update product");
+      const message = err?.response?.data?.message || "Failed to update product";
+      setError(message);
+      showToastMessage(message, "error");
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async () => {
-    if (!productId) {
-      setError("Missing product id");
-      return;
+  if (!productId) {
+    setError("Missing product id");
+    showToastMessage("Missing product id", "error");
+    return;
+  }
+
+  if (!isDeletePage) {
+    navigate(`/admin/products/${productId}/delete`);
+    return;
+  }
+
+  if (!deleteAcknowledged) {
+    setError("Please confirm the deletion acknowledgment first.");
+    showToastMessage("Please confirm the deletion acknowledgment first.", "error");
+    return;
+  }
+
+  if (deleteOption === "branch" && !selectedBranchId) {
+    setError("Please select a branch first.");
+    showToastMessage("Please select a branch first.", "error");
+    return;
+  }
+
+  try {
+    setSaving(true);
+    setError("");
+
+    if (deleteOption === "branch") {
+      await deleteProduct(productId, selectedBranchId);
+    } else {
+      await deleteProduct(productId, null);
     }
 
-    if (!isDeletePage) {
-      navigate(`/admin/products/${productId}/delete`);
-      return;
-    }
-
-    if (!deleteAcknowledged) {
-      setError("Please confirm the deletion acknowledgment first.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-      setError("");
-      await deleteProduct(productId);
+    showToastMessage("Product deleted successfully.", "success");
+    setTimeout(() => {
       navigate("/admin/products");
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to delete product");
-    } finally {
-      setSaving(false);
-    }
-  };
+    }, 700);
+  } catch (err) {
+    const message = err?.response?.data?.message || "Failed to delete product";
+    setError(message);
+    showToastMessage(message, "error");
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handleCancel = () => {
     if (isDeletePage) {
@@ -329,6 +383,57 @@ const ProductDetails = () => {
         <Header title="Product Management" />
 
         <div style={{ padding: "18px 20px 24px" }}>
+          {toasts.length > 0 && (
+            <div
+              style={{
+                position: "fixed",
+                top: "82px",
+                right: "20px",
+                zIndex: 10000,
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                width: "min(380px, calc(100vw - 32px))",
+              }}
+            >
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  style={{
+                    background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+                    borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+                    borderRadius: "8px",
+                    padding: "14px 16px",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+                    color: toast.type === "error" ? "#991B1B" : "#065F46",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: "12px",
+                  }}
+                >
+                  <span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeToast(toast.id)}
+                    style={{
+                      border: "none",
+                      background: "transparent",
+                      color: "inherit",
+                      cursor: "pointer",
+                      opacity: 0.7,
+                      padding: "4px",
+                      display: "inline-flex",
+                    }}
+                    aria-label="Dismiss notification"
+                  >
+                    <FaTimes />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={() => navigate("/admin/products")}
@@ -373,8 +478,7 @@ const ProductDetails = () => {
                       </div>
                     </div>
 
-                    <div style={{ display: "grid", gridTemplateColumns: "1.15fr 0.85fr", gap: "12px", marginBottom: "10px" }}>
-                      <div>
+                    <div style={{ marginBottom: "10px" }}>
                         <label style={labelStyle}>Category</label>
                         <div style={{ position: "relative" }}>
                           <select
@@ -391,11 +495,6 @@ const ProductDetails = () => {
                           </select>
                           <FaChevronDown size={10} color="#475569" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
                         </div>
-                      </div>
-                      <div>
-                        <label style={labelStyle}>Quantity</label>
-                        <input type="number" min="0" style={inputStyle} value={form.pro_qty} onChange={handleFieldChange("pro_qty")} />
-                      </div>
                     </div>
 
                     <div style={{ marginBottom: "10px" }}>
@@ -422,14 +521,11 @@ const ProductDetails = () => {
                         <input type="number" min="0" step="0.01" style={inputStyle} value={form.pro_price} onChange={handleFieldChange("pro_price")} />
                       </div>
                       <div>
-                        <label style={labelStyle}>Tax Group</label>
-                        <div style={{ position: "relative" }}>
-                          <select style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", MozAppearance: "none", paddingRight: "30px" }} value="5%" readOnly>
-                            <option value="5%">5%</option>
-                          </select>
-                          <FaChevronDown size={10} color="#475569" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-                        </div>
-                      </div>
+                      <label style={labelStyle}>Tax Group</label>
+                      <select style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", MozAppearance: "none", paddingRight: "30px" }} disabled>
+                        <option value="">N/A</option>
+                      </select>
+                    </div>
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
@@ -445,7 +541,7 @@ const ProductDetails = () => {
 
                     <div style={{ maxWidth: "140px" }}>
                       <label style={labelStyle}>Discount</label>
-                      <input style={inputStyle} value="10%" readOnly />
+                      <input style={inputStyle} value="N/A" readOnly />
                     </div>
                   </div>
                 </>
@@ -562,36 +658,7 @@ const ProductDetails = () => {
                 </div>
               </div>
 
-              <h2 style={{ ...sectionTitleStyle, fontSize: "20px", marginTop: "22px", marginBottom: "8px" }}>Track Inventory</h2>
-              <div style={cardStyle}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <div style={{ fontSize: "14px", fontWeight: "700", color: "#374151" }}>Track Inventory</div>
-                  <button type="button" onClick={() => setForm((prev) => ({ ...prev, track_inventory: !prev.track_inventory }))} style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer" }}>
-                    <div style={{ ...toggleTrackStyle, background: form.track_inventory ? "#1769AA" : "#CBD5E1" }}>
-                      <div style={{ ...toggleKnobStyle, transform: form.track_inventory ? "translateX(18px)" : "translateX(0)" }} />
-                    </div>
-                  </button>
-                </div>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "14px" }}>
-                  <div>
-                    <label style={labelStyle}>Current stock</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                      <button type="button" onClick={() => setForm((prev) => ({ ...prev, pro_qty: String(Math.max(0, Number(prev.pro_qty || 0) - 1)) }))} style={{ width: "24px", height: "24px", borderRadius: "6px", border: "1px solid #D1D5DB", background: "#fff", display: "grid", placeItems: "center", cursor: "pointer" }}>
-                        <FaMinus size={9} color="#475569" />
-                      </button>
-                      <input style={inputStyle} value={form.pro_qty} onChange={handleFieldChange("pro_qty")} />
-                      <button type="button" onClick={() => setForm((prev) => ({ ...prev, pro_qty: String(Number(prev.pro_qty || 0) + 1) }))} style={{ width: "24px", height: "24px", borderRadius: "6px", border: "1px solid #D1D5DB", background: "#fff", display: "grid", placeItems: "center", cursor: "pointer" }}>
-                        <FaPlus size={9} color="#475569" />
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <label style={labelStyle}>Low stock</label>
-                    <input style={inputStyle} value={form.low_stock} onChange={handleFieldChange("low_stock")} />
-                  </div>
-                </div>
-              </div>
+              {/* Track Inventory section removed - not needed at admin level */}
 
               <div style={{ display: "flex", justifyContent: "flex-end", gap: "14px", marginTop: "24px" }}>
                 <button type="button" onClick={handleCancel} style={{ minWidth: "120px", height: "40px", borderRadius: "10px", border: "none", background: "#FFFFFF", color: "#1F2937", boxShadow: "0 3px 10px rgba(0,0,0,0.12)", cursor: "pointer", fontWeight: "700" }}>
@@ -621,20 +688,66 @@ const ProductDetails = () => {
                   </p>
                 </div>
 
-                <div style={{ padding: "0 20px 10px" }}>
-                  <div style={{ background: "#CC5A5A", borderRadius: "10px", color: "#FFFFFF", padding: "12px 14px", fontSize: "11px", lineHeight: 1.35 }}>
-                    <div style={{ fontWeight: "700", marginBottom: "4px" }}>Associated items to be removed:</div>
-                    <div>- 2 Variant (Half Fill, Print tmp (Req Rare))</div>
-                    <div>- 1 Modifier Link (Cooking Temp) me</div>
+               <div style={{ padding: "0 20px 12px" }}>
+  <div
+    onClick={() => setDeleteOption("branch")}
+    style={{
+      border: deleteOption === "branch" ? "2px solid #1769AA" : "1px solid #E5E7EB",
+      borderRadius: "10px",
+      padding: "10px 12px",
+      marginBottom: "8px",
+      cursor: "pointer",
+      background: deleteOption === "branch" ? "#EFF6FF" : "#fff",
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: deleteOption === "branch" ? "8px" : 0 }}>
+      <input type="radio" checked={deleteOption === "branch"} onChange={() => setDeleteOption("branch")} />
+      <div>
+        <div style={{ fontSize: "12px", fontWeight: "700", color: "#111827" }}>Delete from specific branch</div>
+        <div style={{ fontSize: "10px", color: "#6B7280" }}>Stays in admin panel and other branches</div>
+      </div>
+    </div>
+
+    {deleteOption === "branch" && (
+      <select
+        value={selectedBranchId}
+        onChange={(e) => setSelectedBranchId(e.target.value)}
+        style={{ width: "100%", height: "30px", borderRadius: "6px", border: "1px solid #D1D5DB", padding: "0 8px", fontSize: "12px", outline: "none" }}
+      >
+        <option value="">Select a branch...</option>
+        {branches.map((b) => (
+          <option key={b.B_id} value={b.B_id}>{b.B_name}</option>
+        ))}
+      </select>
+    )}
+  </div>
+
+  <div
+    onClick={() => setDeleteOption("complete")}
+    style={{
+      border: deleteOption === "complete" ? "2px solid #EF4444" : "1px solid #E5E7EB",
+      borderRadius: "10px",
+      padding: "10px 12px",
+      cursor: "pointer",
+      background: deleteOption === "complete" ? "#FEF2F2" : "#fff",
+    }}
+  >
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <input type="radio" checked={deleteOption === "complete"} onChange={() => setDeleteOption("complete")} />
+                    <div>
+                      <div style={{ fontSize: "12px", fontWeight: "700", color: "#EF4444" }}>Delete completely from system</div>
+                      <div style={{ fontSize: "10px", color: "#6B7280" }}>⚠️ Removes from ALL branches permanently</div>
+                    </div>
                   </div>
                 </div>
+              </div>
 
-                <div style={{ padding: "0 20px 16px" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", fontWeight: "700", color: "#111827" }}>
-                    <input type="checkbox" checked={deleteAcknowledged} onChange={(event) => setDeleteAcknowledged(event.target.checked)} />
-                    <span>I understand that this action is permanent.</span>
-                  </label>
-                </div>
+              <div style={{ padding: "0 20px 16px" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", fontWeight: "700", color: "#111827" }}>
+                  <input type="checkbox" checked={deleteAcknowledged} onChange={(event) => setDeleteAcknowledged(event.target.checked)} />
+                  <span>I understand that this action is permanent.</span>
+                </label>
+              </div>
 
                 <div style={{ display: "flex", justifyContent: "center", gap: "14px", padding: "0 20px 18px" }}>
                   <button type="button" onClick={handleCancel} style={{ minWidth: "76px", height: "30px", borderRadius: "8px", border: "1px solid #E5E7EB", background: "#FFFFFF", color: "#111827", cursor: "pointer", fontWeight: "500" }}>

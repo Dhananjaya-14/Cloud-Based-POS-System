@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import CashierHeader from "../../components/cashier/Header";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import { useAuth } from "../../context/AuthContext";
-import { getOrders } from "../../services/api";
+import { getOrders,getDashboardStats,getSalesDetailsReport} from "../../services/api";
 import { connectSocket } from "../../services/socket";
 import {
   addOrderReadyAlert,
@@ -37,20 +37,16 @@ const statCards = [
     badgeColor: "bg-indigo-100 text-indigo-600",
     iconBg: "bg-blue-700",
   },
-  {
-    label: "Total Customers",
-    value: "35",
-    badge: "+5 new",
-    icon: "👥",
-    badgeColor: "bg-lime-100 text-lime-600",
-    iconBg: "bg-cyan-500",
-  },
 ];
 
 const CashierDashboard = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({ revenue: 0, transactions: 0 });
+  const [stats, setStats] = useState({
+    revenue: 0,
+    transactions: 0,
+    productsSold: 0,
+  });
   const [activities, setActivities] = useState([]);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
@@ -65,16 +61,7 @@ const CashierDashboard = () => {
 
       const orders = await getOrders(params);
 
-      let revenue = 0;
-      orders.forEach((order) => {
-        const total = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
-        if (!Number.isNaN(total)) revenue += total;
-      });
 
-      setStats({
-        revenue,
-        transactions: orders.length,
-      });
 
       const recent = orders.slice(0, 5).map((order) => ({
         orderId: order.or_id,
@@ -154,6 +141,27 @@ const CashierDashboard = () => {
     [user?.u_id],
   );
 
+  const loadDashboardStats = useCallback(async () => {
+  try {
+    const data = await getDashboardStats(user.b_id);
+
+    setStats({
+      revenue: Number(data.revenue),
+      transactions: Number(data.transactions),
+      productsSold: Number(data.products_sold),
+    });
+  } catch (error) {
+    console.error("Failed to load dashboard stats", error);
+  }
+}, [user?.b_id]);
+
+  useEffect(() => {
+  if (user?.b_id) {
+    loadDashboardStats();
+  }
+}, [loadDashboardStats, user?.b_id]);
+console.log(user);
+
   return (
     <div className="min-h-screen bg-[#F4F7FB] flex flex-col">
       <CashierHeader />
@@ -161,7 +169,6 @@ const CashierDashboard = () => {
 
       <main className="flex-1">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          {/* Welcome area */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center px-4 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-medium mb-4 border border-sky-100">
               <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2" />
@@ -174,23 +181,43 @@ const CashierDashboard = () => {
             <p className="mt-3 text-sm sm:text-base text-slate-500 max-w-xl mx-auto">
               Ready to start your day? Let&apos;s make it productive.
             </p>
-
+          <div className="mt-6 flex flex-wrap justify-center items-center gap-4">
             <button
               onClick={() => navigate("/cashier/pos")}
               className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
             >
               <span>Open POS System</span>
             </button>
+
+            <button
+              onClick={() => navigate("/cashier/sales-summary")} 
+              className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
+            >
+              <span>View Sales Report</span>
+          </button>
           </div>
+        </div>
 
           {/* Stat cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             {statCards.map((card) => {
-              let displayValue = card.value;
-              if (card.label === "Today's Revenue") {
-                displayValue = `$${stats.revenue.toFixed(2)}`;
-              } else if (card.label === "Transactions") {
-                displayValue = String(stats.transactions);
+              let displayValue;
+
+              switch (card.label) {
+                case "Today's Revenue":
+                  displayValue = `$${stats.revenue.toFixed(2)}`;
+                  break;
+
+                case "Transactions":
+                  displayValue = stats.transactions;
+                  break;
+
+                case "Products Sold":
+                  displayValue = stats.productsSold;
+                  break;
+
+                default:
+                  displayValue = card.value;
               }
 
               return (

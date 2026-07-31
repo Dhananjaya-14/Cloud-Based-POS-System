@@ -132,7 +132,21 @@ export const deleteCompany = async (id) => {
   return response.data;
 };
 
-// ---------------- PRODUCTS ----------------
+// ── Package (SaaS) API ────────────────────────────────────────────────────────
+export const getPackages = async () => {
+  const response = await api.get("/packages");
+  return response.data;
+};
+
+export const createPackage = async (packageData) => {
+  const response = await api.post("/packages", packageData);
+  return response.data;
+};
+
+export const updatePackage = async (id, packageData) => {
+  const response = await api.put(`/packages/${id}`, packageData);
+  return response.data;
+};
 
 export const getProducts = async () => {
   const response = await api.get("/products");
@@ -188,14 +202,18 @@ export const createBranchProduct = async (branchProductData) => {
   return response.data;
 };
 
-export const updateBranchProduct = async (
-  branchProductId,
-  payload
-) => {
-  const response = await api.put(
-    `/branch_products/${branchProductId}`,
-    payload
-  );
+export const getBranchProductIngredientStatus = async (bproId) => {
+  const response = await api.get(`/branch_products/${bproId}/ingredient-status`);
+  return response.data;
+};
+
+export const addBranchProductStock = async (branchProductId, quantity) => {
+  const response = await api.post(`/branch_products/${branchProductId}/add-stock`, { quantity });
+  return response.data;
+};
+
+export const updateBranchProduct = async (branchProductId, payload) => {
+  const response = await api.put(`/branch_products/${branchProductId}`, payload);
   return response.data;
 };
 
@@ -290,7 +308,6 @@ export const deleteOrderItem = async (
   return response.data;
 };
 
-// ---------------- CATEGORIES ----------------
 
 export const getCategories = async () => {
   const response = await api.get("/categories");
@@ -327,13 +344,9 @@ export const getRecipeById = async (recipeId) => {
   return response.data;
 };
 
-export const getRecipesByProduct = async (
-  productId
-) => {
-  const response = await api.get(
-    `/recipes/product/${productId}`
-  );
-
+export const getRecipesByProduct = async (productId, b_id) => {
+  const params = b_id ? { b_id } : {};
+  const response = await api.get(`/recipes/product/${productId}`, { params });
   return response.data;
 };
 
@@ -369,17 +382,41 @@ export const deleteRecipe = async (recipeId) => {
   await api.delete(`/recipes/${recipeId}`);
 };
 
-export const deleteRecipeByProduct = async (
-  productId
-) => {
-  const response = await api.delete(
-    `/recipes/product/${productId}`
-  );
-
+export const deleteRecipeByProduct = async (productId, b_id) => {
+  const params = b_id ? { b_id } : {};
+  const response = await api.delete(`/recipes/product/${productId}`, { params });
   return response.data;
 };
 
-// ---------------- WAITER ----------------
+// export const getLowStockMaterials = async () => {
+//   const response = await api.get("/raw-materials/low-stock");
+//   return response.data;
+// };
+
+// export const createProduct = async (productData) => {
+//   const response = await api.post("/products", productData);
+//   return response.data;
+// };
+
+// export const createOrder = async (orderData) => {
+//   const response = await api.post("/orders", orderData);
+//   return response.data;
+// };
+
+export const checkOrderStock = async (items) => {
+  const response = await api.post("/orders/check-stock", { items });
+  return response.data;
+};
+
+// export const updateOrder = async (orderId, orderData) => {
+//   const response = await api.put(`/orders/${orderId}`, orderData);
+//   return response.data;
+// };
+
+// export const deleteOrderItem = async (orderItemId) => {
+//   const response = await api.delete(`/order-items/${orderItemId}`);
+//   return response.data;
+// };
 
 export const getWaiterProfile = async () => {
   const response = await api.get("/waiter/profile");
@@ -439,8 +476,9 @@ export const updateProduct = async (productId, payload) => {
   return response.data;
 };
 
-export const deleteProduct = async (productId) => {
-  await api.delete(`/products/${productId}`);
+export const deleteProduct = async (productId, branchId = null) => {
+  const params = branchId ? { branch_id: branchId } : {};
+  await api.delete(`/products/${productId}`, { params });
 };
 
 export const getUserById = async (userId) => {
@@ -633,32 +671,103 @@ export const getPayments = async (
 
 // ---------------- SETUP HELPERS ----------------
 
-// export const setupBranchWithManager = async (
-//   combinedData
-// ) => {
-//   try {
-//     // Create branch
-//     const newBranch = await createBranch({
-//       ...combinedData.branch,
-//       com_id: combinedData.com_id ?? 1,
-//     });
+//Cashier Dashboard stats
+export const getDashboardStats = async (b_id) => {
+  const response = await api.get("/dashboard/stats", {
+    params: { b_id },
+  });
 
-//     const branchId =
-//       newBranch.B_id ??
-//       newBranch.b_id ??
-//       null;
+  return response.data;
+};
 
-//     // Create manager
-//     const newUser = await createUser({
-//       ...combinedData.manager,
-//       B_id: branchId,
-//     });
 
-//     return {
-//       user: newUser,
-//       branch: newBranch,
-//     };
-//   } catch (error) {
-//     throw error;
-//   }
-// };
+//Sales summery Reports
+export const getSalesSummaryReport = async (payload) => {
+  const response = await api.post("/reports/sales", payload);
+  return response.data;
+};
+
+
+//product sales report
+export const getProductSalesReport = async (payload) => {
+  const response = await api.post("/reports/productsales", payload);
+  return response.data;
+}
+
+//Raw material stock report
+export const getRawMaterialStockReport = async (payload) => {
+  const response = await api.post("/reports/rawmaterialstock", payload);
+  return response.data;
+}
+
+//Raw material consumption report
+export const getRawMaterialConsumptionReport = async (payload) => {
+  const response = await api.post("/reports/rawmaterialconsumption", payload);
+  return response.data;
+}
+
+//Cashier sales details report
+export const getSalesDetailsReport = async (payload) => {
+  const response = await api.post("/reports/salesdetails", payload);
+  return response.data;
+}
+
+export const getBranchWiseSalesReport = async (payload) => {
+  const response = await api.post("/reports/branchsales", payload);
+  return response.data;
+}
+
+// ── Supplier API -----------------
+export const getSuppliers = async (params = {}) => {
+  const response = await api.get("/suppliers", { params });
+  return response.data;
+};
+
+export const getSupplierById = async (id) => {
+  const response = await api.get(`/suppliers/${id}`);
+  return response.data;
+};
+
+export const createSupplier = async (payload) => {
+  const response = await api.post("/suppliers", payload);
+  return response.data;
+};
+
+export const updateSupplier = async (id, payload) => {
+  const response = await api.put(`/suppliers/${id}`, payload);
+  return response.data;
+};
+
+export const deleteSupplier = async (id) => {
+  await api.delete(`/suppliers/${id}`);
+};
+
+export const restoreSupplier = async (id) => {
+  const response = await api.patch(`/suppliers/${id}/restore`);
+  return response.data;
+};
+
+export const assignSupplierToBranch = async (sup_id, b_id) => {
+  const response = await api.post(`/suppliers/${sup_id}/branches`, { b_id });
+  return response.data;
+};
+
+export const removeSupplierFromBranch = async (sup_id, b_id) => {
+  await api.delete(`/suppliers/${sup_id}/branches/${b_id}`);
+};
+
+export const getSupplierBranches = async (sup_id) => {
+  const response = await api.get(`/suppliers/${sup_id}/branches`);
+  return response.data;
+};
+
+//------ PayHere ------
+export const initiatePayHerePayment = async ({ order_id, amount, order_description, cashier_uid, }) => {
+  const res = await api.post("/payhere/initiate", {
+    order_id,
+    amount,
+    order_description,
+    cashier_uid,
+  });
+  return res.data;
+};

@@ -1,3 +1,4 @@
+// Client/src/pages/cashier/CashierPos.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -18,6 +19,7 @@ import {
   FaBell,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
+import posIcon from "../../assets/images/PosIcon.png";
 import {
   createOrder,
   createOrderItem,
@@ -28,8 +30,18 @@ import {
   updateOrderStatus,
   updateOrder,
   deleteOrderItem,
+  initiatePayHerePayment,
+  checkOrderStock,
 } from "../../services/api";
-import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
+import { 
+  connectSocket, 
+  getSocket, 
+  SOCKET_EVENTS,
+  joinBranchInventoryRoom,
+  leaveBranchInventoryRoom,
+  subscribeToBranchProductUpdates
+} from "../../services/socket";
+import PayHereQRModal from "../../components/cashier/PayHereQRModal";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import {
   addOrderReadyAlert,
@@ -46,22 +58,6 @@ const categories = [
   { label: "Front Desk", icon: FaDesktop },
 ];
 
-const toastStyle = {
-  position: "fixed",
-  top: "20px",
-  right: "20px",
-  background: "#0E6DCF",
-  color: "#FFFFFF",
-  padding: "12px 20px",
-  borderRadius: "12px",
-  display: "flex",
-  alignItems: "center",
-  gap: "12px",
-  boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
-  zIndex: 10000,
-  animation: "slideIn 0.3s ease-out",
-};
-
 const CashierPos = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -74,13 +70,17 @@ const CashierPos = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [stockErrorModal, setStockErrorModal] = useState(null); // { shortages: [...] } or null
   const [paymentMethod, setPaymentMethod] = useState("Cash");
   const [orderType, setOrderType] = useState("takeaway");
   const [allergies, setAllergies] = useState("");
   const [addons, setAddons] = useState("");
+  const [addonsPrice, setAddonsPrice] = useState("");
   const [notes, setNotes] = useState("");
   const [discountPct, setDiscountPct] = useState(0);
   const [serviceFee, setServiceFee] = useState(0);
+  const [showNewProductToast, setShowNewProductToast] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
 
   const [heldOrders, setHeldOrders] = useState([]);
   const [showHeldOrdersModal, setShowHeldOrdersModal] = useState(false);
@@ -91,9 +91,54 @@ const CashierPos = () => {
   const [loadingWaiterOrders, setLoadingWaiterOrders] = useState(false);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
 
-  // Toast notification for new products
-  const [showNewProductToast, setShowNewProductToast] = useState(false);
-  const [newProductName, setNewProductName] = useState("");
+  // State for product notifications (persistent)
+  const [productNotifications, setProductNotifications] = useState(() => {
+    const userId = user?.u_id;
+    if (!userId) return [];
+    
+    const savedNotifications = sessionStorage.getItem(`productNotifications_${userId}`);
+    if (savedNotifications) {
+      try {
+        const parsed = JSON.parse(savedNotifications);
+        const now = new Date();
+        const validNotifications = parsed.filter(notif => {
+          const timestamp = new Date(notif.timestamp);
+          const diffMinutes = (now - timestamp) / (1000 * 60);
+          return diffMinutes < 60; // Keep notifications for up to 1 hour
+        });
+        if (validNotifications.length > 0) {
+          return validNotifications;
+        } else {
+          sessionStorage.removeItem(`productNotifications_${userId}`);
+          return [];
+        }
+      } catch (e) {
+        sessionStorage.removeItem(`productNotifications_${userId}`);
+        return [];
+      }
+    }
+    return [];
+  });
+
+  // PayHere QR payment state
+  const [payhereModal, setPayhereModal] = useState(null); // { paymentUrl, orderId, invoiceState }
+
+  // Save product notifications to sessionStorage
+  useEffect(() => {
+    const userId = user?.u_id;
+    if (!userId) return;
+    
+    if (productNotifications.length > 0) {
+      sessionStorage.setItem(`productNotifications_${userId}`, JSON.stringify(productNotifications));
+    } else {
+      sessionStorage.removeItem(`productNotifications_${userId}`);
+    }
+  }, [productNotifications, user?.u_id]);
+
+  // Dismiss a specific product notification
+  const dismissProductNotification = (notificationId) => {
+    setProductNotifications(prev => prev.filter(notif => notif.id !== notificationId));
+  };
 
   const fetchWaiterOrders = async () => {
     try {
@@ -154,79 +199,149 @@ const CashierPos = () => {
   useEffect(() => {
     if (!branchId) return;
 
-    const socket = getSocket();
-
     // Connect socket if not connected
+    const socket = getSocket();
     if (!socket.connected) {
       connectSocket();
     }
 
-    // Join branch room
-    if (socket.connected) {
-      socket.emit(SOCKET_EVENTS.JOIN_BRANCH_ROOM, branchId);
-    }
+    // Join branch inventory room
+    joinBranchInventoryRoom(branchId);
 
-    // Listen for new branch products added by branch admin
-    const handleNewBranchProduct = (data) => {
-      console.log("New branch product received in Cashier POS:", data);
-
-      // Check if this product belongs to the current branch
-      if (data.branch_id && String(data.branch_id) !== String(branchId)) {
-        return;
-      }
-
-      // Add the new product to the products list
-      setProducts((prevProducts) => {
-        // Check if product already exists
-        const exists = prevProducts.some(p => p.Bpro_id === data.product.Bpro_id);
-        if (!exists) {
-          setNewProductName(data.product.pro_name);
-          setShowNewProductToast(true);
-          setTimeout(() => setShowNewProductToast(false), 3000);
-          return [data.product, ...prevProducts];
+    // Subscribe to branch product updates
+    const unsubscribe = subscribeToBranchProductUpdates(branchId, {
+      onBranchProductAdded: (data) => {
+        console.log("New branch product received in Cashier POS:", data);
+        
+        // Check if this product belongs to the current branch
+        if (data.branch_id && String(data.branch_id) !== String(branchId)) {
+          return;
         }
-        return prevProducts;
-      });
+
+        // Get the product data
+        const productData = data.branch_product || data.product || data;
+        
+        setProducts((prevProducts) => {
+          // Check if product already exists
+          const exists = prevProducts.some(p => p.Bpro_id === productData.Bpro_id);
+          if (!exists) {
+            // Add notification to persistent queue
+            const productName = productData.pro_name || "New Product";
+            
+            // Show toast notification
+            setNewProductName(productName);
+            setShowNewProductToast(true);
+            setTimeout(() => {
+              setShowNewProductToast(false);
+            }, 5000);
+            
+            setProductNotifications(prev => {
+              const existingNotif = prev.find(n => 
+                n.productName === productName && 
+                (new Date() - new Date(n.timestamp)) < 5000
+              );
+              if (existingNotif) return prev;
+              
+              return [...prev, {
+                id: Date.now() + Math.random(),
+                type: 'product_added',
+                message: `📦 New product added: "${productName}"`,
+                timestamp: new Date().toISOString(),
+                productName: productName
+              }];
+            });
+            
+            // Add the new product to the list
+            return [productData, ...prevProducts];
+          }
+          return prevProducts;
+        });
+      },
+      onBranchProductUpdated: (data) => {
+        console.log("Product update received in Cashier POS:", data);
+        
+        const productData = data.branch_product || data.product || data;
+        
+        setProducts((prevProducts) => {
+          return prevProducts.map(product =>
+            product.Bpro_id === productData.Bpro_id
+              ? { ...product, ...productData }
+              : product
+          );
+        });
+      },
+      onBranchProductDeleted: (data) => {
+        console.log("Product deletion received in Cashier POS:", data);
+        
+        const deletedId = data.Bpro_id || data.branch_product?.Bpro_id;
+        
+        setProducts((prevProducts) => {
+          return prevProducts.filter(product => product.Bpro_id !== deletedId);
+        });
+
+        // Also remove from cart if present
+        setCart((prevCart) => {
+          return prevCart.filter(item => item.Bpro_id !== deletedId);
+        });
+      }
+    });
+
+    // Also listen for company-level product events as fallback
+    const handleCompanyProductAdded = (data) => {
+      console.log("Company product added event received:", data);
+      if (data.product && !data.branch_id) {
+        setProducts((prevProducts) => {
+          const exists = prevProducts.some(p => p.pro_id === data.product.pro_id);
+          if (!exists) {
+            const branchProduct = {
+              ...data.product,
+              Bpro_id: data.product.pro_id,
+              branch_id: branchId,
+              pro_quantity: data.product.pro_qty || 0
+            };
+            
+            // Add notification to persistent queue
+            const productName = data.product.pro_name || "New Product";
+            
+            // Show toast notification
+            setNewProductName(productName);
+            setShowNewProductToast(true);
+            setTimeout(() => {
+              setShowNewProductToast(false);
+            }, 5000);
+            
+            setProductNotifications(prev => {
+              const existingNotif = prev.find(n => 
+                n.productName === productName && 
+                (new Date() - new Date(n.timestamp)) < 5000
+              );
+              if (existingNotif) return prev;
+              
+              return [...prev, {
+                id: Date.now() + Math.random(),
+                type: 'product_added',
+                message: `📦 New product available: "${productName}"`,
+                timestamp: new Date().toISOString(),
+                productName: productName
+              }];
+            });
+            
+            return [branchProduct, ...prevProducts];
+          }
+          return prevProducts;
+        });
+      }
     };
 
-    // Listen for product updates
-    const handleProductUpdate = (data) => {
-      console.log("Product update received in Cashier POS:", data);
-
-      setProducts((prevProducts) => {
-        return prevProducts.map(product =>
-          product.Bpro_id === data.product.Bpro_id
-            ? { ...product, ...data.product }
-            : product
-        );
-      });
-    };
-
-    // Listen for product deletions
-    const handleProductDelete = (data) => {
-      console.log("Product deletion received in Cashier POS:", data);
-
-      setProducts((prevProducts) => {
-        return prevProducts.filter(product => product.Bpro_id !== data.Bpro_id);
-      });
-
-      // Also remove from cart if present
-      setCart((prevCart) => {
-        return prevCart.filter(item => item.Bpro_id !== data.Bpro_id);
-      });
-    };
-
-    socket.on("new_branch_product_added", handleNewBranchProduct);
-    socket.on("branch_product_updated", handleProductUpdate);
-    socket.on("branch_product_deleted", handleProductDelete);
+    const socketInstance = getSocket();
+    socketInstance.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleCompanyProductAdded);
 
     return () => {
-      socket.off("new_branch_product_added", handleNewBranchProduct);
-      socket.off("branch_product_updated", handleProductUpdate);
-      socket.off("branch_product_deleted", handleProductDelete);
-      if (socket.connected) {
-        socket.emit(SOCKET_EVENTS.LEAVE_BRANCH_ROOM, branchId);
+      unsubscribe();
+      if (socketInstance) {
+        socketInstance.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleCompanyProductAdded);
       }
+      leaveBranchInventoryRoom(branchId);
     };
   }, [branchId]);
 
@@ -335,7 +450,7 @@ const CashierPos = () => {
   );
   const taxRate = 10;
   const discountAmount = subtotal * (Number(discountPct || 0) / 100);
-  const taxableBase = subtotal - discountAmount + Number(serviceFee || 0);
+  const taxableBase = subtotal - discountAmount + Number(serviceFee || 0) + Number(addonsPrice || 0);
   const tax = taxableBase * (taxRate / 100);
   const total = taxableBase + tax;
 
@@ -378,6 +493,33 @@ const CashierPos = () => {
     setCart((currentCart) => currentCart.filter((item) => item.Bpro_id !== Bpro_id));
   };
 
+  // ── Build invoice navigation state (shared by Cash/Card and PayHere) ──────
+  const buildInvoiceState = (orderId, invoiceItems) => ({
+    orderId,
+    cashierName: `${user?.u_fname || "Cashier"} ${user?.u_lname || ""}`.trim(),
+    branchName,
+    branchLabel: `${branchName.split(" ")[0] || branchName}\nBranch`,
+    paymentMethod,
+    items: invoiceItems,
+    subtotal: Number(subtotal.toFixed(2)),
+    discount: Number(discountPct || 0),
+    serviceFee: Number(serviceFee || 0),
+    allergies,
+    addons,
+    addonsPrice: Number(addonsPrice || 0),
+    notes,
+    tax: Number(tax.toFixed(2)),
+    total: Number(total.toFixed(2)),
+  });
+
+  // Called by PayHereQRModal when payment is confirmed via Socket.IO
+  const handlePayHereSuccess = (invoiceState) => {
+    setPayhereModal(null);
+    setCart([]);
+    setEditingOrderId(null);
+    navigate("/cashier/invoice-preview", { state: invoiceState });
+  };
+
   const handleCheckout = async () => {
     if (!cart.length || !user?.u_id) {
       return;
@@ -396,20 +538,35 @@ const CashierPos = () => {
       setSubmitting(true);
       setError("");
 
+     const stockResult = await checkOrderStock(
+        cart.map((item) => ({ Bpro_id: item.Bpro_id, pro_quantity: item.qty })),
+      );
+
+      if (!stockResult.success) {
+        setStockErrorModal({ shortages: stockResult.shortages });
+        setSubmitting(false);
+        return;
+      }
+
       let orderId = editingOrderId;
+      const socket = getSocket();
 
       if (editingOrderId) {
         // Update existing order
         await updateOrder(editingOrderId, {
-          or_tax: taxRate,
+          or_tax: Number(tax.toFixed(2)),
           or_totalcost: Number(taxableBase.toFixed(2)),
           or_totalCostWtax: Number(total.toFixed(2)),
-          or_status: "completed",
+          or_status: paymentMethod === "PayHere" ? "pending" : "completed",
           or_type: orderType,
           cust_id: null,
           u_id: user.u_id,
           b_id: branchId,
           table_id: null,
+          or_notes: notes,
+          or_addons: addons,
+          or_addons_price: Number(addonsPrice || 0),
+          or_allergies: allergies,
         });
 
         // Fetch existing items to delete them
@@ -419,9 +576,19 @@ const CashierPos = () => {
             existingItems.map((item) => deleteOrderItem(item.orderItem_id))
           );
         }
+        
+        // Emit order updated event
+        if (socket && socket.connected) {
+          socket.emit("order:updated", {
+            or_id: editingOrderId,
+            b_id: branchId,
+            status: "completed"
+          });
+          console.log("Order updated event emitted:", { orderId: editingOrderId, branchId });
+        }
       } else {
         const orderResponse = await createOrder({
-          or_tax: taxRate,
+          or_tax: Number(tax.toFixed(2)),
           or_totalcost: Number(taxableBase.toFixed(2)),
           or_totalCostWtax: Number(total.toFixed(2)),
           or_status: "pending",
@@ -430,11 +597,27 @@ const CashierPos = () => {
           u_id: user.u_id,
           b_id: branchId,
           table_id: null,
+          or_notes: notes,
+          or_addons: addons,
+          or_addons_price: Number(addonsPrice || 0),
+          or_allergies: allergies,
         });
 
         orderId = orderResponse?.data?.or_id;
         if (!orderId) {
           throw new Error("Order was created but no order id was returned");
+        }
+        
+        // Emit order created event for kitchen
+        if (socket && socket.connected) {
+          socket.emit("order:created", {
+            or_id: orderId,
+            b_id: branchId,
+            or_type: orderType,
+            or_status: "pending",
+            u_id: user.u_id
+          });
+          console.log("Order created event emitted to kitchen:", { orderId, branchId });
         }
       }
 
@@ -457,25 +640,34 @@ const CashierPos = () => {
         total: Number((item.unitPrice * item.qty).toFixed(2)),
       }));
 
+      // ── PayHere: generate URL and show QR modal ────────────────────────────
+      if (paymentMethod === "PayHere") {
+        const payhereRes = await initiatePayHerePayment({
+          order_id: orderId,
+          amount: total.toFixed(2),
+          order_description: `Order #${orderId} — ${branchName}`,
+          cashier_uid: user.u_id,
+        });
+
+        if (!payhereRes?.payment_url) {
+          throw new Error("Failed to generate PayHere payment URL");
+        }
+
+        // Store invoice state so the QR modal can navigate after confirmation
+        setPayhereModal({
+          paymentUrl: payhereRes.payment_url,
+          orderId,
+          invoiceState: buildInvoiceState(orderId, invoiceItems),
+        });
+        // Don't clear cart yet — wait for payment confirmation
+        return;
+      }
+
+      // ── Cash / Card: complete immediately ──────────────────────────────────
       setCart([]);
       setEditingOrderId(null);
       navigate("/cashier/invoice-preview", {
-        state: {
-          orderId,
-          cashierName: `${user?.u_fname || "Cashier"} ${user?.u_lname || ""}`.trim(),
-          branchName,
-          branchLabel: `${branchName.split(" ")[0] || branchName}\nBranch`,
-          paymentMethod,
-          items: invoiceItems,
-          subtotal: Number(subtotal.toFixed(2)),
-          discount: Number(discountPct || 0),
-          serviceFee: Number(serviceFee || 0),
-          allergies,
-          addons,
-          notes,
-          tax: Number(tax.toFixed(2)),
-          total: Number(total.toFixed(2)),
-        },
+        state: buildInvoiceState(orderId, invoiceItems),
       });
     } catch (checkoutError) {
       setError(
@@ -504,6 +696,9 @@ const CashierPos = () => {
       setCart(newCart);
       setOrderType(ao.or_type || "takeaway");
       setNotes(ao.or_notes || "");
+      setAddons(ao.or_addons || "");
+      setAddonsPrice(ao.or_addons_price || "");
+      setAllergies(ao.or_allergies || "");
       setEditingOrderId(ao.or_id);
       setShowWaiterOrdersModal(false);
     } catch (err) {
@@ -523,12 +718,12 @@ const CashierPos = () => {
       orderType,
       allergies,
       addons,
+      addonsPrice,
       notes,
       discountPct,
       serviceFee
     };
     setHeldOrders((prev) => [...prev, newHeldOrder]);
-
 
     // Reset form
     setCart([]);
@@ -536,6 +731,7 @@ const CashierPos = () => {
     setOrderType("takeaway");
     setAllergies("");
     setAddons("");
+    setAddonsPrice("");
     setNotes("");
     setDiscountPct(0);
     setServiceFee(0);
@@ -554,6 +750,7 @@ const CashierPos = () => {
     setOrderType(orderToResume.orderType);
     setAllergies(orderToResume.allergies || "");
     setAddons(orderToResume.addons || "");
+    setAddonsPrice(orderToResume.addonsPrice || "");
     setNotes(orderToResume.notes || "");
     setDiscountPct(orderToResume.discountPct || 0);
     setServiceFee(orderToResume.serviceFee || 0);
@@ -572,18 +769,135 @@ const CashierPos = () => {
 
   const selectedProductCount = cart.reduce((sum, item) => sum + item.qty, 0);
 
+  // Toast notification style
+  const toastStyle = {
+    position: 'fixed',
+    bottom: '30px',
+    left: '50%',
+    transform: 'translateX(-50%)',
+    backgroundColor: '#0A5BAE',
+    color: 'white',
+    padding: '16px 24px',
+    borderRadius: '12px',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    zIndex: 10000,
+    fontSize: '16px',
+    fontWeight: '500',
+    animation: 'slideUp 0.5s ease-out',
+    maxWidth: '90%',
+  };
+
   return (
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
       <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
+      
+      {/* Product Notifications Container */}
+      {productNotifications.length > 0 && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '80px',
+            right: '20px',
+            zIndex: 9999,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            maxWidth: '420px',
+            minWidth: '320px',
+            maxHeight: '70vh',
+            overflowY: 'auto',
+            paddingRight: '4px',
+          }}
+          className="product-notifications-container"
+        >
+          {productNotifications.map((notification) => (
+            <div
+              key={notification.id}
+              style={{
+                backgroundColor: '#FEF3C7',
+                borderLeft: '4px solid #F59E0B',
+                borderRadius: '8px',
+                padding: '16px 20px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                animation: 'slideInRight 0.3s ease-out',
+              }}
+            >
+              <div>
+                <div style={{ 
+                  fontWeight: '600', 
+                  fontSize: '15px',
+                  color: '#1F2937',
+                  marginBottom: '4px'
+                }}>
+                  📢 New Product Available
+                </div>
+                <div style={{ 
+                  fontSize: '14px', 
+                  color: '#4B5563',
+                  fontWeight: '500',
+                  lineHeight: '1.5'
+                }}>
+                  {notification.message}
+                </div>
+                <div style={{
+                  fontSize: '11px',
+                  color: '#9CA3AF',
+                  marginTop: '4px',
+                  fontWeight: '400'
+                }}>
+                  {new Date(notification.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+              <button
+                onClick={() => dismissProductNotification(notification.id)}
+                style={{
+                  background: '#F59E0B',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  alignSelf: 'flex-end',
+                  minWidth: '70px',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.opacity = '0.85';
+                  e.currentTarget.style.transform = 'scale(1.02)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+              >
+                OK
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       <header className="border-b border-black/5 bg-linear-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)]">
-        <div className="mx-auto flex max-w-350 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white text-[#0A5BAE] shadow-sm">
-              <FaStore className="h-5 w-5" />
+        <div className="mx-auto flex max-w-450 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
+         <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-white/20">
+            <img
+                src={posIcon}
+                alt="Hotel POS logo"
+                className="w-7 h-7 object-contain"
+              />
             </div>
             <div className="leading-tight">
-              <div className="text-[15px] font-semibold tracking-wide">Hotel POS</div>
-              <div className="text-[11px] text-white/80">Point of Sale System</div>
+              <div className="text-[17px] font-semibold tracking-wide">Hotel POS</div>
+              <div className="text-[13px] text-white/80">Point of Sale System</div>
             </div>
           </div>
 
@@ -640,7 +954,7 @@ const CashierPos = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-350 px-4 py-6 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-380 px-3 py-6 sm:px-6 lg:px-8">
         <div className="mb-5">
           <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">Point of Sale</h1>
           <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
@@ -655,7 +969,7 @@ const CashierPos = () => {
           </div>
         ) : null}
 
-        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_330px]">
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_370px]">
           <section className="space-y-5">
             <div className="rounded-3xl bg-white p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ring-1 ring-slate-200/70 sm:p-5">
               <div className="relative">
@@ -689,7 +1003,7 @@ const CashierPos = () => {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {loading ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-                  Loading products from the backend...
+                  Loading products ...
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
@@ -733,8 +1047,7 @@ const CashierPos = () => {
                   const priceLabel = Number(product.pro_price ?? 0).toFixed(2);
 
                   return (
-                    <article
-                      key={product.Bpro_id ?? index}
+                    <article                      key={product.Bpro_id ?? index}
                       onClick={() => addToCart(product)}
                       className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]"
                     >
@@ -761,11 +1074,11 @@ const CashierPos = () => {
             </div>
           </section>
 
-          <aside className="rounded-3xl bg-white shadow-[0_10px_30px_rgba(15,23,42,0.09)] ring-1 ring-slate-200/70">
+          <aside className="rounded-3xl w-[370px] h-fit bg-white shadow-[0_10px_30px_rgba(15,23,42,0.09)] ring-1 ring-slate-200/70">
             <div className="rounded-t-3xl bg-linear-to-r from-[#0A5BAE] to-[#19A4E5] px-5 py-4 text-white">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/10">
+                  <div className="flex h-12 w-11 items-center justify-center rounded-2xl bg-white/10">
                     <FaShoppingCart className="h-5 w-5" />
                   </div>
                   <div>
@@ -842,14 +1155,24 @@ const CashierPos = () => {
                     className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
                   />
 
-                  <input
-                    aria-label="addons"
-                    type="text"
-                    value={addons}
-                    onChange={(e) => setAddons(e.target.value)}
-                    placeholder="Add Ons (e.g., Extra cheese)"
-                    className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
-                  />
+                  <div className="flex gap-2">
+                    <input
+                      aria-label="addons"
+                      type="text"
+                      value={addons}
+                      onChange={(e) => setAddons(e.target.value)}
+                      placeholder="Add Ons (e.g., Extra cheese)"
+                      className="h-9 w-2/3 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
+                    />
+                    <input
+                      aria-label="addons price"
+                      type="number"
+                      value={addonsPrice}
+                      onChange={(e) => setAddonsPrice(e.target.value)}
+                      placeholder="Price"
+                      className="h-9 w-1/3 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
+                    />
+                  </div>
 
                   <input
                     aria-label="notes"
@@ -906,11 +1229,11 @@ const CashierPos = () => {
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
                 <h3 className="text-sm font-semibold text-slate-900">Payment Method</h3>
-                <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("Cash")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Cash"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Cash"
                       ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                       : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
@@ -923,7 +1246,7 @@ const CashierPos = () => {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("Card")}
-                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Card"
+                    className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "Card"
                       ? "border-[#55C24A] bg-white text-slate-900 ring-2 ring-emerald-100"
                       : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
@@ -932,6 +1255,21 @@ const CashierPos = () => {
                       className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "Card" ? "bg-[#00B67A]" : "bg-slate-300"}`}
                     />
                     Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod("PayHere")}
+                    className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-3 text-sm font-medium shadow-sm transition ${paymentMethod === "PayHere"
+                      ? "border-[#0E6DCF] bg-white text-[#0E6DCF] ring-2 ring-blue-100"
+                      : "border-blue-200 bg-white text-slate-700 hover:border-blue-300 hover:bg-blue-50"
+                      }`}
+                  >
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "PayHere" ? "bg-[#0E6DCF]" : "bg-slate-300"}`}
+                    />
+                    <span className="font-bold">
+                      pay<span className={paymentMethod === "PayHere" ? "text-yellow-400" : "text-slate-400"}>here</span>
+                    </span>
                   </button>
                 </div>
               </div>
@@ -1091,6 +1429,44 @@ const CashierPos = () => {
         </div>
       )}
 
+      {/* Insufficient Stock Modal */}
+      {stockErrorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="flex items-center gap-3 border-b pb-4 mb-4">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 text-xl font-bold">
+                !
+              </div>
+              <h2 className="text-lg font-bold text-slate-800">Insufficient Stock</h2>
+            </div>
+
+            <p className="text-sm text-slate-600 mb-3">
+              This order cannot be placed. The following ingredients don't have enough stock:
+            </p>
+
+            <ul className="space-y-2 mb-5">
+              {stockErrorModal.shortages.map((s, idx) => (
+                <li
+                  key={idx}
+                  className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
+                >
+                  <span className="font-semibold">{s.ingredient}</span> — needs {s.required}
+                  {s.unit}, only {s.available}
+                  {s.unit} available
+                </li>
+              ))}
+            </ul>
+
+            <button
+              onClick={() => setStockErrorModal(null)}
+              className="w-full rounded-xl bg-[#0A5BAE] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Toast notification for new products */}
       {showNewProductToast && (
         <div style={toastStyle}>
@@ -1099,9 +1475,22 @@ const CashierPos = () => {
         </div>
       )}
 
+      {/* PayHere QR Payment Modal */}
+      {payhereModal && (
+        <PayHereQRModal
+          paymentUrl={payhereModal.paymentUrl}
+          orderId={payhereModal.orderId}
+          onSuccess={() => handlePayHereSuccess(payhereModal.invoiceState)}
+          onCancel={() => {
+            setPayhereModal(null);
+            setSubmitting(false);
+          }}
+        />
+      )}
+
       <style>
         {`
-          @keyframes slideIn {
+          @keyframes slideInRight {
             from {
               transform: translateX(100%);
               opacity: 0;
@@ -1110,6 +1499,30 @@ const CashierPos = () => {
               transform: translateX(0);
               opacity: 1;
             }
+          }
+          
+          @keyframes slideUp {
+            from {
+              transform: translateX(-50%) translateY(30px);
+              opacity: 0;
+            }
+            to {
+              transform: translateX(-50%) translateY(0);
+              opacity: 1;
+            }
+          }
+          
+          .product-notifications-container::-webkit-scrollbar {
+            width: 4px;
+          }
+          
+          .product-notifications-container::-webkit-scrollbar-track {
+            background: transparent;
+          }
+          
+          .product-notifications-container::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
           }
         `}
       </style>

@@ -256,17 +256,6 @@ export const createPaymentValidation = [
     .isIn(PAY_METHODS)
     .withMessage(`pay_method must be one of: ${PAY_METHODS.join(", ")}`),
 
-  // pay_status — current payment state; defaults to 'pending' on create
-  body("pay_status")
-    .optional()
-    .isIn(PAY_STATUSES)
-    .withMessage(`pay_status must be one of: ${PAY_STATUSES.join(", ")}`)
-    .custom((val) => {
-      if (val && val !== "pending") {
-        throw new Error("pay_status on a new payment can only be 'pending'");
-      }
-      return true;
-    }),
 
   // pay_date — must be a real date, not in the future
   body("pay_date")
@@ -315,8 +304,19 @@ export const createPaymentValidation = [
       if (!["pending", "preparing"].includes(rows[0].or_status)) {
         throw new Error(
           `Cannot create a payment for an order with status '${rows[0].or_status}'. ` +
-            `Order must be pending or preparing.`,
+          `Order must be pending or preparing.`,
         );
+      }
+      return true;
+    }),
+
+  body("pay_status")
+    .optional()
+    .isIn(PAY_STATUSES)
+    .withMessage(`pay_status must be one of: ${PAY_STATUSES.join(", ")}`)
+    .custom((val) => {
+      if (val && !["pending", "paid"].includes(val)) {
+        throw new Error("pay_status on a new payment must be 'pending' or 'paid'");
       }
       return true;
     }),
@@ -325,30 +325,34 @@ export const createPaymentValidation = [
 ];
 
 export async function createPayment(req, res, next) {
+  const client = await pool.connect();
   try {
     const {
       pay_method,
-      pay_status = "pending",
+      pay_status = "paid", // Defaults to 'paid' if not provided
       pay_date,
       pay_amount,
       or_id,
     } = req.body;
 
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+
+    const paymentResult = await client.query(
       `INSERT INTO "Payment" (pay_method, pay_status, pay_date, pay_amount, or_id)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING *`,
       [pay_method, pay_status, pay_date, pay_amount, or_id],
     );
 
-    // Emit socket event for payment completion if status is paid or refunded
-    if (rows[0].pay_status === "paid" || rows[0].pay_status === "refunded") {
-      emitSocketEvent("payment:completed", rows[0], { room: ADMIN_PAYMENT_ROOM });
-    }
 
-    res.status(201).json({ success: true, data: rows[0] });
+    await client.query('COMMIT');
+
+    res.status(201).json({ success: true, data: paymentResult.rows[0] });
   } catch (err) {
+    await client.query('ROLLBACK');
     handleDbError(err, res, next);
+  } finally {
+    client.release();
   }
 }
 
@@ -396,7 +400,7 @@ export const updatePaymentValidation = [
       if (!allowed.includes(newStatus)) {
         throw new Error(
           `Cannot transition pay_status from '${curr}' to '${newStatus}'. ` +
-            `Allowed: [${allowed.join(", ") || "none — this status is terminal"}]`,
+          `Allowed: [${allowed.join(", ") || "none — this status is terminal"}]`,
         );
       }
       return true;
@@ -514,7 +518,7 @@ export const deletePaymentValidation = [
     if (!deletable.includes(rows[0].pay_status)) {
       throw new Error(
         `Cannot delete a payment with status '${rows[0].pay_status}'. ` +
-          `Only voided or failed payments may be deleted.`,
+        `Only voided or failed payments may be deleted.`,
       );
     }
     return true;

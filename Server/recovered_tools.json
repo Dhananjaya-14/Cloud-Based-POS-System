@@ -1,0 +1,496 @@
+[
+  {
+    "step": 42,
+    "name": "replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "AllowMultiple": "false",
+      "Description": "\"Add receiveWithWastage to purchaseOrderController.js\"",
+      "EndLine": "617",
+      "Instruction": "\"Add the new controller function receiveWithWastage\"",
+      "ReplacementContent": "\"// ─── POST /api/purchase-orders/:id/receive ──────────────────────────────────────\\nexport async function receiveWithWastage(req, res, next) {\\n  try {\\n    const id = parsePositiveInt(req.params.id, \\\"po_id\\\");\\n    const { wastage = [], reason } = req.body;\\n    const { b_id, role_id, com_id, user_id } = req.user;\\n    \\n    // ── Existence & Scoping check ──\\n    let existQuery = `\\n      SELECT po.po_id, po.status, po.b_id\\n      FROM purchase_order po\\n      JOIN \\\"Branch\\\" b ON b.\\\"B_id\\\" = po.b_id\\n      WHERE po.po_id = $1\\n    `;\\n    const existParams = [id];\\n    if (role_id !== ROLES.SUPER_ADMIN) {\\n      existQuery += ` AND b.com_id = $2`;\\n      existParams.push(com_id);\\n      if (b_id) {\\n        existQuery += ` AND po.b_id = $3`;\\n        existParams.push(b_id);\\n      }\\n    }\\n    const existing = await pool.query(existQuery, existParams);\\n    if (existing.rows.length === 0) {\\n      res.status(404);\\n      throw new Error(\\\"Purchase order not found\\\");\\n    }\\n\\n    const currentStatus = existing.rows[0].status;\\n    const poBranchId = existing.rows[0].b_id;\\n\\n    if (currentStatus === \\\"received\\\") {\\n      res.status(409);\\n      throw new Error(\\\"Purchase order is already received\\\");\\n    }\\n\\n    // Perform the status update, stock adjustments, and waste records in a single transaction\\n    const client = await pool.connect();\\n    try {\\n      await client.query(\\\"BEGIN\\\");\\n\\n      const items = await client.query(\\n        `SELECT rm_id, qty FROM purchase_item WHERE po_id = $1`,\\n        [id],\\n      );\\n\\n      if (items.rows.length === 0) {\\n        await client.query(\\\"ROLLBACK\\\");\\n        res.status(422);\\n        throw new Error(\\n          \\\"Cannot mark order as received — no purchase items exist for this order\\\",\\n        );\\n      }\\n\\n      // Update each raw material stock and insert waste record\\n      for (const it of items.rows) {\\n        const grossQty = Number(it.qty) || 0;\\\n<truncated 3321 bytes>",
+      "StartLine": "616",
+      "TargetContent": "\"// ─── DELETE /api/purchase-orders/:id ─────────────────────────────────────────\"",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "toolAction": "\"Adding receiveWithWastage function\"",
+      "toolSummary": "\"Add receiveWithWastage\""
+    }
+  },
+  {
+    "step": 81,
+    "name": "write_to_file",
+    "file": "WasteManagement.jsx",
+    "args": {
+      "ArtifactMetadata": "{\"ArtifactType\":\"other\",\"RequestFeedback\":false,\"Summary\":\"Create Waste Management frontend component\"}",
+      "CodeContent": "\"import React, { useState, useEffect } from \\\"react\\\";\\nimport Sidebar from \\\"../../components/branch-admin/Sidebar\\\";\\nimport Header from \\\"../../components/branch-admin/Header\\\";\\n\\nconst WasteManagement = () => {\\n  const [wasteRecords, setWasteRecords] = useState([]);\\n  const [rawMaterials, setRawMaterials] = useState([]);\\n  const [isLoading, setIsLoading] = useState(true);\\n  const [error, setError] = useState(\\\"\\\");\\n  const [showAddModal, setShowAddModal] = useState(false);\\n\\n  // Form state\\n  const [selectedMaterial, setSelectedMaterial] = useState(\\\"\\\");\\n  const [wasteQty, setWasteQty] = useState(\\\"\\\");\\n  const [reason, setReason] = useState(\\\"\\\");\\n  const [isSubmitting, setIsSubmitting] = useState(false);\\n  const [formError, setFormError] = useState(\\\"\\\");\\n\\n  useEffect(() => {\\n    fetchData();\\n  }, []);\\n\\n  const fetchData = async () => {\\n    setIsLoading(true);\\n    setError(\\\"\\\");\\n    try {\\n      const token = localStorage.getItem(\\\"token\\\");\\n      \\n      // Fetch waste records\\n      const wasteRes = await fetch(\\\"/api/waste\\\", {\\n        headers: { Authorization: `Bearer ${token}` },\\n      });\\n      if (!wasteRes.ok) throw new Error(\\\"Failed to load waste records\\\");\\n      const wasteData = await wasteRes.json();\\n      setWasteRecords(Array.isArray(wasteData) ? wasteData : wasteData.data || []);\\n\\n      // Fetch raw materials for dropdown\\n      const rmRes = await fetch(\\\"/api/raw-materials\\\", {\\n        headers: { Authorization: `Bearer ${token}` },\\n      });\\n      if (rmRes.ok) {\\n        const rmData = await rmRes.json();\\n        setRawMaterials(Array.isArray(rmData) ? rmData : rmData.data || []);\\n      }\\n    } catch (err) {\\n      setError(err.message);\\n    } finally {\\n      setIsLoading(false);\\n    }\\n  };\\n\\n  const handleAddWaste = async (e) => {\\n    e.preventDefault();\\n    setFormError(\\\"\\\");\\n    \\n    if (!selectedMaterial || !wasteQty) {\\n      setFormError(\\\"Ingredient and Quantity are required.\\\");\\n      return;\\n    }\\n\\n    setIsSubmitting(true);\\n  \n<truncated 8827 bytes>",
+      "Description": "\"Create new WasteManagement page component\"",
+      "IsArtifact": "false",
+      "Overwrite": "true",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\pages\\\\branch-admin\\\\WasteManagement.jsx\"",
+      "toolAction": "\"Creating WasteManagement.jsx\"",
+      "toolSummary": "\"Create WasteManagement\""
+    }
+  },
+  {
+    "step": 106,
+    "name": "multi_replace_file_content",
+    "file": "WasteManagement.jsx",
+    "args": {
+      "Description": "\"Update layout, date format, and add unit selector in WasteManagement\"",
+      "Instruction": "\"Fix alignment, remove time from date, add unit selection for wastage quantity\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":64,\"ReplacementContent\":\"  const [selectedMaterial, setSelectedMaterial] = useState(\\\"\\\");\\n  const [wasteQty, setWasteQty] = useState(\\\"\\\");\\n  const [selectedUnit, setSelectedUnit] = useState(\\\"\\\");\\n  const [reason, setReason] = useState(\\\"\\\");\\n  const [isSubmitting, setIsSubmitting] = useState(false);\\n  const [formError, setFormError] = useState(\\\"\\\");\\n\\n  useEffect(() => {\\n    fetchData();\\n  }, []);\\n\\n  // Update selected unit when material changes\\n  useEffect(() => {\\n    if (selectedMaterial) {\\n      const rm = rawMaterials.find(m => String(m.rm_id || m.id || m._id) === String(selectedMaterial));\\n      if (rm) {\\n        setSelectedUnit(rm.unit);\\n      }\\n    }\\n  }, [selectedMaterial, rawMaterials]);\\n\\n  const fetchData = async () => {\\n    setIsLoading(true);\\n    setError(\\\"\\\");\\n    try {\\n      const token = localStorage.getItem(\\\"token\\\");\\n      \\n      // Fetch waste records\\n      const wasteRes = await fetch(\\\"/api/waste\\\", {\\n        headers: { Authorization: `Bearer ${token}` },\\n      });\\n      if (!wasteRes.ok) throw new Error(\\\"Failed to load waste records\\\");\\n      const wasteData = await wasteRes.json();\\n      setWasteRecords(Array.isArray(wasteData) ? wasteData : wasteData.data || []);\\n\\n      // Fetch raw materials for dropdown\\n      const rmRes = await fetch(\\\"/api/raw-materials\\\", {\\n        headers: { Authorization: `Bearer ${token}` },\\n      });\\n      if (rmRes.ok) {\\n        const rmData = await rmRes.json();\\n        setRawMaterials(Array.isArray(rmData) ? rmData : rmData.data || []);\\n      }\\n    } catch (err) {\\n      setError(err.message);\\n    } finally {\\n      setIsLoading(false);\\n    }\\n  };\\n\\n  const getAvailableUnits = (baseUnit) => {\\n    const lower = String(baseUnit || \\\"\\\").toLowerCase();\\n    if (lower === \\\"kg\\\" || lower === \\\"g\\\") return [\\\"kg\\\", \\\"g\\\"];\\n    if (lower === \\\"l\\\" || lower === \\\"ml\\\") return [\\\"l\\\", \\\"ml\\\"];\\n    return [baseUnit];\\n  };\\n\\n  const calculateFinalQty = (qty, inputUnit, baseUnit) =>\n<truncated 6466 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\pages\\\\branch-admin\\\\WasteManagement.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating WasteManagement.jsx layout, date format and unit selector\"",
+      "toolSummary": "\"Update WasteManagement\""
+    }
+  },
+  {
+    "step": 120,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Support per-item reason in receiveWithWastage\"",
+      "Instruction": "\"Use itemWastage.reason if provided\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":734,\"ReplacementContent\":\"              itemWastage.reason || reason || null,\",\"StartLine\":734,\"TargetContent\":\"              reason || null,\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating purchaseOrderController.js\"",
+      "toolSummary": "\"Update purchaseOrderController.js\""
+    }
+  },
+  {
+    "step": 156,
+    "name": "multi_replace_file_content",
+    "file": "WasteManagement.jsx",
+    "args": {
+      "Description": "\"Fix table column alignment to distribute evenly\"",
+      "Instruction": "\"Use table-fixed and 25% width per column\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":166,\"ReplacementContent\":\"              <table className=\\\"w-full table-fixed border-collapse text-sm text-left\\\">\\n                <thead>\\n                  <tr className=\\\"bg-gray-50 border-b border-gray-200 text-gray-600\\\">\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap w-1/4\\\">Date</th>\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap w-1/4\\\">Ingredient</th>\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap w-1/4\\\">Waste Quantity</th>\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap w-1/4\\\">Reason</th>\\n                  </tr>\\n                </thead>\",\"StartLine\":159,\"TargetContent\":\"              <table className=\\\"w-full border-collapse text-sm text-left\\\">\\n                <thead>\\n                  <tr className=\\\"bg-gray-50 border-b border-gray-200 text-gray-600\\\">\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap\\\">Date</th>\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap\\\">Ingredient</th>\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap\\\">Waste Quantity</th>\\n                    <th className=\\\"px-6 py-4 font-semibold whitespace-nowrap w-full\\\">Reason</th>\\n                  </tr>\\n                </thead>\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\pages\\\\branch-admin\\\\WasteManagement.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Fixing table layout\"",
+      "toolSummary": "\"Fix table layout\""
+    }
+  },
+  {
+    "step": 179,
+    "name": "multi_replace_file_content",
+    "file": "WasteManagement.jsx",
+    "args": {
+      "Description": "\"Add edit and delete buttons and logic for Waste Management\"",
+      "Instruction": "\"Add editMode, handleDeleteWaste, and edit/delete UI buttons\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":11,\"ReplacementContent\":\"  const [showAddModal, setShowAddModal] = useState(false);\\n  const [editMode, setEditMode] = useState(false);\\n  const [editRecordId, setEditRecordId] = useState(null);\",\"StartLine\":10,\"TargetContent\":\"  const [showAddModal, setShowAddModal] = useState(false);\"},{\"AllowMultiple\":false,\"EndLine\":83,\"ReplacementContent\":\"  const openAddModal = () => {\\n    setEditMode(false);\\n    setEditRecordId(null);\\n    setSelectedMaterial(\\\"\\\");\\n    setWasteQty(\\\"\\\");\\n    setReason(\\\"\\\");\\n    setFormError(\\\"\\\");\\n    setShowAddModal(true);\\n  };\\n\\n  const handleEditClick = (record) => {\\n    setEditMode(true);\\n    setEditRecordId(record.waste_id);\\n    setSelectedMaterial(record.rm_id);\\n    setWasteQty(record.waste_qty);\\n    setReason(record.reason || \\\"\\\");\\n    setFormError(\\\"\\\");\\n    setShowAddModal(true);\\n  };\\n\\n  const handleDeleteClick = async (id) => {\\n    if (!window.confirm(\\\"Are you sure you want to delete this waste record? The quantity will be restored to stock.\\\")) return;\\n    try {\\n      const token = localStorage.getItem(\\\"token\\\");\\n      const res = await fetch(`/api/waste/${id}`, {\\n        method: \\\"DELETE\\\",\\n        headers: { Authorization: `Bearer ${token}` }\\n      });\\n      if (!res.ok) {\\n        const data = await res.json();\\n        throw new Error(data.message || \\\"Failed to delete waste record.\\\");\\n      }\\n      fetchData();\\n    } catch (err) {\\n      alert(err.message);\\n    }\\n  };\\n\\n  const handleAddWaste = async (e) => {\",\"StartLine\":83,\"TargetContent\":\"  const handleAddWaste = async (e) => {\"},{\"AllowMultiple\":false,\"EndLine\":114,\"ReplacementContent\":\"      const token = localStorage.getItem(\\\"token\\\");\\n      let res;\\n      \\n      if (editMode) {\\n        res = await fetch(`/api/waste/${editRecordId}`, {\\n          method: \\\"PUT\\\",\\n          headers: { \\n            \\\"Content-Type\\\": \\\"application/json\\\",\\n            Authorization: `Bearer ${token}` \\n          },\\n          body: JSON.stringify({\\n          \n<truncated 9303 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\pages\\\\branch-admin\\\\WasteManagement.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Adding edit/delete features in WasteManagement\"",
+      "toolSummary": "\"Add edit/delete features\""
+    }
+  },
+  {
+    "step": 292,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Support pro_id in purchase items\"",
+      "Instruction": "\"Update GET, POST, PUT to handle pro_id\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":64,\"ReplacementContent\":\"         pi.rm_id,\\n         pi.pro_id,\\n         COALESCE(rm.rm_name, p.pro_name) AS rm_name,\\n         COALESCE(rm.unit, 'pcs')         AS rm_unit,\\n         b.\\\"B_id\\\"       AS branch_id,\\n         b.\\\"B_name\\\"     AS branch_name,\\n         c.com_id       AS company_id,\\n         c.com_name     AS company_name\\n       FROM purchase_item pi\\n       JOIN purchase_order po ON po.po_id = pi.po_id\\n       JOIN \\\"Branch\\\"       b  ON b.\\\"B_id\\\" = po.b_id\\n       JOIN \\\"Company\\\"      c  ON c.com_id = b.com_id\\n       LEFT JOIN \\\"Raw_Material\\\" rm ON rm.rm_id = pi.rm_id\\n       LEFT JOIN \\\"Product\\\" p ON p.pro_id = pi.pro_id\",\"StartLine\":53,\"TargetContent\":\"         rm.rm_id,\\n         rm.rm_name,\\n         rm.unit        AS rm_unit,\\n         b.\\\"B_id\\\"       AS branch_id,\\n         b.\\\"B_name\\\"     AS branch_name,\\n         c.com_id       AS company_id,\\n         c.com_name     AS company_name\\n       FROM purchase_item pi\\n       JOIN purchase_order po ON po.po_id = pi.po_id\\n       JOIN \\\"Branch\\\"       b  ON b.\\\"B_id\\\" = po.b_id\\n       JOIN \\\"Company\\\"      c  ON c.com_id = b.com_id\\n       JOIN \\\"Raw_Material\\\" rm ON rm.rm_id = pi.rm_id\"},{\"AllowMultiple\":false,\"EndLine\":143,\"ReplacementContent\":\"         pi.rm_id,\\n         pi.pro_id,\\n         COALESCE(rm.rm_name, p.pro_name) AS rm_name,\\n         COALESCE(rm.unit, 'pcs')         AS rm_unit,\\n         b.\\\"B_id\\\"       AS branch_id,\\n         b.\\\"B_name\\\"     AS branch_name,\\n         c.com_id       AS company_id,\\n         c.com_name     AS company_name\\n       FROM purchase_item pi\\n       JOIN purchase_order po ON po.po_id = pi.po_id\\n       JOIN \\\"Branch\\\"       b  ON b.\\\"B_id\\\" = po.b_id\\n       JOIN \\\"Company\\\"      c  ON c.com_id = b.com_id\\n       LEFT JOIN \\\"Raw_Material\\\" rm ON rm.rm_id = pi.rm_id\\n       LEFT JOIN \\\"Product\\\" p ON p.pro_id = pi.pro_id\",\"StartLine\":132,\"TargetContent\":\"         rm.rm_id,\\n         rm.rm_name,\\n         rm.unit        AS rm_unit,\\n         b.\\\"B_id\\\"       AS\n<truncated 13402 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating purchaseItemController.js to support pro_id\"",
+      "toolSummary": "\"Update purchaseItemController\""
+    }
+  },
+  {
+    "step": 298,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Support receiving purchase order items with pro_id and inserting wastage\"",
+      "Instruction": "\"Update receiveWithWastage in purchaseOrderController.js\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":662,\"ReplacementContent\":\"      const items = await client.query(\\n        `SELECT rm_id, pro_id, qty FROM purchase_item WHERE po_id = $1`,\\n        [id],\\n      );\",\"StartLine\":658,\"TargetContent\":\"      const items = await client.query(\\n        `SELECT rm_id, qty FROM purchase_item WHERE po_id = $1`,\\n        [id],\\n      );\"},{\"AllowMultiple\":false,\"EndLine\":720,\"ReplacementContent\":\"        // Find matching wastage info from request body\\n        const unifiedId = it.rm_id || it.pro_id;\\n        const itemWastage = wastage.find((w) => (w.rm_id === unifiedId) || (w.pro_id === unifiedId)) || {\\n          wastage_type: \\\"none\\\",\\n          wastage_value: 0\\n        };\\n\\n        let wasteQty = 0;\\n        if (itemWastage.wastage_type === \\\"percentage\\\") {\\n          wasteQty = grossQty * (Number(itemWastage.wastage_value) / 100);\\n        } else if (itemWastage.wastage_type === \\\"fixed\\\") {\\n          wasteQty = Number(itemWastage.wastage_value);\\n        }\\n        \\n        // Prevent floating point issues and ensure max 3 decimals\\n        wasteQty = Math.round(wasteQty * 1000) / 1000;\\n        \\n        if (wasteQty > grossQty) {\\n           await client.query(\\\"ROLLBACK\\\");\\n           res.status(400);\\n           throw new Error(`Waste quantity cannot exceed ordered quantity for item id ${unifiedId}`);\\n        }\\n        if (wasteQty < 0) {\\n           await client.query(\\\"ROLLBACK\\\");\\n           res.status(400);\\n           throw new Error(`Waste quantity cannot be negative for item id ${unifiedId}`);\\n        }\\n\\n        const netReceived = grossQty - wasteQty;\\n\\n        // Update Stock\\n        if (it.rm_id) {\\n          const updateRes = await client.query(\\n            `UPDATE \\\"Raw_Material\\\"\\n             SET stock_qty = COALESCE(stock_qty, 0) + $1\\n             WHERE rm_id = $2\\n             RETURNING rm_id`,\\n            [netReceived, it.rm_id],\\n          );\\n\\n          if (updateRes.rows.length === 0) {\\n            await client.query(\\\"ROLLBACK\\\");\\n     \n<truncated 4160 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating purchaseOrderController.js for pro_id receive logic\"",
+      "toolSummary": "\"Update purchaseOrderController\""
+    }
+  },
+  {
+    "step": 304,
+    "name": "multi_replace_file_content",
+    "file": "wasteController.js",
+    "args": {
+      "Description": "\"Support pro_id in wasteController.js\"",
+      "Instruction": "\"Update waste operations to support pro_id along with rm_id\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":41,\"ReplacementContent\":\"function toResponseRow(row) {\\n  return {\\n    waste_id: row.waste_id,\\n    rm_id: row.rm_id,\\n    pro_id: row.pro_id,\\n    rm_name: row.item_name || row.rm_name,\\n    waste_qty: parseFloat(row.waste_qty),\\n    reason: row.reason ?? null,\\n    recorded_at: row.recorded_at,\\n  };\\n}\",\"StartLine\":32,\"TargetContent\":\"function toResponseRow(row) {\\n  return {\\n    waste_id: row.waste_id,\\n    rm_id: row.rm_id,\\n    rm_name: row.rm_name,\\n    waste_qty: parseFloat(row.waste_qty),\\n    reason: row.reason ?? null,\\n    recorded_at: row.recorded_at,\\n  };\\n}\"},{\"AllowMultiple\":false,\"EndLine\":65,\"ReplacementContent\":\"  const client = await pool.connect();\\n  try {\\n    const { rm_id, pro_id, waste_qty, reason } = req.body;\\n\\n    // ── Presence checks ──────────────────────\\n    if ((rm_id === undefined || rm_id === null) && (pro_id === undefined || pro_id === null)) {\\n      res.status(400);\\n      throw new Error(\\\"rm_id or pro_id is required.\\\");\\n    }\\n    if (waste_qty === undefined || waste_qty === null) {\\n      res.status(400);\\n      throw new Error(\\\"waste_qty is required.\\\");\\n    }\\n\\n    // ── Type / range checks ──────────────────\\n    if (rm_id && !isPositiveInt(rm_id)) {\\n      res.status(400);\\n      throw new Error(\\\"rm_id must be a positive integer.\\\");\\n    }\\n    if (pro_id && !isPositiveInt(pro_id)) {\\n      res.status(400);\\n      throw new Error(\\\"pro_id must be a positive integer.\\\");\\n    }\",\"StartLine\":47,\"TargetContent\":\"  const client = await pool.connect();\\n  try {\\n    const { rm_id, waste_qty, reason } = req.body;\\n\\n    // ── Presence checks ──────────────────────\\n    if (rm_id === undefined || rm_id === null) {\\n      res.status(400);\\n      throw new Error(\\\"rm_id is required.\\\");\\n    }\\n    if (waste_qty === undefined || waste_qty === null) {\\n      res.status(400);\\n      throw new Error(\\\n<truncated 17094 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\wasteController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating wasteController.js to support pro_id\"",
+      "toolSummary": "\"Update wasteController\""
+    }
+  },
+  {
+    "step": 260,
+    "name": "multi_replace_file_content",
+    "file": "ReorderModal.jsx",
+    "args": {
+      "Description": "\"Support pro_id in ReorderModal for external products\"",
+      "Instruction": "\"Accept either rm_id or pro_id from the material prop and send the right one to the API\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":17,\"ReplacementContent\":\"const ReorderModal = ({ material, onClose, onSuccess }) => {\\n  const navigate = useNavigate();\\n  const { user } = useAuth();\\n  const [suppliers, setSuppliers] = useState([]);\\n\\n  // Support both raw materials (rm_id) and external products (pro_id)\\n  const isProduct = !!material?.pro_id;\\n  const itemName = isProduct ? (material?.pro_name || material?.name) : material?.rm_name;\\n\\n  const [formData, setFormData] = useState({\\n    sup_id: '',\\n    quantity: '',\\n    unit: material?.unit || 'pcs',\\n    unitPrice: ''\\n  });\",\"StartLine\":8,\"TargetContent\":\"const ReorderModal = ({ material, onClose, onSuccess }) => {\\n  const navigate = useNavigate();\\n  const { user } = useAuth();\\n  const [suppliers, setSuppliers] = useState([]);\\n  const [formData, setFormData] = useState({\\n    sup_id: '',\\n    quantity: '',\\n    unit: material?.unit || 'pcs',\\n    unitPrice: ''\\n  });\"},{\"AllowMultiple\":false,\"EndLine\":111,\"ReplacementContent\":\"      const itemPayload = {\\n        po_id: order.po_id,\\n        qty: parseFloat(formData.quantity),\\n        unit_price: parseFloat(formData.unitPrice),\\n        price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)\\n      };\\n\\n      // Use pro_id for external products, rm_id for raw materials\\n      if (isProduct) {\\n        itemPayload.pro_id = material.pro_id;\\n      } else {\\n        itemPayload.rm_id = material.rm_id;\\n      }\\n\\n      const itemRes = await fetch('/api/purchase-items', {\\n        method: 'POST',\\n        headers: {\\n          'Content-Type': 'application/json',\\n          ...(token ? { Authorization: `Bearer ${token}` } : {})\\n        },\\n        credentials: 'include',\\n        body: JSON.stringify(itemPayload)\\n      });\",\"StartLine\":97,\"TargetContent\":\"      const itemRes = await fetch('/api/purchase-items', {\\n        method: 'POST',\\n        headers: {\\n          'Content-Type': 'application/json',\\n          ...(token ? { Authorization: `Bearer ${token}` } : {})\\n        },\\n      \n<truncated 639 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\components\\\\branch-admin\\\\ReorderModal.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating ReorderModal to support pro_id\"",
+      "toolSummary": "\"Update ReorderModal\""
+    }
+  },
+  {
+    "step": 265,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Allow pro_id to be used instead of rm_id when creating purchase items for external products\"",
+      "Instruction": "\"Accept pro_id or rm_id, validate whichever is provided, insert with appropriate column\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":324,\"ReplacementContent\":\"// ─── POST /api/purchase-items ─────────────────────────────────────────────────\\nexport async function createPurchaseItem(req, res, next) {\\n  try {\\n    const body = sanitizeBody(req.body, [\\n      \\\"po_id\\\",\\n      \\\"rm_id\\\",\\n      \\\"pro_id\\\",\\n      \\\"qty\\\",\\n      \\\"price\\\",\\n      \\\"unit_price\\\",\\n    ]);\\n\\n    const { po_id, rm_id, pro_id, qty, price, unit_price } = body;\\n\\n    // ── Required fields ──\\n    if (!po_id || (!rm_id && !pro_id) || !qty || !price || !unit_price) {\\n      res.status(400);\\n      throw new Error(\\\"po_id, qty, price, unit_price, and either rm_id or pro_id are required\\\");\\n    }\\n    if (rm_id && pro_id) {\\n      res.status(400);\\n      throw new Error(\\\"Provide either rm_id or pro_id, not both\\\");\\n    }\\n\\n    const parsedPoId      = parsePositiveInt(po_id, \\\"po_id\\\");\\n    const parsedRmId      = rm_id  ? parsePositiveInt(rm_id,  \\\"rm_id\\\")  : null;\\n    const parsedProId     = pro_id ? parsePositiveInt(pro_id, \\\"pro_id\\\") : null;\\n    const parsedQty       = parsePositiveDecimal(qty,        \\\"qty\\\");\\n    const parsedPrice     = parsePositiveDecimal(price,      \\\"price\\\");\\n    const parsedUnitPrice = parsePositiveDecimal(unit_price, \\\"unit_price\\\");\\n\\n    if (parsedQty > MAX_QTY) {\\n      res.status(400);\\n      throw new Error(`qty cannot exceed ${MAX_QTY.toLocaleString()}`);\\n    }\\n    if (parsedUnitPrice > MAX_UNIT_PRICE) {\\n      res.status(400);\\n      throw new Error(`unit_price cannot exceed ${MAX_UNIT_PRICE.toLocaleString()}`);\\n    }\\n\\n    // ── price must match qty × unit_price (±0.05 rounding tolerance) ──\\n    const expectedPrice = parsedQty * parsedUnitPrice;\\n    if (Math.abs(parsedPrice - expectedPrice) > 0.05) {\\n      res.status(400);\\n      throw new Error(\\n        `price (${parsedPrice}) does not match qty × unit_price (${expectedPrice.toFixed(2)})`,\\n      );\\n    }\\n\\\n<truncated 7767 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating purchaseItemController to accept pro_id\"",
+      "toolSummary": "\"Update purchaseItemController\""
+    }
+  },
+  {
+    "step": 277,
+    "name": "multi_replace_file_content",
+    "file": "ProductItemsTable.jsx",
+    "args": {
+      "Description": "\"Change Add Stock button label to Order for external products\"",
+      "Instruction": "\"Use item.product_type to decide button label and color\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":285,\"ReplacementContent\":\"                            {updatingStockId === item.id ? (\\n                               <FaSpinner size={10} style={{ animation: \\\"stockButtonSpin 0.8s linear infinite\\\" }} />\\n                            ) : null}\\n                               \\n                            {item.product_type === \\\"finished\\\" ? \\\"🛒 Order\\\" : \\\"Add Stock\\\"}\\n                          </button>\",\"StartLine\":280,\"TargetContent\":\"                            {updatingStockId === item.id ? (\\n                               <FaSpinner size={10} style={{ animation: \\\"stockButtonSpin 0.8s linear infinite\\\" }} />\\n                            ) : null}\\n                               \\n                            Add Stock\\n                          </button>\"},{\"AllowMultiple\":false,\"EndLine\":278,\"ReplacementContent\":\"                          <button\\n                            type=\\\"button\\\"\\n                            onClick={() => onAddStock(item)}\\n                            disabled={updatingStockId === item.id}\\n                            style={{\\n                              background: item.product_type === \\\"finished\\\" ? \\\"#059669\\\" : \\\"#0E6DCF\\\",\\n                              color: \\\"#fff\\\",\\n                              border: \\\"none\\\",\\n                              borderRadius: \\\"6px\\\",\\n                              padding: \\\"4px 10px\\\",\\n                              fontSize: \\\"12px\\\",\\n                              fontWeight: \\\"600\\\",\\n                              cursor: \\\"pointer\\\",\\n                              display: \\\"flex\\\",\\n                              alignItems: \\\"center\\\",\\n                              gap: \\\"4px\\\",\\n                              opacity: updatingStockId === item.id ? 0.6 : 1,\\n                            }}\\n                          >\",\"StartLine\":261,\"TargetContent\":\"                          <button\\n                            type=\\\"button\\\"\\n                            onClick={() => onAddStock(ite\n<truncated 818 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\components\\\\branch-admin\\\\ProductItemsTable.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating Add Stock button label to Order for external products\"",
+      "toolSummary": "\"Update ProductItemsTable button\""
+    }
+  },
+  {
+    "step": 295,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Fix all three purchase item queries to LEFT JOIN both Raw_Material and Product so external product orders appear correctly\"",
+      "Instruction": "\"Change INNER JOIN to LEFT JOIN on Raw_Material and add LEFT JOIN on Product. Use COALESCE for item name and unit.\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":90,\"ReplacementContent\":\"// ─── GET /api/purchase-items ─────────────────────────────────────────────────\\nexport async function getPurchaseItems(req, res, next) {\\n  try {\\n    const { role_id, com_id, b_id } = req.user;\\n    let query = `SELECT\\n         pi.pi_id,\\n         pi.qty,\\n         pi.price,\\n         pi.unit_price,\\n         pi.rm_id,\\n         pi.pro_id,\\n         po.po_id,\\n         po.status      AS order_status,\\n         po.order_date,\\n         rm.rm_id,\\n         rm.rm_name,\\n         rm.unit        AS rm_unit,\\n         p.pro_id       AS pro_id,\\n         p.pro_name,\\n         p.unit         AS pro_unit,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    p.unit)       AS unit,\\n         b.\\\"B_id\\\"       AS branch_id,\\n         b.\\\"B_name\\\"     AS branch_name,\\n         c.com_id       AS company_id,\\n         c.com_name     AS company_name\\n       FROM purchase_item pi\\n       JOIN purchase_order po ON po.po_id = pi.po_id\\n       JOIN \\\"Branch\\\"       b  ON b.\\\"B_id\\\" = po.b_id\\n       JOIN \\\"Company\\\"      c  ON c.com_id = b.com_id\\n       LEFT JOIN \\\"Raw_Material\\\" rm ON rm.rm_id = pi.rm_id\\n       LEFT JOIN \\\"Product\\\"      p  ON p.pro_id  = pi.pro_id`;\\n    \\n    const conditions = [];\\n    const params = [];\\n\\n    if (role_id !== ROLES.SUPER_ADMIN) {\\n      conditions.push(`b.com_id = $${params.length + 1}`);\\n      params.push(com_id);\\n\\n      if (b_id) {\\n        conditions.push(`po.b_id = $${params.length + 1}`);\\n        params.push(b_id);\\n      }\\n    }\\n\\n    if (conditions.length > 0) {\\n      query += \\\" WHERE \\\" + conditions.join(\\\" AND \\\");\\n    }\\n\\n    query += ` ORDER BY pi.pi_id ASC`;\\n\\n    const result = await pool.query(query, params);\\n    res.json(result.rows);\\n  } catch (err) {\\n    next(err);\\n  }\\n}\",\"StartLine\":41,\"TargetContent\":\"// ─── GET /api/purchase-items ───────\n<truncated 6458 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Fixing all three purchase item queries to support pro_id\"",
+      "toolSummary": "\"Fix purchase item queries\""
+    }
+  },
+  {
+    "step": 299,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Fix corruption in parsePositiveDecimal and duplicate code block\"",
+      "Instruction": "\"Restore parsePositiveDecimal closing and remove duplicate orphan code block after getPurchaseItems closing brace\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":31,\"ReplacementContent\":\"    throw Object.assign(\\n      new Error(`${fieldName} must be a positive number`),\\n      { status: 400 },\\n    );\\n  }\\n  return parsed;\\n}\\n\\nconst MAX_QTY        = 100_000;\\nconst MAX_UNIT_PRICE = 999_999.99;\",\"StartLine\":30,\"TargetContent\":\"    throw Object.assign(\\n      new Error(`${fieldName} must be a positive number// ─── GET /api/purchase-items ─────────────────────────────────────────────────\\nexport async function getPurchaseItems(req, res, next) {\\n  try {\\n    const { role_id, com_id, b_id } = req.user;\"},{\"AllowMultiple\":false,\"EndLine\":99,\"ReplacementContent\":\"}\",\"StartLine\":88,\"TargetContent\":\"}length > 0) {\\n      query += \\\" WHERE \\\" + conditions.join(\\\" AND \\\");\\n    }\\n\\n    query += ` ORDER BY pi.pi_id ASC`;\\n\\n    const result = await pool.query(query, params);\\n    res.json(result.rows);\\n  } catch (err) {\\n    next(err);\\n  }\\n}\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Fixing corruption in purchaseItemController\"",
+      "toolSummary": "\"Fix purchaseItemController corruption\""
+    }
+  },
+  {
+    "step": 303,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Restore the getPurchaseItems function declaration that was lost in the corruption fix\"",
+      "Instruction": "\"Add the missing function wrapper around the floating query code\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":42,\"ReplacementContent\":\"const MAX_QTY        = 100_000;\\nconst MAX_UNIT_PRICE = 999_999.99;\\n\\n// ─── GET /api/purchase-items ─────────────────────────────────────────────────\\nexport async function getPurchaseItems(req, res, next) {\\n  try {\\n    const { role_id, com_id, b_id } = req.user;\\n    let query = `SELECT\",\"StartLine\":38,\"TargetContent\":\"const MAX_QTY        = 100_000;\\nconst MAX_UNIT_PRICE = 999_999.99;\\n    let query = `SELECT\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Restoring missing getPurchaseItems function declaration\"",
+      "toolSummary": "\"Restore missing function\""
+    }
+  },
+  {
+    "step": 340,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Fix SQL query errors by removing p.unit which doesn't exist and using 'pcs' for product unit\"",
+      "Instruction": "\"Replace `p.unit` with `'pcs'` in all three get purchase item queries in purchaseItemController\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":60,\"ReplacementContent\":\"         rm.unit        AS rm_unit,\\n         p.pro_id       AS pro_id,\\n         p.pro_name,\\n         'pcs'          AS pro_unit,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    'pcs')       AS unit,\",\"StartLine\":55,\"TargetContent\":\"         rm.unit        AS rm_unit,\\n         p.pro_id       AS pro_id,\\n         p.pro_name,\\n         p.unit         AS pro_unit,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    p.unit)       AS unit,\"},{\"AllowMultiple\":false,\"EndLine\":146,\"ReplacementContent\":\"         rm.rm_name,\\n         rm.unit        AS rm_unit,\\n         p.pro_id       AS pro_id,\\n         p.pro_name,\\n         'pcs'          AS pro_unit,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    'pcs')       AS unit,\",\"StartLine\":141,\"TargetContent\":\"         rm.rm_name,\\n         rm.unit        AS rm_unit,\\n         p.pro_id       AS pro_id,\\n         p.pro_name,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    p.unit)       AS unit,\"},{\"AllowMultiple\":false,\"EndLine\":182,\"ReplacementContent\":\"         rm.rm_name,\\n         rm.unit        AS rm_unit,\\n         p.pro_id       AS pro_id,\\n         p.pro_name,\\n         'pcs'          AS pro_unit,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    'pcs')       AS unit,\",\"StartLine\":177,\"TargetContent\":\"         rm.rm_name,\\n         rm.unit        AS rm_unit,\\n         p.pro_id       AS pro_id,\\n         p.pro_name,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    p.unit)       AS unit,\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Fixing unit column error in purchaseItemController\"",
+      "toolSummary": "\"Fix unit column\""
+    }
+  },
+  {
+    "step": 346,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Replace p.unit with pcs for external product orders in getPurchaseItemsByOrder and getPurchaseItemById\"",
+      "Instruction": "\"Fix p.unit SQL error by hardcoding pcs for product unit\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":148,\"ReplacementContent\":\"         p.pro_name,\\n         'pcs'          AS pro_unit,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    'pcs')       AS unit,\",\"StartLine\":146,\"TargetContent\":\"         p.pro_name,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    p.unit)       AS unit,\"},{\"AllowMultiple\":false,\"EndLine\":192,\"ReplacementContent\":\"         p.pro_name,\\n         'pcs'          AS pro_unit,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    'pcs')       AS unit,\",\"StartLine\":190,\"TargetContent\":\"         p.pro_name,\\n         COALESCE(rm.rm_name, p.pro_name)  AS item_name,\\n         COALESCE(rm.unit,    p.unit)       AS unit,\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Replacing p.unit with pcs\"",
+      "toolSummary": "\"Replace p.unit with pcs\""
+    }
+  },
+  {
+    "step": 355,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Update stock logic in purchaseOrderController to handle pro_id\"",
+      "Instruction": "\"Update both updateStatus and receiveWithWastage to select pro_id, and conditionally update Product stock if pro_id is present, otherwise update Raw_Material\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":587,\"ReplacementContent\":\"      // If the target status is 'received', add each purchase_item.qty to the corresponding stock\\n      if (status === \\\"received\\\") {\\n        const items = await client.query(\\n          `SELECT rm_id, pro_id, qty FROM purchase_item WHERE po_id = $1`,\\n          [id],\\n        );\\n\\n        // Update each raw material or product stock\\n        for (const it of items.rows) {\\n          const adjQty = Number(it.qty) || 0;\\n          if (adjQty === 0) continue;\\n\\n          if (it.pro_id) {\\n            const updateRes = await client.query(\\n              `UPDATE \\\"Product\\\"\\n               SET pro_qty = COALESCE(pro_qty, 0) + $1\\n               WHERE pro_id = $2\\n               RETURNING pro_id`,\\n              [adjQty, it.pro_id],\\n            );\\n            if (updateRes.rows.length === 0) {\\n              await client.query(\\\"ROLLBACK\\\");\\n              res.status(404);\\n              throw new Error(`Product with id ${it.pro_id} not found`);\\n            }\\n          } else if (it.rm_id) {\\n            const updateRes = await client.query(\\n              `UPDATE \\\"Raw_Material\\\"\\n               SET stock_qty = COALESCE(stock_qty, 0) + $1\\n               WHERE rm_id = $2\\n               RETURNING rm_id`,\\n              [adjQty, it.rm_id],\\n            );\\n\\n            if (updateRes.rows.length === 0) {\\n              // Raw material missing or out-of-scope — abort\\n              await client.query(\\\"ROLLBACK\\\");\\n              res.status(404);\\n              throw new Error(`Raw material with id ${it.rm_id} not found`);\\n            }\\n          }\\n        }\\n      }\",\"StartLine\":560,\"TargetContent\":\"      // If the target status is 'received', add each purchase_item.qty to the corresponding Raw_Material.stock_qty\\n      if (status === \\\"received\\\") {\\n        const items = await client.query(\\n          `SELECT rm_id, qty FROM purchase_item WHERE po_id = $1`,\\n          [id],\\n        );\\n\\n        // Update each raw material stock\\n        for\n<truncated 6001 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating receive stock logic for products\"",
+      "toolSummary": "\"Update receive stock logic\""
+    }
+  },
+  {
+    "step": 364,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Fix the receiveWithWastage stock update logic for products\"",
+      "Instruction": "\"Update the loop to check for pro_id and update the Product table, or rm_id and update Raw_Material, and insert waste with the correct ID.\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":757,\"ReplacementContent\":\"        // Update Stock\\n        if (it.pro_id) {\\n          const updateRes = await client.query(\\n            `UPDATE \\\"Product\\\"\\n             SET pro_qty = COALESCE(pro_qty, 0) + $1\\n             WHERE pro_id = $2\\n             RETURNING pro_id`,\\n            [netReceived, it.pro_id],\\n          );\\n          if (updateRes.rows.length === 0) {\\n            await client.query(\\\"ROLLBACK\\\");\\n            res.status(404);\\n            throw new Error(`Product with id ${it.pro_id} not found`);\\n          }\\n        } else if (it.rm_id) {\\n          const updateRes = await client.query(\\n            `UPDATE \\\"Raw_Material\\\"\\n             SET stock_qty = COALESCE(stock_qty, 0) + $1\\n             WHERE rm_id = $2\\n             RETURNING rm_id`,\\n            [netReceived, it.rm_id],\\n          );\\n\\n          if (updateRes.rows.length === 0) {\\n            // Raw material missing or out-of-scope — abort\\n            await client.query(\\\"ROLLBACK\\\");\\n            res.status(404);\\n            throw new Error(`Raw material with id ${it.rm_id} not found`);\\n          }\\n        }\\n\\n        // 3. Record wastage if applicable\\n        if (wasteQty > 0 || itemWastage.wastage_type !== \\\"none\\\") {\\n          await client.query(\\n            `INSERT INTO \\\"Waste\\\" \\n             (rm_id, pro_id, waste_qty, gross_received, net_received, wastage_type, wastage_value, reason, b_id, u_id, po_id, recorded_at)\\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,\\n            [\\n              it.rm_id || null,\\n              it.pro_id || null,\\n              wasteQty,\\n              grossQty,\\n              netReceived,\\n              itemWastage.wastage_type,\\n              Number(itemWastage.wastage_value) || 0,\\n              itemWastage.reason || reason || null,\\n              poBranchId,\\n              user_id,\\n              id\\n            ]\\n          );\\n        }\",\"StartLine\":721,\"TargetContent\":\"        // Update Stock\\n      \n<truncated 1270 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating receive stock and waste logic for products\"",
+      "toolSummary": "\"Update receive logic for products\""
+    }
+  },
+  {
+    "step": 370,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Fix stock update logic in receiveWithWastage\"",
+      "Instruction": "\"Insert the correct stock update and waste insertion logic for pro_id or rm_id\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":744,\"ReplacementContent\":\"        // Update Stock\\n        if (it.pro_id) {\\n          const updateRes = await client.query(\\n            `UPDATE \\\"Product\\\"\\n             SET pro_qty = COALESCE(pro_qty, 0) + $1\\n             WHERE pro_id = $2\\n             RETURNING pro_id`,\\n            [netReceived, it.pro_id],\\n          );\\n          if (updateRes.rows.length === 0) {\\n            await client.query(\\\"ROLLBACK\\\");\\n            res.status(404);\\n            throw new Error(`Product with id ${it.pro_id} not found`);\\n          }\\n        } else if (it.rm_id) {\\n          const updateRes = await client.query(\\n            `UPDATE \\\"Raw_Material\\\"\\n             SET stock_qty = COALESCE(stock_qty, 0) + $1\\n             WHERE rm_id = $2\\n             RETURNING rm_id`,\\n            [netReceived, it.rm_id],\\n          );\\n\\n          if (updateRes.rows.length === 0) {\\n            // Raw material missing or out-of-scope — abort\\n            await client.query(\\\"ROLLBACK\\\");\\n            res.status(404);\\n            throw new Error(`Raw material with id ${it.rm_id} not found`);\\n          }\\n        }\\n\\n        // 3. Record wastage if applicable\\n        if (wasteQty > 0 || itemWastage.wastage_type !== \\\"none\\\") {\\n          await client.query(\\n            `INSERT INTO \\\"Waste\\\" \\n             (rm_id, pro_id, waste_qty, gross_received, net_received, wastage_type, wastage_value, reason, b_id, u_id, po_id, recorded_at)\\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,\\n            [\\n              it.rm_id || null,\\n              it.pro_id || null,\\n              wasteQty,\\n              grossQty,\\n              netReceived,\\n              itemWastage.wastage_type,\\n              Number(itemWastage.wastage_value) || 0,\\n              itemWastage.reason || reason || null,\\n              poBranchId,\\n              user_id || null, // Assuming user_id is in req.user, might be different based on token struct\\n              id\\n            ]\\n    \n<truncated 1014 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Fixing receiveWithWastage stock update and waste logic\"",
+      "toolSummary": "\"Fix stock update\""
+    }
+  },
+  {
+    "step": 388,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Update branch product stock instead of global product stock upon receiving external product orders\"",
+      "Instruction": "\"Change the update to target Branch_Product and increment pro_quantity based on pro_id and B_id\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":585,\"ReplacementContent\":\"          if (it.pro_id) {\\n            const updateRes = await client.query(\\n              `UPDATE \\\"Branch_Product\\\"\\n               SET pro_quantity = COALESCE(pro_quantity, 0) + $1\\n               WHERE pro_id = $2 AND \\\"B_id\\\" = $3\\n               RETURNING pro_id`,\\n              [adjQty, it.pro_id, poBranchId], // Note: poBranchId needs to be fetched\\n            );\\n            if (updateRes.rows.length === 0) {\\n              await client.query(\\\"ROLLBACK\\\");\\n              res.status(404);\\n              throw new Error(`Branch Product with pro_id ${it.pro_id} not found for this branch`);\\n            }\",\"StartLine\":571,\"TargetContent\":\"          if (it.pro_id) {\\n            const updateRes = await client.query(\\n              `UPDATE \\\"Product\\\"\\n               SET pro_qty = COALESCE(pro_qty, 0) + $1\\n               WHERE pro_id = $2\\n               RETURNING pro_id`,\\n              [adjQty, it.pro_id],\\n            );\\n            if (updateRes.rows.length === 0) {\\n              await client.query(\\\"ROLLBACK\\\");\\n              res.status(404);\\n              throw new Error(`Product with id ${it.pro_id} not found`);\\n            }\"},{\"AllowMultiple\":false,\"EndLine\":560,\"ReplacementContent\":\"    // Verify existence and get branch ID\\n    const existing = await pool.query('SELECT b_id FROM purchase_order WHERE po_id = $1', [id]);\\n    if (existing.rows.length === 0) {\\n      res.status(404);\\n      throw new Error(\\\"Purchase order not found\\\");\\n    }\\n    const poBranchId = existing.rows[0].b_id;\\n\\n    // Perform the status update and stock adjustments in a single transaction\\n    const client = await pool.connect();\\n    try {\\n      await client.query(\\\"BEGIN\\\");\",\"StartLine\":555,\"TargetContent\":\"    // Perform the status update and stock adjustments in a single transaction\\n    const client = await pool.connect();\\n    try {\\n      await client.query(\\\"BEGIN\\\");\"},{\"AllowMultiple\":false,\"EndLine\":733,\"ReplacementContent\":\"        if (it\n<truncated 1070 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Change receive logic to update Branch_Product stock instead of global Product stock\"",
+      "toolSummary": "\"Update branch product stock\""
+    }
+  },
+  {
+    "step": 439,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Remove duplicate declaration of existing\"",
+      "Instruction": "\"Replace lines 555-561 to use the existing variable and remove the redundant query\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":561,\"ReplacementContent\":\"    const poBranchId = existing.rows[0].b_id;\",\"StartLine\":555,\"TargetContent\":\"    // Verify existence and get branch ID\\n    const existing = await pool.query('SELECT b_id FROM purchase_order WHERE po_id = $1', [id]);\\n    if (existing.rows.length === 0) {\\n      res.status(404);\\n      throw new Error(\\\"Purchase order not found\\\");\\n    }\\n    const poBranchId = existing.rows[0].b_id;\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Remove duplicate declaration\"",
+      "toolSummary": "\"Fix syntax error\""
+    }
+  },
+  {
+    "step": 476,
+    "name": "multi_replace_file_content",
+    "file": "wasteController.js",
+    "args": {
+      "Description": "\"Add support for products in createWaste\"",
+      "Instruction": "\"Update the createWaste function to accept item_type and update the appropriate table's stock.\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":151,\"ReplacementContent\":\"export const createWaste = async (req, res, next) => {\\n  const client = await pool.connect();\\n  try {\\n    const { rm_id, pro_id, waste_qty, reason, item_type } = req.body;\\n    const { b_id, role_id, com_id } = req.user;\\n\\n    // Use explicit item_type if provided, else infer from rm_id/pro_id\\n    const type = item_type || (pro_id ? 'pro' : 'rm');\\n    const id = type === 'pro' ? pro_id : rm_id;\\n\\n    // ── Presence checks ──────────────────────\\n    if (id === undefined || id === null) {\\n      res.status(400);\\n      throw new Error(\\\"Item ID is required.\\\");\\n    }\\n    if (waste_qty === undefined || waste_qty === null) {\\n      res.status(400);\\n      throw new Error(\\\"waste_qty is required.\\\");\\n    }\\n\\n    // ── Type / range checks ──────────────────\\n    if (!isPositiveInt(id)) {\\n      res.status(400);\\n      throw new Error(\\\"Item ID must be a positive integer.\\\");\\n    }\\n    if (!isValidQty(waste_qty)) {\\n      res.status(400);\\n      throw new Error(\\n        \\\"waste_qty must be a positive number no greater than 9999999.999.\\\",\\n      );\\n    }\\n    if (!isValidReason(reason)) {\\n      res.status(400);\\n      throw new Error(\\n        \\\"reason must be a non-empty string under 255 characters.\\\",\\n      );\\n    }\\n\\n    const safeQty = roundQty(waste_qty);\\n\\n    await client.query(\\\"BEGIN\\\");\\n\\n    let currentStock = 0;\\n    let itemName = \\\"\\\";\\n\\n    if (type === 'pro') {\\n      // ── Product must exist in Branch_Product ──────────────\\n      // For products, stock is tracked at the branch level in Branch_Product\\n      // Note: If no b_id is found (e.g. Super Admin), we might need logic to select the branch.\\n      // But WasteManagement is used by Branch Admins (b_id is present).\\n      if (!b_id) {\\n         await client.query(\\\"ROLLBACK\\\");\\n         res.status(400);\\n         throw new Error(\\\"Branch ID is requ\n<truncated 7310 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\wasteController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating createWaste in wasteController\"",
+      "toolSummary": "\"Update createWaste\""
+    }
+  },
+  {
+    "step": 482,
+    "name": "multi_replace_file_content",
+    "file": "wasteController.js",
+    "args": {
+      "Description": "\"Update getAllWaste to support product waste\"",
+      "Instruction": "\"Update getAllWaste to JOIN both Raw_Material and Product/Branch_Product, and update toResponseRow to include pro_id and item_name\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":41,\"ReplacementContent\":\"function toResponseRow(row) {\\n  return {\\n    waste_id: row.waste_id,\\n    rm_id: row.rm_id,\\n    pro_id: row.pro_id,\\n    rm_name: row.item_name || row.rm_name, // fallback for compatibility\\n    waste_qty: parseFloat(row.waste_qty),\\n    reason: row.reason ?? null,\\n    recorded_at: row.recorded_at,\\n  };\\n}\",\"StartLine\":32,\"TargetContent\":\"function toResponseRow(row) {\\n  return {\\n    waste_id: row.waste_id,\\n    rm_id: row.rm_id,\\n    rm_name: row.rm_name,\\n    waste_qty: parseFloat(row.waste_qty),\\n    reason: row.reason ?? null,\\n    recorded_at: row.recorded_at,\\n  };\\n}\"},{\"AllowMultiple\":false,\"EndLine\":217,\"ReplacementContent\":\"export const getAllWaste = async (req, res, next) => {\\n  try {\\n    const { b_id, role_id, com_id } = req.user;\\n    \\n    let query = `SELECT\\n        w.\\\"waste_id\\\",\\n        w.\\\"rm_id\\\",\\n        w.\\\"pro_id\\\",\\n        COALESCE(rm.\\\"rm_name\\\", p.\\\"pro_name\\\") AS \\\"item_name\\\",\\n        w.\\\"waste_qty\\\",\\n        w.\\\"reason\\\",\\n        w.\\\"recorded_at\\\"\\n       FROM \\\"public\\\".\\\"Waste\\\" w\\n       LEFT JOIN \\\"public\\\".\\\"Raw_Material\\\" rm ON rm.\\\"rm_id\\\" = w.\\\"rm_id\\\"\\n       LEFT JOIN \\\"public\\\".\\\"Product\\\" p ON p.\\\"pro_id\\\" = w.\\\"pro_id\\\"\\n       WHERE 1=1`;\\n       \\n    const params = [];\\n    \\n    if (role_id !== 1) { // Not SUPER_ADMIN\\n      if (b_id) {\\n        query += ` AND w.\\\"b_id\\\" = $1`;\\n        params.push(b_id);\\n      }\\n    }\\n    \\n    query += ` ORDER BY w.\\\"recorded_at\\\" DESC`;\\n    \\n    const result = await pool.query(query, params);\\n\\n    res.json(result.rows.map(toResponseRow));\\n  } catch (err) {\\n    next(err);\\n  }\\n};\",\"StartLine\":198,\"TargetContent\":\"export const getAllWaste = async (req, res, next) => {\\n  try {\\n    const result = await pool.query(\\n      `SELECT\\n        w.\\\"waste_id\\\",\\n        w.\\\"rm_id\\\",\\n        rm.\\\"rm_name\\\",\\n        w.\\\"waste_qty\\\",\\n        w.\\\"reason\\\",\\n        w.\\\"recorded_at\\\"\\n       FROM \\\"public\\\".\\\"Waste\\\" w\\n       JOIN \\\"public\\\".\\\"Raw_Material\\\" r\n<truncated 177 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\wasteController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating getAllWaste logic for products\"",
+      "toolSummary": "\"Update getAllWaste\""
+    }
+  },
+  {
+    "step": 494,
+    "name": "multi_replace_file_content",
+    "file": "WasteManagement.jsx",
+    "args": {
+      "Description": "\"Update WasteManagement to support both ingredients and external products in the dropdown\"",
+      "Instruction": "\"Update fetchData, state selection, form submission, and edit handling to accommodate item_type (pro/rm) and unique dropdown IDs\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":34,\"ReplacementContent\":\"  // Update selected unit when material changes\\n  useEffect(() => {\\n    if (selectedMaterial) {\\n      const item = rawMaterials.find(m => m.dropdown_id === selectedMaterial);\\n      if (item) {\\n        setSelectedUnit(item.dropdown_unit);\\n      }\\n    }\\n  }, [selectedMaterial, rawMaterials]);\",\"StartLine\":26,\"TargetContent\":\"  // Update selected unit when material changes\\n  useEffect(() => {\\n    if (selectedMaterial) {\\n      const rm = rawMaterials.find(m => String(m.rm_id || m.id || m._id) === String(selectedMaterial));\\n      if (rm) {\\n        setSelectedUnit(rm.unit);\\n      }\\n    }\\n  }, [selectedMaterial, rawMaterials]);\"},{\"AllowMultiple\":false,\"EndLine\":58,\"ReplacementContent\":\"      // Fetch raw materials and branch products for dropdown\\n      let fetchedItems = [];\\n      const rmRes = await fetch(\\\"/api/raw-materials\\\", {\\n        headers: { Authorization: `Bearer ${token}` },\\n      });\\n      if (rmRes.ok) {\\n        const rmData = await rmRes.json();\\n        const rmArray = Array.isArray(rmData) ? rmData : rmData.data || [];\\n        fetchedItems = [...fetchedItems, ...rmArray.map(rm => ({\\n          ...rm,\\n          dropdown_id: `rm_${rm.rm_id || rm.id || rm._id}`,\\n          dropdown_name: rm.rm_name,\\n          dropdown_stock: rm.stock_qty,\\n          dropdown_unit: rm.unit,\\n          item_type: 'rm',\\n          item_id: rm.rm_id || rm.id || rm._id\\n        }))];\\n      }\\n\\n      const bpRes = await fetch(\\\"/api/branch_products\\\", {\\n        headers: { Authorization: `Bearer ${token}` },\\n      });\\n      if (bpRes.ok) {\\n        const bpData = await bpRes.json();\\n        const bpArray = Array.isArray(bpData) ? bpData : bpData.data || [];\\n        fetchedItems = [...fetchedItems, ...bpArray.map(bp => ({\\n          ...bp,\\n          dropdown_id: `pro_${bp.pro_id}`,\\n          dropdown_name: bp.pro_name,\\n          dropdown_stock: bp.pro_quantity,\\n          dropdown_unit: 'pcs',\\n          item_type: 'pro',\\n          item_\n<truncated 5313 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\pages\\\\branch-admin\\\\WasteManagement.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Implement frontend logic for product wastage\"",
+      "toolSummary": "\"Update WasteManagement.jsx\""
+    }
+  },
+  {
+    "step": 517,
+    "name": "multi_replace_file_content",
+    "file": "WasteManagement.jsx",
+    "args": {
+      "Description": "\"Filter the branch products dropdown to only show external products\"",
+      "Instruction": "\"Filter bpArray to only include items where product_type is 'external'\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":75,\"ReplacementContent\":\"        const bpArrayRaw = Array.isArray(bpData) ? bpData : bpData.data || [];\\n        const bpArray = bpArrayRaw.filter(bp => bp.product_type === 'external');\\n        fetchedItems = [...fetchedItems, ...bpArray.map(bp => ({\",\"StartLine\":74,\"TargetContent\":\"        const bpArray = Array.isArray(bpData) ? bpData : bpData.data || [];\\n        fetchedItems = [...fetchedItems, ...bpArray.map(bp => ({\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\pages\\\\branch-admin\\\\WasteManagement.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Filtering out non-external products from dropdown\"",
+      "toolSummary": "\"Filter external products\""
+    }
+  },
+  {
+    "step": 532,
+    "name": "multi_replace_file_content",
+    "file": "WasteManagement.jsx",
+    "args": {
+      "Description": "\"Update filter to use 'finished' instead of 'external'\"",
+      "Instruction": "\"Change the product_type filter condition from 'external' to 'finished' in WasteManagement.jsx\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":75,\"ReplacementContent\":\"        const bpArrayRaw = Array.isArray(bpData) ? bpData : bpData.data || [];\\n        const bpArray = bpArrayRaw.filter(bp => bp.product_type === 'finished');\\n        fetchedItems = [...fetchedItems, ...bpArray.map(bp => ({\",\"StartLine\":74,\"TargetContent\":\"        const bpArrayRaw = Array.isArray(bpData) ? bpData : bpData.data || [];\\n        const bpArray = bpArrayRaw.filter(bp => bp.product_type === 'external');\\n        fetchedItems = [...fetchedItems, ...bpArray.map(bp => ({\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\pages\\\\branch-admin\\\\WasteManagement.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Fixing product_type filter\"",
+      "toolSummary": "\"Fix product filter\""
+    }
+  },
+  {
+    "step": 554,
+    "name": "multi_replace_file_content",
+    "file": "wasteController.js",
+    "args": {
+      "Description": "\"Update getWasteById, updateWaste, and deleteWaste to support product waste\"",
+      "Instruction": "\"Modify getWasteById, updateWaste, and deleteWaste to handle both pro_id and rm_id, including adjusting the correct stock table.\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":292,\"ReplacementContent\":\"    const result = await pool.query(\\n      `SELECT\\n        w.\\\"waste_id\\\",\\n        w.\\\"rm_id\\\",\\n        w.\\\"pro_id\\\",\\n        COALESCE(rm.\\\"rm_name\\\", p.\\\"pro_name\\\") AS \\\"item_name\\\",\\n        w.\\\"waste_qty\\\",\\n        w.\\\"reason\\\",\\n        w.\\\"recorded_at\\\"\\n       FROM \\\"public\\\".\\\"Waste\\\" w\\n       LEFT JOIN \\\"public\\\".\\\"Raw_Material\\\" rm ON rm.\\\"rm_id\\\" = w.\\\"rm_id\\\"\\n       LEFT JOIN \\\"public\\\".\\\"Product\\\" p ON p.\\\"pro_id\\\" = w.\\\"pro_id\\\"\\n       WHERE w.\\\"waste_id\\\" = $1`,\\n      [id],\\n    );\",\"StartLine\":280,\"TargetContent\":\"    const result = await pool.query(\\n      `SELECT\\n        w.\\\"waste_id\\\",\\n        w.\\\"rm_id\\\",\\n        rm.\\\"rm_name\\\",\\n        w.\\\"waste_qty\\\",\\n        w.\\\"reason\\\",\\n        w.\\\"recorded_at\\\"\\n       FROM \\\"public\\\".\\\"Waste\\\" w\\n       JOIN \\\"public\\\".\\\"Raw_Material\\\" rm ON rm.\\\"rm_id\\\" = w.\\\"rm_id\\\"\\n       WHERE w.\\\"waste_id\\\" = $1`,\\n      [id],\\n    );\"},{\"AllowMultiple\":false,\"EndLine\":363,\"ReplacementContent\":\"    // ── Fetch existing record ────────────────\\n    const oldWaste = await client.query(\\n      `SELECT w.\\\"waste_id\\\", w.\\\"rm_id\\\", w.\\\"pro_id\\\", w.\\\"waste_qty\\\", w.\\\"b_id\\\",\\n              rm.\\\"stock_qty\\\" AS \\\"rm_stock\\\", rm.\\\"rm_name\\\",\\n              bp.\\\"pro_quantity\\\" AS \\\"pro_stock\\\", p.\\\"pro_name\\\"\\n       FROM \\\"public\\\".\\\"Waste\\\" w\\n       LEFT JOIN \\\"public\\\".\\\"Raw_Material\\\" rm ON rm.\\\"rm_id\\\" = w.\\\"rm_id\\\"\\n       LEFT JOIN \\\"public\\\".\\\"Product\\\" p ON p.\\\"pro_id\\\" = w.\\\"pro_id\\\"\\n       LEFT JOIN \\\"public\\\".\\\"Branch_Product\\\" bp ON bp.\\\"pro_id\\\" = w.\\\"pro_id\\\" AND bp.\\\"B_id\\\" = w.\\\"b_id\\\"\\n       WHERE w.\\\"waste_id\\\" = $1`,\\n      [id],\\n    );\\n    if (oldWaste.rows.length === 0) {\\n      await client.query(\\\"ROLLBACK\\\");\\n      res.status(404);\\n      throw new Error(\\\"Waste record not found.\\\");\\n    }\\n\\n    const old = oldWaste.rows[0];\\n    const isPro = old.pro_id != null;\\n    const oldQty = parseFloat(old.waste_qty);\\n    const currentStoc\n<truncated 6073 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\wasteController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Fix update/delete logic for products\"",
+      "toolSummary": "\"Fix updateWaste and deleteWaste\""
+    }
+  },
+  {
+    "step": 575,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Remove u_id from the Waste INSERT in purchaseOrderController\"",
+      "Instruction": "\"Remove u_id from the column list and $10 from the values, and shift the remaining parameters accordingly\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":773,\"ReplacementContent\":\"          await client.query(\\n            `INSERT INTO \\\"Waste\\\" \\n             (rm_id, pro_id, waste_qty, gross_received, net_received, wastage_type, wastage_value, reason, b_id, po_id, recorded_at)\\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP)`,\\n            [\\n              it.rm_id || null,\\n              it.pro_id || null,\\n              wasteQty,\\n              grossQty,\\n              netReceived,\\n              itemWastage.wastage_type,\\n              Number(itemWastage.wastage_value) || 0,\\n              itemWastage.reason || reason || null,\\n              poBranchId,\\n              id\\n            ]\\n          );\",\"StartLine\":756,\"TargetContent\":\"          await client.query(\\n            `INSERT INTO \\\"Waste\\\" \\n             (rm_id, pro_id, waste_qty, gross_received, net_received, wastage_type, wastage_value, reason, b_id, u_id, po_id, recorded_at)\\n             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)`,\\n            [\\n              it.rm_id || null,\\n              it.pro_id || null,\\n              wasteQty,\\n              grossQty,\\n              netReceived,\\n              itemWastage.wastage_type,\\n              Number(itemWastage.wastage_value) || 0,\\n              itemWastage.reason || reason || null,\\n              poBranchId,\\n              user_id || null, // Assuming user_id is in req.user, might be different based on token struct\\n              id\\n            ]\\n          );\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Removing u_id from Waste INSERT\"",
+      "toolSummary": "\"Remove u_id from INSERT\""
+    }
+  },
+  {
+    "step": 605,
+    "name": "multi_replace_file_content",
+    "file": "ProductItemsTable.jsx",
+    "args": {
+      "Description": "\"Change Order button to blue and remove cart icon\"",
+      "Instruction": "\"Change the background from green (#059669) to blue (#0E6DCF) and remove the 🛒 emoji from the label\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":284,\"ReplacementContent\":\"                              background: \\\"#0E6DCF\\\",\",\"StartLine\":266,\"TargetContent\":\"                              background: item.product_type === \\\"finished\\\" ? \\\"#059669\\\" : \\\"#0E6DCF\\\",\"},{\"AllowMultiple\":false,\"EndLine\":284,\"ReplacementContent\":\"                            {item.product_type === \\\"finished\\\" ? \\\"Order\\\" : \\\"Add Stock\\\"}\",\"StartLine\":284,\"TargetContent\":\"                            {item.product_type === \\\"finished\\\" ? \\\"🛒 Order\\\" : \\\"Add Stock\\\"}\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\components\\\\branch-admin\\\\ProductItemsTable.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating Order button color and label\"",
+      "toolSummary": "\"Update Order button\""
+    }
+  },
+  {
+    "step": 625,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Use pi.unit (the saved order unit) instead of rm.unit in all GET queries, and save unit in INSERT\"",
+      "Instruction": "\"Replace COALESCE(rm.unit, 'pcs') AS unit with COALESCE(pi.unit, rm.unit, 'pcs') AS unit in all three GET queries, and update INSERT to include unit column\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":true,\"EndLine\":62,\"ReplacementContent\":\"         COALESCE(pi.unit, rm.unit, 'pcs')  AS unit,\",\"StartLine\":62,\"TargetContent\":\"         COALESCE(rm.unit,    'pcs')       AS unit,\"},{\"AllowMultiple\":false,\"EndLine\":241,\"ReplacementContent\":\"      \\\"po_id\\\",\\n      \\\"rm_id\\\",\\n      \\\"pro_id\\\",\\n      \\\"qty\\\",\\n      \\\"price\\\",\\n      \\\"unit_price\\\",\\n      \\\"unit\\\",\\n    ]);\\n\\n    const { po_id, rm_id, pro_id, qty, price, unit_price, unit } = body;\",\"StartLine\":235,\"TargetContent\":\"      \\\"po_id\\\",\\n      \\\"rm_id\\\",\\n      \\\"pro_id\\\",\\n      \\\"qty\\\",\\n      \\\"price\\\",\\n      \\\"unit_price\\\",\\n    ]);\\n\\n    const { po_id, rm_id, pro_id, qty, price, unit_price } = body;\"},{\"AllowMultiple\":false,\"EndLine\":368,\"ReplacementContent\":\"    const result = await pool.query(\\n      `INSERT INTO purchase_item (po_id, rm_id, pro_id, qty, price, unit_price, unit)\\n       VALUES ($1, $2, $3, $4, $5, $6, $7)\\n       RETURNING pi_id, po_id, rm_id, pro_id, qty, price, unit_price, unit`,\\n      [parsedPoId, parsedRmId, parsedProId, parsedQty, parsedPrice, parsedUnitPrice, unit || null],\\n    );\",\"StartLine\":364,\"TargetContent\":\"    const result = await pool.query(\\n      `INSERT INTO purchase_item (po_id, rm_id, pro_id, qty, price, unit_price)\\n       VALUES ($1, $2, $3, $4, $5, $6)\\n       RETURNING pi_id, po_id, rm_id, pro_id, qty, price, unit_price`,\\n      [parsedPoId, parsedRmId, parsedProId, parsedQty, parsedPrice, parsedUnitPrice],\\n    );\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating purchaseItemController to save and return unit\"",
+      "toolSummary": "\"Update purchaseItemController\""
+    }
+  },
+  {
+    "step": 627,
+    "name": "multi_replace_file_content",
+    "file": "ReorderModal.jsx",
+    "args": {
+      "Description": "\"Send unit in payload and show only relevant units in dropdown based on item's base unit\"",
+      "Instruction": "\"Filter VALID_UNITS based on material's unit type (weight/volume/count), default to right unit, and include unit in itemPayload\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":6,\"ReplacementContent\":\"const WEIGHT_UNITS = [\\\"kg\\\", \\\"g\\\"];\\nconst VOLUME_UNITS = [\\\"l\\\", \\\"ml\\\"];\\nconst COUNT_UNITS  = [\\\"pcs\\\", \\\"units\\\", \\\"box\\\", \\\"pack\\\"];\\n\\nfunction getCompatibleUnits(baseUnit) {\\n  const u = (baseUnit || \\\"\\\").toLowerCase();\\n  if (WEIGHT_UNITS.includes(u)) return WEIGHT_UNITS;\\n  if (VOLUME_UNITS.includes(u)) return VOLUME_UNITS;\\n  return COUNT_UNITS;\\n}\",\"StartLine\":6,\"TargetContent\":\"const VALID_UNITS = [\\\"kg\\\", \\\"g\\\", \\\"l\\\", \\\"ml\\\", \\\"pcs\\\", \\\"units\\\", \\\"box\\\", \\\"pack\\\"];\"},{\"AllowMultiple\":false,\"EndLine\":22,\"ReplacementContent\":\"  const [formData, setFormData] = useState({\\n    sup_id: '',\\n    quantity: '',\\n    unit: material?.unit || 'pcs',\\n    unitPrice: '',\\n    unitPriceUnit: material?.unit || 'pcs',  // which unit the price is per\\n  });\",\"StartLine\":17,\"TargetContent\":\"  const [formData, setFormData] = useState({\\n    sup_id: '',\\n    quantity: '',\\n    unit: material?.unit || 'pcs',\\n    unitPrice: ''\\n  });\"},{\"AllowMultiple\":false,\"EndLine\":107,\"ReplacementContent\":\"      const itemPayload = {\\n        po_id: order.po_id,\\n        qty: parseFloat(formData.quantity),\\n        unit: formData.unit,\\n        unit_price: parseFloat(formData.unitPrice),\\n        price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)\\n      };\",\"StartLine\":102,\"TargetContent\":\"      const itemPayload = {\\n        po_id: order.po_id,\\n        qty: parseFloat(formData.quantity),\\n        unit_price: parseFloat(formData.unitPrice),\\n        price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)\\n      };\"},{\"AllowMultiple\":false,\"EndLine\":207,\"ReplacementContent\":\"              <div className=\\\"grid grid-cols-2 gap-4\\\">\\n                <div>\\n                  <label className=\\\"block text-[11px] font-bold text-gray-400 uppercase mb-1\\\">Quantity</label>\\n                  <input\\n                    type=\\\"number\\\"\\n                    min=\\\"0.001\\\"\\n                    step=\\\"any\\\"\\n                    className=\\\"w-full border\n<truncated 3382 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\components\\\\branch-admin\\\\ReorderModal.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating ReorderModal with unit payload and smart dropdown\"",
+      "toolSummary": "\"Update ReorderModal\""
+    }
+  },
+  {
+    "step": 660,
+    "name": "multi_replace_file_content",
+    "file": "purchaseOrderController.js",
+    "args": {
+      "Description": "\"Convert unit quantities correctly when marking purchase order as received\"",
+      "Instruction": "\"Update the select query in `markAsReceived` to fetch both `pi.unit` and `rm.unit`, and implement a unit conversion step before adding to stock.\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":679,\"ReplacementContent\":\"      const items = await client.query(\\n        `SELECT pi.rm_id, pi.pro_id, pi.qty, pi.unit AS pi_unit, rm.unit AS rm_unit \\n         FROM purchase_item pi\\n         LEFT JOIN \\\"Raw_Material\\\" rm ON rm.rm_id = pi.rm_id\\n         WHERE pi.po_id = $1`,\\n        [id],\\n      );\",\"StartLine\":675,\"TargetContent\":\"      const items = await client.query(\\n        `SELECT rm_id, pro_id, qty FROM purchase_item WHERE po_id = $1`,\\n        [id],\\n      );\"},{\"AllowMultiple\":false,\"EndLine\":722,\"ReplacementContent\":\"        let netReceived = grossQty - wasteQty;\\n\\n        // Convert units if necessary (e.g. ordered in g but stock is in kg)\\n        if (it.rm_id && it.pi_unit && it.rm_unit) {\\n          const piU = it.pi_unit.toLowerCase();\\n          const rmU = it.rm_unit.toLowerCase();\\n          \\n          if (piU === 'g' && rmU === 'kg') {\\n            netReceived = netReceived / 1000;\\n          } else if (piU === 'kg' && rmU === 'g') {\\n            netReceived = netReceived * 1000;\\n          } else if (piU === 'ml' && rmU === 'l') {\\n            netReceived = netReceived / 1000;\\n          } else if (piU === 'l' && rmU === 'ml') {\\n            netReceived = netReceived * 1000;\\n          }\\n        }\",\"StartLine\":721,\"TargetContent\":\"        const netReceived = grossQty - wasteQty;\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseOrderController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Adding unit conversion in markAsReceived\"",
+      "toolSummary": "\"Add unit conversion\""
+    }
+  },
+  {
+    "step": 694,
+    "name": "multi_replace_file_content",
+    "file": "purchaseItemController.js",
+    "args": {
+      "Description": "\"Update unit fetching logic in getPurchaseItemsByOrder and getPurchaseItemById\"",
+      "Instruction": "\"Replace `COALESCE(rm.unit,    'pcs')       AS unit,` with `COALESCE(pi.unit, rm.unit, 'pcs')  AS unit,` in both queries.\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":149,\"ReplacementContent\":\"         COALESCE(pi.unit, rm.unit, 'pcs')  AS unit,\",\"StartLine\":149,\"TargetContent\":\"         COALESCE(rm.unit,    'pcs')       AS unit,\"},{\"AllowMultiple\":false,\"EndLine\":194,\"ReplacementContent\":\"         COALESCE(pi.unit, rm.unit, 'pcs')  AS unit,\",\"StartLine\":194,\"TargetContent\":\"         COALESCE(rm.unit,    'pcs')       AS unit,\"}]",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Server\\\\controllers\\\\purchaseItemController.js\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Updating unit COALESCE in purchaseItemController\"",
+      "toolSummary": "\"Update unit COALESCE\""
+    }
+  },
+  {
+    "step": 757,
+    "name": "multi_replace_file_content",
+    "file": "ReorderModal.jsx",
+    "args": {
+      "Description": "\"Force user to select a unit in ReorderModal by making it empty by default\"",
+      "Instruction": "\"Change default unit to empty string, and add a placeholder option in the select dropdown\"",
+      "ReplacementChunks": "[{\"AllowMultiple\":false,\"EndLine\":30,\"ReplacementContent\":\"  const [formData, setFormData] = useState({\\n    sup_id: '',\\n    quantity: '',\\n    unit: '',\\n    unitPrice: '',\",\"StartLine\":26,\"TargetContent\":\"  const [formData, setFormData] = useState({\\n    sup_id: '',\\n    quantity: '',\\n    unit: material?.unit || 'pcs',\\n    unitPrice: '',\"},{\"AllowMultiple\":false,\"EndLine\":117,\"ReplacementContent\":\"      const itemPayload = {\\n        po_id: order.po_id,\\n        qty: parseFloat(formData.quantity),\\n        unit: formData.unit || (material?.unit || 'pcs'),\\n        unit_price: parseFloat(formData.unitPrice),\\n        price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)\\n      };\",\"StartLine\":112,\"TargetContent\":\"      const itemPayload = {\\n        po_id: order.po_id,\\n        qty: parseFloat(formData.quantity),\\n        unit: formData.unit,\\n        unit_price: parseFloat(formData.unitPrice),\\n        price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)\\n      };\"},{\"AllowMultiple\":false,\"EndLine\":217,\"ReplacementContent\":\"                  <select\\n                    className=\\\"w-full border-gray-200 border rounded-xl p-3\\\"\\n                    value={formData.unit}\\n                    required\\n                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}\\n                  >\\n                    <option value=\\\"\\\" disabled>Select Unit</option>\\n                    {getCompatibleUnits(material?.unit).map(u => (\\n                      <option key={u} value={u}>{u}</option>\\n                    ))}\\n                  </select>\",\"StartLine\":210,\"TargetContent\":\"                  <select\\n                    className=\\\"w-full border-gray-200 border rounded-xl p-3\\\"\\n                    value={formData.unit}\\n                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}\\n                  >\\n                    {getCompatibleUnits(material?.unit).map(u => (\\n                      <option key={u} value={u}>{u}</option>\\n \n<truncated 1571 bytes>",
+      "TargetFile": "\"c:\\\\Users\\\\IT ZONE\\\\Desktop\\\\Cloud-Based-POS-System\\\\Client\\\\src\\\\components\\\\branch-admin\\\\ReorderModal.jsx\"",
+      "TargetLintErrorIds": "[]",
+      "toolAction": "\"Require unit selection in ReorderModal\"",
+      "toolSummary": "\"Update ReorderModal\""
+    }
+  }
+]

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FaArrowLeft, FaCheck } from "react-icons/fa";
+import { FaArrowLeft, FaCheck, FaTimes } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import Button from "../../components/admin/Button";
@@ -30,6 +30,7 @@ const AddUser = () => {
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const [errorMessage, setErrorMessage] = useState("");
 	const [showSuccessToast, setShowSuccessToast] = useState(false);
+	const [toasts, setToasts] = useState([]);
 
 	const accessibleRoles = useMemo(() => {
 		return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
@@ -37,6 +38,31 @@ const AddUser = () => {
 
 	const updateField = (field, value) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
+	};
+
+	useEffect(() => {
+		if (toasts.length === 0) return undefined;
+
+		const timer = setTimeout(() => {
+			setToasts((prev) => prev.slice(1));
+		}, 5000);
+
+		return () => clearTimeout(timer);
+	}, [toasts]);
+
+	const showToastMessage = (message, type = "success") => {
+		setToasts((prev) => [
+			...prev,
+			{
+				id: Date.now() + Math.random(),
+				message,
+				type,
+			},
+		]);
+	};
+
+	const removeToast = (toastId) => {
+		setToasts((prev) => prev.filter((toast) => toast.id !== toastId));
 	};
 
 	useEffect(() => {
@@ -63,7 +89,9 @@ const AddUser = () => {
 							: ""),
 				}));
 			} catch (error) {
-				setErrorMessage(error?.response?.data?.message || "Failed to load roles and branches");
+				const message = error?.response?.data?.message || "Failed to load roles and branches";
+				setErrorMessage(message);
+				showToastMessage(message, "error");
 			} finally {
 				setIsLoadingOptions(false);
 			}
@@ -99,22 +127,22 @@ const AddUser = () => {
 		setErrorMessage("");
 
 		if (!formData.firstName || !formData.lastName || !formData.email || !formData.password) {
-			setErrorMessage("First name, last name, email and password are required");
+			showToastMessage("First name, last name, email and password are required", "error");
 			return;
 		}
 
 		if (formData.password !== formData.confirmPassword) {
-			setErrorMessage("Password and confirm password do not match");
+			showToastMessage("Password and confirm password do not match", "error");
 			return;
 		}
 
 		if (!formData.role) {
-			setErrorMessage("Please select a user role");
+			showToastMessage("Please select a user role", "error");
 			return;
 		}
 
 		if (!accessibleRoles.some((role) => String(role.role_id) === String(formData.role))) {
-			setErrorMessage("Please select a supported role");
+			showToastMessage("Please select a supported role", "error");
 			return;
 		}
 
@@ -130,6 +158,7 @@ const AddUser = () => {
 			});
 
 			setShowSuccessToast(true);
+			showToastMessage("User account created successfully.", "success");
 			setFormData((prev) => ({
 				...prev,
 				firstName: "",
@@ -140,7 +169,9 @@ const AddUser = () => {
 				confirmPassword: "",
 			}));
 		} catch (error) {
-			setErrorMessage(error?.response?.data?.message || "Failed to create user");
+			const message = error?.response?.data?.message || "Failed to create user";
+			setErrorMessage(message);
+			showToastMessage(message, "error");
 		} finally {
 			setIsSubmitting(false);
 		}
@@ -341,6 +372,59 @@ const AddUser = () => {
 				</div>
 			</div>
 
+			{/* Toast Messages */}
+			{toasts.length > 0 && (
+				<div
+					style={{
+						position: "fixed",
+						top: "82px",
+						right: "20px",
+						zIndex: 10000,
+						display: "flex",
+						flexDirection: "column",
+						gap: "10px",
+						width: "min(380px, calc(100vw - 32px))",
+					}}
+				>
+					{toasts.map((toast) => (
+						<div
+							key={toast.id}
+							style={{
+								background: toast.type === "error" ? "#FEF2F2" : "#F0FDF4",
+								borderLeft: `4px solid ${toast.type === "error" ? "#EF4444" : "#22C55E"}`,
+								borderRadius: "8px",
+								padding: "14px 16px",
+								boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+								color: toast.type === "error" ? "#991B1B" : "#065F46",
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
+								gap: "12px",
+								animation: "slideInRight 0.3s ease-out",
+							}}
+						>
+							<span style={{ fontSize: "14px", fontWeight: 600, lineHeight: 1.4 }}>{toast.message}</span>
+							<button
+								type="button"
+								onClick={() => removeToast(toast.id)}
+								style={{
+									border: "none",
+									background: "transparent",
+									color: "inherit",
+									cursor: "pointer",
+									opacity: 0.7,
+									padding: "4px",
+									display: "inline-flex",
+								}}
+								aria-label="Dismiss notification"
+							>
+								<FaTimes />
+							</button>
+						</div>
+					))}
+				</div>
+			)}
+
 			{showSuccessToast && (
 				<div
 					style={{
@@ -417,6 +501,19 @@ const AddUser = () => {
 					</div>
 				</div>
 			)}
+
+			<style>{`
+				@keyframes slideInRight {
+					from {
+						transform: translateX(100%);
+						opacity: 0;
+					}
+					to {
+						transform: translateX(0);
+						opacity: 1;
+					}
+				}
+			`}</style>
 		</div>
 	);
 };
