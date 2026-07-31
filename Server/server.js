@@ -3,8 +3,7 @@ import express from "express";
 import cors from "cors";
 import { createServer } from "http";
 import { initializeSocket } from "./utils/socket.js";
-import { activityLogger, ensureActivityLogTable } from "./middleware/activityLogger.js";
-import activityLogRoutes from "./routes/activityLogRoutes.js";
+import { activityLogger } from "./middleware/activityLogger.js";
 
 
 
@@ -65,6 +64,7 @@ import statsRoutes from "./routes/statsRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import payhereRoutes from "./routes/payhereRoutes.js";
+import activityLogRoutes from "./routes/activityLogRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
@@ -84,11 +84,6 @@ app.use(express.json());
 // PayHere notify sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
 app.use(activityLogger);
-
-// Ensure activity_log table exists on startup
-ensureActivityLogTable().catch((err) =>
-  console.error("[ACTIVITY_LOG] Failed to ensure table:", err.message)
-);
 
 // ─────────────────────────────────────────────
 // HEALTH CHECK
@@ -160,7 +155,7 @@ app.use("/api/reports", reportRoutes);
 // PayHere Payment Gateway
 app.use("/api/payhere", payhereRoutes);
 
-// Activity Logs
+// Activity logs
 app.use("/api/activity-logs", activityLogRoutes);
 
 // ─────────────────────────────────────────────
@@ -184,6 +179,3 @@ httpServer.listen(PORT, () => {
 
 
 // app.use("/api/stats", statsRoutes);
-
-
-
