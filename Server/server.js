@@ -65,6 +65,7 @@ import dashboardRoutes from "./routes/dashboardRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import payhereRoutes from "./routes/payhereRoutes.js";
 import activityLogRoutes from "./routes/activityLogRoutes.js";
+import packageRoutes from "./routes/packageRoutes.js";
 
 // ─────────────────────────────────────────────
 // APP INIT
@@ -158,6 +159,9 @@ app.use("/api/payhere", payhereRoutes);
 // Activity logs
 app.use("/api/activity-logs", activityLogRoutes);
 
+// SaaS Package Management
+app.use("/api/packages", packageRoutes);
+
 // ─────────────────────────────────────────────
 // ERROR HANDLING (must be last)
 // ─────────────────────────────────────────────
@@ -176,6 +180,3 @@ initializeSocket(httpServer);
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-
-// app.use("/api/stats", statsRoutes);

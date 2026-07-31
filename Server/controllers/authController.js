@@ -64,6 +64,7 @@ export async function login(req, res, next) {
     }
     let b_id = user.B_id ?? null;
     let com_id = user.com_id ?? null;
+    let features = null;
  
     if (user.role_id === ROLES.SUPER_ADMIN) {
       b_id = null;
@@ -71,6 +72,16 @@ export async function login(req, res, next) {
     } else if (!com_id && b_id) {
       const bRes = await pool.query('SELECT com_id FROM "Branch" WHERE "B_id" = $1', [b_id]);
       com_id = bRes.rows[0]?.com_id ?? null;
+    }
+
+    // Fetch package features if company is linked to a package
+    if (com_id) {
+      const featRes = await pool.query(`
+        SELECT p.features FROM "Company" c
+        JOIN "Package" p ON c.package_id = p.package_id
+        WHERE c.com_id = $1
+      `, [com_id]);
+      features = featRes.rows[0]?.features ?? null;
     }
 
     //token creation
@@ -91,6 +102,7 @@ export async function login(req, res, next) {
       role_id: user.role_id,
       ...(b_id != null ? { b_id } : {}),
       ...(com_id != null ? { com_id } : {}),
+      ...(features != null ? { features } : {}),
     };
 
     //frntend res

@@ -122,6 +122,22 @@ export const deleteCompany = async (id) => {
   return response.data;
 };
 
+// ── Package (SaaS) API ────────────────────────────────────────────────────────
+export const getPackages = async () => {
+  const response = await api.get("/packages");
+  return response.data;
+};
+
+export const createPackage = async (packageData) => {
+  const response = await api.post("/packages", packageData);
+  return response.data;
+};
+
+export const updatePackage = async (id, packageData) => {
+  const response = await api.put(`/packages/${id}`, packageData);
+  return response.data;
+};
+
 export const getProducts = async () => {
   const response = await api.get("/products");
   return response.data;
@@ -171,7 +187,6 @@ export const deleteBranchProduct = async (branchProductId) => {
 
 export const getOrders = async (params = {}) => {
   const response = await api.get("/orders", { params });
-  // order API wraps rows in { success, count, data }
   return response.data?.data || [];
 };
 
