@@ -6,7 +6,7 @@ const WasteManagement = () => {
   const [wasteRecords, setWasteRecords] = useState([]);
   const [rawMaterials, setRawMaterials] = useState([]);
   const [branchProducts, setBranchProducts] = useState([]);
-  
+
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -41,7 +41,7 @@ const WasteManagement = () => {
     setError("");
     try {
       const token = localStorage.getItem("token");
-      
+
       // Fetch waste records
       const wasteRes = await fetch("/api/waste", {
         headers: { Authorization: `Bearer ${token}` },
@@ -58,11 +58,11 @@ const WasteManagement = () => {
         const rmData = await rmRes.json();
         setRawMaterials(Array.isArray(rmData) ? rmData : rmData.data || []);
       }
-      
+
       // Fetch branch products
       const user = JSON.parse(localStorage.getItem("user"));
       const b_id = user?.B_id;
-      
+
       const bpRes = await fetch(`/api/branch_products${b_id ? `?B_id=${b_id}` : ''}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -89,40 +89,40 @@ const WasteManagement = () => {
   const calculateFinalQty = (qty, inputUnit, baseUnit) => {
     const q = parseFloat(qty);
     if (isNaN(q)) return 0;
-    
+
     const iUnit = String(inputUnit).toLowerCase();
     const bUnit = String(baseUnit).toLowerCase();
-    
+
     if (iUnit === bUnit) return q;
-    
+
     if (iUnit === 'ml' && bUnit === 'l') return q / 1000;
     if (iUnit === 'g' && bUnit === 'kg') return q / 1000;
-    
+
     if (iUnit === 'l' && bUnit === 'ml') return q * 1000;
     if (iUnit === 'kg' && bUnit === 'g') return q * 1000;
-    
+
     return q;
   };
 
   const handleAddWaste = async (e) => {
     e.preventDefault();
     setFormError("");
-    
+
     if (!selectedItem || !wasteQty) {
       setFormError("Item and Quantity are required.");
       return;
     }
-    
+
     if (!selectedUnit) {
       setFormError("Please select a unit.");
       return;
     }
 
     setIsSubmitting(true);
-    
+
     const isRawMaterial = selectedItem.startsWith('rm_');
     const actualId = selectedItem.replace(isRawMaterial ? 'rm_' : 'pro_', '');
-    
+
     // Determine base unit for conversion
     let baseUnit = 'pcs';
     if (isRawMaterial) {
@@ -134,19 +134,19 @@ const WasteManagement = () => {
 
     try {
       const token = localStorage.getItem("token");
-      
+
       const payload = {
         waste_qty: finalQty,
         reason,
         unit: selectedUnit
       };
-      
+
       if (isRawMaterial) {
         payload.rm_id = actualId;
       } else {
         payload.pro_id = actualId;
       }
-      
+
       const res = await fetch("/api/waste", {
         method: "POST",
         headers: {
@@ -191,7 +191,7 @@ const WasteManagement = () => {
   };
 
   // Determine the base unit of the currently selected item
-  const selectedBaseUnit = selectedItem.startsWith('rm_') 
+  const selectedBaseUnit = selectedItem.startsWith('rm_')
     ? (rawMaterials.find(m => String(m.rm_id) === String(selectedItem.replace('rm_', '')))?.unit || 'pcs')
     : 'pcs';
 
@@ -202,7 +202,7 @@ const WasteManagement = () => {
         <Header />
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
-            
+
             {/* Header Section */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
@@ -258,9 +258,8 @@ const WasteManagement = () => {
                             </span>
                           </td>
                           <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${
-                              record.rm_id ? 'bg-amber-50 text-amber-700 border border-amber-200/50' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
-                            }`}>
+                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${record.rm_id ? 'bg-amber-50 text-amber-700 border border-amber-200/50' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
+                              }`}>
                               {record.rm_id ? 'Ingredient' : 'Finished Product'}
                             </span>
                           </td>
@@ -308,7 +307,7 @@ const WasteManagement = () => {
           <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <h2 className="text-lg font-bold text-gray-900">Record Wastage</h2>
-              <button 
+              <button
                 onClick={() => setShowAddModal(false)}
                 className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
               >
@@ -317,7 +316,7 @@ const WasteManagement = () => {
                 </svg>
               </button>
             </div>
-            
+
             <form onSubmit={handleAddWaste} className="p-6 space-y-5">
               {formError && (
                 <div className="bg-red-50 text-red-600 text-sm p-3 rounded-xl border border-red-100 flex items-start gap-2">
@@ -371,7 +370,7 @@ const WasteManagement = () => {
                       required
                     />
                   </div>
-                  
+
                   <div className="w-[120px]">
                     <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Unit</label>
                     <select

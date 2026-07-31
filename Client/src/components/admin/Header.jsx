@@ -268,10 +268,10 @@ const Header = ({ title = "Branch Management" }) => {
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
         {/* Notification Bell with Dropdown */}
         <div style={{ position: "relative" }}>
-          <div 
+          <div
             onClick={toggleNotifications}
-            style={{ 
-              cursor: "pointer", 
+            style={{
+              cursor: "pointer",
               position: "relative",
               padding: "8px",
               borderRadius: "50%",
@@ -420,7 +420,7 @@ const Header = ({ title = "Branch Management" }) => {
                             }}
                           >
                             {notification.type === 'delete' ? '❌ Deleted' :
-                             notification.type === 'update' ? '📝 Updated' : '✅ Added'}
+                              notification.type === 'update' ? '📝 Updated' : '✅ Added'}
                           </div>
                           <div style={{ fontSize: "14px", color: "#4B5563", lineHeight: "1.4" }}>
                             {notification.message}

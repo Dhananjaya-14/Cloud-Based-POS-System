@@ -216,218 +216,218 @@ const AddUser = () => {
 
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
-                {/* Profile Picture & Names */}
-                <div style={{ display: "flex", gap: 40, alignItems: "center" }}>
-                  <div style={{ position: "relative" }}>
-                    <div
-                      onClick={handleImageClick}
-                      style={{
-                        width: 100, height: 100, borderRadius: "50%", border: "2px solid #111827",
-                        display: "flex", alignItems: "center", justifyContent: "center", background: "#F3F4F6",
-                        cursor: "pointer", overflow: "hidden"
-                      }}>
-                      {profileImage ? (
-                        <img src={profileImage} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                      ) : (
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="#6B7280" xmlns="http://www.w3.org/2000/svg">
-                          <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" />
-                        </svg>
-                      )}
-                    </div>
-                    <button
-                      onClick={handleImageClick}
-                      style={{
-                        position: "absolute", bottom: 0, right: 0, width: 28, height: 28,
-                        borderRadius: "50%", background: "#fff", border: "2px solid #111827",
-                        display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
-                        color: "#111827"
-                      }}>
-                      <FaPlus size={12} />
-                    </button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageChange}
-                      style={{ display: "none" }}
-                      accept="image/*"
-                    />
-                  </div>
-
-                  <div style={{ flex: 1, display: "flex", gap: 20 }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>First Name</label>
-                      <input name="firstName" value={formData.firstName} onChange={handleChange} style={inputStyle} type="text" />
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={labelStyle}>Last Name</label>
-                      <input name="lastName" value={formData.lastName} onChange={handleChange} style={inputStyle} type="text" />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Email & Contact Number */}
-                <div style={{ display: "flex", gap: 20 }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>Email</label>
-                    <input
-                      name="email"
-                      value={formData.email}
-                      onChange={(e) => { handleChange(e); setEmailError(""); }}
-                      style={{ ...inputStyle, borderColor: emailError ? "#EF4444" : "#D1D5DB" }}
-                      type="email"
-                      autoComplete="off"
-                    />
-                    {emailError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{emailError}</p>}
-                  </div>
-                  
-                  <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>Contact Number</label>
-                    <input
-                      name="contactNumber"
-                      value={formData.contactNumber}
-                      onChange={(e) => {
-                        const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
-                        setFormData((prev) => ({ ...prev, contactNumber: digitsOnly }));
-                        setPhoneError("");
-                      }}
-                      style={{ ...inputStyle, borderColor: phoneError ? "#EF4444" : "#D1D5DB" }}
-                      type="text"
-                      placeholder="07XXXXXXXX"
-                      maxLength={10}
-                    />
-                    {phoneError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{phoneError}</p>}
-                  </div>
-                </div>
-
-                {/* User Role, Assigned Branch / Company, Active Status */}
-                <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={labelStyle}>User Role</label>
-                    <select name="userRole" value={formData.userRole} onChange={handleChange} style={selectStyle}>
-                      <option value="">Select Role</option>
-                      {roles.map(r => (
-                        <option key={r.role_id} value={r.role_id}>{r.role_name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    {formData.userRole === "6" ? (
-                      <>
-                        <label style={labelStyle}>Assigned Scope</label>
-                        <input
-                          disabled
-                          value="Universal Access (All Hotels & Branches)"
-                          style={{ ...inputStyle, background: "#E5E7EB", color: "#6B7280", cursor: "not-allowed" }}
-                        />
-                      </>
-                    ) : formData.userRole === "2" ? (
-                      <>
-                        <label style={labelStyle}>Assigned Company / Hotel</label>
-                        <select name="assignedCompany" value={formData.assignedCompany} onChange={handleChange} style={selectStyle}>
-                          <option value="">Select Company</option>
-                          {companies.map(c => (
-                            <option key={c.com_id} value={c.com_id}>
-                              {c.com_name}
-                            </option>
-                          ))}
-                        </select>
-                      </>
+              {/* Profile Picture & Names */}
+              <div style={{ display: "flex", gap: 40, alignItems: "center" }}>
+                <div style={{ position: "relative" }}>
+                  <div
+                    onClick={handleImageClick}
+                    style={{
+                      width: 100, height: 100, borderRadius: "50%", border: "2px solid #111827",
+                      display: "flex", alignItems: "center", justifyContent: "center", background: "#F3F4F6",
+                      cursor: "pointer", overflow: "hidden"
+                    }}>
+                    {profileImage ? (
+                      <img src={profileImage} alt="Profile" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                     ) : (
-                      <>
-                        <label style={labelStyle}>Assigned Branch</label>
-                        <select name="assignedBranch" value={formData.assignedBranch} onChange={handleChange} style={selectStyle}>
-                          <option value="">Select Branch</option>
-                          {branches.map(b => (
-                            <option key={b.B_id} value={b.B_id}>
-                              {b.B_name} {b.com_name ? `(${b.com_name})` : ""}
-                            </option>
-                          ))}
-                        </select>
-                      </>
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="#6B7280" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12ZM12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z" />
+                      </svg>
                     )}
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "10px 16px", border: "1px solid #D1D5DB", borderRadius: 8
+                  <button
+                    onClick={handleImageClick}
+                    style={{
+                      position: "absolute", bottom: 0, right: 0, width: 28, height: 28,
+                      borderRadius: "50%", background: "#fff", border: "2px solid #111827",
+                      display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer",
+                      color: "#111827"
                     }}>
-                      <span style={{ fontSize: 14, color: "#374151" }}>Active Status</span>
-                      <div
-                        onClick={handleStatusToggle}
-                        style={{
-                          width: 44, height: 24, borderRadius: 12, background: formData.activeStatus ? "#22C55E" : "#E5E7EB",
-                          position: "relative", cursor: "pointer", transition: "background 0.3s"
-                        }}>
-                        <div style={{
-                          width: 18, height: 18, borderRadius: "50%", background: "#fff",
-                          position: "absolute", top: 3, left: formData.activeStatus ? 23 : 3, transition: "left 0.3s",
-                          display: "flex", alignItems: "center", justifyContent: "center"
-                        }}>
-                          {formData.activeStatus && <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M1 4L3.5 6.5L9 1" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>}
-                        </div>
+                    <FaPlus size={12} />
+                  </button>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleImageChange}
+                    style={{ display: "none" }}
+                    accept="image/*"
+                  />
+                </div>
+
+                <div style={{ flex: 1, display: "flex", gap: 20 }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>First Name</label>
+                    <input name="firstName" value={formData.firstName} onChange={handleChange} style={inputStyle} type="text" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={labelStyle}>Last Name</label>
+                    <input name="lastName" value={formData.lastName} onChange={handleChange} style={inputStyle} type="text" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Email & Contact Number */}
+              <div style={{ display: "flex", gap: 20 }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Email</label>
+                  <input
+                    name="email"
+                    value={formData.email}
+                    onChange={(e) => { handleChange(e); setEmailError(""); }}
+                    style={{ ...inputStyle, borderColor: emailError ? "#EF4444" : "#D1D5DB" }}
+                    type="email"
+                    autoComplete="off"
+                  />
+                  {emailError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{emailError}</p>}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>Contact Number</label>
+                  <input
+                    name="contactNumber"
+                    value={formData.contactNumber}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+                      setFormData((prev) => ({ ...prev, contactNumber: digitsOnly }));
+                      setPhoneError("");
+                    }}
+                    style={{ ...inputStyle, borderColor: phoneError ? "#EF4444" : "#D1D5DB" }}
+                    type="text"
+                    placeholder="07XXXXXXXX"
+                    maxLength={10}
+                  />
+                  {phoneError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{phoneError}</p>}
+                </div>
+              </div>
+
+              {/* User Role, Assigned Branch / Company, Active Status */}
+              <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
+                <div style={{ flex: 1 }}>
+                  <label style={labelStyle}>User Role</label>
+                  <select name="userRole" value={formData.userRole} onChange={handleChange} style={selectStyle}>
+                    <option value="">Select Role</option>
+                    {roles.map(r => (
+                      <option key={r.role_id} value={r.role_id}>{r.role_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  {formData.userRole === "6" ? (
+                    <>
+                      <label style={labelStyle}>Assigned Scope</label>
+                      <input
+                        disabled
+                        value="Universal Access (All Hotels & Branches)"
+                        style={{ ...inputStyle, background: "#E5E7EB", color: "#6B7280", cursor: "not-allowed" }}
+                      />
+                    </>
+                  ) : formData.userRole === "2" ? (
+                    <>
+                      <label style={labelStyle}>Assigned Company / Hotel</label>
+                      <select name="assignedCompany" value={formData.assignedCompany} onChange={handleChange} style={selectStyle}>
+                        <option value="">Select Company</option>
+                        {companies.map(c => (
+                          <option key={c.com_id} value={c.com_id}>
+                            {c.com_name}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <label style={labelStyle}>Assigned Branch</label>
+                      <select name="assignedBranch" value={formData.assignedBranch} onChange={handleChange} style={selectStyle}>
+                        <option value="">Select Branch</option>
+                        {branches.map(b => (
+                          <option key={b.B_id} value={b.B_id}>
+                            {b.B_name} {b.com_name ? `(${b.com_name})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "10px 16px", border: "1px solid #D1D5DB", borderRadius: 8
+                  }}>
+                    <span style={{ fontSize: 14, color: "#374151" }}>Active Status</span>
+                    <div
+                      onClick={handleStatusToggle}
+                      style={{
+                        width: 44, height: 24, borderRadius: 12, background: formData.activeStatus ? "#22C55E" : "#E5E7EB",
+                        position: "relative", cursor: "pointer", transition: "background 0.3s"
+                      }}>
+                      <div style={{
+                        width: 18, height: 18, borderRadius: "50%", background: "#fff",
+                        position: "absolute", top: 3, left: formData.activeStatus ? 23 : 3, transition: "left 0.3s",
+                        display: "flex", alignItems: "center", justifyContent: "center"
+                      }}>
+                        {formData.activeStatus && <svg width="10" height="8" viewBox="0 0 10 8" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 4L3.5 6.5L9 1" stroke="#22C55E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>}
                       </div>
                     </div>
                   </div>
                 </div>
+              </div>
 
-                {/* Password Fields */}
-                <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                  <div style={{ width: "66%" }}>
-                    <label style={labelStyle}>Password</label>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        name="password" value={formData.password} onChange={handleChange}
-                        style={pwdInputStyle}
-                        type={showPassword ? "text" : "password"}
-                        autoComplete="new-password"
-                      />
-                      <button
-                        type="button" onClick={() => setShowPassword(!showPassword)}
-                        style={eyeBtnStyle}
-                      >
-                        {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ width: "66%" }}>
-                    <label style={labelStyle}>Confirm Password</label>
-                    <div style={{ position: "relative" }}>
-                      <input
-                        name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
-                        style={pwdInputStyle}
-                        type={showConfirmPassword ? "text" : "password"}
-                        autoComplete="new-password"
-                      />
-                      <button
-                        type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        style={eyeBtnStyle}
-                      >
-                        {showConfirmPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
-                      </button>
-                    </div>
+              {/* Password Fields */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+                <div style={{ width: "66%" }}>
+                  <label style={labelStyle}>Password</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      name="password" value={formData.password} onChange={handleChange}
+                      style={pwdInputStyle}
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button" onClick={() => setShowPassword(!showPassword)}
+                      style={eyeBtnStyle}
+                    >
+                      {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+                    </button>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
-                  <button
-                    onClick={handleSaveChanges}
-                    disabled={isSaving}
-                    style={{
-                      background: "#22C55E", color: "#fff", padding: "12px 32px", border: "none",
-                      borderRadius: 8, fontSize: 15, fontWeight: 600,
-                      cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1,
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8
-                    }}
-                  >
-                    {isSaving && <Spinner size={14} color="#ffffff" />}
-                    {isSaving ? "Saving..." : "Save User"}
-                  </button>
+                <div style={{ width: "66%" }}>
+                  <label style={labelStyle}>Confirm Password</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      name="confirmPassword" value={formData.confirmPassword} onChange={handleChange}
+                      style={pwdInputStyle}
+                      type={showConfirmPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                    />
+                    <button
+                      type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      style={eyeBtnStyle}
+                    >
+                      {showConfirmPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+                    </button>
+                  </div>
                 </div>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+                <button
+                  onClick={handleSaveChanges}
+                  disabled={isSaving}
+                  style={{
+                    background: "#22C55E", color: "#fff", padding: "12px 32px", border: "none",
+                    borderRadius: 8, fontSize: 15, fontWeight: 600,
+                    cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8
+                  }}
+                >
+                  {isSaving && <Spinner size={14} color="#ffffff" />}
+                  {isSaving ? "Saving..." : "Save User"}
+                </button>
+              </div>
 
             </div>
           </div>

@@ -256,134 +256,134 @@ const RecipeMapper = () => {
           >
             {loading
               ? [...Array(6)].map((_, idx) => (
-                  <div key={idx} style={baseCard}>
-                    <div
-                      style={{
-                        height: "140px",
-                        background: "#EEF2F6",
-                        borderBottom: "1px solid #E7EAF3",
-                      }}
-                    />
-                    <div style={{ padding: "16px" }}>
-                      <div style={{ height: "14px", background: "#E5E7EB", width: "60%", borderRadius: "6px" }} />
-                      <div style={{ height: "12px", background: "#EEF2F6", width: "40%", borderRadius: "6px", marginTop: "10px" }} />
-                      <div style={{ height: "36px", background: "#E5E7EB", width: "100%", borderRadius: "10px", marginTop: "14px" }} />
-                    </div>
+                <div key={idx} style={baseCard}>
+                  <div
+                    style={{
+                      height: "140px",
+                      background: "#EEF2F6",
+                      borderBottom: "1px solid #E7EAF3",
+                    }}
+                  />
+                  <div style={{ padding: "16px" }}>
+                    <div style={{ height: "14px", background: "#E5E7EB", width: "60%", borderRadius: "6px" }} />
+                    <div style={{ height: "12px", background: "#EEF2F6", width: "40%", borderRadius: "6px", marginTop: "10px" }} />
+                    <div style={{ height: "36px", background: "#E5E7EB", width: "100%", borderRadius: "10px", marginTop: "14px" }} />
                   </div>
-                ))
+                </div>
+              ))
               : pageItems.map((item) => {
-                  const categoryName = categoryMap.get(String(item?.cat_id)) || "Main Course";
-                  const priceValue = Number(item?.pro_price ?? 0);
-                  const imageSrc = resolveProductImage(item?.pro_image);
-                  const recipeCount = recipeCounts[String(item?.pro_id)] || 0;
-                  return (
-                    <div key={item?.Bpro_id || item?.pro_id} style={baseCard}>
-                      <div style={{ position: "relative" }}>
-                        {imageSrc ? (
-                          <img
-                            src={imageSrc}
-                            alt={item?.pro_name || "Product"}
-                            style={{ width: "100%", height: "140px", objectFit: "cover" }}
-                          />
-                        ) : (
-                          <div
-                            style={{
-                              height: "140px",
-                              background: "linear-gradient(135deg, #0EA5E9 0%, #14B8A6 100%)",
-                              display: "grid",
-                              placeItems: "center",
-                              color: "#fff",
-                              fontWeight: 600,
-                            }}
-                          >
-                            No Image
-                          </div>
-                        )}
-
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "10px",
-                            left: "10px",
-                            background: "#fff",
-                            color: "#1D4ED8",
-                            padding: "3px 8px",
-                            borderRadius: "10px",
-                            fontSize: "11px",
-                            fontWeight: 700,
-                            textTransform: "uppercase",
-                          }}
-                        >
-                          {categoryName}
-                        </span>
-
-                        <span
-                          style={{
-                            position: "absolute",
-                            top: "10px",
-                            right: "10px",
-                            background: "rgba(15, 23, 42, 0.75)",
-                            color: "#fff",
-                            padding: "2px 8px",
-                            borderRadius: "12px",
-                            fontSize: "11px",
-                          }}
-                        >
-                          15m
-                        </span>
-
-                        <span
-                          style={{
-                            position: "absolute",
-                            bottom: "10px",
-                            left: "10px",
-                            background: recipeCount > 0 ? "rgba(17, 94, 89, 0.85)" : "rgba(71, 84, 103, 0.7)",
-                            color: "#fff",
-                            padding: "3px 8px",
-                            borderRadius: "10px",
-                            fontSize: "11px",
-                          }}
-                        >
-                          {recipeCount > 0 ? `${recipeCount} ingredients` : "No recipe"}
-                        </span>
-                      </div>
-
-                      <div style={{ padding: "16px" }}>
-                        <h3 style={{ margin: 0, fontSize: "16px", color: "#101828" }}>
-                          {item?.pro_name || "Unnamed Product"}
-                        </h3>
+                const categoryName = categoryMap.get(String(item?.cat_id)) || "Main Course";
+                const priceValue = Number(item?.pro_price ?? 0);
+                const imageSrc = resolveProductImage(item?.pro_image);
+                const recipeCount = recipeCounts[String(item?.pro_id)] || 0;
+                return (
+                  <div key={item?.Bpro_id || item?.pro_id} style={baseCard}>
+                    <div style={{ position: "relative" }}>
+                      {imageSrc ? (
+                        <img
+                          src={imageSrc}
+                          alt={item?.pro_name || "Product"}
+                          style={{ width: "100%", height: "140px", objectFit: "cover" }}
+                        />
+                      ) : (
                         <div
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "space-between",
-                            marginTop: "12px",
+                            height: "140px",
+                            background: "linear-gradient(135deg, #0EA5E9 0%, #14B8A6 100%)",
+                            display: "grid",
+                            placeItems: "center",
+                            color: "#fff",
+                            fontWeight: 600,
                           }}
                         >
-                          <span style={{ color: "#12B76A", fontWeight: 700 }}>
-                            ${priceValue.toFixed(2)}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/branch-admin/recipe-mapper/${item?.pro_id}`)}
-                            style={{
-                              background: "#0B5ED7",
-                              color: "#fff",
-                              border: "none",
-                              padding: "8px 14px",
-                              borderRadius: "18px",
-                              fontSize: "13px",
-                              fontWeight: 600,
-                              cursor: "pointer",
-                            }}
-                          >
-                            Map Ingredients
-                          </button>
+                          No Image
                         </div>
+                      )}
+
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          left: "10px",
+                          background: "#fff",
+                          color: "#1D4ED8",
+                          padding: "3px 8px",
+                          borderRadius: "10px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          textTransform: "uppercase",
+                        }}
+                      >
+                        {categoryName}
+                      </span>
+
+                      <span
+                        style={{
+                          position: "absolute",
+                          top: "10px",
+                          right: "10px",
+                          background: "rgba(15, 23, 42, 0.75)",
+                          color: "#fff",
+                          padding: "2px 8px",
+                          borderRadius: "12px",
+                          fontSize: "11px",
+                        }}
+                      >
+                        15m
+                      </span>
+
+                      <span
+                        style={{
+                          position: "absolute",
+                          bottom: "10px",
+                          left: "10px",
+                          background: recipeCount > 0 ? "rgba(17, 94, 89, 0.85)" : "rgba(71, 84, 103, 0.7)",
+                          color: "#fff",
+                          padding: "3px 8px",
+                          borderRadius: "10px",
+                          fontSize: "11px",
+                        }}
+                      >
+                        {recipeCount > 0 ? `${recipeCount} ingredients` : "No recipe"}
+                      </span>
+                    </div>
+
+                    <div style={{ padding: "16px" }}>
+                      <h3 style={{ margin: 0, fontSize: "16px", color: "#101828" }}>
+                        {item?.pro_name || "Unnamed Product"}
+                      </h3>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          marginTop: "12px",
+                        }}
+                      >
+                        <span style={{ color: "#12B76A", fontWeight: 700 }}>
+                          ${priceValue.toFixed(2)}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/branch-admin/recipe-mapper/${item?.pro_id}`)}
+                          style={{
+                            background: "#0B5ED7",
+                            color: "#fff",
+                            border: "none",
+                            padding: "8px 14px",
+                            borderRadius: "18px",
+                            fontSize: "13px",
+                            fontWeight: 600,
+                            cursor: "pointer",
+                          }}
+                        >
+                          Map Ingredients
+                        </button>
                       </div>
                     </div>
-                  );
-                })}
+                  </div>
+                );
+              })}
           </div>
 
           {!loading && filteredProducts.length === 0 && (

@@ -54,7 +54,7 @@ const UserManagement = () => {
   useEffect(() => {
     fetchData();
     setupSocketConnection();
-    
+
     return () => {
       // Cleanup socket listeners when component unmounts
       const socket = getSocket();
@@ -72,19 +72,19 @@ const UserManagement = () => {
 
     // Connect socket
     const socket = connectSocket();
-    
+
     // Get user info from token
     try {
       const base64Url = token.split('.')[1];
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const userData = JSON.parse(window.atob(base64));
       const branchId = userData.b_id;
-      
+
       if (branchId) {
         setCurrentUserBranch(branchId);
         // Join branch user room for real-time updates
         joinBranchUserRoom(branchId);
-        
+
         // Listen for user creation events
         socket.on(SOCKET_EVENTS.USER_CREATED, (newUserData) => {
           console.log("New user created:", newUserData);
@@ -95,21 +95,21 @@ const UserManagement = () => {
             return [...prevUsers, newUserData];
           });
         });
-        
+
         // Listen for user update events
         socket.on(SOCKET_EVENTS.USER_UPDATED, (updatedUserData) => {
           console.log("User updated:", updatedUserData);
-          setUsers((prevUsers) => 
-            prevUsers.map((user) => 
+          setUsers((prevUsers) =>
+            prevUsers.map((user) =>
               user.u_id === updatedUserData.u_id ? updatedUserData : user
             )
           );
         });
-        
+
         // Listen for user deletion events
         socket.on(SOCKET_EVENTS.USER_DELETED, ({ u_id, userName }) => {
           console.log("User deleted:", u_id);
-          setUsers((prevUsers) => 
+          setUsers((prevUsers) =>
             prevUsers.filter((user) => user.u_id !== u_id)
           );
         });
@@ -540,22 +540,22 @@ const UserManagement = () => {
                               style={{
                                 padding: "4px 10px",
                                 borderRadius: "999px",
-                                background: user.u_status === true || 
-                                            String(user.u_status).toLowerCase() === "true" || 
-                                            String(user.u_status).toLowerCase() === "active"
-                                            ? "#dff6e4" : "#fee2e2",
-                                color: user.u_status === true || 
-                                      String(user.u_status).toLowerCase() === "true" || 
-                                      String(user.u_status).toLowerCase() === "active"
-                                      ? "#20a048" : "#ef4444",
+                                background: user.u_status === true ||
+                                  String(user.u_status).toLowerCase() === "true" ||
+                                  String(user.u_status).toLowerCase() === "active"
+                                  ? "#dff6e4" : "#fee2e2",
+                                color: user.u_status === true ||
+                                  String(user.u_status).toLowerCase() === "true" ||
+                                  String(user.u_status).toLowerCase() === "active"
+                                  ? "#20a048" : "#ef4444",
                                 fontSize: "12px",
                                 fontWeight: 700,
                               }}
                             >
-                              {user.u_status === true || 
-                              String(user.u_status).toLowerCase() === "true" || 
-                              String(user.u_status).toLowerCase() === "active"
-                              ? "Available" : "Inactive"}
+                              {user.u_status === true ||
+                                String(user.u_status).toLowerCase() === "true" ||
+                                String(user.u_status).toLowerCase() === "active"
+                                ? "Available" : "Inactive"}
                             </span>
                           </Td>
 

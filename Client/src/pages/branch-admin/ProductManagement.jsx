@@ -15,9 +15,9 @@ import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import ReorderModal from "../../components/branch-admin/ReorderModal";
 import { getBranchProducts, updateBranchProduct, deleteBranchProduct, addBranchProductStock, getBranchProductIngredientStatus } from "../../services/api";
-import { 
-  getSocket, 
-  connectSocket, 
+import {
+  getSocket,
+  connectSocket,
   SOCKET_EVENTS,
   joinBranchInventoryRoom,
   leaveBranchInventoryRoom,
@@ -135,13 +135,13 @@ const ProductManagement = () => {
   const branchId = user?.b_id;
   const companyId = user?.com_id;
   const isSubscribedRef = useRef(false);
-  
+
   // Delete confirmation states
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [deleteTargetName, setDeleteTargetName] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-  
+
   // Product type tabs and stock modal
   const [activeTab, setActiveTab] = useState("made_to_order");
   const [stockModalItem, setStockModalItem] = useState(null);
@@ -195,7 +195,7 @@ const ProductManagement = () => {
 
     // Join the branch inventory room
     joinBranchInventoryRoom(branchId);
-    
+
     // Also join company room to receive product notifications from admin
     if (companyId) {
       joinCompanyRoom(companyId);
@@ -204,9 +204,9 @@ const ProductManagement = () => {
 
     const appendNotification = (type, productName, message, extra = {}) => {
       setNotifications((prev) => {
-        const existingNotif = prev.find((notification) => 
-          notification.type === type && 
-          notification.productName === productName && 
+        const existingNotif = prev.find((notification) =>
+          notification.type === type &&
+          notification.productName === productName &&
           (new Date() - new Date(notification.timestamp)) < 5000
         );
         if (existingNotif) return prev;
@@ -271,16 +271,16 @@ const ProductManagement = () => {
           if (exists) return prev;
           return [data.branch_product, ...prev];
         });
-        
+
         setNotifications(prev => {
           const productName = data.branch_product.pro_name || 'Product';
-          const existingNotif = prev.find(n => 
-            n.type === 'add' && 
-            n.productName === productName && 
+          const existingNotif = prev.find(n =>
+            n.type === 'add' &&
+            n.productName === productName &&
             (new Date() - new Date(n.timestamp)) < 5000
           );
           if (existingNotif) return prev;
-          
+
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'add',
@@ -303,16 +303,16 @@ const ProductManagement = () => {
               : p
           )
         );
-        
+
         setNotifications(prev => {
           const productName = data.branch_product.pro_name || 'Product';
-          const existingNotif = prev.find(n => 
-            n.type === 'update' && 
-            n.productName === productName && 
+          const existingNotif = prev.find(n =>
+            n.type === 'update' &&
+            n.productName === productName &&
             (new Date() - new Date(n.timestamp)) < 5000
           );
           if (existingNotif) return prev;
-          
+
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'update',
@@ -330,19 +330,19 @@ const ProductManagement = () => {
       if (data.Bpro_id && data.branch_id === branchId) {
         const deletedProduct = products.find(p => p.Bpro_id === data.Bpro_id);
         const productName = deletedProduct?.pro_name || data.pro_name || 'Product';
-        
+
         setProducts(prev =>
           prev.filter(p => p.Bpro_id !== data.Bpro_id)
         );
-        
+
         setNotifications(prev => {
-          const existingNotif = prev.find(n => 
-            n.type === 'delete' && 
-            n.productName === productName && 
+          const existingNotif = prev.find(n =>
+            n.type === 'delete' &&
+            n.productName === productName &&
             (new Date() - new Date(n.timestamp)) < 5000
           );
           if (existingNotif) return prev;
-          
+
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'delete',
@@ -383,9 +383,9 @@ const ProductManagement = () => {
         setLoading(true);
         setError("");
         const myBranchId = user?.b_id ?? null;
-        
+
         const response = myBranchId ? await getBranchProducts(myBranchId) : [];
-        
+
         if (!isMounted) return;
         setProducts(Array.isArray(response) ? response : []);
       } catch (err) {
@@ -411,7 +411,7 @@ const ProductManagement = () => {
 
   const tableProducts = useMemo(() => {
     let mapped = products.map(mapApiProductToTableItem);
-    
+
     if (activeTab === "made_to_order") {
       mapped = mapped.filter(item => item.product_type === "made_to_order");
     } else if (activeTab === "pre_made") {
@@ -479,10 +479,10 @@ const ProductManagement = () => {
         prev.map((item) =>
           item.Bpro_id === productId
             ? {
-                ...item,
-                ...updated,
-                pro_quantity: Number(updated?.pro_quantity ?? nextQty),
-              }
+              ...item,
+              ...updated,
+              pro_quantity: Number(updated?.pro_quantity ?? nextQty),
+            }
             : item
         )
       );
@@ -507,9 +507,9 @@ const ProductManagement = () => {
         prev.map((item) =>
           item.Bpro_id === stockModalItem.id
             ? {
-                ...item,
-                ...updated,
-              }
+              ...item,
+              ...updated,
+            }
             : item
         )
       );
@@ -591,9 +591,9 @@ const ProductManagement = () => {
                     borderRadius: '12px',
                     padding: '12px 16px',
                     boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                    borderLeft: `4px solid ${notification.type === 'admin_add' || notification.type === 'add' ? '#22C55E' : 
-                                   notification.type === 'admin_update' || notification.type === 'update' ? '#3B82F6' : 
-                                   '#EF4444'}`,
+                    borderLeft: `4px solid ${notification.type === 'admin_add' || notification.type === 'add' ? '#22C55E' :
+                      notification.type === 'admin_update' || notification.type === 'update' ? '#3B82F6' :
+                        '#EF4444'}`,
                     animation: 'slideInRight 0.3s ease-out',
                   }}
                 >
@@ -966,77 +966,77 @@ const ProductManagement = () => {
             }}
           />
         ) : (
-        <div style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.12)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 9999,
-        }}>
           <div style={{
-            width: "min(92vw, 400px)",
-            background: "#fff",
-            borderRadius: "16px",
-            padding: "24px",
-            boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.12)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
           }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
-              Add Stock for {stockModalItem.name}
-            </h2>
-            <div style={{ marginBottom: "20px" }}>
-              <label style={{ display: "block", fontSize: "14px", color: "#4B5563", marginBottom: "8px" }}>
-                Quantity to Add
-              </label>
-              <input
-                type="number"
-                min="1"
-                value={stockModalQty}
-                onChange={(e) => setStockModalQty(e.target.value)}
-                placeholder="Enter quantity"
-                style={{
-                  width: "100%",
-                  padding: "10px 12px",
-                  borderRadius: "8px",
-                  border: "1px solid #D1D5DB",
-                  outline: "none",
-                  fontSize: "14px"
-                }}
-              />
-            </div>
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setStockModalItem(null)}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  border: "1px solid #D1D5DB",
-                  background: "#fff",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  color: "#374151"
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmAddStock}
-                style={{
-                  padding: "8px 16px",
-                  borderRadius: "8px",
-                  border: "none",
-                  background: "#0E6DCF",
-                  cursor: "pointer",
-                  fontWeight: "600",
-                  color: "#fff"
-                }}
-              >
-                Confirm
-              </button>
+            <div style={{
+              width: "min(92vw, 400px)",
+              background: "#fff",
+              borderRadius: "16px",
+              padding: "24px",
+              boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+            }}>
+              <h2 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
+                Add Stock for {stockModalItem.name}
+              </h2>
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "14px", color: "#4B5563", marginBottom: "8px" }}>
+                  Quantity to Add
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={stockModalQty}
+                  onChange={(e) => setStockModalQty(e.target.value)}
+                  placeholder="Enter quantity"
+                  style={{
+                    width: "100%",
+                    padding: "10px 12px",
+                    borderRadius: "8px",
+                    border: "1px solid #D1D5DB",
+                    outline: "none",
+                    fontSize: "14px"
+                  }}
+                />
+              </div>
+              <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+                <button
+                  onClick={() => setStockModalItem(null)}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    border: "1px solid #D1D5DB",
+                    background: "#fff",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    color: "#374151"
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmAddStock}
+                  style={{
+                    padding: "8px 16px",
+                    borderRadius: "8px",
+                    border: "none",
+                    background: "#0E6DCF",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                    color: "#fff"
+                  }}
+                >
+                  Confirm
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         )
       )}
 

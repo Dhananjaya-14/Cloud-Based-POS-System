@@ -33,9 +33,9 @@ import {
   initiatePayHerePayment,
   checkOrderStock,
 } from "../../services/api";
-import { 
-  connectSocket, 
-  getSocket, 
+import {
+  connectSocket,
+  getSocket,
   SOCKET_EVENTS,
   joinBranchInventoryRoom,
   leaveBranchInventoryRoom,
@@ -95,7 +95,7 @@ const CashierPos = () => {
   const [productNotifications, setProductNotifications] = useState(() => {
     const userId = user?.u_id;
     if (!userId) return [];
-    
+
     const savedNotifications = sessionStorage.getItem(`productNotifications_${userId}`);
     if (savedNotifications) {
       try {
@@ -127,7 +127,7 @@ const CashierPos = () => {
   useEffect(() => {
     const userId = user?.u_id;
     if (!userId) return;
-    
+
     if (productNotifications.length > 0) {
       sessionStorage.setItem(`productNotifications_${userId}`, JSON.stringify(productNotifications));
     } else {
@@ -212,7 +212,7 @@ const CashierPos = () => {
     const unsubscribe = subscribeToBranchProductUpdates(branchId, {
       onBranchProductAdded: (data) => {
         console.log("New branch product received in Cashier POS:", data);
-        
+
         // Check if this product belongs to the current branch
         if (data.branch_id && String(data.branch_id) !== String(branchId)) {
           return;
@@ -220,28 +220,28 @@ const CashierPos = () => {
 
         // Get the product data
         const productData = data.branch_product || data.product || data;
-        
+
         setProducts((prevProducts) => {
           // Check if product already exists
           const exists = prevProducts.some(p => p.Bpro_id === productData.Bpro_id);
           if (!exists) {
             // Add notification to persistent queue
             const productName = productData.pro_name || "New Product";
-            
+
             // Show toast notification
             setNewProductName(productName);
             setShowNewProductToast(true);
             setTimeout(() => {
               setShowNewProductToast(false);
             }, 5000);
-            
+
             setProductNotifications(prev => {
-              const existingNotif = prev.find(n => 
-                n.productName === productName && 
+              const existingNotif = prev.find(n =>
+                n.productName === productName &&
                 (new Date() - new Date(n.timestamp)) < 5000
               );
               if (existingNotif) return prev;
-              
+
               return [...prev, {
                 id: Date.now() + Math.random(),
                 type: 'product_added',
@@ -250,7 +250,7 @@ const CashierPos = () => {
                 productName: productName
               }];
             });
-            
+
             // Add the new product to the list
             return [productData, ...prevProducts];
           }
@@ -259,9 +259,9 @@ const CashierPos = () => {
       },
       onBranchProductUpdated: (data) => {
         console.log("Product update received in Cashier POS:", data);
-        
+
         const productData = data.branch_product || data.product || data;
-        
+
         setProducts((prevProducts) => {
           return prevProducts.map(product =>
             product.Bpro_id === productData.Bpro_id
@@ -272,9 +272,9 @@ const CashierPos = () => {
       },
       onBranchProductDeleted: (data) => {
         console.log("Product deletion received in Cashier POS:", data);
-        
+
         const deletedId = data.Bpro_id || data.branch_product?.Bpro_id;
-        
+
         setProducts((prevProducts) => {
           return prevProducts.filter(product => product.Bpro_id !== deletedId);
         });
@@ -299,24 +299,24 @@ const CashierPos = () => {
               branch_id: branchId,
               pro_quantity: data.product.pro_qty || 0
             };
-            
+
             // Add notification to persistent queue
             const productName = data.product.pro_name || "New Product";
-            
+
             // Show toast notification
             setNewProductName(productName);
             setShowNewProductToast(true);
             setTimeout(() => {
               setShowNewProductToast(false);
             }, 5000);
-            
+
             setProductNotifications(prev => {
-              const existingNotif = prev.find(n => 
-                n.productName === productName && 
+              const existingNotif = prev.find(n =>
+                n.productName === productName &&
                 (new Date() - new Date(n.timestamp)) < 5000
               );
               if (existingNotif) return prev;
-              
+
               return [...prev, {
                 id: Date.now() + Math.random(),
                 type: 'product_added',
@@ -325,7 +325,7 @@ const CashierPos = () => {
                 productName: productName
               }];
             });
-            
+
             return [branchProduct, ...prevProducts];
           }
           return prevProducts;
@@ -538,7 +538,7 @@ const CashierPos = () => {
       setSubmitting(true);
       setError("");
 
-     const stockResult = await checkOrderStock(
+      const stockResult = await checkOrderStock(
         cart.map((item) => ({ Bpro_id: item.Bpro_id, pro_quantity: item.qty })),
       );
 
@@ -576,7 +576,7 @@ const CashierPos = () => {
             existingItems.map((item) => deleteOrderItem(item.orderItem_id))
           );
         }
-        
+
         // Emit order updated event
         if (socket && socket.connected) {
           socket.emit("order:updated", {
@@ -607,7 +607,7 @@ const CashierPos = () => {
         if (!orderId) {
           throw new Error("Order was created but no order id was returned");
         }
-        
+
         // Emit order created event for kitchen
         if (socket && socket.connected) {
           socket.emit("order:created", {
@@ -793,7 +793,7 @@ const CashierPos = () => {
   return (
     <div className="min-h-screen bg-[#F3F7FB] text-slate-900">
       <OrderReadyAlerts alerts={orderReadyAlerts} onDismiss={handleDismissOrderReady} />
-      
+
       {/* Product Notifications Container */}
       {productNotifications.length > 0 && (
         <div
@@ -829,16 +829,16 @@ const CashierPos = () => {
               }}
             >
               <div>
-                <div style={{ 
-                  fontWeight: '600', 
+                <div style={{
+                  fontWeight: '600',
                   fontSize: '15px',
                   color: '#1F2937',
                   marginBottom: '4px'
                 }}>
                   📢 New Product Available
                 </div>
-                <div style={{ 
-                  fontSize: '14px', 
+                <div style={{
+                  fontSize: '14px',
                   color: '#4B5563',
                   fontWeight: '500',
                   lineHeight: '1.5'
@@ -887,9 +887,9 @@ const CashierPos = () => {
 
       <header className="border-b border-black/5 bg-linear-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)]">
         <div className="mx-auto flex max-w-450 items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
-         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-white/20">
-            <img
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-white/20">
+              <img
                 src={posIcon}
                 alt="Hotel POS logo"
                 className="w-7 h-7 object-contain"
@@ -1047,7 +1047,7 @@ const CashierPos = () => {
                   const priceLabel = Number(product.pro_price ?? 0).toFixed(2);
 
                   return (
-                    <article                      key={product.Bpro_id ?? index}
+                    <article key={product.Bpro_id ?? index}
                       onClick={() => addToCart(product)}
                       className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]"
                     >

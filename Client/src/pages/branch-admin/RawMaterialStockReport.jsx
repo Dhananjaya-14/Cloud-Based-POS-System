@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
-import { getRawMaterialStockReport,getBranchById } from "../../services/api";
+import { getRawMaterialStockReport, getBranchById } from "../../services/api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -48,33 +48,33 @@ export default function RawMaterialStockReport() {
   }, [user?.b_id]);
 
   useEffect(() => {
-      let mounted = true;
-  
-      const loadBranch = async () => {
-        const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
-        if (fromUser) {
-          if (mounted) setBranchName(fromUser);
-          return;
-        }
-  
-        if (user?.b_id) {
-          try {
-            const res = await getBranchById(user.b_id);
-            const branch = res?.data ?? res;
-            if (mounted) setBranchName(branch?.B_name ?? branch?.b_name ?? "");
-          } catch {
-            if (mounted) setBranchName("");
-          }
-        } else {
+    let mounted = true;
+
+    const loadBranch = async () => {
+      const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
+      if (fromUser) {
+        if (mounted) setBranchName(fromUser);
+        return;
+      }
+
+      if (user?.b_id) {
+        try {
+          const res = await getBranchById(user.b_id);
+          const branch = res?.data ?? res;
+          if (mounted) setBranchName(branch?.B_name ?? branch?.b_name ?? "");
+        } catch {
           if (mounted) setBranchName("");
         }
-      };
-  
-      loadBranch();
-      return () => {
-        mounted = false;
-      };
-    }, [user]);
+      } else {
+        if (mounted) setBranchName("");
+      }
+    };
+
+    loadBranch();
+    return () => {
+      mounted = false;
+    };
+  }, [user]);
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -175,46 +175,46 @@ export default function RawMaterialStockReport() {
     const doc = new jsPDF();
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
-    const generatedTime =reportDate.toLocaleTimeString();
+    const generatedTime = reportDate.toLocaleTimeString();
 
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
-    doc.text("Raw Material Stock Report",14,20);
+    doc.text("Raw Material Stock Report", 14, 20);
     doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(`Generated: ${generatedDate} ${generatedTime}`,14,28);
+    doc.text(`Generated: ${generatedDate} ${generatedTime}`, 14, 28);
     doc.text(`Branch: ${branchName || "Current Branch"}`, 14, 34);
-    doc.text(`Filter: ${stockFilter.replace("_", " ").toUpperCase()}`,175,34);
+    doc.text(`Filter: ${stockFilter.replace("_", " ").toUpperCase()}`, 175, 34);
     doc.line(14, 38, 196, 38);
     autoTable(doc, {
       startY: 48,
 
-     head: [[
+      head: [[
         ...selectedColumns.map((col) =>
-            availableColumns.find(
+          availableColumns.find(
             (c) => c.key === col
-            )?.label
+          )?.label
         )
-        ]],
+      ]],
 
-     body: rows.map((row) => {
+      body: rows.map((row) => {
         return selectedColumns.map((col) => {
-            switch (col) {
+          switch (col) {
             case "rm_name":
-                return row.rm_name || "";
+              return row.rm_name || "";
             case "unit":
-                return row.unit || "";
+              return row.unit || "";
             case "stock_qty":
-                return Number(
+              return Number(
                 row.stock_qty || 0
-                ).toFixed(2);
+              ).toFixed(2);
             case "status":
-                return row.status || "";
+              return row.status || "";
             default:
-                return "";
-            }
+              return "";
+          }
         });
-    }),
+      }),
 
       theme: "striped",
 
@@ -233,16 +233,16 @@ export default function RawMaterialStockReport() {
       },
     });
 
-    const pageCount =doc.internal.getNumberOfPages();
+    const pageCount = doc.internal.getNumberOfPages();
 
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(9);
       doc.setTextColor(120);
-      doc.text(`Page ${i} of ${pageCount}`, 170,290 );
+      doc.text(`Page ${i} of ${pageCount}`, 170, 290);
     }
 
-    doc.save( `Raw_Material_Stock_Report_${generatedDate}.pdf`);
+    doc.save(`Raw_Material_Stock_Report_${generatedDate}.pdf`);
   };
 
   return (
@@ -271,7 +271,7 @@ export default function RawMaterialStockReport() {
             className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150"
           >
             <FaFilePdf />
-             Export PDF
+            Export PDF
           </button>
         </div>
 
@@ -301,8 +301,8 @@ export default function RawMaterialStockReport() {
             onClick={generateReport}
             disabled={loading}
             className={`mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all duration-150
-              ${loading 
-                ? "bg-blue-400 text-blue-100 cursor-not-allowed" 
+              ${loading
+                ? "bg-blue-400 text-blue-100 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] cursor-pointer"
               }`}
           >
@@ -359,17 +359,17 @@ export default function RawMaterialStockReport() {
 
         {/* Table */}
         {loading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="flex items-center gap-1.5 h-6">
-                <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-                <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
-                </div>
-                <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
-                        Please wait...
-                </span>
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <div className="flex items-center gap-1.5 h-6">
+              <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
+              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
+              <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
             </div>
-        ): (
+            <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
+              Please wait...
+            </span>
+          </div>
+        ) : (
           <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
             <table className="w-full min-w-max">
               <thead className="bg-gray-100">
@@ -408,10 +408,10 @@ export default function RawMaterialStockReport() {
                         className="hover:bg-gray-50 border-b border-gray-100"
                       >
                         {availableColumns
-                          .filter((col) =>selectedColumns.includes(col.key))
+                          .filter((col) => selectedColumns.includes(col.key))
                           .map((col) => {
                             if (
-                              col.key ==="status"
+                              col.key === "status"
                             ) {
                               return (
                                 <td key={col.key}
@@ -422,8 +422,7 @@ export default function RawMaterialStockReport() {
                               );
                             }
 
-                            if (col.key ==="stock_qty")
-                            {
+                            if (col.key === "stock_qty") {
                               return (
                                 <td key={col.key}
                                   className="p-4 text-sm text-gray-600"
@@ -437,7 +436,7 @@ export default function RawMaterialStockReport() {
                               <td key={col.key}
                                 className="p-4 text-sm text-gray-600"
                               >
-                                {row[ col.key] ?? ""}
+                                {row[col.key] ?? ""}
                               </td>
                             );
                           })}

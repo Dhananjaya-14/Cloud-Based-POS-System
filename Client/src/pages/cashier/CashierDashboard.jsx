@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import CashierHeader from "../../components/cashier/Header";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import { useAuth } from "../../context/AuthContext";
-import { getOrders,getDashboardStats,getSalesDetailsReport} from "../../services/api";
+import { getOrders, getDashboardStats, getSalesDetailsReport } from "../../services/api";
 import { connectSocket } from "../../services/socket";
 import {
   addOrderReadyAlert,
@@ -142,25 +142,25 @@ const CashierDashboard = () => {
   );
 
   const loadDashboardStats = useCallback(async () => {
-  try {
-    const data = await getDashboardStats(user.b_id);
+    try {
+      const data = await getDashboardStats(user.b_id);
 
-    setStats({
-      revenue: Number(data.revenue),
-      transactions: Number(data.transactions),
-      productsSold: Number(data.products_sold),
-    });
-  } catch (error) {
-    console.error("Failed to load dashboard stats", error);
-  }
-}, [user?.b_id]);
+      setStats({
+        revenue: Number(data.revenue),
+        transactions: Number(data.transactions),
+        productsSold: Number(data.products_sold),
+      });
+    } catch (error) {
+      console.error("Failed to load dashboard stats", error);
+    }
+  }, [user?.b_id]);
 
   useEffect(() => {
-  if (user?.b_id) {
-    loadDashboardStats();
-  }
-}, [loadDashboardStats, user?.b_id]);
-console.log(user);
+    if (user?.b_id) {
+      loadDashboardStats();
+    }
+  }, [loadDashboardStats, user?.b_id]);
+  console.log(user);
 
   return (
     <div className="min-h-screen bg-[#F4F7FB] flex flex-col">
@@ -181,22 +181,22 @@ console.log(user);
             <p className="mt-3 text-sm sm:text-base text-slate-500 max-w-xl mx-auto">
               Ready to start your day? Let&apos;s make it productive.
             </p>
-          <div className="mt-6 flex flex-wrap justify-center items-center gap-4">
-            <button
-              onClick={() => navigate("/cashier/pos")}
-              className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
-            >
-              <span>Open POS System</span>
-            </button>
+            <div className="mt-6 flex flex-wrap justify-center items-center gap-4">
+              <button
+                onClick={() => navigate("/cashier/pos")}
+                className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
+              >
+                <span>Open POS System</span>
+              </button>
 
-            <button
-              onClick={() => navigate("/cashier/sales-summary")} 
-              className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
-            >
-              <span>View Sales Report</span>
-          </button>
+              <button
+                onClick={() => navigate("/cashier/sales-summary")}
+                className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
+              >
+                <span>View Sales Report</span>
+              </button>
+            </div>
           </div>
-        </div>
 
           {/* Stat cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

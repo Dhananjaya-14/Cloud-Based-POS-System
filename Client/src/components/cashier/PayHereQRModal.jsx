@@ -90,26 +90,23 @@ export default function PayHereQRModal({ paymentUrl, orderId, onSuccess, onCance
               </div>
 
               {/* Countdown */}
-             <div className="mb-6 text-center">
+              <div className="mb-6 text-center">
                 <p
-                  className={`text-sm font-medium mb-2 ${
-                    isUrgent ? "text-red-500" : "text-slate-500"
-                  }`}
+                  className={`text-sm font-medium mb-2 ${isUrgent ? "text-red-500" : "text-slate-500"
+                    }`}
                 >
                   {isUrgent ? "⚠ QR Code Expiring Soon" : "QR Code Expires In"}
                 </p>
 
                 <div
-                  className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 shadow-sm border ${
-                    isUrgent
+                  className={`inline-flex items-center justify-center rounded-2xl px-4 py-3 shadow-sm border ${isUrgent
                       ? "border-red-200 bg-red-50"
                       : "border-blue-200 bg-blue-50"
-                  }`}
+                    }`}
                 >
                   <span
-                    className={`font-mono text-2xl font-bold tracking-wider ${
-                      isUrgent ? "text-red-600" : "text-[#0E6DCF]"
-                    }`}
+                    className={`font-mono text-2xl font-bold tracking-wider ${isUrgent ? "text-red-600" : "text-[#0E6DCF]"
+                      }`}
                   >
                     {mm}:{ss}
                   </span>

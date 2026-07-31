@@ -153,41 +153,41 @@ const HotelManagement = () => {
     setEmailError("");
     setPhoneError("");
 
-   if (!formData.name.trim()) {
-  setModalError("Please fill in company name.");
-  return;
-}
+    if (!formData.name.trim()) {
+      setModalError("Please fill in company name.");
+      return;
+    }
 
-if (!formData.location.trim()) {
-  setModalError("Please fill in company location.");
-  return;
-}
+    if (!formData.location.trim()) {
+      setModalError("Please fill in company location.");
+      return;
+    }
 
-if (!formData.email.trim()) {
-  setEmailError("Please enter a contact email address.");
-  return;
-}
+    if (!formData.email.trim()) {
+      setEmailError("Please enter a contact email address.");
+      return;
+    }
 
-if (!EMAIL_RE.test(formData.email.trim())) {
-  setEmailError("Please enter a valid email address (e.g. name@example.com).");
-  return;
-}
+    if (!EMAIL_RE.test(formData.email.trim())) {
+      setEmailError("Please enter a valid email address (e.g. name@example.com).");
+      return;
+    }
 
-if (!formData.phone.trim()) {
-  setPhoneError("Please enter a phone number.");
-  return;
-}
+    if (!formData.phone.trim()) {
+      setPhoneError("Please enter a phone number.");
+      return;
+    }
 
-if (!PHONE_RE.test(formData.phone.trim())) {
-  setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
-  return;
-}
-const today = new Date().toISOString().slice(0, 10);
-if (modalMode === "add" && formData.date < today) {
-  setModalError("Registered date cannot be in the past.");
-  return;
-}
-setIsSaving(true);
+    if (!PHONE_RE.test(formData.phone.trim())) {
+      setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    if (modalMode === "add" && formData.date < today) {
+      setModalError("Registered date cannot be in the past.");
+      return;
+    }
+    setIsSaving(true);
 
     setIsSaving(true);
     setModalError("");
@@ -209,7 +209,7 @@ setIsSaving(true);
         await updateCompany(formData.id, payload);
         toast.success("Company Updated", `"${formData.name}" details were saved.`);
       }
-      
+
       setIsModalOpen(false);
       fetchData();
       setTimeout(() => setSuccessMessage(""), 3000);
@@ -223,19 +223,19 @@ setIsSaving(true);
 
   const filteredCompanies = companies.filter(
     (c) => {
-      const searchName = (c.com_name|| "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchLocation=(c.location|| "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchEmail=(c.c_email|| "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchPhone=(c.phone|| "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchMatch=searchName||searchLocation||searchEmail||searchPhone;
+      const searchName = (c.com_name || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchLocation = (c.location || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchEmail = (c.c_email || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchPhone = (c.phone || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const searchMatch = searchName || searchLocation || searchEmail || searchPhone;
 
       const s = String(c.c_status || "").toLowerCase();
       const isActive = s === "active" || s === "true" || c.c_status === true;
-      
-      const statusMatch = statusFilter === "All Status" || 
-                         (statusFilter === "Active" && isActive) || 
-                         (statusFilter === "Inactive" && !isActive);
-                         
+
+      const statusMatch = statusFilter === "All Status" ||
+        (statusFilter === "Active" && isActive) ||
+        (statusFilter === "Inactive" && !isActive);
+
       return searchMatch && statusMatch;
     }
   );
@@ -455,7 +455,7 @@ setIsSaving(true);
                           <button onClick={() => openEditModal(company)} style={iconButtonStyle}>
                             <FaPen size={12} color="#6B7280" />
                           </button>
-                          <button 
+                          <button
                             onClick={() => openDeleteModal(company)}
                             style={{ ...iconButtonStyle, background: "#FEE2E2" }}
                           >
@@ -489,15 +489,15 @@ setIsSaving(true);
                 Showing <b>{Math.min(filteredCompanies.length, (currentPage - 1) * itemsPerPage + 1)}</b> to <b>{Math.min(filteredCompanies.length, currentPage * itemsPerPage)}</b> of <b>{filteredCompanies.length}</b> companies
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button 
-                  style={{...pageBtnStyle, opacity: currentPage === 1 ? 0.5 : 1}} 
+                <button
+                  style={{ ...pageBtnStyle, opacity: currentPage === 1 ? 0.5 : 1 }}
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(p => p - 1)}
                 >
                   Previous
                 </button>
-                <button 
-                  style={{...pageBtnStyle, opacity: currentPage >= totalPages ? 0.5 : 1}} 
+                <button
+                  style={{ ...pageBtnStyle, opacity: currentPage >= totalPages ? 0.5 : 1 }}
                   disabled={currentPage >= totalPages}
                   onClick={() => setCurrentPage(p => p + 1)}
                 >
@@ -520,7 +520,7 @@ setIsSaving(true);
             background: "#fff", width: 500, borderRadius: 16, padding: "24px 32px",
             position: "relative", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
           }}>
-            <button 
+            <button
               onClick={() => setIsModalOpen(false)}
               style={{ position: "absolute", top: 16, right: 16, background: "#F3F4F6", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: 18, color: "#6B7280", lineHeight: 1 }}>&times;</span>
@@ -542,11 +542,11 @@ setIsSaving(true);
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <label style={labelStyle}>Company Name</label>
-                <input type="text" placeholder="Enter company name" style={inputStyle} value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                <input type="text" placeholder="Enter company name" style={inputStyle} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
               </div>
               <div>
                 <label style={labelStyle}>Location</label>
-                <input type="text" placeholder="Enter location" style={inputStyle} value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} />
+                <input type="text" placeholder="Enter location" style={inputStyle} value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
               </div>
               <div>
                 <label style={labelStyle}>Contact Email</label>
@@ -555,7 +555,7 @@ setIsSaving(true);
                   placeholder="Enter email"
                   style={{ ...inputStyle, borderColor: emailError ? "#EF4444" : "#D1D5DB" }}
                   value={formData.email}
-                  onChange={e => { setFormData({...formData, email: e.target.value}); setEmailError(""); }}
+                  onChange={e => { setFormData({ ...formData, email: e.target.value }); setEmailError(""); }}
                 />
                 {emailError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{emailError}</p>}
               </div>
@@ -569,7 +569,7 @@ setIsSaving(true);
                   value={formData.phone}
                   onChange={e => {
                     const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
-                    setFormData({...formData, phone: digitsOnly});
+                    setFormData({ ...formData, phone: digitsOnly });
                     setPhoneError("");
                   }}
                 />
@@ -577,19 +577,19 @@ setIsSaving(true);
               </div>
               <div>
                 <label style={labelStyle}>Registered Date</label>
-                <input type="date" style={inputStyle} value={formData.date}  min={new Date().toISOString().slice(0, 10)} 
-                onChange={e => setFormData({...formData, date: e.target.value})} />
+                <input type="date" style={inputStyle} value={formData.date} min={new Date().toISOString().slice(0, 10)}
+                  onChange={e => setFormData({ ...formData, date: e.target.value })} />
               </div>
               <div>
                 <label style={labelStyle}>Status</label>
                 {modalMode === "add" ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
-                    <div 
-                      onClick={() => setFormData({...formData, status: !formData.status})}
+                    <div
+                      onClick={() => setFormData({ ...formData, status: !formData.status })}
                       style={{
-                      width: 44, height: 24, borderRadius: 12, background: formData.status ? "#111827" : "#E5E7EB",
-                      position: "relative", cursor: "pointer", transition: "background 0.3s"
-                    }}>
+                        width: 44, height: 24, borderRadius: 12, background: formData.status ? "#111827" : "#E5E7EB",
+                        position: "relative", cursor: "pointer", transition: "background 0.3s"
+                      }}>
                       <div style={{
                         width: 18, height: 18, borderRadius: "50%", background: "#fff",
                         position: "absolute", top: 3, left: formData.status ? 23 : 3, transition: "left 0.3s"
@@ -598,10 +598,10 @@ setIsSaving(true);
                     <span style={{ fontSize: 14, color: "#4B5563" }}>{formData.status ? "Active" : "Inactive"}</span>
                   </div>
                 ) : (
-                  <select 
+                  <select
                     style={{ ...inputStyle, cursor: "pointer", color: "#374151" }}
                     value={formData.status ? "Active" : "Inactive"}
-                    onChange={(e) => setFormData({...formData, status: e.target.value === "Active"})}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value === "Active" })}
                   >
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
@@ -663,7 +663,7 @@ setIsSaving(true);
             background: "#fff", width: 440, borderRadius: 16, padding: "24px 32px",
             position: "relative", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
           }}>
-            <button 
+            <button
               onClick={() => setIsDeleteModalOpen(false)}
               style={{ position: "absolute", top: 16, right: 16, background: "#F3F4F6", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: 18, color: "#6B7280", lineHeight: 1 }}>&times;</span>
@@ -681,7 +681,7 @@ setIsSaving(true);
             )}
 
             <p style={{ margin: "0 0 32px", fontSize: 14, color: "#4B5563", lineHeight: 1.5 }}>
-              Are you sure you want to delete <b>{companyToDelete?.com_name || "this company"}</b>?<br/>
+              Are you sure you want to delete <b>{companyToDelete?.com_name || "this company"}</b>?<br />
               This action cannot be undone and will permanently remove all company data.
             </p>
 

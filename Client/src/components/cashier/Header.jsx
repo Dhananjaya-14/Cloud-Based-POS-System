@@ -70,7 +70,7 @@ const CashierHeader = () => {
 
           <button
             onClick={logout}
-             className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80"
+            className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80"
           >
             <FaSignOutAlt className="h-3.5 w-3.5" />
             <span>Logout</span>
