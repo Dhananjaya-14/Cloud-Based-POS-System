@@ -16,17 +16,17 @@ function convertRecipeQty(recipeQty, recipeUnit, stockUnit) {
   if (rUnit === sUnit || !rUnit || !sUnit) return recipeQty;
 
   // Weight conversions
-  if (rUnit === "g"  && sUnit === "kg") return recipeQty / 1000;
-  if (rUnit === "kg" && sUnit === "g")  return recipeQty * 1000;
-  if (rUnit === "mg" && sUnit === "g")  return recipeQty / 1000;
+  if (rUnit === "g" && sUnit === "kg") return recipeQty / 1000;
+  if (rUnit === "kg" && sUnit === "g") return recipeQty * 1000;
+  if (rUnit === "mg" && sUnit === "g") return recipeQty / 1000;
   if (rUnit === "mg" && sUnit === "kg") return recipeQty / 1_000_000;
 
   // Volume conversions
-  if (rUnit === "ml" && sUnit === "l")  return recipeQty / 1000;
-  if (rUnit === "l"  && sUnit === "ml") return recipeQty * 1000;
+  if (rUnit === "ml" && sUnit === "l") return recipeQty / 1000;
+  if (rUnit === "l" && sUnit === "ml") return recipeQty * 1000;
 
   // Count conversions
-  if (rUnit === "pcs"   && sUnit === "dozen") return recipeQty / 12;
+  if (rUnit === "pcs" && sUnit === "dozen") return recipeQty / 12;
   if (rUnit === "units" && sUnit === "dozen") return recipeQty / 12;
 
   return recipeQty;
@@ -67,7 +67,7 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
     return "or_totalCostWtax must be a non-negative number";
   }
   if (or_tax !== undefined && or_tax !== null) {
-    if (isNaN(tax) || tax < 0 ) {
+    if (isNaN(tax) || tax < 0) {
       return "or_tax must be a number greater than or equal to 0";
     }
   }
@@ -838,130 +838,130 @@ export const updateOrderStatus = async (req, res) => {
     }
 
     const client = await pool.connect();
-let updatedOrder;
+    let updatedOrder;
 
-try {
-  await client.query("BEGIN");
+    try {
+      await client.query("BEGIN");
 
-  const { rows } = await client.query(
-    `UPDATE "ORDER" SET or_status = $1 WHERE or_id = $2 RETURNING *`,
-    [status, id],
-  );
-  updatedOrder = rows[0];
+      const { rows } = await client.query(
+        `UPDATE "ORDER" SET or_status = $1 WHERE or_id = $2 RETURNING *`,
+        [status, id],
+      );
+      updatedOrder = rows[0];
 
-  // ── When Kitchen ACCEPTS order → deduct raw material ingredients (made_to_order only) ──
-  if (status === "preparing") {
-    // Get all made_to_order items in this order
-    const orderItems = await client.query(
-      `SELECT oi."Bpro_id", oi.pro_quantity, bp."pro_id", bp."B_id"
+      // ── When Kitchen ACCEPTS order → deduct raw material ingredients (made_to_order only) ──
+      if (status === "preparing") {
+        // Get all made_to_order items in this order
+        const orderItems = await client.query(
+          `SELECT oi."Bpro_id", oi.pro_quantity, bp."pro_id", bp."B_id"
        FROM public."ORDER_ITEM" oi
        JOIN public."Branch_Product" bp ON bp."Bpro_id" = oi."Bpro_id"
        JOIN public."Product" p ON p.pro_id = bp.pro_id
        WHERE oi.order_id = $1
          AND p.product_type = 'made_to_order'`,
-      [id]
-    );
+          [id]
+        );
 
-    for (const item of orderItems.rows) {
-      const { pro_id, pro_quantity, B_id } = item;
+        for (const item of orderItems.rows) {
+          const { pro_id, pro_quantity, B_id } = item;
 
-      // Get recipe ingredients for this product
-      const recipes = await client.query(
-        `SELECT r."rawmaterial_ID", r."quantity_req",
+          // Get recipe ingredients for this product
+          const recipes = await client.query(
+            `SELECT r."rawmaterial_ID", r."quantity_req",
                 COALESCE(r."unit", rm."unit") AS recipe_unit,
                 rm."unit" AS stock_unit
          FROM public."RECIPE" r
          JOIN public."Raw_Material" rm 
            ON rm."rm_id" = r."rawmaterial_ID"
          WHERE r."pro_id" = $1`,
-        [pro_id]
-      );
+            [pro_id]
+          );
 
-      for (const recipe of recipes.rows) {
-        const rawQty = recipe.quantity_req * pro_quantity;
-        const convertedQty = convertRecipeQty(
-          rawQty, 
-          recipe.recipe_unit, 
-          recipe.stock_unit
-        );
+          for (const recipe of recipes.rows) {
+            const rawQty = recipe.quantity_req * pro_quantity;
+            const convertedQty = convertRecipeQty(
+              rawQty,
+              recipe.recipe_unit,
+              recipe.stock_unit
+            );
 
-        await client.query(
-          `UPDATE public."Raw_Material"
+            await client.query(
+              `UPDATE public."Raw_Material"
            SET stock_qty = GREATEST(0, stock_qty - $1)
            WHERE rm_id = $2`,
-          [convertedQty, recipe.rawmaterial_ID]
-        );
+              [convertedQty, recipe.rawmaterial_ID]
+            );
+          }
+        }
       }
-    }
-  }
 
-  // ── When order is CANCELLED after kitchen accepted → restore raw material ingredients ──
-  if (status === "cancelled" && currentStatus === "preparing") {
-    const orderItems = await client.query(
-      `SELECT oi."Bpro_id", oi.pro_quantity, bp."pro_id", bp."B_id"
+      // ── When order is CANCELLED after kitchen accepted → restore raw material ingredients ──
+      if (status === "cancelled" && currentStatus === "preparing") {
+        const orderItems = await client.query(
+          `SELECT oi."Bpro_id", oi.pro_quantity, bp."pro_id", bp."B_id"
        FROM public."ORDER_ITEM" oi
        JOIN public."Branch_Product" bp ON bp."Bpro_id" = oi."Bpro_id"
        JOIN public."Product" p ON p.pro_id = bp.pro_id
        WHERE oi.order_id = $1
          AND p.product_type = 'made_to_order'`,
-      [id]
-    );
+          [id]
+        );
 
-    for (const item of orderItems.rows) {
-      const { pro_id, pro_quantity } = item;
+        for (const item of orderItems.rows) {
+          const { pro_id, pro_quantity } = item;
 
-      const recipes = await client.query(
-        `SELECT r."rawmaterial_ID", r."quantity_req",
+          const recipes = await client.query(
+            `SELECT r."rawmaterial_ID", r."quantity_req",
                 COALESCE(r."unit", rm."unit") AS recipe_unit,
                 rm."unit" AS stock_unit
          FROM public."RECIPE" r
          JOIN public."Raw_Material" rm 
            ON rm."rm_id" = r."rawmaterial_ID"
          WHERE r."pro_id" = $1`,
-        [pro_id]
-      );
+            [pro_id]
+          );
 
-      for (const recipe of recipes.rows) {
-        const rawQty = recipe.quantity_req * pro_quantity;
-        const convertedQty = convertRecipeQty(
-          rawQty, 
-          recipe.recipe_unit, 
-          recipe.stock_unit
-        );
+          for (const recipe of recipes.rows) {
+            const rawQty = recipe.quantity_req * pro_quantity;
+            const convertedQty = convertRecipeQty(
+              rawQty,
+              recipe.recipe_unit,
+              recipe.stock_unit
+            );
 
-        await client.query(
-          `UPDATE public."Raw_Material"
+            await client.query(
+              `UPDATE public."Raw_Material"
            SET stock_qty = stock_qty + $1
            WHERE rm_id = $2`,
-          [convertedQty, recipe.rawmaterial_ID]
-        );
+              [convertedQty, recipe.rawmaterial_ID]
+            );
+          }
+        }
       }
+
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(500).json({
+        success: false,
+        error: err.message
+      });
     }
-  }
 
-  await client.query("COMMIT");
-} catch (err) {
-  await client.query("ROLLBACK");
-  client.release();
-  return res.status(500).json({ 
-    success: false, 
-    error: err.message 
-  });
-}
+    client.release();
 
-client.release();
+    emitSocketEvent(
+      "order:updated",
+      updatedOrder,
+      { room: KITCHEN_SOCKET_ROOM },
+    );
 
-emitSocketEvent(
-  "order:updated",
-  updatedOrder,
-  { room: KITCHEN_SOCKET_ROOM },
-);
-
-if (status === "completed") {
-  emitSocketEvent("order:ready", updatedOrder, {
-    room: getCashierSocketRoom(updatedOrder.u_id),
-  });
-}
+    if (status === "completed") {
+      emitSocketEvent("order:ready", updatedOrder, {
+        room: getCashierSocketRoom(updatedOrder.u_id),
+      });
+    }
 
 if (status === "cancelled") {
   emitSocketEvent("order:rejected", updatedOrder, {

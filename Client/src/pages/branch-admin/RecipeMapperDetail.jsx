@@ -46,7 +46,7 @@ const RecipeMapperDetail = () => {
   const [notice, setNotice] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [branchId, setBranchId] = useState(null); 
+  const [branchId, setBranchId] = useState(null);
 
   // Load recipe data
   const loadRecipeData = useCallback(async () => {
@@ -139,7 +139,7 @@ const RecipeMapperDetail = () => {
     if (!companyId) return;
 
     const socket = connectSocket();
-    
+
     const handleConnect = () => {
       console.log('Socket connected in RecipeMapperDetail');
       setSocketConnected(true);
@@ -180,9 +180,9 @@ const RecipeMapperDetail = () => {
     const handleRecipeUpdated = (data) => {
       console.log('Recipe updated event received:', data);
       if (data.pro_id === parseInt(productId)) {
-        setRecipeItems(prev => 
-          prev.map(item => 
-            item.recipe_id === data.ingredient.recipe_id 
+        setRecipeItems(prev =>
+          prev.map(item =>
+            item.recipe_id === data.ingredient.recipe_id
               ? { ...item, ...data.ingredient }
               : item
           )

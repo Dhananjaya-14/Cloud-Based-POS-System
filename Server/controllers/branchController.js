@@ -105,7 +105,7 @@ export async function getBranchById(req, res, next) {
     }
 
     const branchId = Number(id);
-    
+
     // Check permissions for non-admin roles
     if (
       role_id === ROLES.BRANCH_ADMIN ||
@@ -130,9 +130,9 @@ export async function getBranchById(req, res, next) {
       LEFT JOIN "Company" c ON b."com_id" = c."com_id"
       WHERE b."B_id" = $1
     `;
-    
+
     const queryParams = [branchId];
-    
+
     // Add company filter for admin users
     if (role_id === ROLES.ADMIN && com_id != null) {
       query += ` AND b."com_id" = $2`;

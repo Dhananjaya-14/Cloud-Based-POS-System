@@ -3,7 +3,6 @@ import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
 import { emitUserEventToBranch, emitSocketEvent, SOCKET_EVENTS, getBranchUserRoom, getCompanyRoom } from "../utils/socket.js";
 
-// Helper to hash password when provided
 async function hashPassword(password) {
   const salt = await bcrypt.genSalt(10);
   return bcrypt.hash(password, salt);
@@ -60,7 +59,7 @@ export async function getUsers(req, res, next) {
                  LEFT JOIN "Branch" b ON b."B_id" = u."B_id"
                  LEFT JOIN "Company" c1 ON b.com_id = c1.com_id
                  LEFT JOIN "Company" c2 ON u.com_id = c2.com_id`;
-    
+
     let params = [];
 
     if (role_id === ROLES.ADMIN && com_id != null) {
@@ -121,20 +120,19 @@ export async function getUserById(req, res, next) {
   }
 }
 
-//create user
-// POST /api/users
 export async function createUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
     const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
+    const { targetRoleId, B_id, com_id } = resolveUserScope(req, role_id, req.body, null);
 
     if (!u_fname || !u_lname || !u_email || !u_pw) {
       res.status(400);
       throw new Error("u_fname, u_lname, u_email and u_pw are required");
     }
 
-    let B_id = null;
-    let com_id = null;
+    B_id = null;
+    com_id = null;
 
     if (Number(role_id) === ROLES.SUPER_ADMIN) {
       // Super Admin needs no company or branch
@@ -153,7 +151,7 @@ export async function createUser(req, res, next) {
       B_id = scopedBranchId
         ? Number(scopedBranchId)
         : normalizeOptionalPositiveInt(requestedBranchId, "B_id");
-      
+
       // B_id is required for cashier, waiter, kitchen staff, but optional for branch admin
       if (!B_id && Number(role_id) !== ROLES.BRANCH_ADMIN) {
         res.status(400);
@@ -181,7 +179,7 @@ export async function createUser(req, res, next) {
     // Check for existing email
     const existing = await pool.query(
       'SELECT u_id FROM "User" WHERE u_email = $1',
-      [u_email]
+      [u_email],
     );
     if (existing.rows.length > 0) {
       res.status(400);
@@ -260,8 +258,6 @@ export async function createUser(req, res, next) {
   }
 }
 
-//update user
-// PUT /api/users/:id
 export async function updateUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
@@ -320,7 +316,7 @@ export async function updateUser(req, res, next) {
       } else {
         B_id = scopedBranchId ? Number(scopedBranchId) : existingUser.rows[0].B_id;
       }
-      
+
       // B_id is required for cashier, waiter, kitchen staff, but optional for branch admin
       if (!B_id && targetRoleId !== ROLES.BRANCH_ADMIN) {
         res.status(400);
@@ -432,14 +428,12 @@ export async function updateUser(req, res, next) {
   }
 }
 
-//delete user
-// DELETE /api/users/:id
 export async function deleteUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
     const { id } = req.params;
     const scopedBranchId = getScopedBranchId(req);
-    
+
     // Get user branch before deletion
     const getUserParams = [id];
     let branchFilter = "";
@@ -447,22 +441,22 @@ export async function deleteUser(req, res, next) {
       getUserParams.push(Number(scopedBranchId));
       branchFilter = `AND "B_id" = $2`;
     }
-    
+
     const userToDelete = await pool.query(
       `SELECT u_id, "B_id", "com_id", u_fname, u_lname, role_id FROM "User" WHERE u_id = $1 ${branchFilter}`,
       getUserParams
     );
-    
+
     if (userToDelete.rows.length === 0) {
       res.status(404);
       throw new Error("User not found");
     }
-    
+
     const userBranchId = userToDelete.rows[0].B_id;
     const userComId = userToDelete.rows[0].com_id;
     const userRoleId = userToDelete.rows[0].role_id;
     const userName = `${userToDelete.rows[0].u_fname || ''} ${userToDelete.rows[0].u_lname || ''}`.trim() || 'User';
-    
+
     const params = [id];
     if (scopedBranchId) {
       params.push(Number(scopedBranchId));

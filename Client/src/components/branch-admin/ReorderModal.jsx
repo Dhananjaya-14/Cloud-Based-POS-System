@@ -81,7 +81,7 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
       if (!orderRes.ok) {
         // try to read response body for better debugging
         let text = '';
-        try { text = await orderRes.text(); } catch {}
+        try { text = await orderRes.text(); } catch { }
         console.error('Order creation failed', orderRes.status, text);
         // if server returned JSON { message }, try to parse it
         try {

@@ -42,7 +42,7 @@ export async function login(req, res, next) {
       passwordOk = false;
     }
 
-    
+
     // (and auto-migrate to bcrypt on successful login)
     if (!passwordOk && user.u_pw === u_pw) {
       passwordOk = true;
@@ -65,7 +65,7 @@ export async function login(req, res, next) {
     let b_id = user.B_id ?? null;
     let com_id = user.com_id ?? null;
     let features = null;
- 
+
     if (user.role_id === ROLES.SUPER_ADMIN) {
       b_id = null;
       com_id = null;

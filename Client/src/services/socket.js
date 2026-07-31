@@ -58,7 +58,7 @@ export const SOCKET_EVENTS = {
 export const getSocket = () => {
   if (!socket) {
     const token = localStorage.getItem("token");
-    
+
     socket = io(SOCKET_URL, {
       autoConnect: false,
       auth: {
@@ -265,7 +265,7 @@ export const subscribeToCompanyUpdates = (callbacks) => {
 // Helper function to listen for product updates
 export const subscribeToProductUpdates = (companyId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onProductAdded,
@@ -305,7 +305,7 @@ export const subscribeToProductUpdates = (companyId, callbacks) => {
 // Helper function to listen for recipe events
 export const subscribeToRecipeUpdates = (productId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onRecipeCreated,
@@ -354,7 +354,7 @@ export const subscribeToRecipeUpdates = (productId, callbacks) => {
 // Helper function to listen for supplier events
 export const subscribeToSupplierUpdates = (callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onSupplierCreated,
@@ -389,7 +389,7 @@ export const subscribeToSupplierUpdates = (callbacks) => {
 // Helper function to listen for inventory events
 export const subscribeToInventoryUpdates = (branchId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onInventoryCreated,
@@ -432,7 +432,7 @@ export const subscribeToInventoryUpdates = (branchId, callbacks) => {
 // Helper function to listen for branch product events (specifically for branch admins)
 export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onBranchProductAdded,
@@ -475,7 +475,7 @@ export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
 // Helper function to listen for PayHere payment events
 export const subscribeToPayHereUpdates = (orderId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onPaymentConfirmed,

@@ -15,9 +15,9 @@ import Header from "../../components/admin/Header";
 import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getProducts, updateProduct, deleteProduct, deleteBranchProduct, getBranches } from "../../services/api";
-import { 
-  connectSocket, 
-  getSocket, 
+import {
+  connectSocket,
+  getSocket,
   SOCKET_EVENTS,
   joinCompanyRoom,
 } from "../../services/socket";
@@ -120,7 +120,7 @@ const ProductManagement = () => {
   const itemsPerPage = 4;
   const [userCompanyId, setUserCompanyId] = useState(null);
   const isSubscribedRef = useRef(false);
-  
+
   // Delete modal states
   const [showDeletePopup, setShowDeletePopup] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState(null);
@@ -130,7 +130,7 @@ const ProductManagement = () => {
   const [selectedBranchId, setSelectedBranchId] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
   const [toasts, setToasts] = useState([]);
-  
+
   // State for real-time notifications - stored as an array in sessionStorage
   const [notifications, setNotifications] = useState(() => {
     const savedNotifications = sessionStorage.getItem('adminProductNotifications');
@@ -244,16 +244,16 @@ const ProductManagement = () => {
           if (exists) return prev;
           return [...prev, data.product];
         });
-        
+
         setNotifications(prev => {
           const productName = data.product.pro_name || 'Product';
-          const existingNotif = prev.find(n => 
-            n.type === 'add' && 
-            n.productName === productName && 
+          const existingNotif = prev.find(n =>
+            n.type === 'add' &&
+            n.productName === productName &&
             (new Date() - new Date(n.timestamp)) < 5000
           );
           if (existingNotif) return prev;
-          
+
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'add',
@@ -269,23 +269,23 @@ const ProductManagement = () => {
     const handleProductUpdated = (data) => {
       console.log("Product updated via socket (admin):", data);
       if (data.product && data.company_id === userCompanyId) {
-        setProducts(prev => 
-          prev.map(p => 
-            p.pro_id === data.product.pro_id 
+        setProducts(prev =>
+          prev.map(p =>
+            p.pro_id === data.product.pro_id
               ? { ...p, ...data.product }
               : p
           )
         );
-        
+
         setNotifications(prev => {
           const productName = data.product.pro_name || 'Product';
-          const existingNotif = prev.find(n => 
-            n.type === 'update' && 
-            n.productName === productName && 
+          const existingNotif = prev.find(n =>
+            n.type === 'update' &&
+            n.productName === productName &&
             (new Date() - new Date(n.timestamp)) < 5000
           );
           if (existingNotif) return prev;
-          
+
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'update',
@@ -303,13 +303,13 @@ const ProductManagement = () => {
       if (data.pro_id && data.company_id === userCompanyId) {
         const deletedProduct = products.find(p => p.pro_id === data.pro_id);
         const productName = deletedProduct?.pro_name || data.pro_name || 'Product';
-        
-        setProducts(prev => 
+
+        setProducts(prev =>
           prev.filter(p => p.pro_id !== data.pro_id)
         );
-        
-        
-        
+
+
+
       }
     };
 
@@ -418,10 +418,10 @@ const ProductManagement = () => {
         prev.map((item) =>
           item.pro_id === productId
             ? {
-                ...item,
-                ...updated,
-                pro_qty: Number(updated?.pro_qty ?? nextQty),
-              }
+              ...item,
+              ...updated,
+              pro_qty: Number(updated?.pro_qty ?? nextQty),
+            }
             : item
         )
       );
@@ -456,11 +456,11 @@ const ProductManagement = () => {
 
   const confirmDelete = async () => {
     if (!deleteTargetId) return;
-    
+
     try {
       setIsDeleting(true);
       setError("");
-      
+
       if (deleteOption === "complete") {
         await deleteProduct(deleteTargetId);
       } else if (deleteOption === "branch" && selectedBranchId) {
@@ -473,11 +473,11 @@ const ProductManagement = () => {
 
       // Remove from local state
       setProducts(prev => prev.filter(p => p.pro_id !== deleteTargetId));
-      
+
       // Show success notification
-      
+
       showToastMessage(`Product "${deleteTargetName}" deleted successfully.`, "success");
-      
+
       // Close popup
       setShowDeletePopup(false);
       setDeleteTargetId(null);
@@ -573,9 +573,9 @@ const ProductManagement = () => {
             </div>
           )}
 
-         
-              
-            
+
+
+
 
           <div
             style={{
@@ -874,10 +874,10 @@ const ProductManagement = () => {
             )}
 
             {error && (
-              <div style={{ 
-                background: "#FEE2E2", 
-                color: "#991B1B", 
-                padding: "10px 12px", 
+              <div style={{
+                background: "#FEE2E2",
+                color: "#991B1B",
+                padding: "10px 12px",
                 borderRadius: "8px",
                 marginBottom: "16px",
                 fontSize: "14px"

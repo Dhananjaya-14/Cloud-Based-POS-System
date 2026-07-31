@@ -7,6 +7,9 @@ let io;
 
 const BRANCH_UPDATE_ROOM = "branch-updates";
 const KITCHEN_UPDATE_ROOM = "kitchen-updates";
+export const ADMIN_PAYMENT_ROOM = "admin-payments";
+export const ADMIN_SUPPLIER_PAYMENT_ROOM = "admin-supplier-payments";
+export const ADMIN_PURCHASE_ORDER_ROOM = "admin-purchase-orders";
 
 export const getCashierSocketRoom = (userId) => `cashier-updates:${userId}`;
 
@@ -188,7 +191,7 @@ export const initializeSocket = (httpServer) => {
         const branchUserRoom = getBranchUserRoom(branchId);
         socket.join(branchUserRoom);
         console.log(`Branch admin ${socket.user?.u_id} joined user room: ${branchUserRoom}`);
-        
+
         // Also auto-join inventory room for branch admins
         const branchRoom = getBranchInventoryRoom(branchId);
         socket.join(branchRoom);
@@ -367,14 +370,14 @@ export const emitPayHerePaymentConfirmed = (orderId, paymentData) => {
   if (!io) {
     return false;
   }
-  
+
   const orderRoom = `order_${orderId}`;
   io.to(orderRoom).emit(SOCKET_EVENTS.PAYHERE_PAYMENT_CONFIRMED, {
     orderId,
     ...paymentData,
     confirmedAt: new Date().toISOString(),
   });
-  
+
   // Also emit to the branch room for broader notification
   const branchRoom = getBranchInventoryRoom(paymentData.branchId);
   if (branchRoom) {
@@ -384,7 +387,7 @@ export const emitPayHerePaymentConfirmed = (orderId, paymentData) => {
       confirmedAt: new Date().toISOString(),
     });
   }
-  
+
   console.log(`Emitted PAYHERE_PAYMENT_CONFIRMED for order ${orderId}`);
   return true;
 };

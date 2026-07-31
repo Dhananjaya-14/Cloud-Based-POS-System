@@ -7,10 +7,10 @@ import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
 const AVAILABLE_MODULES = [
-  { id: "has_inventory",  label: "Inventory & Products" },
-  { id: "has_kitchen",    label: "Kitchen Display (KOT)" },
-  { id: "has_suppliers",  label: "Suppliers Management" },
-  { id: "has_reports",    label: "Advanced Reports" },
+  { id: "has_inventory", label: "Inventory & Products" },
+  { id: "has_kitchen", label: "Kitchen Display (KOT)" },
+  { id: "has_suppliers", label: "Suppliers Management" },
+  { id: "has_reports", label: "Advanced Reports" },
   { id: "has_promotions", label: "Promotions & Discounts" },
 ];
 
@@ -171,8 +171,8 @@ const PackageManagement = () => {
                   transition: "transform 0.2s, box-shadow 0.2s",
                   cursor: "default"
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05)"; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.boxShadow = "0 10px 15px -3px rgba(0, 0, 0, 0.1)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.boxShadow = "0 4px 6px -1px rgba(0, 0, 0, 0.05)"; }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16 }}>
                     <div>
@@ -183,7 +183,7 @@ const PackageManagement = () => {
                       <FaPen size={14} color="#6B7280" />
                     </button>
                   </div>
-                  
+
                   <div style={{ display: "flex", gap: 16, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid #F3F4F6" }}>
                     <div style={{ flex: 1, background: "#ecf1f7b1", borderRadius: 8, padding: 8 }}>
                       <p style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 600, color: "#9CA3AF", letterSpacing: 0.5 }}>Max Branches</p>
@@ -306,7 +306,7 @@ const PackageManagement = () => {
                 Cancel
               </button>
               <button onClick={handleSave} disabled={isSaving}
-                style={{width: 160,height: 42, display: "flex",alignItems: "center",justifyContent: "center",gap: 8,borderRadius: 8,border: "none",background: "#3B82F6", color: "#fff", fontSize: 14, fontWeight: 600, cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1, flexShrink: 0 }}
+                style={{ width: 160, height: 42, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 8, border: "none", background: "#3B82F6", color: "#fff", fontSize: 14, fontWeight: 600, cursor: isSaving ? "not-allowed" : "pointer", opacity: isSaving ? 0.7 : 1, flexShrink: 0 }}
               >
                 {isSaving && <Spinner size={14} color="#fff" />}
                 {isSaving ? "Saving..." : "Save Package"}

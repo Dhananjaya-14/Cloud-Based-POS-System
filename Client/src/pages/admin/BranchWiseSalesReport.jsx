@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getBranchWiseSalesReport} from "../../services/api";
+import { getBranchWiseSalesReport } from "../../services/api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -25,8 +25,8 @@ export default function BranchWiseSalesReport() {
   const [grandTotal, setGrandTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [activeRange, setActiveRange] = useState({ from: "", to: "" });
-  const [userFName,setUserFName]=useState("");
-  const [userLName,setUserLName]=useState("");
+  const [userFName, setUserFName] = useState("");
+  const [userLName, setUserLName] = useState("");
   const today = new Date().toISOString().split("T")[0];
   const currentMonthString = new Date().toISOString().substring(0, 7);
 
@@ -45,7 +45,7 @@ export default function BranchWiseSalesReport() {
   useEffect(() => {
     if (user) {
       const ufirstName = user?.u_fname;
-      const ulastName=user?.u_lname;
+      const ulastName = user?.u_lname;
       setUserFName(ufirstName);
       setUserLName(ulastName);
     }
@@ -113,7 +113,7 @@ export default function BranchWiseSalesReport() {
   }, [user?.com_id]);
 
 
- 
+
   const exportExcel = () => {
     const formattedRows = rows.map((row) => {
       const dataRow = {};
@@ -186,7 +186,7 @@ export default function BranchWiseSalesReport() {
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated: ${generatedDate} ${generatedTime}`, 14, 28);
-    doc.text(`User: ${userFName|| " "}  ${userLName}`,14,34);
+    doc.text(`User: ${userFName || " "}  ${userLName}`, 14, 34);
     doc.line(14, 35, 196, 35);
 
     let filterLabel = "Daily";
@@ -254,7 +254,7 @@ export default function BranchWiseSalesReport() {
 
   return (
     <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
-    <Sidebar/>
+      <Sidebar />
       <div className="flex flex-1 flex-col h-auto min-h-screen pb-12 overflow-y-visible" style={{ marginLeft: 240 }}>
         <Header title="Analytical Report" />
 
