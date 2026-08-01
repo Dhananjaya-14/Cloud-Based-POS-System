@@ -260,7 +260,7 @@ function App() {
       <Route
         path="/admin/products"
         element={
-          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_inventory">
+          <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminProductManagement />
           </ProtectedRoute>
         }
@@ -368,7 +368,7 @@ function App() {
       <Route
         path="/branch-admin/raw-ingredient"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1, 2]} requiredFeature="has_inventory">
             <AddRawMaterials />
           </ProtectedRoute>
         }
@@ -377,7 +377,7 @@ function App() {
       <Route
         path="/branch-admin/inventory"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1, 2]} requiredFeature="has_inventory">
             <InventoryDashboard />
           </ProtectedRoute>
         }
@@ -386,7 +386,7 @@ function App() {
       <Route
         path="/branch-admin/waste-management"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1, 2]} requiredFeature="has_inventory">
             <WasteManagement />
           </ProtectedRoute>
         }
@@ -413,7 +413,7 @@ function App() {
       <Route
         path="/branch-admin/recipe-mapper"
         element={
-          <ProtectedRoute allowedRoles={[1]}>
+          <ProtectedRoute allowedRoles={[1]} requiredFeature="has_inventory">
             <RecipeMapper />
           </ProtectedRoute>
         }
@@ -422,7 +422,7 @@ function App() {
       <Route
         path="/branch-admin/recipe-mapper/:productId"
         element={
-          <ProtectedRoute allowedRoles={[1]}>
+          <ProtectedRoute allowedRoles={[1]} requiredFeature="has_inventory">
             <RecipeMapperDetail />
           </ProtectedRoute>
         }

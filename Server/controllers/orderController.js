@@ -41,10 +41,10 @@ const VALID_TYPES = ["dine-in", "takeaway", "delivery"];
 // Legal status transitions for a POS system
 // Key = current status, Value = allowed next statuses
 const STATUS_TRANSITIONS = {
-  pending: ["preparing", "cancelled"],
+  pending:   ["preparing", "completed", "cancelled"],
   preparing: ["completed", "cancelled"],
-  completed: [], // terminal — no further changes
-  cancelled: [], // terminal — no further changes
+  completed: [],
+  cancelled: [], 
 };
 
 // ─────────────────────────────────────────────
@@ -90,9 +90,11 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
  * - delivery → cust_id required
  * Returns an error string or null if valid.
  */
-function validateTypeConstraints(or_type, cust_id, table_id) {
+function validateTypeConstraints(or_type, cust_id, table_id, features) {
   if (or_type === "dine-in" && !table_id) {
-    return "table_id is required for dine-in orders";
+    if (features?.has_waiter) {
+      return "table_id is required for dine-in orders when Waiter module is active";
+    }
   }
   if (or_type === "delivery" && !cust_id) {
     return "cust_id is required for delivery orders";
@@ -381,7 +383,7 @@ export const createOrder = async (req, res) => {
     }
 
     // ── Type-specific business rules ──
-    const typeError = validateTypeConstraints(or_type, cust_id, table_id);
+    const typeError = validateTypeConstraints(or_type, cust_id, table_id, req.user?.features);
     if (typeError) {
       return res.status(400).json({ success: false, error: typeError });
     }
@@ -576,7 +578,7 @@ export const updateOrder = async (req, res) => {
     }
 
     // ── Type-specific business rules ──
-    const typeError = validateTypeConstraints(or_type, cust_id, table_id);
+    const typeError = validateTypeConstraints(or_type, cust_id, table_id, req.user?.features);
     if (typeError) {
       return res.status(400).json({ success: false, error: typeError });
     }
@@ -746,7 +748,7 @@ export const patchOrder = async (req, res) => {
     // ── Type-specific business rules using merged state ──
     const newCustId = incoming.cust_id ?? current.cust_id;
     const newTableId = incoming.table_id ?? current.table_id;
-    const typeError = validateTypeConstraints(newType, newCustId, newTableId);
+    const typeError = validateTypeConstraints(newType, newCustId, newTableId, req.user?.features);
     if (typeError) {
       return res.status(400).json({ success: false, error: typeError });
     }

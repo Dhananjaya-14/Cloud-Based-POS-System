@@ -7,10 +7,11 @@ import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
 const AVAILABLE_MODULES = [
-  { id: "has_inventory", label: "Inventory & Products" },
-  { id: "has_kitchen", label: "Kitchen Display (KOT)" },
-  { id: "has_suppliers", label: "Suppliers Management" },
-  { id: "has_reports", label: "Advanced Reports" },
+  { id: "has_inventory",  label: "Inventory Management" },
+  { id: "has_kitchen",    label: "Kitchen Display (KOT)" },
+  { id: "has_waiter",     label: "Waiter POS Module" },
+  { id: "has_suppliers",  label: "Suppliers Management" },
+  { id: "has_reports",    label: "Advanced Reports" },
   { id: "has_promotions", label: "Promotions & Discounts" },
 ];
 
