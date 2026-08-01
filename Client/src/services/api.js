@@ -175,6 +175,11 @@ export const updatePackage = async (id, packageData) => {
   return response.data;
 };
 
+export const deletePackage = async (id) => {
+  const response = await api.delete(`/packages/${id}`);
+  return response.data;
+};
+
 export const getProducts = async () => {
   const response = await api.get("/products");
   return response.data;
@@ -637,6 +642,11 @@ export const getBranchComparison = async () => {
 
 //   return res.data?.data ?? res.data ?? [];
 // };
+
+export const getPurchaseOrders = async () => {
+  const response = await api.get("/purchase-orders");
+  return response.data?.data ?? response.data ?? [];
+};
 
 export const getPurchaseOrderById = async (
   id
