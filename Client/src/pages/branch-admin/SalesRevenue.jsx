@@ -341,11 +341,10 @@ const SalesRevenue = () => {
 									key={tab.key}
 									type="button"
 									onClick={() => setTimeRange(tab.key)}
-									className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-										timeRange === tab.key
+									className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${timeRange === tab.key
 											? "bg-sky-500 text-white"
 											: "text-slate-500 hover:text-slate-700"
-									}`}
+										}`}
 								>
 									{tab.label}
 								</button>
