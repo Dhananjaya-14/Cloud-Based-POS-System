@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { FaSearch, FaPlus, FaPen, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
+import { FaSearch, FaPlus, FaPen, FaCheckCircle, FaTimesCircle, FaTrash } from "react-icons/fa";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
-import { getPackages, createPackage, updatePackage } from "../../services/api";
+import { getPackages, createPackage, updatePackage, deletePackage } from "../../services/api";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
@@ -24,6 +24,9 @@ const PackageManagement = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [modalError, setModalError] = useState("");
   const [moduleToAdd, setModuleToAdd] = useState("");
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [packageToDelete, setPackageToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toasts, removeToast, toast } = useToast();
 
   const defaultForm = () => ({
@@ -105,6 +108,27 @@ const PackageManagement = () => {
     }
   };
 
+  const initiateDelete = (pkg) => {
+    setPackageToDelete(pkg);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDeletePackage = async () => {
+    if (!packageToDelete) return;
+    setIsDeleting(true);
+    try {
+      await deletePackage(packageToDelete.package_id);
+      toast.success("Package deleted successfully");
+      fetchData();
+    } catch (err) {
+      toast.error(err.response?.data?.error || err.message || "Failed to delete package.");
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalOpen(false);
+      setPackageToDelete(null);
+    }
+  };
+
   const addModule = () => {
     if (moduleToAdd && !formData.selected_modules.includes(moduleToAdd)) {
       setFormData(f => ({ ...f, selected_modules: [...f.selected_modules, moduleToAdd] }));
@@ -180,9 +204,14 @@ const PackageManagement = () => {
                       <h3 style={{ margin: "0 0 4px", fontSize: 20, fontWeight: 800, color: "#111827" }}>{pkg.package_name}</h3>
                       <p style={{ margin: 0, fontSize: 14, fontWeight: 500, color: "#6B7280" }}>Comprehensive Package</p>
                     </div>
-                    <button onClick={() => openEditModal(pkg)} style={iconBtnStyle} title="Edit Package">
-                      <FaPen size={14} color="#6B7280" />
-                    </button>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={() => openEditModal(pkg)} style={iconBtnStyle} title="Edit Package">
+                        <FaPen size={14} color="#6B7280" />
+                      </button>
+                      <button onClick={() => initiateDelete(pkg)} style={{ ...iconBtnStyle, color: "#EF4444" }} title="Delete Package">
+                        <FaTrash size={14} color="#EF4444" />
+                      </button>
+                    </div>
                   </div>
 
                   <div style={{ display: "flex", gap: 16, marginBottom: 20, paddingBottom: 16, borderBottom: "1px solid #F3F4F6" }}>
@@ -311,6 +340,32 @@ const PackageManagement = () => {
               >
                 {isSaving && <Spinner size={14} color="#fff" />}
                 {isSaving ? "Saving..." : "Save Package"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Delete Confirmation Modal */}
+      {deleteModalOpen && (
+        <div style={{ position: "fixed", top: 0, left: 0, width: "100%", height: "100%", background: "rgba(17, 24, 39, 0.6)", zIndex: 9999, display: "flex", justifyContent: "center", alignItems: "center" }}>
+          <div style={{ background: "#fff", width: 400, borderRadius: 16, padding: 32, boxShadow: "0 20px 25px -5px rgba(0,0,0,0.1)", textAlign: "center" }}>
+            <div style={{ width: 64, height: 64, borderRadius: "50%", background: "#FEE2E2", color: "#DC2626", display: "flex", justifyContent: "center", alignItems: "center", margin: "0 auto 20px" }}>
+              <FaTrash size={28} />
+            </div>
+            <h2 style={{ margin: "0 0 12px", fontSize: 20, fontWeight: 800, color: "#111827" }}>Delete Package?</h2>
+            <p style={{ margin: "0 0 24px", color: "#4B5563", fontSize: 15, lineHeight: 1.5 }}>
+              Are you sure you want to delete the package <strong>"{packageToDelete?.package_name}"</strong>? 
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => !isDeleting && setDeleteModalOpen(false)} disabled={isDeleting}
+                style={{ flex: 1, height: 44, borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={confirmDeletePackage} disabled={isDeleting}
+                style={{ flex: 1, height: 44, borderRadius: 8, border: "none", background: "#DC2626", color: "#fff", fontSize: 14, fontWeight: 600, cursor: isDeleting ? "not-allowed" : "pointer", display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+                {isDeleting && <Spinner size={14} color="#fff" />}
+                {isDeleting ? "Deleting..." : "Delete Package"}
               </button>
             </div>
           </div>

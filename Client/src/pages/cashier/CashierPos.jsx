@@ -1066,7 +1066,6 @@ const CashierPos = () => {
                   const priceLabel = Number(product.pro_price ?? 0).toFixed(2);
 
                   return (
-<<<<<<< HEAD
                     <article
                       key={product.Bpro_id ?? index}
                       onClick={() => !isOutOfStock && addToCart(product)}
@@ -1075,11 +1074,6 @@ const CashierPos = () => {
                           ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-50"
                           : "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]"
                       }`}
-=======
-                    <article key={product.Bpro_id ?? index}
-                      onClick={() => addToCart(product)}
-                      className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]"
->>>>>>> 5ba28f41c1640a00ac06ca73546af1f419502154
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex h-14 w-full items-center justify-center rounded-xl bg-sky-50 text-[#0A5BAE]">
