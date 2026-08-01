@@ -276,7 +276,7 @@ const BranchProfileEdit = () => {
           state: { branch: nextBranch, manager: updatedManager },
         });
       }, 1500);
-      
+
     } catch (err) {
       setError(err?.response?.data?.message || "Unable to save branch profile.");
     } finally {
@@ -322,7 +322,7 @@ const BranchProfileEdit = () => {
                   animation: "slideInRight 0.3s ease-out",
                 }}
               >
-                <div style={{ 
+                <div style={{
                   flex: 1,
                   fontSize: "14px",
                   fontWeight: "500",

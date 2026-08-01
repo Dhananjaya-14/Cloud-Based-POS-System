@@ -1,6 +1,7 @@
 // controllers/paymentController.js
 import { body, param, query, validationResult } from "express-validator";
 import pool from "../config/database.js";
+import { emitSocketEvent, ADMIN_PAYMENT_ROOM } from "../utils/socket.js";
 
 // ─── DB-Aligned Constants ─────────────────────────────────────────────────────
 // Adjust these to match your Payment table CHECK constraints if you have them
@@ -303,7 +304,7 @@ export const createPaymentValidation = [
       if (!["pending", "preparing"].includes(rows[0].or_status)) {
         throw new Error(
           `Cannot create a payment for an order with status '${rows[0].or_status}'. ` +
-            `Order must be pending or preparing.`,
+          `Order must be pending or preparing.`,
         );
       }
       return true;
@@ -399,7 +400,7 @@ export const updatePaymentValidation = [
       if (!allowed.includes(newStatus)) {
         throw new Error(
           `Cannot transition pay_status from '${curr}' to '${newStatus}'. ` +
-            `Allowed: [${allowed.join(", ") || "none — this status is terminal"}]`,
+          `Allowed: [${allowed.join(", ") || "none — this status is terminal"}]`,
         );
       }
       return true;
@@ -461,6 +462,13 @@ export async function updatePayment(req, res, next) {
     const { id } = req.params;
     const { pay_method, pay_status, pay_date, pay_amount, or_id } = req.body;
 
+    // Retrieve current status to detect transition
+    const { rows: prevRows } = await pool.query(
+      'SELECT pay_status FROM "Payment" WHERE p_id = $1',
+      [id]
+    );
+    const prevStatus = prevRows[0]?.pay_status;
+
     const { rows } = await pool.query(
       `UPDATE "Payment"
        SET pay_method = $1,
@@ -477,6 +485,11 @@ export async function updatePayment(req, res, next) {
       return res
         .status(404)
         .json({ success: false, message: "Payment not found" });
+    }
+
+    // Emit socket event if payment moved to paid or refunded
+    if ((pay_status === "paid" || pay_status === "refunded") && prevStatus !== pay_status) {
+      emitSocketEvent("payment:completed", rows[0], { room: ADMIN_PAYMENT_ROOM });
     }
 
     res.json({ success: true, data: rows[0] });
@@ -505,7 +518,7 @@ export const deletePaymentValidation = [
     if (!deletable.includes(rows[0].pay_status)) {
       throw new Error(
         `Cannot delete a payment with status '${rows[0].pay_status}'. ` +
-          `Only voided or failed payments may be deleted.`,
+        `Only voided or failed payments may be deleted.`,
       );
     }
     return true;

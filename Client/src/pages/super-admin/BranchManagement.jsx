@@ -1,3 +1,4 @@
+// Client/src/pages/super-admin/BranchManagement.jsx
 import React, { useEffect, useState } from "react";
 import { FaSearch, FaFilter, FaPlus, FaCodeBranch } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -5,7 +6,7 @@ import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, getCompanies, setAuthToken, logout } from "../../services/api";
-import { connectSocket } from "../../services/socket";
+import { connectSocket, joinBranchUpdatesRoom, SOCKET_EVENTS } from "../../services/socket";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
@@ -44,29 +45,96 @@ const SuperAdminBranchManagement = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) { navigate("/login"); return; }
+    if (!token) { 
+      navigate("/login"); 
+      return; 
+    }
     setAuthToken(token);
+    
+    // Connect to socket and join branch updates room
+    const socket = connectSocket();
+    joinBranchUpdatesRoom();
+    
     fetchData();
+    
+    return () => {
+      // Cleanup socket listeners
+      if (socket) {
+        socket.off(SOCKET_EVENTS.BRANCH_CREATED);
+        socket.off(SOCKET_EVENTS.BRANCH_UPDATED);
+        socket.off(SOCKET_EVENTS.BRANCH_DELETED);
+      }
+    };
   }, [navigate]);
 
   // Realtime socket updates
   useEffect(() => {
     const socket = connectSocket();
-    const handleCreated = (b) => setBranches((prev) => [b, ...prev]);
-    const handleUpdated = (b) => setBranches((prev) => prev.map((x) => x.B_id === b.B_id ? b : x));
+    
+    // Handle branch created
+    const handleCreated = (data) => {
+      console.log("📡 Branch created event received:", data);
+      setBranches((prev) => {
+        // Check if branch already exists (prevent duplicates)
+        const exists = prev.some(b => b.B_id === data.B_id);
+        if (exists) return prev;
+        return [data, ...prev];
+      });
+      // Show toast notification for the other admin
+      if (data.actor_name) {
+        toast.info(`New Branch Added`, `${data.actor_name} added "${data.B_name}"`);
+      } else {
+        toast.info(`New Branch Added`, `"${data.B_name}" was added to the system`);
+      }
+    };
+    
+    // Handle branch updated
+    const handleUpdated = (data) => {
+      console.log("📡 Branch updated event received:", data);
+      setBranches((prev) => prev.map((x) => 
+        x.B_id === data.B_id ? { ...x, ...data } : x
+      ));
+      // Show toast notification for the other admin
+      if (data.actor_name) {
+        toast.info(`Branch Updated`, `${data.actor_name} updated "${data.B_name}"`);
+      } else {
+        toast.info(`Branch Updated`, `"${data.B_name}" was updated`);
+      }
+    };
+    
+    // Handle branch deleted
     const handleDeleted = (payload) => {
+      console.log("📡 Branch deleted event received:", payload);
       const id = payload?.B_id ?? payload?.b_id ?? null;
-      if (id != null) setBranches((prev) => prev.filter((x) => Number(x.B_id) !== Number(id)));
+      if (id != null) {
+        setBranches((prev) => prev.filter((x) => Number(x.B_id) !== Number(id)));
+        // Show toast notification for the other admin
+        if (payload.actor_name && payload.B_name) {
+          toast.info(`Branch Deleted`, `${payload.actor_name} deleted "${payload.B_name}"`);
+        } else {
+          toast.info(`Branch Deleted`, `Branch #${id} was removed from the system`);
+        }
+      }
     };
-    socket.on("branch:created", handleCreated);
-    socket.on("branch:updated", handleUpdated);
-    socket.on("branch:deleted", handleDeleted);
+
+    // Register event listeners
+    socket.on(SOCKET_EVENTS.BRANCH_CREATED, handleCreated);
+    socket.on(SOCKET_EVENTS.BRANCH_UPDATED, handleUpdated);
+    socket.on(SOCKET_EVENTS.BRANCH_DELETED, handleDeleted);
+    
+    // Debug: Log all events
+    socket.onAny((event, ...args) => {
+      if (event.startsWith('branch:')) {
+        console.log(`🔔 Branch event: ${event}`, args[0]);
+      }
+    });
+
     return () => {
-      socket.off("branch:created", handleCreated);
-      socket.off("branch:updated", handleUpdated);
-      socket.off("branch:deleted", handleDeleted);
+      socket.off(SOCKET_EVENTS.BRANCH_CREATED, handleCreated);
+      socket.off(SOCKET_EVENTS.BRANCH_UPDATED, handleUpdated);
+      socket.off(SOCKET_EVENTS.BRANCH_DELETED, handleDeleted);
     };
-  }, []);
+  }, [toast]);
 
   const fetchData = async () => {
     try {
@@ -76,7 +144,11 @@ const SuperAdminBranchManagement = () => {
       setCompanies(Array.isArray(cData) ? cData : []);
     } catch (err) {
       console.error("fetch error:", err);
-      if (err.response?.status === 401) { logout(); navigate("/login"); }
+      if (err.response?.status === 401) { 
+        logout(); 
+        navigate("/login"); 
+      }
+      toast.error("Failed to load data", "Please refresh the page and try again.");
     } finally {
       setLoading(false);
     }
@@ -267,6 +339,9 @@ const SuperAdminBranchManagement = () => {
           onSuccess={(newBranch) => {
             fetchData();
             toast.success("Branch Created", newBranch?.B_name ? `"${newBranch.B_name}" was added successfully.` : "New branch was added successfully.");
+          }}
+          onError={(error) => {
+            toast.error("Failed to Create Branch", error?.message || "An error occurred while creating the branch.");
           }}
         />
       )}

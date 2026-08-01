@@ -126,9 +126,9 @@ const EditUser = () => {
                     branch: defaultBranchValue,
                     password: "",
                     confirmPassword: "",
-                    isActive: userData?.u_status === true || 
-            String(userData?.u_status).toLowerCase() === "true" ||
-            String(userData?.u_status).toLowerCase() === "active",
+                    isActive: userData?.u_status === true ||
+                        String(userData?.u_status).toLowerCase() === "true" ||
+                        String(userData?.u_status).toLowerCase() === "active",
                 });
             } catch (error) {
                 const msg = error?.response?.data?.message || "Failed to load user details";
@@ -206,7 +206,7 @@ const EditUser = () => {
                 u_connumber: formData.contactNumber || null,
                 role_id: Number(formData.role),
                 u_status: formData.isActive,
-                };
+            };
 
             if (formData.password) {
                 payload.u_pw = formData.password;
@@ -216,11 +216,11 @@ const EditUser = () => {
 
             // Show success toast immediately
             showToastMessage("User details updated successfully!", "success");
-            
+
             setIsEditMode(false);
             // Show the success modal
             setShowSuccessToast(true);
-            
+
         } catch (error) {
             const message = error?.response?.data?.message || "Failed to update user";
             setErrorMessage(message);
@@ -274,7 +274,7 @@ const EditUser = () => {
                     </div>
 
                     <div style={{ maxWidth: "980px", margin: "0 auto" }}>
-                       
+
                         <div
                             style={{
                                 display: "grid",
@@ -487,7 +487,7 @@ const EditUser = () => {
                 </div>
             )}
 
-            
+
         </div>
     );
 };

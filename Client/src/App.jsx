@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import Login from './pages/Login';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
@@ -41,16 +41,17 @@ import ProductSalesReport from './pages/branch-admin/ProductSalesReport';
 import RawMaterialStockReport from './pages/branch-admin/RawMaterialStockReport';
 import RawMaterialConsumptionReport from './pages/branch-admin/RawMaterialConsumptionReport';
 import SalesDetailsReport from './pages/cashier/SalesDetailsReport';
+import ActivityLog from './pages/super-admin/ActivityLog';
 
-const BranchProfileRouter = () => {
-  const { user } = useAuth();
+// const BranchProfileRouter = () => {
+//   const { user } = useAuth();
 
-  if (user?.role_id === 1) {
-    return <Navigate to="/branch-admin/products" replace />;
-  }
+//   if (user?.role_id === 1) {
+//     return <Navigate to="/branch-admin/products" replace />;
+//   }
 
-  return <BranchProfile />;
-};
+//   return <BranchProfile />;
+// };
 import AddRawMaterials from './pages/branch-admin/AddRawMaterials';
 import InventoryDashboard from './pages/branch-admin/InventoryDashboard';
 import SupplierManagement from './pages/branch-admin/SupplierManagement';
@@ -64,6 +65,16 @@ import WaiterPos from './pages/waiter/WaiterPos';
 import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
 import AdminSupplierManagement from './pages/admin/SupplierManagement';
 import WasteManagement from './pages/branch-admin/WasteManagement';
+
+const BranchProfileRouter = () => {
+  const { user } = useAuth();
+
+  if (user?.role_id === 1) {
+    return <Navigate to="/branch-admin/products" replace />;
+  }
+
+  return <BranchProfile />;
+};
 
 function App() {
   return (
@@ -115,6 +126,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[6]}>
             <SuperAdminUserDetails />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/super-admin/activity-log"
+        element={
+          <ProtectedRoute allowedRoles={[6]}>
+            <ActivityLog />
           </ProtectedRoute>
         }
       />
@@ -417,112 +437,112 @@ function App() {
           </ProtectedRoute>
         }
 
-        />
+      />
 
-        <Route
-          path="/cashier/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={[3]}>
-              <CashierDashboard />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/cashier/pos"
-          element={
-            <ProtectedRoute allowedRoles={[3]}>
-              <CashierPos />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/cashier/invoice-preview"
-          element={
-            <ProtectedRoute allowedRoles={[3]}>
-              <InvoicePreview />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/dashboard"
-          element={
-            <ProtectedRoute allowedRoles={[2, 6]}>
-              <AdminDashboard />
-            </ProtectedRoute>
+      <Route
+        path="/cashier/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={[3]}>
+            <CashierDashboard />
+          </ProtectedRoute>
         }
       />
 
-        <Route
-          path="/admin/statistics"
-          element={
-            <ProtectedRoute allowedRoles={[2, 6]}>
-              <AdminStatistics />
-            </ProtectedRoute>
-       }
+      <Route
+        path="/cashier/pos"
+        element={
+          <ProtectedRoute allowedRoles={[3]}>
+            <CashierPos />
+          </ProtectedRoute>
+        }
       />
-          <Route
-           path="/waiter/pos"
-          element={
-            <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}>
-              <WaiterPos />
-            </ProtectedRoute>
-          }
-        />
 
-        <Route
-           path="/admin/transactions"
-          element={
-            <ProtectedRoute allowedRoles={[2, 6]}>
-              <AdminTransactions  />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/cashier/invoice-preview"
+        element={
+          <ProtectedRoute allowedRoles={[3]}>
+            <InvoicePreview />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-           path="/branch-admin/transactions"
-          element={
-            <ProtectedRoute allowedRoles={[1, 2]}>
-              <BranchAdminTransactions  />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-            path="/admin/promotions"
-            element={
-              <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_promotions">
-                <Promotions />
-              </ProtectedRoute>
-            }
-          />
+      <Route
+        path="/admin/dashboard"
+        element={
+          <ProtectedRoute allowedRoles={[2, 6]}>
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-            path="/branch-admin/promotions"
-          element={
-            <ProtectedRoute allowedRoles={[1 , 2, 6]} requiredFeature="has_promotions">
-                <Promotions />
-            </ProtectedRoute>
-          }
-        />
+      <Route
+        path="/admin/statistics"
+        element={
+          <ProtectedRoute allowedRoles={[2, 6]}>
+            <AdminStatistics />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/waiter/pos"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2, 3, 4, 5, 6, 8, 9]}>
+            <WaiterPos />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/transactions"
+        element={
+          <ProtectedRoute allowedRoles={[2, 6]}>
+            <AdminTransactions />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/transactions"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <BranchAdminTransactions />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/promotions"
+        element={
+          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_promotions">
+            <Promotions />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/promotions"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2, 6]} requiredFeature="has_promotions">
+            <Promotions />
+          </ProtectedRoute>
+        }
+      />
 
       <Route path="*" element={<Navigate to="/" />} />
-     
+
       <Route
         path="/branch-admin/summary-sales"
         element={
           <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
-            <SalesSummaryReport/>
+            <SalesSummaryReport />
           </ProtectedRoute>
-          }
-        />
+        }
+      />
 
       <Route
         path="/branch-admin/summary-productsales"
         element={
           <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
-            <ProductSalesReport/>
+            <ProductSalesReport />
           </ProtectedRoute>}
       />
 
@@ -530,7 +550,7 @@ function App() {
         path="/branch-admin/raw-material-stock"
         element={
           <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
-            <RawMaterialStockReport/>
+            <RawMaterialStockReport />
           </ProtectedRoute>}
       />
 
@@ -538,25 +558,25 @@ function App() {
         path="/branch-admin/raw-material-consumption"
         element={
           <ProtectedRoute allowedRoles={[1]} requiredFeature="has_reports">
-            <RawMaterialConsumptionReport/>
+            <RawMaterialConsumptionReport />
           </ProtectedRoute>}
       />
 
       <Route
         path="/cashier/sales-summary"
         element={
-        <ProtectedRoute allowedRoles={[3]}>
-            <SalesDetailsReport/>
-        </ProtectedRoute>}       
+          <ProtectedRoute allowedRoles={[3]}>
+            <SalesDetailsReport />
+          </ProtectedRoute>}
 
       />
 
       <Route
         path="/admin/sales-details"
         element={
-         <ProtectedRoute allowedRoles={[2]} requiredFeature="has_reports">
-             <BranchWiseSalesReport/>
-        </ProtectedRoute>}
+          <ProtectedRoute allowedRoles={[2]} requiredFeature="has_reports">
+            <BranchWiseSalesReport />
+          </ProtectedRoute>}
       />
 
 

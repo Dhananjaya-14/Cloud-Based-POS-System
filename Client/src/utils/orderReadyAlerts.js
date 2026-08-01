@@ -12,6 +12,7 @@ const parseAlerts = (rawValue) => {
     return parsed
       .map((item) => ({
         orderId: item?.orderId,
+        type: item?.type === "rejected" ? "rejected" : "ready",
         message: String(item?.message || ""),
         createdAt: Number(item?.createdAt || Date.now()),
       }))
@@ -38,7 +39,7 @@ export const saveOrderReadyAlerts = (userId, alerts) => {
   localStorage.setItem(getStorageKey(userId), JSON.stringify(alerts || []));
 };
 
-export const addOrderReadyAlert = (currentAlerts, order) => {
+const addOrderAlert = (currentAlerts, order, type) => {
   if (!order?.or_id) {
     return currentAlerts;
   }
@@ -50,16 +51,26 @@ export const addOrderReadyAlert = (currentAlerts, order) => {
   }
 
   const orderNumber = String(orderId).padStart(5, "0");
+  const isRejected = type === "rejected";
 
   return [
     {
       orderId,
-      message: `Order #${orderNumber} is ready for pickup.`,
+      type,
+      message: isRejected
+        ? `Order #${orderNumber} has been rejected by the kitchen.`
+        : `Order #${orderNumber} is ready for pickup.`,
       createdAt: Date.now(),
     },
     ...currentAlerts,
   ];
 };
+
+export const addOrderReadyAlert = (currentAlerts, order) =>
+  addOrderAlert(currentAlerts, order, "ready");
+
+export const addOrderRejectedAlert = (currentAlerts, order) =>
+  addOrderAlert(currentAlerts, order, "rejected");
 
 export const dismissOrderReadyAlert = (currentAlerts, orderId) => {
   const target = Number(orderId);

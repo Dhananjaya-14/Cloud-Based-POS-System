@@ -72,7 +72,7 @@ const InventoryDashboard = () => {
 
     // Connect to socket
     const socket = connectSocket();
-    
+
     const handleConnect = () => {
       console.log('Socket connected in InventoryDashboard');
       setSocketConnected(true);
@@ -90,8 +90,8 @@ const InventoryDashboard = () => {
       console.log('New inventory item received via socket:', newMaterial);
       setMaterials(prevMaterials => {
         // Check if material already exists (prevent duplicates)
-        const exists = prevMaterials.some(m => 
-          m.rm_id === newMaterial.rm_id || 
+        const exists = prevMaterials.some(m =>
+          m.rm_id === newMaterial.rm_id ||
           m.rm_name?.toLowerCase() === newMaterial.rm_name?.toLowerCase()
         );
         if (exists) {
@@ -109,7 +109,7 @@ const InventoryDashboard = () => {
     const handleInventoryUpdated = (updatedMaterial) => {
       console.log('Inventory item updated via socket:', updatedMaterial);
       setMaterials(prevMaterials => {
-        const updated = prevMaterials.map(m => 
+        const updated = prevMaterials.map(m =>
           m.rm_id === updatedMaterial.rm_id ? { ...m, ...updatedMaterial } : m
         );
         localStorage.setItem('cached_materials', JSON.stringify(updated));
@@ -134,7 +134,7 @@ const InventoryDashboard = () => {
       socket.off('disconnect', handleDisconnect);
       socket.off(SOCKET_EVENTS.INVENTORY_CREATED, handleInventoryCreated);
       socket.off(SOCKET_EVENTS.INVENTORY_UPDATED, handleInventoryUpdated);
-      
+
       if (currentBranchId) {
         leaveBranchInventoryRoom(currentBranchId);
       }
@@ -197,7 +197,7 @@ const InventoryDashboard = () => {
 
           {/* STAT CARDS BASED ON IMAGE_A300BA.PNG */}
           <div className="flex gap-6 mb-8">
-            <StatCard 
+            <StatCard
               title="Items Out of Stock"
               count={isLoading ? '...' : stats.outOfStock}
               subtitle="Immediate kitchen impact. Essential items are depleted."
@@ -209,7 +209,7 @@ const InventoryDashboard = () => {
               actionText="Reorder immediately"
               onClick={() => setActiveFilter(activeFilter === 'out' ? 'all' : 'out')}
             />
-            <StatCard 
+            <StatCard
               title="Items Low Stock"
               count={isLoading ? '...' : stats.lowStock}
               subtitle="Replenish soon to avoid service disruption. Stocks under threshold."
@@ -226,11 +226,11 @@ const InventoryDashboard = () => {
           <div className="flex justify-between items-center mb-6">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold text-gray-800">
-                {activeFilter === 'all' ? 'All Items' : 
-                 activeFilter === 'low' ? 'Low Stock Items' : 'Out of Stock Items'}
+                {activeFilter === 'all' ? 'All Items' :
+                  activeFilter === 'low' ? 'Low Stock Items' : 'Out of Stock Items'}
               </h1>
               {activeFilter !== 'all' && (
-                <button 
+                <button
                   onClick={() => setActiveFilter('all')}
                   className="text-sm text-blue-600 hover:underline font-medium"
                 >

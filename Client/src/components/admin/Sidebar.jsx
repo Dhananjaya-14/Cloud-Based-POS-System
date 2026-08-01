@@ -24,7 +24,7 @@ const Sidebar = () => {
 
   const menuItem = (icon, label, path, isLocked = false) => {
     const isActive = location.pathname === path || location.pathname.startsWith(path);
-    
+
     const content = (
       <>
         {icon}
@@ -50,9 +50,9 @@ const Sidebar = () => {
 
     if (isLocked) {
       return (
-        <div 
+        <div
           key={label}
-          style={style} 
+          style={style}
           onClick={(e) => {
             e.preventDefault();
             toast.info("Upgrade Required", `Your current package doesn't include ${label}.`);

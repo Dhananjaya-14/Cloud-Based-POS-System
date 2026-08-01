@@ -60,7 +60,7 @@ const AddRawMaterials = () => {
       return { ok: res.ok, status: res.status, body: text };
     }
   }
-  
+
 
   useEffect(() => {
     if (suppliersEnabled) fetchSuppliers();
@@ -84,7 +84,7 @@ const AddRawMaterials = () => {
           socket.off('connect', handleConnect);
         };
         socket.on('connect', handleConnect);
-        
+
         return () => {
           socket.off('connect', handleConnect);
         };
@@ -98,7 +98,7 @@ const AddRawMaterials = () => {
     if (!companyId) return;
 
     const socket = getSocket();
-    
+
     const handleSupplierCreated = (newSupplier) => {
       console.log('New supplier detected via WebSocket, refreshing list:', newSupplier);
       fetchSuppliers(); // Refresh the suppliers list
@@ -145,7 +145,7 @@ const AddRawMaterials = () => {
         socket.off('connect', handleConnect);
       };
       socket.on('connect', handleConnect);
-      
+
       return () => {
         socket.off('connect', handleConnect);
       };
