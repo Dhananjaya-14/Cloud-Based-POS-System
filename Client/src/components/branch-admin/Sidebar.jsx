@@ -257,8 +257,8 @@ const Sidebar = () => {
               <>
                 {subItem("Sales Summary", "/branch-admin/summary-sales")}
                 {subItem("Product Sales", "/branch-admin/summary-productsales")}
-                {subItem("Raw Material Stock", "/branch-admin/raw-material-stock")}
-                {subItem("Raw Material Consumption", "/branch-admin/raw-material-consumption")}
+                {!isLocked("has_inventory") && subItem("Raw Material Stock", "/branch-admin/raw-material-stock")}
+                {!isLocked("has_inventory") && subItem("Raw Material Consumption", "/branch-admin/raw-material-consumption")}
               </>
             )}
 

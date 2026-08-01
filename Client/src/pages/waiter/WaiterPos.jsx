@@ -26,6 +26,7 @@ import {
   getCategories,
   getWaiterOrders,
   updateOrderStatus,
+  getOrderItemsByOrderId,
 } from "../../services/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -61,6 +62,7 @@ const WaiterPos = () => {
   const navigate = useNavigate();
   const { user, logout, features } = useAuth();
   const kitchenEnabled = features?.has_kitchen === true;
+  const inventoryEnabled = features?.has_inventory === true;
   
   const [branchName, setBranchName] = useState("Loading...");
   const [branchId, setBranchId] = useState(null);
@@ -163,11 +165,13 @@ const WaiterPos = () => {
   const total = taxableBase + taxAmount;
 
   const addToCart = (product) => {
+    const isMadeToOrder = product.product_type === "made_to_order";
+    const ignoreStock = !inventoryEnabled && isMadeToOrder;
     const stockCount = Number(product.pro_quantity ?? 0);
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
       if (existing) {
-        if (existing.qty >= stockCount) {
+        if (!ignoreStock && existing.qty >= stockCount) {
           showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
           return currentCart;
         }
@@ -178,7 +182,7 @@ const WaiterPos = () => {
         );
       }
 
-      if (stockCount <= 0) {
+      if (!ignoreStock && stockCount <= 0) {
         showToast("This item is out of stock.", "error");
         return currentCart;
       }
@@ -197,6 +201,8 @@ const WaiterPos = () => {
 
   const updateQuantity = (Bpro_id, delta) => {
     const product = products.find((p) => p.Bpro_id === Bpro_id);
+    const isMadeToOrder = product?.product_type === "made_to_order";
+    const ignoreStock = !inventoryEnabled && isMadeToOrder;
     const stockCount = Number(product?.pro_quantity ?? 0);
 
     setCart((currentCart) =>
@@ -204,7 +210,7 @@ const WaiterPos = () => {
         .map((item) => {
           if (item.Bpro_id === Bpro_id) {
             const nextQty = item.qty + delta;
-            if (delta > 0 && nextQty > stockCount) {
+            if (delta > 0 && !ignoreStock && nextQty > stockCount) {
               showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
               return item;
             }
@@ -225,7 +231,18 @@ const WaiterPos = () => {
       setLoadingMyOrders(true);
       const res = await getWaiterOrders();
       const orders = Array.isArray(res) ? res : (res?.data ?? []);
-      setMyOrders(orders.filter(o => o.or_status !== "cancelled" && o.or_status !== "completed"));
+      const activeOrders = orders.filter(o => o.or_status !== "cancelled" && o.or_status !== "completed");
+      
+      const ordersWithItems = await Promise.all(activeOrders.map(async (order) => {
+        try {
+          const items = await getOrderItemsByOrderId(order.or_id);
+          return { ...order, items };
+        } catch (e) {
+          return { ...order, items: [] };
+        }
+      }));
+      
+      setMyOrders(ordersWithItems);
     } catch (err) {
       console.error("Failed to fetch my orders", err);
     } finally {
@@ -241,6 +258,21 @@ const WaiterPos = () => {
       await fetchMyOrders();
     } catch (err) {
       showToast("Failed to confirm delivery: " + (err.response?.data?.error || err.message), "error");
+    } finally {
+      setLoadingMyOrders(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    try {
+      setLoadingMyOrders(true);
+      await updateOrderStatus(orderId, "cancelled");
+      showToast(`Order #${orderId} cancelled.`, "success");
+      setMyOrders((prev) =>
+        prev.filter((order) => order.or_id !== orderId)
+      );
+    } catch (err) {
+      showToast("Failed to cancel order: " + (err.response?.data?.error || err.message), "error");
     } finally {
       setLoadingMyOrders(false);
     }
@@ -602,27 +634,57 @@ const WaiterPos = () => {
               <div className="space-y-3">
                 {myOrders.map((order) => (
                   <div key={order.or_id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-start justify-between mb-2">
                       <span className="font-bold text-slate-800">Order #{order.or_id}</span>
-                      <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${
-                        order.or_status === "pending"   ? "bg-yellow-100 text-yellow-700" :
-                        order.or_status === "preparing" ? "bg-blue-100 text-blue-700" :
-                        "bg-slate-100 text-slate-600"
-                      }`}>
-                        {order.or_status?.replace(/_/g, " ")}
-                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${
+                          order.or_status === "pending"   ? "bg-yellow-100 text-yellow-700" :
+                          order.or_status === "preparing" ? "bg-blue-100 text-blue-700" :
+                          "bg-slate-100 text-slate-600"
+                        }`}>
+                          {order.or_status?.replace(/_/g, " ")}
+                        </span>
+                        <button
+                          onClick={() => handleCancelOrder(order.or_id)}
+                          disabled={loadingMyOrders}
+                          title="Cancel Order"
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition disabled:opacity-40"
+                        >
+                          <span className="text-xs font-bold">✕</span>
+                        </button>
+                      </div>
                     </div>
                     <div className="text-xs text-slate-500 space-y-0.5 mb-3">
                       {order.table_id && <p><strong>Table:</strong> {order.table_id}</p>}
-                      <p><strong>Total:</strong> ${Number(order.or_totalCostWtax || order.or_totalcost || 0).toFixed(2)}</p>
-                    </div>
-                    <button
-                      onClick={() => handleConfirmDelivery(order.or_id)}
-                      disabled={loadingMyOrders}
-                      className="w-full rounded-xl bg-[#55C24A] text-white py-2.5 text-sm font-bold hover:bg-[#49b03f] transition disabled:opacity-50"
+                      {order.items && order.items.length > 0 && (
+                        <div className="py-1">
+                          <p className="font-bold text-slate-600 mb-1">Items:</p>
+                          <ul className="space-y-1">
+                            {order.items.map((item, idx) => (
+                              <li key={idx} className="flex justify-between text-slate-500 font-semibold">
+                                <span>{Number(item.pro_quantity || item.qty || 1)}x {item.pro_name}</span>
+                                <span>${(Number(item.unit_price || item.branch_price || 0) * Number(item.pro_quantity || item.qty || 1)).toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    <div
+                      style={{marginTop: "12px",padding: "12px 16px",borderTop: "2px dashed #999",borderBottom: "2px dashed #999",display: "flex",justifyContent: "space-between",alignItems: "center",fontSize: "18px",fontWeight: "bold",color: "#0f172a",backgroundColor: "#f8fafc",}}
                     >
-                      ✅ Confirm Delivery
-                    </button>
+                      <span>TOTAL</span>
+                      <span>Rs. {Number(order.or_totalCostWtax || order.or_totalcost || 0).toFixed(2)}</span>
+                    </div>
+                    </div>
+                    {!kitchenEnabled && (
+                      <button
+                        onClick={() => handleConfirmDelivery(order.or_id)}
+                        disabled={loadingMyOrders}
+                        className="w-full rounded-xl bg-[#55C24A] text-white py-2.5 text-sm font-bold hover:bg-[#49b03f] transition disabled:opacity-50"
+                      >
+                        ✅ Confirm Delivery
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>

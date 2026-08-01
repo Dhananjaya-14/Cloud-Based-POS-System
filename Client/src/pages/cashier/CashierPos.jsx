@@ -1,4 +1,3 @@
-// Client/src/pages/cashier/CashierPos.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -60,7 +59,8 @@ const categories = [
 
 const CashierPos = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, features } = useAuth();
+  const inventoryEnabled = features?.has_inventory === true;
   const [branchName, setBranchName] = useState("Loading branch...");
   const [branchId, setBranchId] = useState(null);
   const [products, setProducts] = useState([]);
@@ -529,7 +529,7 @@ const CashierPos = () => {
       setError("No branch is assigned to this user.");
       return;
     }
-    if (orderType === "dine-in") {
+    if (orderType === "dine-in" && features?.has_waiter) {
       setError("Dine-in orders require table selection. Please use takeaway for now.");
       return;
     }
@@ -1043,26 +1043,37 @@ const CashierPos = () => {
                     }
                     return FaCalculator;
                   })();
+                  // When inventory is disabled, made_to_order products are always billable (no stock limit)
+                  const isMadeToOrder = product.product_type === "made_to_order";
+                  const ignoreStock = !inventoryEnabled && isMadeToOrder;
                   const stockCount = Number(product.pro_quantity ?? 0);
+                  const isOutOfStock = !ignoreStock && stockCount <= 0;
                   const priceLabel = Number(product.pro_price ?? 0).toFixed(2);
 
                   return (
-                    <article                      key={product.Bpro_id ?? index}
-                      onClick={() => addToCart(product)}
-                      className="group cursor-pointer rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]"
+                    <article
+                      key={product.Bpro_id ?? index}
+                      onClick={() => !isOutOfStock && addToCart(product)}
+                      className={`group rounded-2xl border p-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)] transition ${
+                        isOutOfStock
+                          ? "cursor-not-allowed border-slate-100 bg-slate-50 opacity-50"
+                          : "cursor-pointer border-slate-200 bg-white hover:-translate-y-0.5 hover:shadow-[0_14px_34px_rgba(15,23,42,0.09)]"
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex h-14 w-full items-center justify-center rounded-xl bg-sky-50 text-[#0A5BAE]">
                           <Icon className="h-7 w-7" />
                         </div>
-                        <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-500 px-2 text-[11px] font-semibold text-white shadow-sm">
+                        {!(ignoreStock) && (
+                          <span className="inline-flex h-6 min-w-6 items-center justify-center rounded-full bg-emerald-500 px-2 text-[11px] font-semibold text-white shadow-sm">
                           {stockCount}
                         </span>
+                        )}
                       </div>
 
                       <h3 className="mt-3 text-sm font-semibold text-slate-900">{product.pro_name}</h3>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        {product.pro_des || product.pro_shortname || "Available now"}
+                        {isOutOfStock ? "Out of stock" : (ignoreStock ? "Available now" : "Available now")}
                       </p>
                       <div className="mt-2 text-lg font-semibold tracking-tight text-slate-900">
                         ${priceLabel}
@@ -1399,25 +1410,13 @@ const CashierPos = () => {
                         <button
                           onClick={() => handleEditWaiterOrder(ao)}
                           disabled={loadingWaiterOrders}
-                          className="w-full rounded-lg border border-[#0A5BAE] text-[#0A5BAE] px-4 py-2 text-sm font-semibold hover:bg-[#0A5BAE] hover:text-white transition"
+                          className={`w-full rounded-lg px-4 py-2 text-sm font-semibold transition ${
+                            ao.or_status === 'completed' 
+                              ? 'bg-[#55C24A] text-white hover:bg-[#49b03f]' 
+                              : 'border border-[#0A5BAE] text-[#0A5BAE] hover:bg-[#0A5BAE] hover:text-white'
+                          }`}
                         >
-                          Edit Order
-                        </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              setLoadingWaiterOrders(true);
-                              await updateOrderStatus(ao.or_id, "completed");
-                              alert(`Order #${ao.or_id} marked as completed (paid)!`);
-                              fetchWaiterOrders();
-                            } catch (err) {
-                              alert("Failed to complete order. " + (err.response?.data?.error || err.message));
-                              setLoadingWaiterOrders(false);
-                            }
-                          }}
-                          className="w-full rounded-lg bg-[#55C24A] text-white px-4 py-2 text-sm font-semibold hover:bg-[#49b03f] transition"
-                        >
-                          Mark as Completed (Paid)
+                          {ao.or_status === 'completed' ? 'Bill Order' : 'Edit Order'}
                         </button>
                       </div>
                     </div>

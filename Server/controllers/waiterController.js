@@ -292,43 +292,78 @@ export async function getMyTables(req, res, next) {
 
 export async function getMyOrders(req, res, next) {
   try {
-    const { status, date } = req.query;
+    const { status, date, limit = 20, offset = 0 } = req.query;
 
     if (status && !VALID_STATUSES.includes(status)) {
       res.status(400);
       return next(
-        new Error(`status must be one of: ${VALID_STATUSES.join(", ")}`),
+        new Error(`status must be one of: ${VALID_STATUSES.join(", ")}`)
       );
     }
 
-    const conditions = ["o.u_id = $1"];
+    const conditions = [`o.u_id = $1`];
     const values = [req.user.u_id];
+
     let idx = 2;
 
     if (status) {
-      conditions.push(`o.or_status = $${idx++}`);
+      conditions.push(`o.or_status = $${idx}`);
       values.push(status);
+      idx++;
     }
+
     if (date) {
-      conditions.push(`o.or_date = $${idx++}`);
+      conditions.push(`o.or_date = $${idx}`);
       values.push(date);
+      idx++;
     }
 
-    const { rows } = await pool.query(
-      `SELECT
-         o.*,
-         t.table_number,
-         t.table_status,
-         b."B_name" AS branch_name
-       FROM "ORDER" o
-       LEFT JOIN "TABLES" t ON t.table_id = o.table_id
-       LEFT JOIN "Branch" b ON b."B_id" = o.b_id
-       WHERE ${conditions.join(" AND ")}
-       ORDER BY o.or_date DESC, o.or_time DESC`,
-      values,
-    );
 
-    res.json({ success: true, count: rows.length, data: rows });
+    values.push(Number(limit));
+    const limitParam = idx++;
+
+    values.push(Number(offset));
+    const offsetParam = idx;
+
+
+    const query = `
+      SELECT
+        o.or_id,
+        o.or_date,
+        o.or_time,
+        o.or_status,
+        o."or_totalCostWtax",
+        o.b_id,
+
+        b."B_name" AS branch_name
+
+      FROM "ORDER" o
+
+
+      LEFT JOIN "Branch" b 
+        ON b."B_id" = o.b_id
+
+      WHERE ${conditions.join(" AND ")}
+
+      ORDER BY 
+        o.or_date DESC,
+        o.or_time DESC
+
+      LIMIT $${limitParam}
+      OFFSET $${offsetParam}
+    `;
+
+
+    const { rows } = await pool.query(query, values);
+
+
+    res.json({
+      success: true,
+      count: rows.length,
+      data: rows
+    });
+
+
   } catch (err) {
     next(err);
   }
