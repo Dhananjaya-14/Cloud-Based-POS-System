@@ -71,7 +71,6 @@ export default function Transactions() {
         const scopedBranches = currentComId
           ? allBranches.filter((b) => b?.com_id != null && String(b.com_id) === String(currentComId))
           : allBranches;
-
         // map branch id -> branch
         const branchById = {};
         scopedBranches.forEach((b) => {
@@ -213,14 +212,16 @@ export default function Transactions() {
 
     load();
     // Register socket listeners for real-time updates
-    socket.on("order:created", load);
+    socket.on(SOCKET_EVENTS.ORDER_CREATED, load);
     socket.on(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
     socket.on(SOCKET_EVENTS.ORDER_UPDATED, load);
+    socket.on(SOCKET_EVENTS.ORDER_READY, load);
     // Cleanup listeners on unmount
     return () => {
-      socket.off("order:created", load);
+      socket.off(SOCKET_EVENTS.ORDER_CREATED, load);
       socket.off(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
       socket.off(SOCKET_EVENTS.ORDER_UPDATED, load);
+      socket.off(SOCKET_EVENTS.ORDER_READY, load);
     };
   }, [filters.branch, currentComId]); // re-run when branch or company scope changes
 

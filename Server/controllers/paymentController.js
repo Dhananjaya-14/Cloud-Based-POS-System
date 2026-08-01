@@ -487,10 +487,10 @@ export async function updatePayment(req, res, next) {
         .json({ success: false, message: "Payment not found" });
     }
 
-    // Emit socket event if payment moved to paid or refunded
-    if ((pay_status === "paid" || pay_status === "refunded") && prevStatus !== pay_status) {
+      // Emit socket event to all clients for real-time updates across roles
+      emitSocketEvent("payment:completed", rows[0]);
+      // Also emit to admin payment room for admin-specific listeners
       emitSocketEvent("payment:completed", rows[0], { room: ADMIN_PAYMENT_ROOM });
-    }
 
     res.json({ success: true, data: rows[0] });
   } catch (err) {

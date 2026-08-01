@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FaSearch, FaClock, FaBell } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
-import { connectSocket, getSocket } from "../../services/socket";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 import {
 	getBranchProducts,
 	getOrderItems,
@@ -233,7 +233,12 @@ const KitchenManagement = () => {
 
 		socket.on("order:created", handleOrderCreated);
 		socket.on("order:updated", handleOrderUpdated);
+		socket.on("order:ready", handleOrderUpdated);
 		socket.on("order:deleted", handleOrderDeleted);
+		// Also listen to new constant events for future compatibility
+		socket.on(SOCKET_EVENTS.ORDER_SENT, handleOrderCreated);
+		socket.on(SOCKET_EVENTS.ORDER_ACCEPTED, handleOrderUpdated);
+		socket.on(SOCKET_EVENTS.ORDER_READY, handleOrderUpdated);
 
 		return () => {
 			isMounted = false;
@@ -255,12 +260,9 @@ const KitchenManagement = () => {
 		return orderItems.reduce((acc, item) => {
 			const product = branchProductMap[item.Bpro_id];
 			const stations = product?.stations || {};
-			const productType = product?.product_type;
-
+			// Keep items that are assigned to kitchen or have no station restriction
 			if (stations.Kitchen === false) return acc;
 			if (stations.Bar === true && stations.Kitchen !== true) return acc;
-			if (productType !== 'made_to_order') return acc;
-
 			const orderId = item.order_id;
 			if (!acc[orderId]) acc[orderId] = [];
 			acc[orderId].push(item);
@@ -445,9 +447,9 @@ const KitchenManagement = () => {
 						)}
 					</div>
 				</div>
-			</div>
-		);
-	};
+    </div>
+  );
+};
 
 	const renderOrderColumn = (title, ordersInColumn) => {
 		return (

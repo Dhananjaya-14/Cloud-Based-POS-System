@@ -618,6 +618,10 @@ export const updateOrder = async (req, res) => {
       ],
     );
 
+    emitSocketEvent("order:updated", rows[0]);
+    if (rows[0].or_status === "completed") {
+      emitSocketEvent("order:ready", rows[0]);
+    }
     res.status(200).json({ success: true, data: rows[0] });
   } catch (err) {
     if (err.code === "23514")
@@ -773,6 +777,12 @@ export const patchOrder = async (req, res) => {
       `UPDATE "ORDER" SET ${updates.join(", ")} WHERE or_id = $${i} RETURNING *`,
       values,
     );
+
+    // Emit real-time update event for order changes
+    emitSocketEvent("order:updated", rows[0]);
+    if (rows[0].or_status === "completed") {
+      emitSocketEvent("order:ready", rows[0]);
+    }
 
     res.status(200).json({ success: true, data: rows[0] });
   } catch (err) {
