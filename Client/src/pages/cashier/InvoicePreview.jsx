@@ -212,20 +212,7 @@ const InvoicePreview = () => {
               </button>
             </section>
 
-            <section className="flex flex-col gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Payment Method</div>
-                <div className="mt-1 text-sm font-semibold text-emerald-600 sm:text-base">{invoice.paymentMethod} Payment</div>
-              </div>
-              <button
-                type="button"
-                onClick={handlePay}
-                disabled={isPaid}
-                className="inline-flex items-center justify-center rounded-xl bg-[#55C24A] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#49b03f] disabled:cursor-default disabled:opacity-70 sm:text-sm"
-              >
-                {isPaid ? "PAID" : "PAY NOW"}
-              </button>
-            </section>
+            
 
             <div className="border-t border-slate-200 pt-2 text-center text-[11px] text-slate-500">
               <p>Thank you for your purchase!</p>
