@@ -32,6 +32,7 @@ export default function Transactions() {
 
   useEffect(() => {
     const socket = connectSocket();
+    socket.emit('join_branch_updates');
     const load = async () => {
       setLoading(true);
       try {
@@ -155,11 +156,13 @@ export default function Transactions() {
     socket.on(SOCKET_EVENTS.ORDER_CREATED, load);
     socket.on(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
     socket.on(SOCKET_EVENTS.ORDER_UPDATED, load);
+    socket.on(SOCKET_EVENTS.ORDER_READY, load);
     // Cleanup listeners on unmount
     return () => {
       socket.off(SOCKET_EVENTS.ORDER_CREATED, load);
       socket.off(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
       socket.off(SOCKET_EVENTS.ORDER_UPDATED, load);
+      socket.off(SOCKET_EVENTS.ORDER_READY, load);
     };
   }, [filters, user]); // re-run when filters or user changes
 

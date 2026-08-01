@@ -53,6 +53,11 @@ export const SOCKET_EVENTS = {
   BRANCH_CREATED: "branch:created",
   BRANCH_UPDATED: "branch:updated",
   BRANCH_DELETED: "branch:deleted",
+  // Order workflow events
+  ORDER_SENT: "order:sent",
+  ORDER_ACCEPTED: "order:accepted",
+  ORDER_READY: "order:ready",
+  ORDER_UPDATED: "order:updated",
 };
 
 export const getSocket = () => {
@@ -192,7 +197,7 @@ export const leaveBranchInventoryRoom = (branchId) => {
 // Helper function to subscribe to user updates (for super admins and admins)
 export const subscribeToUserUpdates = (callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onUserCreated,
@@ -230,7 +235,7 @@ export const subscribeToUserUpdates = (callbacks) => {
 // Helper function to subscribe to company updates
 export const subscribeToCompanyUpdates = (callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onCompanyCreated,
