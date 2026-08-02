@@ -8,7 +8,7 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
       return acc;
     }, {})
   );
-  
+
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [reason, setReason] = useState("");
 
@@ -39,13 +39,13 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
     e.preventDefault();
 
     const wastagePayload = [];
-    
+
     for (let i = 0; i < order.items.length; i++) {
       const item = order.items[i];
       const w = wastages[i];
       const grossQty = Number(item.qty) || 0;
       const wasteQty = calculateWasteQty(item, w);
-      
+
       if (item.rm_id) {
         if (wasteQty > grossQty) {
           alert(`Wastage for ${item.rm_name} cannot exceed ordered quantity.`);
@@ -71,7 +71,7 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
       <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", width: "90%", maxWidth: "600px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}>
         <h2 style={{ marginTop: 0, marginBottom: "20px", fontSize: "20px", color: "#111827" }}>Receive Order #{order.po_id}</h2>
-        
+
         <form onSubmit={handleSubmit}>
           {order.items.map((item, idx) => {
             const w = wastages[idx];
@@ -84,7 +84,7 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
                   <strong style={{ fontSize: "16px", color: "#374151" }}>{item.rm_name || item.pro_name}</strong>
                   <span style={{ color: "#6B7280" }}>Ordered: {item.qty} {item.unit}</span>
                 </div>
-                
+
                 {item.pro_id ? (
                   // External/pre-made products: no wastage tracking, full quantity always received
                   <div style={{ paddingTop: "4px", display: "flex", justifyContent: "flex-end" }}>

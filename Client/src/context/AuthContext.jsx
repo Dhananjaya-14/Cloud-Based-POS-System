@@ -1,10 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  login as apiLogin,
-  setAuthToken,
-  getCurrentUser,
-} from "../services/api";
+import { login as apiLogin, setAuthToken, getCurrentUser } from "../services/api";
 import { connectSocket, disconnectSocket } from "../services/socket";
 
 export const AuthContext = createContext();
@@ -14,10 +10,11 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
+  // State
   const [user, setUser] = useState(() => getCurrentUser());
   const [token, setToken] = useState(() => localStorage.getItem("token"));
 
-  // Set auth token whenever token changes
+  // Sync auth token with API helper
   useEffect(() => {
     if (token) {
       setAuthToken(token);
@@ -26,31 +23,24 @@ export function AuthProvider({ children }) {
     }
   }, [token]);
 
-  // Handle WebSocket connection
+  // WebSocket connection handling
   useEffect(() => {
     if (token) {
       connectSocket();
     } else {
       disconnectSocket();
     }
-
-    return () => {
-      disconnectSocket();
-    };
+    return () => disconnectSocket();
   }, [token]);
 
   // Login function
   const login = async (credentials) => {
     try {
       const data = await apiLogin(credentials); // expects { token, user }
-
-      if (!data?.token) {
-        throw new Error("No token returned");
-      }
+      if (!data?.token) throw new Error("No token returned");
 
       setToken(data.token);
       setUser(data.user);
-
       setAuthToken(data.token);
 
       localStorage.setItem("token", data.token);
@@ -67,14 +57,10 @@ export function AuthProvider({ children }) {
   const logout = () => {
     setToken(null);
     setUser(null);
-
     setAuthToken(null);
-
     disconnectSocket();
-
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-
     navigate("/login");
   };
 

@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { createServer } from "http";
 import { initializeSocket } from "./utils/socket.js";
+import { activityLogger } from "./middleware/activityLogger.js";
 
 
 
@@ -63,6 +64,7 @@ import statsRoutes from "./routes/statsRoutes.js";
 import dashboardRoutes from "./routes/dashboardRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import payhereRoutes from "./routes/payhereRoutes.js";
+import activityLogRoutes from "./routes/activityLogRoutes.js";
 import packageRoutes from "./routes/packageRoutes.js";
 
 // ─────────────────────────────────────────────
@@ -82,6 +84,7 @@ app.use(
 app.use(express.json());
 // PayHere notify sends application/x-www-form-urlencoded
 app.use(express.urlencoded({ extended: true }));
+app.use(activityLogger);
 
 // ─────────────────────────────────────────────
 // HEALTH CHECK
@@ -153,6 +156,9 @@ app.use("/api/reports", reportRoutes);
 // PayHere Payment Gateway
 app.use("/api/payhere", payhereRoutes);
 
+// Activity logs
+app.use("/api/activity-logs", activityLogRoutes);
+
 // SaaS Package Management
 app.use("/api/packages", packageRoutes);
 
@@ -174,6 +180,3 @@ initializeSocket(httpServer);
 httpServer.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-
-// app.use("/api/stats", statsRoutes);

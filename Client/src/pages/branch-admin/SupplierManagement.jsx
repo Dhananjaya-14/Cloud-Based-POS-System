@@ -57,7 +57,7 @@ const SupplierManagement = () => {
 
     // Connect to socket
     const socket = connectSocket();
-    
+
     const handleConnect = () => {
       console.log('Socket connected in SupplierManagement');
       setSocketConnected(true);
@@ -73,8 +73,8 @@ const SupplierManagement = () => {
       console.log('New supplier received via socket:', newSupplier);
       setSuppliers(prevSuppliers => {
         // Check if supplier already exists (prevent duplicates)
-        const exists = prevSuppliers.some(s => 
-          s.sup_id === newSupplier.sup_id || 
+        const exists = prevSuppliers.some(s =>
+          s.sup_id === newSupplier.sup_id ||
           s.sup_email?.toLowerCase() === newSupplier.sup_email?.toLowerCase()
         );
         if (exists) {
@@ -93,7 +93,7 @@ const SupplierManagement = () => {
     const handleSupplierUpdated = (updatedSupplier) => {
       console.log('Supplier updated via socket:', updatedSupplier);
       setSuppliers(prevSuppliers => {
-        const updated = prevSuppliers.map(s => 
+        const updated = prevSuppliers.map(s =>
           s.sup_id === updatedSupplier.sup_id ? { ...s, ...updatedSupplier } : s
         );
         localStorage.setItem('cached_suppliers', JSON.stringify(updated));
@@ -151,14 +151,14 @@ const SupplierManagement = () => {
       <div className="flex-1 ml-[240px]">
         <Header title="Suppliers" role="Branch Admin" />
         {toast.show && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
-        
+
         {/* Socket connection indicator */}
         {socketConnected && (
           <div className="fixed bottom-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs shadow-lg z-50">
             Live Updates Active
           </div>
         )}
-        
+
         <div className="p-8 max-w-[1200px] mx-auto">
           {selectedSupplier ? (
             <SupplierDetailView supplier={selectedSupplier} onBack={() => setSelectedSupplier(null)} showToast={showToast} />
@@ -199,7 +199,7 @@ const SupplierManagement = () => {
                         </div>
                         <h3 className="m-0 text-base font-bold text-gray-900">{sup.sup_name}</h3>
                       </div>
-                      
+
                       <div className="text-sm text-gray-600 flex flex-col gap-2">
                         <div className="flex gap-2">📧 <span className="truncate">{sup.sup_email}</span></div>
                         <div className="flex gap-2">📞 <span>{sup.sup_contact}</span></div>

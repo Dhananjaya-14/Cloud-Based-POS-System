@@ -11,6 +11,7 @@ import {
   getPurchaseOrders,
   getBranches,
 } from "../../services/api";
+import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import { useAuth } from "../../context/AuthContext";
 
 export default function Transactions() {
@@ -30,6 +31,8 @@ export default function Transactions() {
   const [pageSize] = useState(10);
 
   useEffect(() => {
+    const socket = connectSocket();
+    socket.emit('join_branch_updates');
     const load = async () => {
       setLoading(true);
       try {
@@ -148,9 +151,20 @@ export default function Transactions() {
         setLoading(false);
       }
     };
-
     load();
-  }, [filters, user]);
+    // Register socket listeners for real-time updates
+    socket.on(SOCKET_EVENTS.ORDER_CREATED, load);
+    socket.on(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
+    socket.on(SOCKET_EVENTS.ORDER_UPDATED, load);
+    socket.on(SOCKET_EVENTS.ORDER_READY, load);
+    // Cleanup listeners on unmount
+    return () => {
+      socket.off(SOCKET_EVENTS.ORDER_CREATED, load);
+      socket.off(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
+      socket.off(SOCKET_EVENTS.ORDER_UPDATED, load);
+      socket.off(SOCKET_EVENTS.ORDER_READY, load);
+    };
+  }, [filters, user]); // re-run when filters or user changes
 
   const filtered = useMemo(() => {
     return transactions.filter((t) => {

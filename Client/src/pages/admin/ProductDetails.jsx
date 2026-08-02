@@ -299,13 +299,13 @@ const ProductDetails = () => {
       const cat_id = selectedCategoryObj ? selectedCategoryObj.cat_id : null;
 
       const updated = await updateProduct(productId, {
-      pro_name: form.pro_name.trim(),
-      pro_price: Number(form.pro_price),
-      pro_image: form.pro_image.trim() || null,
-      cat_id: cat_id,
-      add_ons: form.add_ons,
-      stations: form.stations,
-    });
+        pro_name: form.pro_name.trim(),
+        pro_price: Number(form.pro_price),
+        pro_image: form.pro_image.trim() || null,
+        cat_id: cat_id,
+        add_ons: form.add_ons,
+        stations: form.stations,
+      });
       setProduct(updated);
       setSuccess("Product updated successfully");
       showToastMessage("Product updated successfully.", "success");
@@ -320,51 +320,51 @@ const ProductDetails = () => {
   };
 
   const handleDelete = async () => {
-  if (!productId) {
-    setError("Missing product id");
-    showToastMessage("Missing product id", "error");
-    return;
-  }
-
-  if (!isDeletePage) {
-    navigate(`/admin/products/${productId}/delete`);
-    return;
-  }
-
-  if (!deleteAcknowledged) {
-    setError("Please confirm the deletion acknowledgment first.");
-    showToastMessage("Please confirm the deletion acknowledgment first.", "error");
-    return;
-  }
-
-  if (deleteOption === "branch" && !selectedBranchId) {
-    setError("Please select a branch first.");
-    showToastMessage("Please select a branch first.", "error");
-    return;
-  }
-
-  try {
-    setSaving(true);
-    setError("");
-
-    if (deleteOption === "branch") {
-      await deleteProduct(productId, selectedBranchId);
-    } else {
-      await deleteProduct(productId, null);
+    if (!productId) {
+      setError("Missing product id");
+      showToastMessage("Missing product id", "error");
+      return;
     }
 
-    showToastMessage("Product deleted successfully.", "success");
-    setTimeout(() => {
-      navigate("/admin/products");
-    }, 700);
-  } catch (err) {
-    const message = err?.response?.data?.message || "Failed to delete product";
-    setError(message);
-    showToastMessage(message, "error");
-  } finally {
-    setSaving(false);
-  }
-};
+    if (!isDeletePage) {
+      navigate(`/admin/products/${productId}/delete`);
+      return;
+    }
+
+    if (!deleteAcknowledged) {
+      setError("Please confirm the deletion acknowledgment first.");
+      showToastMessage("Please confirm the deletion acknowledgment first.", "error");
+      return;
+    }
+
+    if (deleteOption === "branch" && !selectedBranchId) {
+      setError("Please select a branch first.");
+      showToastMessage("Please select a branch first.", "error");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError("");
+
+      if (deleteOption === "branch") {
+        await deleteProduct(productId, selectedBranchId);
+      } else {
+        await deleteProduct(productId, null);
+      }
+
+      showToastMessage("Product deleted successfully.", "success");
+      setTimeout(() => {
+        navigate("/admin/products");
+      }, 700);
+    } catch (err) {
+      const message = err?.response?.data?.message || "Failed to delete product";
+      setError(message);
+      showToastMessage(message, "error");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleCancel = () => {
     if (isDeletePage) {
@@ -479,22 +479,22 @@ const ProductDetails = () => {
                     </div>
 
                     <div style={{ marginBottom: "10px" }}>
-                        <label style={labelStyle}>Category</label>
-                        <div style={{ position: "relative" }}>
-                          <select
-                            value={form.category}
-                            onChange={handleFieldChange("category")}
-                            style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", MozAppearance: "none", paddingRight: "30px" }}
-                          >
-                            <option value="General">General</option>
-                            {categories.map((category) => (
-                              <option key={category.cat_id} value={category.cat_name}>
-                                {category.cat_name}
-                              </option>
-                            ))}
-                          </select>
-                          <FaChevronDown size={10} color="#475569" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-                        </div>
+                      <label style={labelStyle}>Category</label>
+                      <div style={{ position: "relative" }}>
+                        <select
+                          value={form.category}
+                          onChange={handleFieldChange("category")}
+                          style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", MozAppearance: "none", paddingRight: "30px" }}
+                        >
+                          <option value="General">General</option>
+                          {categories.map((category) => (
+                            <option key={category.cat_id} value={category.cat_name}>
+                              {category.cat_name}
+                            </option>
+                          ))}
+                        </select>
+                        <FaChevronDown size={10} color="#475569" style={{ position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+                      </div>
                     </div>
 
                     <div style={{ marginBottom: "10px" }}>
@@ -521,11 +521,11 @@ const ProductDetails = () => {
                         <input type="number" min="0" step="0.01" style={inputStyle} value={form.pro_price} onChange={handleFieldChange("pro_price")} />
                       </div>
                       <div>
-                      <label style={labelStyle}>Tax Group</label>
-                      <select style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", MozAppearance: "none", paddingRight: "30px" }} disabled>
-                        <option value="">N/A</option>
-                      </select>
-                    </div>
+                        <label style={labelStyle}>Tax Group</label>
+                        <select style={{ ...inputStyle, appearance: "none", WebkitAppearance: "none", MozAppearance: "none", paddingRight: "30px" }} disabled>
+                          <option value="">N/A</option>
+                        </select>
+                      </div>
                     </div>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "10px" }}>
@@ -688,66 +688,66 @@ const ProductDetails = () => {
                   </p>
                 </div>
 
-               <div style={{ padding: "0 20px 12px" }}>
-  <div
-    onClick={() => setDeleteOption("branch")}
-    style={{
-      border: deleteOption === "branch" ? "2px solid #1769AA" : "1px solid #E5E7EB",
-      borderRadius: "10px",
-      padding: "10px 12px",
-      marginBottom: "8px",
-      cursor: "pointer",
-      background: deleteOption === "branch" ? "#EFF6FF" : "#fff",
-    }}
-  >
-    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: deleteOption === "branch" ? "8px" : 0 }}>
-      <input type="radio" checked={deleteOption === "branch"} onChange={() => setDeleteOption("branch")} />
-      <div>
-        <div style={{ fontSize: "12px", fontWeight: "700", color: "#111827" }}>Delete from specific branch</div>
-        <div style={{ fontSize: "10px", color: "#6B7280" }}>Stays in admin panel and other branches</div>
-      </div>
-    </div>
+                <div style={{ padding: "0 20px 12px" }}>
+                  <div
+                    onClick={() => setDeleteOption("branch")}
+                    style={{
+                      border: deleteOption === "branch" ? "2px solid #1769AA" : "1px solid #E5E7EB",
+                      borderRadius: "10px",
+                      padding: "10px 12px",
+                      marginBottom: "8px",
+                      cursor: "pointer",
+                      background: deleteOption === "branch" ? "#EFF6FF" : "#fff",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: deleteOption === "branch" ? "8px" : 0 }}>
+                      <input type="radio" checked={deleteOption === "branch"} onChange={() => setDeleteOption("branch")} />
+                      <div>
+                        <div style={{ fontSize: "12px", fontWeight: "700", color: "#111827" }}>Delete from specific branch</div>
+                        <div style={{ fontSize: "10px", color: "#6B7280" }}>Stays in admin panel and other branches</div>
+                      </div>
+                    </div>
 
-    {deleteOption === "branch" && (
-      <select
-        value={selectedBranchId}
-        onChange={(e) => setSelectedBranchId(e.target.value)}
-        style={{ width: "100%", height: "30px", borderRadius: "6px", border: "1px solid #D1D5DB", padding: "0 8px", fontSize: "12px", outline: "none" }}
-      >
-        <option value="">Select a branch...</option>
-        {branches.map((b) => (
-          <option key={b.B_id} value={b.B_id}>{b.B_name}</option>
-        ))}
-      </select>
-    )}
-  </div>
+                    {deleteOption === "branch" && (
+                      <select
+                        value={selectedBranchId}
+                        onChange={(e) => setSelectedBranchId(e.target.value)}
+                        style={{ width: "100%", height: "30px", borderRadius: "6px", border: "1px solid #D1D5DB", padding: "0 8px", fontSize: "12px", outline: "none" }}
+                      >
+                        <option value="">Select a branch...</option>
+                        {branches.map((b) => (
+                          <option key={b.B_id} value={b.B_id}>{b.B_name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
 
-  <div
-    onClick={() => setDeleteOption("complete")}
-    style={{
-      border: deleteOption === "complete" ? "2px solid #EF4444" : "1px solid #E5E7EB",
-      borderRadius: "10px",
-      padding: "10px 12px",
-      cursor: "pointer",
-      background: deleteOption === "complete" ? "#FEF2F2" : "#fff",
-    }}
-  >
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <input type="radio" checked={deleteOption === "complete"} onChange={() => setDeleteOption("complete")} />
-                    <div>
-                      <div style={{ fontSize: "12px", fontWeight: "700", color: "#EF4444" }}>Delete completely from system</div>
-                      <div style={{ fontSize: "10px", color: "#6B7280" }}>⚠️ Removes from ALL branches permanently</div>
+                  <div
+                    onClick={() => setDeleteOption("complete")}
+                    style={{
+                      border: deleteOption === "complete" ? "2px solid #EF4444" : "1px solid #E5E7EB",
+                      borderRadius: "10px",
+                      padding: "10px 12px",
+                      cursor: "pointer",
+                      background: deleteOption === "complete" ? "#FEF2F2" : "#fff",
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <input type="radio" checked={deleteOption === "complete"} onChange={() => setDeleteOption("complete")} />
+                      <div>
+                        <div style={{ fontSize: "12px", fontWeight: "700", color: "#EF4444" }}>Delete completely from system</div>
+                        <div style={{ fontSize: "10px", color: "#6B7280" }}>⚠️ Removes from ALL branches permanently</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div style={{ padding: "0 20px 16px" }}>
-                <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", fontWeight: "700", color: "#111827" }}>
-                  <input type="checkbox" checked={deleteAcknowledged} onChange={(event) => setDeleteAcknowledged(event.target.checked)} />
-                  <span>I understand that this action is permanent.</span>
-                </label>
-              </div>
+                <div style={{ padding: "0 20px 16px" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "11px", fontWeight: "700", color: "#111827" }}>
+                    <input type="checkbox" checked={deleteAcknowledged} onChange={(event) => setDeleteAcknowledged(event.target.checked)} />
+                    <span>I understand that this action is permanent.</span>
+                  </label>
+                </div>
 
                 <div style={{ display: "flex", justifyContent: "center", gap: "14px", padding: "0 20px 18px" }}>
                   <button type="button" onClick={handleCancel} style={{ minWidth: "76px", height: "30px", borderRadius: "8px", border: "1px solid #E5E7EB", background: "#FFFFFF", color: "#111827", cursor: "pointer", fontWeight: "500" }}>

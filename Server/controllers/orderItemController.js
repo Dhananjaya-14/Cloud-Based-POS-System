@@ -1,6 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
-import { emitSocketEvent, KITCHEN_SOCKET_ROOM } from "../utils/socket.js";
+import { emitSocketEvent } from "../utils/socket.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS

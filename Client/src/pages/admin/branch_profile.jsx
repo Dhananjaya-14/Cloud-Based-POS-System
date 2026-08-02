@@ -170,10 +170,10 @@ const BranchProfile = () => {
       setDeleting(true);
       setDeleteError("");
       await deleteBranchById(branchId);
-      
+
       // Set success message with branch name
       setSuccessMessage(`🗑️ Branch "${branch?.B_name || 'Branch'}" deleted successfully!`);
-      
+
       // Close modal and navigate after short delay
       setShowDeleteModal(false);
       setTimeout(() => {
@@ -224,7 +224,7 @@ const BranchProfile = () => {
                     animation: "slideInRight 0.3s ease-out",
                   }}
                 >
-                  <div style={{ 
+                  <div style={{
                     flex: 1,
                     fontSize: "14px",
                     fontWeight: "500",

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FaSearch, FaClock, FaBell } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
 import { useAuth } from "../../context/AuthContext";
-import { connectSocket, getSocket } from "../../services/socket";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 import {
 	getBranchProducts,
 	getOrderItems,
@@ -11,46 +11,46 @@ import {
 } from "../../services/api";
 
 const statCards = [
-    {
-        key: "pending",
-        title: "Pending",
-        subtitle: "Items waiting",
-        tone: "from-amber-100 to-yellow-200",
-        accent: "text-amber-600",
-        border: "border-amber-300",
-        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
-        subtitleStyles: "font-sans font-semibold text-[12px] text-slate-500",
-    },
-    {
-        key: "preparing",
-        title: "Preparing",
-        subtitle: "In progress",
-        tone: "from-orange-100 to-orange-200",
-        accent: "text-orange-600",
-        border: "border-orange-300",
-        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase", 
-        subtitleStyles: "font-sans font-semibold text-[12px] text-slate-500",
-    },
-    {
-        key: "ready",
-        title: "Ready",
-        subtitle: "Ready to serve",
-        tone: "from-emerald-100 to-emerald-200",
-        accent: "text-emerald-600",
-        border: "border-emerald-300",
-        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
-        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
-    },
-    {
-        key: "active",
-        title: "Active Orders",
-        subtitle: "Total orders",
-        tone: "from-sky-100 to-indigo-100",
-        accent: "text-indigo-600",
-        border: "border-indigo-300",
-        titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
-        subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
-    },
+	{
+		key: "pending",
+		title: "Pending",
+		subtitle: "Items waiting",
+		tone: "from-amber-100 to-yellow-200",
+		accent: "text-amber-600",
+		border: "border-amber-300",
+		titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+		subtitleStyles: "font-sans font-semibold text-[12px] text-slate-500",
+	},
+	{
+		key: "preparing",
+		title: "Preparing",
+		subtitle: "In progress",
+		tone: "from-orange-100 to-orange-200",
+		accent: "text-orange-600",
+		border: "border-orange-300",
+		titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+		subtitleStyles: "font-sans font-semibold text-[12px] text-slate-500",
+	},
+	{
+		key: "ready",
+		title: "Ready",
+		subtitle: "Ready to serve",
+		tone: "from-emerald-100 to-emerald-200",
+		accent: "text-emerald-600",
+		border: "border-emerald-300",
+		titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+		subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+	},
+	{
+		key: "active",
+		title: "Active Orders",
+		subtitle: "Total orders",
+		tone: "from-sky-100 to-indigo-100",
+		accent: "text-indigo-600",
+		border: "border-indigo-300",
+		titleStyles: "font-sans font-medium text-sm tracking-wider uppercase",
+		subtitleStyles: "font-sans font-normal text-[12px] text-slate-500",
+	},
 ];
 
 const statusPalette = {
@@ -75,7 +75,7 @@ const KitchenManagement = () => {
 	const [orderNotifications, setOrderNotifications] = useState(() => {
 		const userId = user?.u_id;
 		if (!userId) return [];
-		
+
 		const savedNotifications = sessionStorage.getItem(`kitchenOrderNotifications_${userId}`);
 		if (savedNotifications) {
 			try {
@@ -104,7 +104,7 @@ const KitchenManagement = () => {
 	useEffect(() => {
 		const userId = user?.u_id;
 		if (!userId) return;
-		
+
 		if (orderNotifications.length > 0) {
 			sessionStorage.setItem(`kitchenOrderNotifications_${userId}`, JSON.stringify(orderNotifications));
 		} else {
@@ -186,26 +186,26 @@ const KitchenManagement = () => {
 		// Handler for new order created
 		const handleOrderCreated = (orderData) => {
 			console.log("New order created (kitchen):", orderData);
-			
+
 			// Check if this order belongs to this branch
 			if (orderData.b_id && Number(orderData.b_id) !== Number(branchId)) {
 				return;
 			}
-			
+
 			// Extract order ID - try multiple possible field names
-			const orderId = orderData.or_id || orderData.id || orderData.order_id || 
-						   orderData._id || orderData.OR_id || null;
-			
+			const orderId = orderData.or_id || orderData.id || orderData.order_id ||
+				orderData._id || orderData.OR_id || null;
+
 			// Only show notification if we have a valid order ID and the order is pending
 			if (orderId && orderId !== "Unknown" && orderData.or_status === "pending") {
 				// Add notification to persistent queue
 				setOrderNotifications(prev => {
-					const existingNotif = prev.find(n => 
-						n.orderId === orderId && 
+					const existingNotif = prev.find(n =>
+						n.orderId === orderId &&
 						(new Date() - new Date(n.timestamp)) < 10000
 					);
 					if (existingNotif) return prev;
-					
+
 					return [...prev, {
 						id: Date.now() + Math.random(),
 						type: 'new_order',
@@ -215,7 +215,7 @@ const KitchenManagement = () => {
 					}];
 				});
 			}
-			
+
 			scheduleRefresh(true);
 		};
 
@@ -233,7 +233,12 @@ const KitchenManagement = () => {
 
 		socket.on("order:created", handleOrderCreated);
 		socket.on("order:updated", handleOrderUpdated);
+		socket.on("order:ready", handleOrderUpdated);
 		socket.on("order:deleted", handleOrderDeleted);
+		// Also listen to new constant events for future compatibility
+		socket.on(SOCKET_EVENTS.ORDER_SENT, handleOrderCreated);
+		socket.on(SOCKET_EVENTS.ORDER_ACCEPTED, handleOrderUpdated);
+		socket.on(SOCKET_EVENTS.ORDER_READY, handleOrderUpdated);
 
 		return () => {
 			isMounted = false;
@@ -255,12 +260,9 @@ const KitchenManagement = () => {
 		return orderItems.reduce((acc, item) => {
 			const product = branchProductMap[item.Bpro_id];
 			const stations = product?.stations || {};
-			const productType = product?.product_type;
-
+			// Keep items that are assigned to kitchen or have no station restriction
 			if (stations.Kitchen === false) return acc;
 			if (stations.Bar === true && stations.Kitchen !== true) return acc;
-			if (productType !== 'made_to_order') return acc;
-
 			const orderId = item.order_id;
 			if (!acc[orderId]) acc[orderId] = [];
 			acc[orderId].push(item);
@@ -445,9 +447,9 @@ const KitchenManagement = () => {
 						)}
 					</div>
 				</div>
-			</div>
-		);
-	};
+    </div>
+  );
+};
 
 	const renderOrderColumn = (title, ordersInColumn) => {
 		return (
@@ -502,8 +504,8 @@ const KitchenManagement = () => {
 			setOrders(previousOrders);
 			setError(
 				err?.response?.data?.error ||
-					err?.response?.data?.message ||
-					"Failed to update order status.",
+				err?.response?.data?.message ||
+				"Failed to update order status.",
 			);
 		} finally {
 			setUpdatingOrderId(null);
@@ -593,16 +595,16 @@ const KitchenManagement = () => {
 							}}
 						>
 							<div>
-								<div style={{ 
-									fontWeight: '600', 
+								<div style={{
+									fontWeight: '600',
 									fontSize: '15px',
 									color: '#1F2937',
 									marginBottom: '4px'
 								}}>
 									🍽️ New Order Received
 								</div>
-								<div style={{ 
-									fontSize: '14px', 
+								<div style={{
+									fontSize: '14px',
 									color: '#4B5563',
 									fontWeight: '500',
 									lineHeight: '1.5'

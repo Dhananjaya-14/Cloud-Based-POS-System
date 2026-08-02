@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { getIO, SOCKET_EVENTS, emitCompanyEvent } from "../utils/socket.js";
 
 // Trim and cap name length to match typical DB column constraints
 function sanitizeName(value) {
@@ -54,7 +55,25 @@ export async function createCompany(req, res, next) {
       [sanitizedName, c_status ?? true, c_email ?? null, reg_date ?? new Date(), location ?? null, phone ?? null, package_id ?? null],
     );
 
-    res.status(201).json(result.rows[0]);
+    const newCompany = result.rows[0];
+    
+    // Emit company created event to all connected super admins
+    try {
+      const io = getIO();
+      if (io) {
+        // Emit to all super admin clients
+        io.emit(SOCKET_EVENTS.COMPANY_CREATED, newCompany);
+        console.log(`Company created event emitted for: ${newCompany.com_name}`);
+        
+        // Also emit to the company's specific room (if any branch admins are listening)
+        emitCompanyEvent(SOCKET_EVENTS.COMPANY_CREATED, newCompany, newCompany.com_id);
+      }
+    } catch (socketError) {
+      console.error("Error emitting socket event:", socketError);
+      // Don't fail the request if socket emission fails
+    }
+
+    res.status(201).json(newCompany);
   } catch (err) {
     if (err?.code === "23505") {
       res.status(409);
@@ -98,7 +117,25 @@ export async function updateCompany(req, res, next) {
       [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null],
     );
 
-    res.json(result.rows[0]);
+    const updatedCompany = result.rows[0];
+    
+    // Emit company updated event to all connected super admins
+    try {
+      const io = getIO();
+      if (io) {
+        // Emit to all super admin clients
+        io.emit(SOCKET_EVENTS.COMPANY_UPDATED, updatedCompany);
+        console.log(`Company updated event emitted for: ${updatedCompany.com_name}`);
+        
+        // Also emit to the company's specific room
+        emitCompanyEvent(SOCKET_EVENTS.COMPANY_UPDATED, updatedCompany, updatedCompany.com_id);
+      }
+    } catch (socketError) {
+      console.error("Error emitting socket event:", socketError);
+      // Don't fail the request if socket emission fails
+    }
+
+    res.json(updatedCompany);
   } catch (err) {
     if (err?.code === "23505") {
       res.status(409);
@@ -112,6 +149,17 @@ export async function deleteCompany(req, res, next) {
   try {
     const { id } = req.params;
 
+    // Get company info before deletion for socket event
+    const companyToDelete = await pool.query(
+      'SELECT "com_id", "com_name" FROM "Company" WHERE "com_id" = $1',
+      [id],
+    );
+
+    if (companyToDelete.rows.length === 0) {
+      res.status(404);
+      throw new Error("Company not found");
+    }
+
     const result = await pool.query(
       'DELETE FROM "Company" WHERE "com_id" = $1 RETURNING "com_id"',
       [id],
@@ -120,6 +168,27 @@ export async function deleteCompany(req, res, next) {
     if (result.rows.length === 0) {
       res.status(404);
       throw new Error("Company not found");
+    }
+
+    // Emit company deleted event to all connected super admins
+    try {
+      const io = getIO();
+      if (io) {
+        const deletedData = {
+          com_id: parseInt(id),
+          com_name: companyToDelete.rows[0].com_name
+        };
+        
+        // Emit to all super admin clients
+        io.emit(SOCKET_EVENTS.COMPANY_DELETED, deletedData);
+        console.log(`Company deleted event emitted for: ${deletedData.com_name}`);
+        
+        // Also emit to the company's specific room (if any branch admins are listening)
+        emitCompanyEvent(SOCKET_EVENTS.COMPANY_DELETED, deletedData, parseInt(id));
+      }
+    } catch (socketError) {
+      console.error("Error emitting socket event:", socketError);
+      // Don't fail the request if socket emission fails
     }
 
     res.status(204).send();

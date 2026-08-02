@@ -162,6 +162,7 @@ export async function getBranchProducts(req, res, next) {
   try {
     const { role_id, com_id } = req.user;
     const branchId = req.query?.b_id ?? req.query?.B_id;
+
     if (branchId !== undefined && !isPositiveInt(branchId)) {
       res.status(400);
       throw new Error("b_id must be a positive integer");

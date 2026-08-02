@@ -43,12 +43,27 @@ export const SOCKET_EVENTS = {
   BRANCH_PRODUCT_DELETED: "branch_product_deleted",
   // PayHere payment events
   PAYHERE_PAYMENT_CONFIRMED: "payhere:payment_confirmed",
+  // Company management events
+  COMPANY_CREATED: "company:created",
+  COMPANY_UPDATED: "company:updated",
+  COMPANY_DELETED: "company:deleted",
+  JOIN_COMPANY_ROOM: "join_company_room",
+  LEAVE_COMPANY_ROOM: "leave_company_room",
+  // Branch events
+  BRANCH_CREATED: "branch:created",
+  BRANCH_UPDATED: "branch:updated",
+  BRANCH_DELETED: "branch:deleted",
+  // Order workflow events
+  ORDER_SENT: "order:sent",
+  ORDER_ACCEPTED: "order:accepted",
+  ORDER_READY: "order:ready",
+  ORDER_UPDATED: "order:updated",
 };
 
 export const getSocket = () => {
   if (!socket) {
     const token = localStorage.getItem("token");
-    
+
     socket = io(SOCKET_URL, {
       autoConnect: false,
       auth: {
@@ -62,24 +77,26 @@ export const getSocket = () => {
 
     if (import.meta.env.MODE !== "production") {
       socket.on("connect", () => {
-        console.debug("socket connected", socket.id);
+        console.debug("✅ socket connected", socket.id);
         reconnectAttempts = 0;
+        // Auto-join branch updates room
+        socket.emit("join_branch_updates");
       });
 
       socket.on("disconnect", (reason) => {
-        console.debug("socket disconnected", reason);
+        console.debug("❌ socket disconnected", reason);
       });
 
       socket.on("connect_error", (err) => {
-        console.debug("socket connect_error", err.message || err);
+        console.debug("⚠️ socket connect_error", err.message || err);
         reconnectAttempts++;
         if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-          console.error("Max reconnection attempts reached");
+          console.error("❌ Max reconnection attempts reached");
         }
       });
 
       socket.onAny((event, ...args) => {
-        console.debug("socket event received", event, args);
+        console.debug("📡 socket event received", event, args);
       });
     }
   }
@@ -114,12 +131,30 @@ export const disconnectSocket = () => {
 
 export const getSocketUrl = () => SOCKET_URL;
 
+// Helper function to join branch updates room
+export const joinBranchUpdatesRoom = () => {
+  const socket = getSocket();
+  if (socket && socket.connected) {
+    socket.emit("join_branch_updates");
+    console.log("✅ Joined branch updates room");
+  }
+};
+
 // Helper function to join company room
 export const joinCompanyRoom = (companyId) => {
   const socket = getSocket();
   if (socket && socket.connected && companyId) {
-    socket.emit("join_company_room", companyId);
-    console.log(`Joined company room ${companyId}`);
+    socket.emit(SOCKET_EVENTS.JOIN_COMPANY_ROOM, companyId);
+    console.log(`✅ Joined company room ${companyId}`);
+  }
+};
+
+// Helper function to leave company room
+export const leaveCompanyRoom = (companyId) => {
+  const socket = getSocket();
+  if (socket && socket.connected && companyId) {
+    socket.emit(SOCKET_EVENTS.LEAVE_COMPANY_ROOM, companyId);
+    console.log(`Left company room ${companyId}`);
   }
 };
 
@@ -159,10 +194,83 @@ export const leaveBranchInventoryRoom = (branchId) => {
   }
 };
 
+// Helper function to subscribe to user updates (for super admins and admins)
+export const subscribeToUserUpdates = (callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => { };
+
+  const {
+    onUserCreated,
+    onUserUpdated,
+    onUserDeleted
+  } = callbacks;
+
+  // Join branch updates room for super admins
+  joinBranchUpdatesRoom();
+
+  if (onUserCreated) {
+    socket.on(SOCKET_EVENTS.USER_CREATED, onUserCreated);
+  }
+  if (onUserUpdated) {
+    socket.on(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+  }
+  if (onUserDeleted) {
+    socket.on(SOCKET_EVENTS.USER_DELETED, onUserDeleted);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onUserCreated) {
+      socket.off(SOCKET_EVENTS.USER_CREATED, onUserCreated);
+    }
+    if (onUserUpdated) {
+      socket.off(SOCKET_EVENTS.USER_UPDATED, onUserUpdated);
+    }
+    if (onUserDeleted) {
+      socket.off(SOCKET_EVENTS.USER_DELETED, onUserDeleted);
+    }
+  };
+};
+
+// Helper function to subscribe to company updates
+export const subscribeToCompanyUpdates = (callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => { };
+
+  const {
+    onCompanyCreated,
+    onCompanyUpdated,
+    onCompanyDeleted
+  } = callbacks;
+
+  if (onCompanyCreated) {
+    socket.on(SOCKET_EVENTS.COMPANY_CREATED, onCompanyCreated);
+  }
+  if (onCompanyUpdated) {
+    socket.on(SOCKET_EVENTS.COMPANY_UPDATED, onCompanyUpdated);
+  }
+  if (onCompanyDeleted) {
+    socket.on(SOCKET_EVENTS.COMPANY_DELETED, onCompanyDeleted);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onCompanyCreated) {
+      socket.off(SOCKET_EVENTS.COMPANY_CREATED, onCompanyCreated);
+    }
+    if (onCompanyUpdated) {
+      socket.off(SOCKET_EVENTS.COMPANY_UPDATED, onCompanyUpdated);
+    }
+    if (onCompanyDeleted) {
+      socket.off(SOCKET_EVENTS.COMPANY_DELETED, onCompanyDeleted);
+    }
+  };
+};
+
 // Helper function to listen for product updates
 export const subscribeToProductUpdates = (companyId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onProductAdded,
@@ -202,7 +310,7 @@ export const subscribeToProductUpdates = (companyId, callbacks) => {
 // Helper function to listen for recipe events
 export const subscribeToRecipeUpdates = (productId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onRecipeCreated,
@@ -251,7 +359,7 @@ export const subscribeToRecipeUpdates = (productId, callbacks) => {
 // Helper function to listen for supplier events
 export const subscribeToSupplierUpdates = (callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onSupplierCreated,
@@ -286,7 +394,7 @@ export const subscribeToSupplierUpdates = (callbacks) => {
 // Helper function to listen for inventory events
 export const subscribeToInventoryUpdates = (branchId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onInventoryCreated,
@@ -329,7 +437,7 @@ export const subscribeToInventoryUpdates = (branchId, callbacks) => {
 // Helper function to listen for branch product events (specifically for branch admins)
 export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onBranchProductAdded,
@@ -340,17 +448,6 @@ export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
   // Join the branch room first
   if (branchId) {
     joinBranchInventoryRoom(branchId);
-  }
-
-  // Also join company room for cross-branch updates
-  const token = localStorage.getItem("token");
-  if (token) {
-    try {
-      // Parse JWT to get company_id (or get from auth context)
-      // For simplicity, we'll listen on branch room only
-    } catch (e) {
-      console.warn("Could not parse JWT for company room join");
-    }
   }
 
   if (onBranchProductAdded) {
@@ -383,7 +480,7 @@ export const subscribeToBranchProductUpdates = (branchId, callbacks) => {
 // Helper function to listen for PayHere payment events
 export const subscribeToPayHereUpdates = (orderId, callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onPaymentConfirmed,
@@ -417,10 +514,14 @@ export default {
   getSocketUrl,
   SOCKET_EVENTS,
   joinCompanyRoom,
+  leaveCompanyRoom,
   joinBranchUserRoom,
   leaveBranchUserRoom,
   joinBranchInventoryRoom,
   leaveBranchInventoryRoom,
+  joinBranchUpdatesRoom,
+  subscribeToUserUpdates,
+  subscribeToCompanyUpdates,
   subscribeToProductUpdates,
   subscribeToRecipeUpdates,
   subscribeToSupplierUpdates,

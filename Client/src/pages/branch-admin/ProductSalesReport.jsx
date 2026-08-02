@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getProductSalesReport,getBranchById} from "../../services/api";
+import { getProductSalesReport, getBranchById } from "../../services/api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -54,7 +54,7 @@ export default function ProductSalesReport() {
     selectedMonth: currentMonthString,
     selectedWeek: "1",
   });
-  
+
   const [selectedColumns, setSelectedColumns] = useState(
     availableColumns.map((col) => col.key)
   );
@@ -76,7 +76,7 @@ export default function ProductSalesReport() {
         const week = Number(filters.selectedWeek);
 
         const daysInMonth = new Date(year, month, 0).getDate();
-        
+
         const startDay = (week - 1) * 7 + 1;
         let endDay = startDay + 6;
 
@@ -154,15 +154,15 @@ export default function ProductSalesReport() {
   const exportExcel = () => {
     const formattedRows = rows.map((row) => {
       const dataRow = {};
-      
+
       if (selectedColumns.includes("pay_date")) {
         dataRow["Date"] = row.pay_date ? row.pay_date.split("T")[0] : "";
       }
       if (selectedColumns.includes("pay_time")) {
         dataRow["Time"] = row.pay_time
           ? (row.pay_time.includes("T")
-              ? row.pay_time.split("T")[1].split(".")[0]
-              : row.pay_time.slice(0, 8))
+            ? row.pay_time.split("T")[1].split(".")[0]
+            : row.pay_time.slice(0, 8))
           : "";
       }
       if (selectedColumns.includes("prod_name")) {
@@ -183,15 +183,15 @@ export default function ProductSalesReport() {
     if (formattedRows.length > 0) {
       const totalRow = {};
       const firstVisibleColumn = availableColumns.find(col => selectedColumns.includes(col.key));
-      
+
       if (firstVisibleColumn) {
         totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "TOTAL";
       }
-      
+
       if (selectedColumns.includes("total_sale")) {
         totalRow["Total Sale (Rs.)"] = parseFloat(grandTotal);
       }
-      
+
       formattedRows.push(totalRow);
     }
 
@@ -204,7 +204,7 @@ export default function ProductSalesReport() {
         maxColumnWidths[colIndex] = Math.max(maxColumnWidths[colIndex] || 10, currentLength + 3);
       });
     });
-    
+
     worksheet["!cols"] = maxColumnWidths.map(w => ({ wch: w }));
 
     const workbook = XLSX.utils.book_new();
@@ -218,7 +218,7 @@ export default function ProductSalesReport() {
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
     const generatedTime = reportDate.toLocaleTimeString();
-    
+
     // HEADER
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
@@ -257,7 +257,7 @@ export default function ProductSalesReport() {
           if (col === "unit_price" || col === "total_sale") {
             return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
           }
-          if (col=== "pay_date" ) {
+          if (col === "pay_date") {
             return row[col].includes("T") ? row[col].split("T")[0] : row[col];
           }
           if (col === "pay_time") {
@@ -279,7 +279,7 @@ export default function ProductSalesReport() {
         fillColor: [245, 247, 250],
       },
     });
-    
+
     const finalY = doc.lastAutoTable.finalY + 12;
 
     doc.setFillColor(240, 248, 255);
@@ -435,8 +435,8 @@ export default function ProductSalesReport() {
             onClick={generateReport}
             disabled={loading}
             className={`mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all duration-150
-              ${loading 
-                ? "bg-blue-400 text-blue-100 cursor-not-allowed" 
+              ${loading
+                ? "bg-blue-400 text-blue-100 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] cursor-pointer"
               }`}
           >
@@ -480,7 +480,7 @@ export default function ProductSalesReport() {
             ))}
           </div>
         </div>
-        
+
         {/* Table & Data Handling */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -510,8 +510,8 @@ export default function ProductSalesReport() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td 
-                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length} 
+                    <td
+                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length}
                       className="text-center py-12 text-gray-400 font-medium"
                     >
                       No matching sales data captured. Adjust your filters and reload.
@@ -560,8 +560,8 @@ export default function ProductSalesReport() {
               {rows.length > 0 && (
                 <tfoot>
                   <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                    <td 
-                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
+                    <td
+                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1}
                       className="p-4 text-right"
                     >
                       Grand Total

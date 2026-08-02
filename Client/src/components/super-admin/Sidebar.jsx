@@ -6,6 +6,7 @@ import {
   FaUsers,
   FaSignOutAlt,
   FaCodeBranch,
+  FaClipboardList,
   FaBox,
 } from "react-icons/fa";
 
@@ -69,6 +70,7 @@ const Sidebar = () => {
           {menuItem(<FaStore />, "Company Management", "/super-admin/hotels")}
           {menuItem(<FaUsers />, "User Management", "/super-admin/users")}
           {menuItem(<FaCodeBranch />, "Branch Management", "/super-admin/branches")}
+          {menuItem(<FaClipboardList />, "Activity Log", "/super-admin/activity-log")}
           {menuItem(<FaBox />, "Package Management", "/super-admin/packages")}
         </div>
       </div>

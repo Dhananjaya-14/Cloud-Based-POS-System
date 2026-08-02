@@ -18,12 +18,16 @@ import {
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 import {
   getWaiterProfile,
   getBranchProducts,
   createWaiterOrder,
   createOrderItem,
   getCategories,
+  getWaiterOrders,
+  updateOrderStatus,
+  getOrderItemsByOrderId,
 } from "../../services/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -57,7 +61,9 @@ const getCategoryIcon = (name) => {
 
 const WaiterPos = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, features } = useAuth();
+  const kitchenEnabled = features?.has_kitchen === true;
+  const inventoryEnabled = features?.has_inventory === true;
   
   const [branchName, setBranchName] = useState("Loading...");
   const [branchId, setBranchId] = useState(null);
@@ -77,7 +83,12 @@ const WaiterPos = () => {
   const [error, setError] = useState("");
   
   // Tax calculations
-  const [taxRate, setTaxRate] = useState(10); // Example Tax
+  const [taxRate, setTaxRate] = useState(10);
+
+  // My Orders state (for no-kitchen confirm delivery flow)
+  const [myOrders, setMyOrders] = useState([]);
+  const [loadingMyOrders, setLoadingMyOrders] = useState(false);
+  const [activeTab, setActiveTab] = useState("new"); // "new" | "myorders"
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -155,11 +166,13 @@ const WaiterPos = () => {
   const total = taxableBase + taxAmount;
 
   const addToCart = (product) => {
+    const isMadeToOrder = product.product_type === "made_to_order";
+    const ignoreStock = !inventoryEnabled && isMadeToOrder;
     const stockCount = Number(product.pro_quantity ?? 0);
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
       if (existing) {
-        if (existing.qty >= stockCount) {
+        if (!ignoreStock && existing.qty >= stockCount) {
           showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
           return currentCart;
         }
@@ -170,7 +183,7 @@ const WaiterPos = () => {
         );
       }
 
-      if (stockCount <= 0) {
+      if (!ignoreStock && stockCount <= 0) {
         showToast("This item is out of stock.", "error");
         return currentCart;
       }
@@ -189,6 +202,8 @@ const WaiterPos = () => {
 
   const updateQuantity = (Bpro_id, delta) => {
     const product = products.find((p) => p.Bpro_id === Bpro_id);
+    const isMadeToOrder = product?.product_type === "made_to_order";
+    const ignoreStock = !inventoryEnabled && isMadeToOrder;
     const stockCount = Number(product?.pro_quantity ?? 0);
 
     setCart((currentCart) =>
@@ -196,7 +211,7 @@ const WaiterPos = () => {
         .map((item) => {
           if (item.Bpro_id === Bpro_id) {
             const nextQty = item.qty + delta;
-            if (delta > 0 && nextQty > stockCount) {
+            if (delta > 0 && !ignoreStock && nextQty > stockCount) {
               showToast(`Cannot add more. Only ${stockCount} items available in stock.`, "error");
               return item;
             }
@@ -210,6 +225,58 @@ const WaiterPos = () => {
 
   const removeFromCart = (Bpro_id) => {
     setCart((currentCart) => currentCart.filter((item) => item.Bpro_id !== Bpro_id));
+  };
+
+  const fetchMyOrders = async () => {
+    try {
+      setLoadingMyOrders(true);
+      const res = await getWaiterOrders();
+      const orders = Array.isArray(res) ? res : (res?.data ?? []);
+      const activeOrders = orders.filter(o => o.or_status !== "cancelled" && o.or_status !== "completed");
+      
+      const ordersWithItems = await Promise.all(activeOrders.map(async (order) => {
+        try {
+          const items = await getOrderItemsByOrderId(order.or_id);
+          return { ...order, items };
+        } catch (e) {
+          return { ...order, items: [] };
+        }
+      }));
+      
+      setMyOrders(ordersWithItems);
+    } catch (err) {
+      console.error("Failed to fetch my orders", err);
+    } finally {
+      setLoadingMyOrders(false);
+    }
+  };
+
+  const handleConfirmDelivery = async (orderId) => {
+    try {
+      setLoadingMyOrders(true);
+      await updateOrderStatus(orderId, "completed");
+      showToast("Order delivered successfully!", "success");
+      await fetchMyOrders();
+    } catch (err) {
+      showToast("Failed to confirm delivery: " + (err.response?.data?.error || err.message), "error");
+    } finally {
+      setLoadingMyOrders(false);
+    }
+  };
+
+  const handleCancelOrder = async (orderId) => {
+    try {
+      setLoadingMyOrders(true);
+      await updateOrderStatus(orderId, "cancelled");
+      showToast(`Order #${orderId} cancelled.`, "success");
+      setMyOrders((prev) =>
+        prev.filter((order) => order.or_id !== orderId)
+      );
+    } catch (err) {
+      showToast("Failed to cancel order: " + (err.response?.data?.error || err.message), "error");
+    } finally {
+      setLoadingMyOrders(false);
+    }
   };
 
   const handlePlaceOrder = async () => {
@@ -228,11 +295,19 @@ const WaiterPos = () => {
       const orderRes = await createWaiterOrder(orderPayload);
       if (!orderRes.success) throw new Error(orderRes.error || "Failed to create order");
       
-      const orderId = orderRes.data.or_id || orderRes.data.order_id || orderRes.data.id; 
+      const orderId = orderRes.data.or_id || orderRes.data.order_id || orderRes.data.id;
 
       if (!orderId) {
         throw new Error("Created order ID is missing");
       }
+
+      // Emit order sent event for real‑time kitchen workflow
+      const socket = getSocket();
+      socket.emit(SOCKET_EVENTS.ORDER_SENT, {
+        orderId,
+        branchId,
+        total: Number(total.toFixed(2)),
+      });
 
       // Add order items
       await Promise.all(
@@ -432,125 +507,200 @@ const WaiterPos = () => {
 
       {/* Cart Sidebar */}
       <aside className="flex flex-col border-l border-slate-200 bg-white shrink-0 w-full sm:w-[320px] md:w-[350px] lg:w-[380px]">
-        {/* Header */}
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-slate-800">Order Summary</h2>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500">
-              <FaClipboardList className="h-4 w-4" />
-            </div>
+
+        {/* Tab Header — only when kitchen is disabled */}
+        {!kitchenEnabled ? (
+          <div className="flex border-b border-slate-200 flex-none">
+            <button
+              onClick={() => setActiveTab("new")}
+              className={`flex-1 py-4 text-sm font-bold transition-colors ${
+                activeTab === "new"
+                  ? "border-b-2 border-[#0A5BAE] text-[#0A5BAE]"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              🛒 New Order
+            </button>
+            <button
+              onClick={() => { setActiveTab("myorders"); fetchMyOrders(); }}
+              className={`flex-1 py-4 text-sm font-bold transition-colors ${
+                activeTab === "myorders"
+                  ? "border-b-2 border-[#55C24A] text-[#55C24A]"
+                  : "text-slate-500 hover:text-slate-700"
+              }`}
+            >
+              📋 My Orders
+            </button>
           </div>
-        </div>
-
-        {/* Cart Listing */}
-        <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4">
-          {error && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">
-              {error}
-            </div>
-          )}
-
-          {cart.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center text-center opacity-60">
-              <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
-                <FaShoppingCart className="h-8 w-8 text-slate-400" />
+        ) : (
+          <div className="flex flex-col gap-4 border-b border-slate-100 p-6 flex-none">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-black text-slate-800">Order Summary</h2>
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500">
+                <FaClipboardList className="h-4 w-4" />
               </div>
-              <p className="text-sm font-bold text-slate-600">Order is empty</p>
-              <p className="mt-1 text-xs text-slate-400">
-                Add products from the menu to get started
-              </p>
             </div>
-          ) : (
-            <div className="space-y-3">
-              {cart.map((item) => (
-                <div
-                  key={item.Bpro_id}
-                  className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <h4 className="line-clamp-2 text-sm font-bold leading-snug text-slate-800">
-                        {item.pro_name}
-                      </h4>
-                      <p className="mt-1 text-sm font-black text-[#0A5BAE]">
-                        ${item.unitPrice.toFixed(2)}
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => removeFromCart(item.Bpro_id)}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-500 hover:text-white"
-                    >
-                      <FaTrashAlt className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+          </div>
+        )}
 
-                  <div className="flex items-center justify-between border-t border-slate-50 pt-3">
-                    <p className="text-sm font-bold text-slate-700">
-                      ${(item.unitPrice * item.qty).toFixed(2)}
-                    </p>
-                    <div className="flex items-center gap-3 rounded-full bg-slate-100 p-1">
-                      <button
-                        onClick={() => updateQuantity(item.Bpro_id, -1)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm transition-hover hover:bg-slate-200"
-                      >
-                        <FaMinus className="h-3 w-3" />
-                      </button>
-                      <span className="w-4 text-center text-sm font-bold tabular-nums text-slate-800">
-                        {item.qty}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.Bpro_id, 1)}
-                        className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0A5BAE] text-white shadow-sm transition-hover hover:bg-[#094f96]"
-                      >
-                        <FaPlus className="h-3 w-3" />
-                      </button>
-                    </div>
+        {/* New Order Tab */}
+        {(kitchenEnabled || activeTab === "new") && (
+          <>
+            <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4">
+              {error && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-600">{error}</div>
+              )}
+              {cart.length === 0 ? (
+                <div className="flex h-full flex-col items-center justify-center text-center opacity-60">
+                  <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-slate-100">
+                    <FaShoppingCart className="h-8 w-8 text-slate-400" />
                   </div>
+                  <p className="text-sm font-bold text-slate-600">Order is empty</p>
+                  <p className="mt-1 text-xs text-slate-400">Add products from the menu to get started</p>
                 </div>
-              ))}
+              ) : (
+                <div className="space-y-3">
+                  {cart.map((item) => (
+                    <div key={item.Bpro_id} className="flex flex-col gap-3 rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex-1">
+                          <h4 className="line-clamp-2 text-sm font-bold leading-snug text-slate-800">{item.pro_name}</h4>
+                          <p className="mt-1 text-sm font-black text-[#0A5BAE]">${item.unitPrice.toFixed(2)}</p>
+                        </div>
+                        <button onClick={() => removeFromCart(item.Bpro_id)} className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 transition-colors hover:bg-red-500 hover:text-white">
+                          <FaTrashAlt className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between border-t border-slate-50 pt-3">
+                        <p className="text-sm font-bold text-slate-700">${(item.unitPrice * item.qty).toFixed(2)}</p>
+                        <div className="flex items-center gap-3 rounded-full bg-slate-100 p-1">
+                          <button onClick={() => updateQuantity(item.Bpro_id, -1)} className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm hover:bg-slate-200">
+                            <FaMinus className="h-3 w-3" />
+                          </button>
+                          <span className="w-4 text-center text-sm font-bold tabular-nums text-slate-800">{item.qty}</span>
+                          <button onClick={() => updateQuantity(item.Bpro_id, 1)} className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0A5BAE] text-white shadow-sm hover:bg-[#094f96]">
+                            <FaPlus className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* Math & Checkout */}
-        <div className="border-t border-slate-200 bg-white p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-10">
-          <div className="space-y-3 border-b border-slate-100 pb-5 text-sm">
-            <div className="flex justify-between">
-              <span className="font-semibold text-slate-500">Subtotal</span>
-              <span className="font-bold text-slate-800 tabular-nums">
-                ${taxableBase.toFixed(2)}
-              </span>
+            {/* Math & Checkout */}
+            <div className="border-t border-slate-200 bg-white p-6 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-10 flex-none">
+              <div className="space-y-3 border-b border-slate-100 pb-5 text-sm">
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-500">Subtotal</span>
+                  <span className="font-bold text-slate-800 tabular-nums">${taxableBase.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-[#0A5BAE]">
+                  <span className="font-semibold">Tax ({taxRate}%)</span>
+                  <span className="font-bold tabular-nums">${taxAmount.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-semibold text-slate-500">Items/Qty</span>
+                  <span className="font-bold text-slate-800 tabular-nums">{cart.length} / {cart.reduce((s, i) => s + i.qty, 0)}</span>
+                </div>
+              </div>
+              <div className="flex items-end justify-between py-5">
+                <span className="text-sm font-black uppercase tracking-wider text-slate-400">Total</span>
+                <span className="text-3xl font-black tracking-tight text-slate-800 tabular-nums">${total.toFixed(2)}</span>
+              </div>
+              <button
+                onClick={handlePlaceOrder}
+                disabled={submitting || cart.length === 0}
+                className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#55C24A] px-6 py-4 text-base font-bold text-white shadow-[0_8px_24px_rgba(85,194,74,0.25)] transition-all hover:bg-[#49b03f] hover:shadow-[0_12px_32px_rgba(85,194,74,0.35)] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
+              >
+                <FaShoppingCart className="h-5 w-5" />
+                {submitting ? "Placing Order..." : kitchenEnabled ? "Send to Kitchen" : "Place Order"}
+              </button>
             </div>
-            <div className="flex justify-between text-[#0A5BAE]">
-              <span className="font-semibold">Tax ({taxRate}%)</span>
-              <span className="font-bold tabular-nums">${taxAmount.toFixed(2)}</span>
+          </>
+        )}
+
+        {/* My Orders Tab — only when kitchen disabled */}
+        {!kitchenEnabled && activeTab === "myorders" && (
+          <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-bold text-slate-600">Active Orders</span>
+              <button onClick={fetchMyOrders} disabled={loadingMyOrders} className="text-xs text-[#0A5BAE] font-semibold hover:underline disabled:opacity-50">
+                {loadingMyOrders ? "Refreshing..." : "↻ Refresh"}
+              </button>
             </div>
-            <div className="flex justify-between">
-              <span className="font-semibold text-slate-500">Items/Qty</span>
-              <span className="font-bold text-slate-800 tabular-nums">
-                {cart.length} / {cart.reduce((s, i) => s + i.qty, 0)}
-              </span>
-            </div>
+            {loadingMyOrders ? (
+              <div className="flex items-center justify-center py-10 text-slate-400 text-sm">Loading...</div>
+            ) : myOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center text-center opacity-60 py-10">
+                <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100">
+                  <FaClipboardList className="h-6 w-6 text-slate-400" />
+                </div>
+                <p className="text-sm font-bold text-slate-600">No active orders</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {myOrders.map((order) => (
+                  <div key={order.or_id} className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between mb-2">
+                      <span className="font-bold text-slate-800">Order #{order.or_id}</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${
+                          order.or_status === "pending"   ? "bg-yellow-100 text-yellow-700" :
+                          order.or_status === "preparing" ? "bg-blue-100 text-blue-700" :
+                          "bg-slate-100 text-slate-600"
+                        }`}>
+                          {order.or_status?.replace(/_/g, " ")}
+                        </span>
+                        <button
+                          onClick={() => handleCancelOrder(order.or_id)}
+                          disabled={loadingMyOrders}
+                          title="Cancel Order"
+                          className="flex h-6 w-6 items-center justify-center rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition disabled:opacity-40"
+                        >
+                          <span className="text-xs font-bold">✕</span>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 space-y-0.5 mb-3">
+                      {order.table_id && <p><strong>Table:</strong> {order.table_id}</p>}
+                      {order.items && order.items.length > 0 && (
+                        <div className="py-1">
+                          <p className="font-bold text-slate-600 mb-1">Items:</p>
+                          <ul className="space-y-1">
+                            {order.items.map((item, idx) => (
+                              <li key={idx} className="flex justify-between text-slate-500 font-semibold">
+                                <span>{Number(item.pro_quantity || item.qty || 1)}x {item.pro_name}</span>
+                                <span>${(Number(item.unit_price || item.branch_price || 0) * Number(item.pro_quantity || item.qty || 1)).toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    <div
+                      style={{marginTop: "12px",padding: "12px 16px",borderTop: "2px dashed #999",borderBottom: "2px dashed #999",display: "flex",justifyContent: "space-between",alignItems: "center",fontSize: "18px",fontWeight: "bold",color: "#0f172a",backgroundColor: "#f8fafc",}}
+                    >
+                      <span>TOTAL</span>
+                      <span>Rs. {Number(order.or_totalCostWtax || order.or_totalcost || 0).toFixed(2)}</span>
+                    </div>
+                    </div>
+                    {!kitchenEnabled && (
+                      <button
+                        onClick={() => handleConfirmDelivery(order.or_id)}
+                        disabled={loadingMyOrders}
+                        className="w-full rounded-xl bg-[#55C24A] text-white py-2.5 text-sm font-bold hover:bg-[#49b03f] transition disabled:opacity-50"
+                      >
+                        ✅ Confirm Delivery
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
+        )}
 
-          <div className="flex items-end justify-between py-5">
-            <span className="text-sm font-black uppercase tracking-wider text-slate-400">
-              Total
-            </span>
-            <span className="text-3xl font-black tracking-tight text-slate-800 tabular-nums">
-              ${total.toFixed(2)}
-            </span>
-          </div>
-
-          <button
-            onClick={handlePlaceOrder}
-            disabled={submitting || cart.length === 0}
-            className="flex w-full items-center justify-center gap-3 rounded-2xl bg-[#55C24A] px-6 py-4 text-base font-bold text-white shadow-[0_8px_24px_rgba(85,194,74,0.25)] transition-all hover:bg-[#49b03f] hover:shadow-[0_12px_32px_rgba(85,194,74,0.35)] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 disabled:shadow-none"
-          >
-            <FaShoppingCart className="h-5 w-5" />
-            {submitting ? "Placing Order..." : "Send to Kitchen"}
-          </button>
-        </div>
       </aside>
         </div>
       </div>

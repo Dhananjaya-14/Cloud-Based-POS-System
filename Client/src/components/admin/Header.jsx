@@ -5,7 +5,12 @@ import { FaBell, FaUserCircle, FaTimes } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 
-const NOTIFICATION_KEYS = ["branchNotifications", "adminUserNotifications", "adminProductNotifications"];
+const NOTIFICATION_KEYS = [
+  "branchNotifications", 
+  "adminUserNotifications", 
+  "adminProductNotifications",
+  "adminSupplierNotifications"
+];
 
 const getUserFullName = (userData) =>
   `${userData?.u_fname || ""} ${userData?.u_lname || ""}`.trim() || userData?.userName || "User";
@@ -15,6 +20,9 @@ const getProductName = (payload) =>
 
 const getBranchName = (payload) =>
   payload?.B_name || payload?.b_name || payload?.branchName || payload?.branch?.B_name || payload?.branch?.b_name || "Branch";
+
+const getSupplierName = (payload) =>
+  payload?.sup_name || payload?.supplierName || payload?.name || "Supplier";
 
 const isFreshNotification = (notification) => {
   const timestamp = new Date(notification.timestamp);
@@ -64,7 +72,6 @@ const Header = ({ title = "Branch Management" }) => {
       setCompanyName("");
       return;
     }
-    // Read company name purely from the user's auth profile — no API call needed
     const uCompany = user?.com_name ?? user?.companyName ?? user?.company?.com_name ?? "";
     setCompanyName(uCompany);
   }, [user]);
@@ -176,6 +183,50 @@ const Header = ({ title = "Branch Management" }) => {
       });
     };
 
+    const handleSupplierEvent = (type, payload = {}) => {
+      // Check if this is the current user's own action
+      if (payload?.actor_id && Number(payload.actor_id) === currentUserId) {
+        return;
+      }
+
+      const supplierName = getSupplierName(payload);
+      const supplierId = payload?.sup_id ?? payload?.id ?? supplierName;
+      const actionText = type === "delete" ? "deactivated" : type === "restore" ? "restored" : type === "update" ? "updated" : "added";
+      const timestamp = new Date().toISOString();
+
+      // Determine emoji based on action
+      let emoji = "✅";
+      let displayType = "Added";
+      if (type === "delete") {
+        emoji = "❌";
+        displayType = "Deactivated";
+      } else if (type === "restore") {
+        emoji = "♻️";
+        displayType = "Restored";
+      } else if (type === "update") {
+        emoji = "📝";
+        displayType = "Updated";
+      }
+
+      addNotification({
+        id: `supplier-${type}-${supplierId}-${Date.now()}-${Math.random()}`,
+        type: type === "restore" ? "restore" : type,
+        storageKey: "adminSupplierNotifications",
+        dedupeKey: `supplier-${type}-${supplierId}-${payload?.actor_id || "unknown"}`,
+        message: `Supplier ${actionText}: "${supplierName}"${payload?.actor_name ? ` by ${payload.actor_name}` : ""}`,
+        timestamp,
+        read: false,
+        supplierName,
+        displayType: `${emoji} ${displayType}`,
+      });
+    };
+
+    // Supplier event handlers
+    const handleSupplierCreated = (payload) => handleSupplierEvent("add", payload);
+    const handleSupplierUpdated = (payload) => handleSupplierEvent("update", payload);
+    const handleSupplierDeleted = (payload) => handleSupplierEvent("delete", payload);
+    const handleSupplierRestored = (payload) => handleSupplierEvent("restore", payload);
+
     const handleCreated = (payload) => handleUserEvent("add", payload);
     const handleUpdated = (payload) => handleUserEvent("update", payload);
     const handleDeleted = (payload) => handleUserEvent("delete", payload);
@@ -195,6 +246,12 @@ const Header = ({ title = "Branch Management" }) => {
     socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleProductCreated);
     socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
     socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+    
+    // Supplier event listeners
+    socket.on(SOCKET_EVENTS.SUPPLIER_CREATED, handleSupplierCreated);
+    socket.on(SOCKET_EVENTS.SUPPLIER_UPDATED, handleSupplierUpdated);
+    socket.on(SOCKET_EVENTS.SUPPLIER_DELETED, handleSupplierDeleted);
+    socket.on("supplier:restored", handleSupplierRestored);
 
     return () => {
       const activeSocket = getSocket();
@@ -208,6 +265,12 @@ const Header = ({ title = "Branch Management" }) => {
         activeSocket.off("branch:created", handleBranchCreated);
         activeSocket.off("branch:updated", handleBranchUpdated);
         activeSocket.off("branch:deleted", handleBranchDeleted);
+        
+        // Remove supplier event listeners
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_CREATED, handleSupplierCreated);
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_UPDATED, handleSupplierUpdated);
+        activeSocket.off(SOCKET_EVENTS.SUPPLIER_DELETED, handleSupplierDeleted);
+        activeSocket.off("supplier:restored", handleSupplierRestored);
       }
     };
   }, [user]);
@@ -268,10 +331,10 @@ const Header = ({ title = "Branch Management" }) => {
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
         {/* Notification Bell with Dropdown */}
         <div style={{ position: "relative" }}>
-          <div 
+          <div
             onClick={toggleNotifications}
-            style={{ 
-              cursor: "pointer", 
+            style={{
+              cursor: "pointer",
               position: "relative",
               padding: "8px",
               borderRadius: "50%",
@@ -419,8 +482,11 @@ const Header = ({ title = "Branch Management" }) => {
                               marginBottom: "4px",
                             }}
                           >
-                            {notification.type === 'delete' ? '❌ Deleted' :
-                             notification.type === 'update' ? '📝 Updated' : '✅ Added'}
+                            {notification.displayType || (
+                              notification.type === 'delete' ? '❌ Deactivated' :
+                              notification.type === 'restore' ? '♻️ Restored' :
+                              notification.type === 'update' ? '📝 Updated' : '✅ Added'
+                            )}
                           </div>
                           <div style={{ fontSize: "14px", color: "#4B5563", lineHeight: "1.4" }}>
                             {notification.message}

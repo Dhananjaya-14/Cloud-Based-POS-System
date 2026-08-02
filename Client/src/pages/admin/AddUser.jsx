@@ -10,21 +10,21 @@ import StatusToggle from "../../components/admin/StatusToggle";
 import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { createUser, getBranches, getRoles } from "../../services/api";
-import {Link} from 'react-router-dom';
+import { Link } from 'react-router-dom';
 const PHONE_RE = /^07[0-9]{8}$/;
 
 
 function getComIdFromToken() {
-  try {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const userData = JSON.parse(window.atob(base64));
-    return userData.com_id || null;
-  } catch {
-    return null;
-  }
+	try {
+		const token = localStorage.getItem("token");
+		if (!token) return null;
+		const base64Url = token.split('.')[1];
+		const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+		const userData = JSON.parse(window.atob(base64));
+		return userData.com_id || null;
+	} catch {
+		return null;
+	}
 }
 
 const AddUser = () => {
@@ -49,9 +49,9 @@ const AddUser = () => {
 	const [toasts, setToasts] = useState([]);
 
 	const isAdminRole = roles.find(r => String(r.role_id) === String(formData.role))
-                         ?.role_name?.toLowerCase().includes("admin") &&
-                    !roles.find(r => String(r.role_id) === String(formData.role))
-                         ?.role_name?.toLowerCase().includes("branch");
+		?.role_name?.toLowerCase().includes("admin") &&
+		!roles.find(r => String(r.role_id) === String(formData.role))
+			?.role_name?.toLowerCase().includes("branch");
 
 	const updateField = (field, value) => {
 		setFormData((prev) => ({ ...prev, [field]: value }));
@@ -169,25 +169,25 @@ const AddUser = () => {
 		try {
 			setIsSubmitting(true);
 			const payload = {
-  u_fname: formData.firstName,
-  u_lname: formData.lastName,
-  u_email: formData.email,
-  u_pw: formData.password,
-  u_connumber: formData.contactNumber || null,
-  role_id: Number(formData.role),
-};
+				u_fname: formData.firstName,
+				u_lname: formData.lastName,
+				u_email: formData.email,
+				u_pw: formData.password,
+				u_connumber: formData.contactNumber || null,
+				role_id: Number(formData.role),
+			};
 
 			// If Admin role → send com_id automatically from token
 			if (isAdminRole) {
-			const com_id = getComIdFromToken();
-			if (!com_id) {
-				setSubmitError("Could not determine company. Please re-login.");
-				return;
-			}
-			payload.com_id = com_id;
+				const com_id = getComIdFromToken();
+				if (!com_id) {
+					setSubmitError("Could not determine company. Please re-login.");
+					return;
+				}
+				payload.com_id = com_id;
 			} else {
-			// Other roles → send branch id
-			payload.b_id = formData.branch ? Number(formData.branch) : null;
+				// Other roles → send branch id
+				payload.b_id = formData.branch ? Number(formData.branch) : null;
 			}
 
 			await createUser(payload);
@@ -219,7 +219,7 @@ const AddUser = () => {
 				<Header title="User Management" />
 
 				<div style={{ padding: "18px 24px 28px" }}>
-				<a href="/users">	<div
+					<a href="/users">	<div
 						style={{
 							display: "inline-flex",
 							alignItems: "center",
@@ -231,14 +231,14 @@ const AddUser = () => {
 							cursor: "pointer",
 						}}
 					>
-						
+
 						<FaArrowLeft size={14} />
 						<span>Back to User Management</span>
-						
-						
-						
+
+
+
 					</div>
-</a>
+					</a>
 					<div style={{ maxWidth: "980px", margin: "0 auto" }}>
 						<h1
 							style={{
@@ -349,7 +349,7 @@ const AddUser = () => {
 										gap: "20px",
 										alignItems: "start",
 									}}
-									>
+								>
 									<FormSelect
 										label="User Role"
 										value={formData.role}
@@ -358,17 +358,17 @@ const AddUser = () => {
 									/>
 									{!isAdminRole && (
 										<FormSelect
-										label="Assigned Branch"
-										value={formData.branch}
-										onChange={(event) => updateField("branch", event.target.value)}
-										options={branchOptions}
+											label="Assigned Branch"
+											value={formData.branch}
+											onChange={(event) => updateField("branch", event.target.value)}
+											options={branchOptions}
 										/>
 									)}
 									<StatusToggle
 										checked={formData.isActive}
 										onChange={(event) => updateField("isActive", event.target.checked)}
 									/>
-									</div>
+								</div>
 								<PasswordField
 									label="Password"
 									value={formData.password}

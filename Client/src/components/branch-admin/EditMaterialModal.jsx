@@ -5,7 +5,7 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
     rm_name: material.rm_name,
     unit: material.unit,
     record_level: material.record_level,
-    stock_qty: material.stock_qty, 
+    stock_qty: material.stock_qty,
   });
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -50,10 +50,10 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
       setMaterials(prev => prev.map(m =>
         m.rm_id === material.rm_id
           ? {
-              ...m,
-              ...formData,
-              low_stock: Number(formData.stock_qty) <= Number(formData.record_level)
-            }
+            ...m,
+            ...formData,
+            low_stock: Number(formData.stock_qty) <= Number(formData.record_level)
+          }
           : m
       ));
 
@@ -82,28 +82,28 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
       );
 
 
-    if (response.ok) {
-      onSuccess();
-    setMaterials((prev) =>
-        prev.filter(
-          (item) => item.rm_id !== material.rm_id
-        )
-      );
+      if (response.ok) {
+        onSuccess();
+        setMaterials((prev) =>
+          prev.filter(
+            (item) => item.rm_id !== material.rm_id
+          )
+        );
 
-      onClose();
-      return;
+        onClose();
+        return;
+      }
+
+      const error = await response.json();
+      setDeleteError(error.message);
+    } catch (err) {
+      setDeleteError("Network error");
     }
-
-    const error = await response.json();
-    setDeleteError(error.message);
-  } catch (err) {
-    setDeleteError("Network error");
-  }
-};
+  };
   return (
     <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 transition-all">
       <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl border border-white/20 relative overflow-hidden">
-        
+
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-bold text-gray-800">Update Item Details</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
@@ -118,21 +118,21 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Material Name</label>
-            <input 
+            <input
               className="w-full border-gray-200 border rounded-xl p-3 mt-1 focus:ring-2 focus:ring-blue-500 outline-none transition-all"
               value={formData.rm_name}
-              onChange={(e) => setFormData({...formData, rm_name: e.target.value})}
+              onChange={(e) => setFormData({ ...formData, rm_name: e.target.value })}
               required
             />
           </div>
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Unit</label>
-              <select 
+              <select
                 className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none"
                 value={formData.unit}
-                onChange={(e) => setFormData({...formData, unit: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
               >
                 <option value="kg">kg</option>
                 <option value="g">g</option>
@@ -146,45 +146,45 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
             </div>
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Stock Quantity</label>
-              <input 
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.stock_qty}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val < 0) return;
-                    setFormData({...formData, stock_qty: val});
-                  }}
-                  required
-/>
+              <input
+                type="number"
+                step="0.001"
+                min="0"
+                className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+                value={formData.stock_qty}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  if (val < 0) return;
+                  setFormData({ ...formData, stock_qty: val });
+                }}
+                required
+              />
             </div>
           </div>
 
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider">Reorder Level</label>
-            <input 
-                  type="number"
-                  step="0.001"
-                  min="0"
-                  className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
-                  value={formData.record_level}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (val < 0) return;
-                    setFormData({...formData, record_level: val});
-                  }}
-                  required
-/>
+            <input
+              type="number"
+              step="0.001"
+              min="0"
+              className="w-full border-gray-200 border rounded-xl p-3 mt-1 outline-none focus:ring-2 focus:ring-blue-500"
+              value={formData.record_level}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val < 0) return;
+                setFormData({ ...formData, record_level: val });
+              }}
+              required
+            />
           </div>
 
           <div className="pt-4 flex flex-col gap-3">
             <button type="submit" className="w-full bg-blue-600 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition-all active:scale-95">
               Save Changes
             </button>
-            <button 
-              type="button" 
+            <button
+              type="button"
               onClick={handleDeleteInitialClick}
               className="w-full py-2 text-sm font-semibold text-red-500 hover:bg-red-50 rounded-lg transition-colors"
             >
@@ -220,8 +220,8 @@ const EditMaterialModal = ({ material, onClose, onSuccess, setMaterials }) => {
               <p className="text-[12px] text-gray-400 mb-6 italic">
                 Current Stock: {material.stock_qty} {material.unit}
               </p>
-              <button 
-                onClick={() => setDeleteError(null)} 
+              <button
+                onClick={() => setDeleteError(null)}
                 className="w-full px-4 py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors"
               >
                 Got it

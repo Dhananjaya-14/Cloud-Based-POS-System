@@ -264,13 +264,18 @@ export async function createSupplier(req, res, next) {
 
     await client.query("COMMIT");
 
-    // Emit socket event for real-time updates
+    // Emit socket event for real-time updates with actor info
     try {
       const io = getIO();
       if (io && resolvedComId) {
-        // Emit to company room for all branch admins in this company
         const companyRoom = `company_${resolvedComId}`;
-        io.to(companyRoom).emit("supplier:created", { ...newSupplier, b_id });
+        const payload = {
+          ...newSupplier,
+          b_id,
+          actor_id: req.user.u_id || req.user.id,
+          actor_name: `${req.user.u_fname || ''} ${req.user.u_lname || ''}`.trim() || req.user.username || 'Unknown User'
+        };
+        io.to(companyRoom).emit("supplier:created", payload);
         console.log(`Emitted supplier:created to room ${companyRoom}`, newSupplier);
       }
     } catch (socketErr) {
@@ -494,12 +499,17 @@ export async function updateSupplier(req, res, next) {
 
     const updatedSupplier = result.rows[0];
 
-    // Emit socket event for real-time updates
+    // Emit socket event for real-time updates with actor info
     try {
       const io = getIO();
       if (io && resolvedComId) {
         const companyRoom = `company_${resolvedComId}`;
-        io.to(companyRoom).emit("supplier:updated", updatedSupplier);
+        const payload = {
+          ...updatedSupplier,
+          actor_id: req.user.u_id || req.user.id,
+          actor_name: `${req.user.u_fname || ''} ${req.user.u_lname || ''}`.trim() || req.user.username || 'Unknown User'
+        };
+        io.to(companyRoom).emit("supplier:updated", payload);
         console.log(`Emitted supplier:updated to room ${companyRoom}`, updatedSupplier);
       }
     } catch (socketErr) {
@@ -558,12 +568,17 @@ export async function deleteSupplier(req, res, next) {
       [id]
     );
 
-    // Emit socket event for deletion
+    // Emit socket event for deletion with actor info
     try {
       const io = getIO();
       if (io && resolvedComId) {
         const companyRoom = `company_${resolvedComId}`;
-        io.to(companyRoom).emit("supplier:deleted", { sup_id: id });
+        const payload = {
+          sup_id: id,
+          actor_id: req.user.u_id || req.user.id,
+          actor_name: `${req.user.u_fname || ''} ${req.user.u_lname || ''}`.trim() || req.user.username || 'Unknown User'
+        };
+        io.to(companyRoom).emit("supplier:deleted", payload);
         console.log(`Emitted supplier:deleted to room ${companyRoom} for supplier ${id}`);
       }
     } catch (socketErr) {
@@ -609,12 +624,17 @@ export async function restoreSupplier(req, res, next) {
       [id]
     );
 
-    // Emit socket event for restoration
+    // Emit socket event for restoration with actor info
     try {
       const io = getIO();
       if (io && resolvedComId) {
         const companyRoom = `company_${resolvedComId}`;
-        io.to(companyRoom).emit("supplier:restored", result.rows[0]);
+        const payload = {
+          ...result.rows[0],
+          actor_id: req.user.u_id || req.user.id,
+          actor_name: `${req.user.u_fname || ''} ${req.user.u_lname || ''}`.trim() || req.user.username || 'Unknown User'
+        };
+        io.to(companyRoom).emit("supplier:restored", payload);
         console.log(`Emitted supplier:restored to room ${companyRoom} for supplier ${id}`);
       }
     } catch (socketErr) {
