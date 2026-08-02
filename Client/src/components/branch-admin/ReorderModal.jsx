@@ -5,6 +5,21 @@ import { getSuppliers } from '../../services/api';
 
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
 
+// Converts an entered quantity from the unit the admin picked in the form
+// to the raw material's actual base/stock unit, so purchase_item.qty always
+// matches what Raw_Material.stock_qty expects (kg, l, etc — no unit column
+// exists on purchase_item, so this must happen before the request is sent).
+function convertToBaseUnit(qty, fromUnit, toUnit) {
+  const from = String(fromUnit || "").toLowerCase().trim();
+  const to = String(toUnit || "").toLowerCase().trim();
+  if (from === to || !from || !to) return qty;
+  if (from === "g" && to === "kg") return qty / 1000;
+  if (from === "kg" && to === "g") return qty * 1000;
+  if (from === "ml" && to === "l") return qty / 1000;
+  if (from === "l" && to === "ml") return qty * 1000;
+  return qty; // incompatible unit types — no safe conversion, use as-is
+}
+
 const ReorderModal = ({ material, onClose, onSuccess }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -94,6 +109,24 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
 
       const order = await orderRes.json();
 
+      const enteredQty = parseFloat(formData.quantity);
+      // Unit Price is always understood as price per BASE unit
+      // (e.g. per kg, per liter, per pcs) — not per whatever unit was
+      // picked for quantity. This matches how prices are actually known
+      // in real life (you know the price per kg, not per gram).
+      const basePrice = parseFloat(formData.unitPrice);
+
+      // Convert the entered qty into the material's base unit
+      // (e.g. 500 "g" → 0.5 if base unit is "kg").
+      let qtyToSend = enteredQty;
+      if (material.rm_id) {
+        const baseUnit = material.unit || 'kg';
+        qtyToSend = convertToBaseUnit(enteredQty, formData.unit, baseUnit);
+      }
+
+      const unitPriceToSend = basePrice;
+      const totalPrice = qtyToSend * unitPriceToSend;
+
       const itemRes = await fetch('/api/purchase-items', {
         method: 'POST',
         headers: {
@@ -104,9 +137,9 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         body: JSON.stringify({
           po_id: order.po_id,
           ...(material.rm_id ? { rm_id: material.rm_id } : { pro_id: material._original?.pro_id || material.pro_id }),
-          qty: parseFloat(formData.quantity),
-          unit_price: parseFloat(formData.unitPrice),
-          price: parseFloat(formData.quantity) * parseFloat(formData.unitPrice)
+          qty: qtyToSend,
+          unit_price: unitPriceToSend,
+          price: totalPrice
         })
       });
 
@@ -194,7 +227,9 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
               </div>
 
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Unit Price (LKR)</label>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">
+                  Price per {material?.rm_id ? (material.unit || 'kg') : 'unit'} (LKR)
+                </label>
                 <input
                   type="number"
                   step="0.01"
@@ -203,6 +238,11 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
                   onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
                 />
               </div>
+              {formData.quantity && formData.unitPrice && material?.rm_id && (
+                <div className="text-sm text-gray-500 -mt-2">
+                  Total: Rs. {(convertToBaseUnit(parseFloat(formData.quantity) || 0, formData.unit, material.unit || 'kg') * (parseFloat(formData.unitPrice) || 0)).toFixed(2)}
+                </div>
+              )}
 
               <div className="pt-6 flex gap-3">
                 <button type="button" onClick={onClose} className="flex-1 py-3 text-gray-500 font-semibold">Cancel</button>
