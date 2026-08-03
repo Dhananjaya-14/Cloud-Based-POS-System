@@ -30,28 +30,29 @@ import tableRoutes from "./routes/tableRoutes.js";
 import { notFound, errorHandler } from "./middleware/errorHandler.js";
 import tableAssignmentRoutes from "./routes/tableAssignmentRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
-import waiterRoutes from "./routes/waiterRoutes.js";
+import waiterRoutes from "./modules/waiter/waiterRoutes.js";
+import kitchenRoutes from "./modules/kitchen/kitchenRoutes.js";
 
 // Products & Categories
 import categoryRoutes from "./routes/categoryRoutes.js";
 import branchProductRoutes from "./routes/branchProductRoutes.js";
-import recipeRoutes from "./routes/recipeRouter.js";
+import recipeRoutes from "./modules/inventory/routes/recipeRouter.js";
 
 // Raw Materials & Inventory
-import rawMaterialRoutes from "./routes/rawMaterialRoutes.js";
-import wasteRoutes from "./routes/wasteRoutes.js";
+import rawMaterialRoutes from "./modules/inventory/routes/rawMaterialRoutes.js";
+import wasteRoutes from "./modules/inventory/routes/wasteRoutes.js";
 
 // Suppliers & Purchasing
-import supplierRoutes from "./routes/supplierRoutes.js";
-import purchaseOrderRoutes from "./routes/purchaseOrderRoutes.js";
-import purchaseItemRoutes from "./routes/purchaseItemRoutes.js";
-import supplierPaymentRoutes from "./routes/supplierPaymentRoutes.js";
+import supplierRoutes from "./modules/inventory/routes/supplierRoutes.js";
+import purchaseOrderRoutes from "./modules/inventory/routes/purchaseOrderRoutes.js";
+import purchaseItemRoutes from "./modules/inventory/routes/purchaseItemRoutes.js";
+import supplierPaymentRoutes from "./modules/inventory/routes/supplierPaymentRoutes.js";
 
 // Orders & Payments
 import orderRoutes from "./routes/orderRoutes.js";
 import orderItemRoutes from "./routes/orderItemRoutes.js";
 import paymentRoutes from "./routes/paymentRoutes.js";
-import discountRoutes from "./routes/discountRoutes.js";
+import discountRoutes from "./modules/promotions/discountRoutes.js";
 
 // Delivery & Terminals
 import deliveryRoutes from "./routes/deliveryRoutes.js";
@@ -62,7 +63,7 @@ import productRoutes from "./routes/productRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 
 import dashboardRoutes from "./routes/dashboardRoutes.js";
-import reportRoutes from "./routes/reportRoutes.js";
+import reportRoutes from "./modules/reports/reportRoutes.js";
 import payhereRoutes from "./routes/payhereRoutes.js";
 import activityLogRoutes from "./routes/activityLogRoutes.js";
 import packageRoutes from "./routes/packageRoutes.js";
@@ -136,6 +137,7 @@ app.use("/api/supplier-payments", supplierPaymentRoutes);
 // -- Orders & Payments
 app.use("/api/orders", orderRoutes);
 app.use("/api/order-items", orderItemRoutes);
+app.use("/api/kitchen", kitchenRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/discounts", discountRoutes);
 

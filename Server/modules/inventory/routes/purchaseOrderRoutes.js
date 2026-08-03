@@ -13,13 +13,16 @@ import {
 import {
   requireAuth,
   requireBranchAdminOrAdmin,
-} from "../middleware/authMiddleware.js";
+  } from "../../../middleware/authMiddleware.js"
+import { requireModule } from "../../../middleware/saasMiddleware.js";
+;
 
 const router = express.Router();
 
 // All purchase order routes — Admin and Branch Admin only
 // Kitchen staff and cashiers have no business managing supplier orders
 router.use(requireAuth, requireBranchAdminOrAdmin);
+router.use(requireModule("has_inventory"));
 
 router.get("/", getPurchaseOrders);
 router.get("/supplier/:supId", getPurchaseOrdersBySupplier);

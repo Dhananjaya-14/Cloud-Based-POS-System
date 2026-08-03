@@ -14,8 +14,7 @@ const AddRawMaterials = () => {
 
   const { user, features } = useAuth();
 
-  // If has_suppliers is not true, supplier section is hidden and skipped
-  const suppliersEnabled = features?.has_suppliers === true;
+  const suppliersEnabled = features?.has_inventory === true;
 
   const [supplier, setSupplier] = useState({
     sup_name: "",
@@ -483,7 +482,7 @@ const AddRawMaterials = () => {
             ))}
           </div>
 
-          {/* Section 2: Supplier — only shown when has_suppliers is enabled */}
+          {/* Section 2: Supplier — only shown when has_inventory is enabled */}
           {suppliersEnabled && (
             <div style={sectionStyle}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>

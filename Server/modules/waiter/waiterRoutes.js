@@ -5,16 +5,19 @@ import {
   getMyOrders,
   getMyTables,
   getWaiterProfile,
-} from "../controllers/waiterController.js";
+} from "./waiterController.js";
 import {
   requireAuth,
-  requireWaiterOrAbove,
-} from "../middleware/authMiddleware.js";
+  requireWaiterOrAbove
+} from "../../middleware/authMiddleware.js"
+import { requireModule } from "../../middleware/saasMiddleware.js";
+;
 
 const router = express.Router();
 
 router.use(requireAuth);
 router.use(requireWaiterOrAbove);
+router.use(requireModule("has_waiter"));
 
 router.get("/profile", getWaiterProfile);
 router.get("/my-tables", getMyTables);

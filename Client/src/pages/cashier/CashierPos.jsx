@@ -62,6 +62,7 @@ const CashierPos = () => {
   const navigate = useNavigate();
   const { user, logout, features } = useAuth();
   const inventoryEnabled = features?.has_inventory === true;
+  const waiterEnabled = features?.has_waiter === true;
   const [branchName, setBranchName] = useState("Loading branch...");
   const [branchId, setBranchId] = useState(null);
   const [products, setProducts] = useState([]);
@@ -105,7 +106,7 @@ const CashierPos = () => {
         const validNotifications = parsed.filter(notif => {
           const timestamp = new Date(notif.timestamp);
           const diffMinutes = (now - timestamp) / (1000 * 60);
-          return diffMinutes < 60; // Keep notifications for up to 1 hour
+          return diffMinutes < 60; 
         });
         if (validNotifications.length > 0) {
           return validNotifications;
@@ -122,7 +123,7 @@ const CashierPos = () => {
   });
 
   // PayHere QR payment state
-  const [payhereModal, setPayhereModal] = useState(null); // { paymentUrl, orderId, invoiceState }
+  const [payhereModal, setPayhereModal] = useState(null); 
 
   // Save product notifications to sessionStorage
   useEffect(() => {
@@ -223,8 +224,8 @@ const CashierPos = () => {
         const productData = data.branch_product || data.product || data;
 
         setProducts((prevProducts) => {
-          // Check if product already exists
-          const exists = prevProducts.some(p => p.Bpro_id === productData.Bpro_id);
+          // Check if product already exists by pro_id to prevent duplicates across different event types
+          const exists = prevProducts.some(p => p.pro_id === productData.pro_id);
           if (!exists) {
             // Add notification to persistent queue
             const productName = productData.pro_name || "New Product";
@@ -254,8 +255,12 @@ const CashierPos = () => {
 
             // Add the new product to the list
             return [productData, ...prevProducts];
+          } else {
+            // If it exists, update it with the real Bpro_id if it was a fake one
+            return prevProducts.map(p => 
+              p.pro_id === productData.pro_id ? { ...p, ...productData } : p
+            );
           }
-          return prevProducts;
         });
       },
       onBranchProductUpdated: (data) => {
@@ -923,12 +928,14 @@ const CashierPos = () => {
             >
               <span>Held Orders ({heldOrders.length})</span>
             </button>
-            <button
-              onClick={handleOpenWaiterOrders}
-              className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
-            >
-              <span>Waiter Orders ({waiterOrders.length})</span>
-            </button>
+            {waiterEnabled && (
+              <button
+                onClick={handleOpenWaiterOrders}
+                className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
+              >
+                <span>Waiter Orders ({waiterOrders.length})</span>
+              </button>
+            )}
             <button
               onClick={() => navigate("/cashier/pos")}
               className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:-translate-y-px"
@@ -1058,9 +1065,9 @@ const CashierPos = () => {
                     }
                     return FaCalculator;
                   })();
-                  // When inventory is disabled, made_to_order products are always billable (no stock limit)
+                  // made_to_order products are always billable (no stock limit)
                   const isMadeToOrder = product.product_type === "made_to_order";
-                  const ignoreStock = !inventoryEnabled && isMadeToOrder;
+                  const ignoreStock = isMadeToOrder;
                   const stockCount = Number(product.pro_quantity ?? 0);
                   const isOutOfStock = !ignoreStock && stockCount <= 0;
                   const priceLabel = Number(product.pro_price ?? 0).toFixed(2);
@@ -1373,7 +1380,7 @@ const CashierPos = () => {
       )}
 
       {/* Waiter Orders Modal */}
-      {showWaiterOrdersModal && (
+      {waiterEnabled && showWaiterOrdersModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
