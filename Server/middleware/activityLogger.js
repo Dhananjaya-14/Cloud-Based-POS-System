@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { BRANCH_SOCKET_ROOM, SOCKET_EVENTS, emitSocketEvent } from "../utils/socket.js";
 
 // ─────────────────────────────────────────────
 // ENSURE TABLE EXISTS IN DB
@@ -359,7 +360,8 @@ export function activityLogger(req, res, next) {
       .query(
         `INSERT INTO public.activity_log
            (u_id, com_id, b_id, action_type, module_name, record_id, description, ip_address)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         RETURNING log_id, created_at, action_type, module_name, description`,
         [
           userContext.u_id,
           userContext.com_id,
@@ -371,6 +373,23 @@ export function activityLogger(req, res, next) {
           ipAddress,
         ],
       )
+      .then((result) => {
+        const insertedRow = result.rows?.[0];
+        if (!insertedRow) return;
+
+        emitSocketEvent(
+          SOCKET_EVENTS.ACTIVITY_LOG_CHANGED,
+          {
+            type: "created",
+            log_id: insertedRow.log_id,
+            action_type: insertedRow.action_type,
+            module_name: insertedRow.module_name,
+            description: insertedRow.description,
+            created_at: insertedRow.created_at,
+          },
+          { room: BRANCH_SOCKET_ROOM },
+        );
+      })
       .catch((error) => {
         console.error("[ACTIVITY_LOG] Failed to write activity row:", error.message);
       });

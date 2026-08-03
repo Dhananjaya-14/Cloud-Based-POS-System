@@ -1,8 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
+import AdminSidebar from "../../components/admin/Sidebar";
+import AdminHeader from "../../components/admin/Header";
 import Sidebar from "../../components/super-admin/Sidebar";
 import Header from "../../components/super-admin/Header";
 import Spinner from "../../components/super-admin/Spinner";
+import { connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import {
   getActivityLogs,
   getActivityLogSummary,
@@ -23,6 +27,7 @@ import {
   FaTimesCircle,
   FaInfoCircle,
   FaBan,
+  FaUser,
 } from "react-icons/fa";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -347,6 +352,13 @@ const PurgeModal = ({ onConfirm, onCancel }) => {
 // ─── MAIN PAGE ──────────────────────────────────────────────────────────────────
 const ActivityLog = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentRoleId = Number(user?.role_id ?? storedUser?.role_id);
+  const isSuperAdmin = currentRoleId === 6;
+  const canManageLogs = isSuperAdmin;
+  const ShellSidebar = isSuperAdmin ? Sidebar : AdminSidebar;
+  const ShellHeader = isSuperAdmin ? Header : AdminHeader;
 
   // Data
   const [logs, setLogs]       = useState([]);
@@ -436,6 +448,23 @@ const ActivityLog = () => {
     fetchSummary();
   }, [navigate, fetchLogs, fetchSummary]);
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return undefined;
+
+    const socket = connectSocket();
+    const handleActivityLogChanged = () => {
+      fetchLogs();
+      fetchSummary();
+    };
+
+    socket.on(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, handleActivityLogChanged);
+
+    return () => {
+      socket.off(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, handleActivityLogChanged);
+    };
+  }, [fetchLogs, fetchSummary]);
+
   // ── delete single ─────────────────────────────────────────────────────────────
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -499,16 +528,17 @@ const ActivityLog = () => {
   const loginCount   = summary?.byAction?.find((a) => a.action_type === "LOGIN")?.count ?? 0;
   const createCount  = summary?.byAction?.find((a) => a.action_type === "CREATE")?.count ?? 0;
   const deleteCount  = summary?.byAction?.find((a) => a.action_type === "DELETE")?.count ?? 0;
+  const tableHeaders = ["#", "User", "Company / Branch", "Action", "Module", "Description", "Timestamp"];
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9", fontFamily: "'Inter', sans-serif" }}>
-      <Sidebar />
+      <ShellSidebar />
 
       <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
-        <Header title="Activity Log" />
+        <ShellHeader title="Activity Log" />
 
         <div style={{ padding: "24px 28px", flex: 1 }}>
 
@@ -572,7 +602,7 @@ const ActivityLog = () => {
                   id="log-search"
                   value={filters.search}
                   onChange={(e) => onFilterChange("search", e.target.value)}
-                  placeholder="Search description or IP…"
+                  placeholder="Search description…"
                   style={{
                     width: "100%",
                     padding: "9px 12px 9px 36px",
@@ -607,26 +637,27 @@ const ActivityLog = () => {
                   <FaSync size={12} /> Refresh
                 </button>
 
-                {/* Purge */}
-                <button
-                  id="btn-purge-logs"
-                  onClick={() => setShowPurge(true)}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "9px 16px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#FEE2E2",
-                    color: "#DC2626",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                    fontSize: 13,
-                  }}
-                >
-                  <FaBan size={12} /> Bulk Purge
-                </button>
+                {canManageLogs && (
+                  <button
+                    id="btn-purge-logs"
+                    onClick={() => setShowPurge(true)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "9px 16px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#FEE2E2",
+                      color: "#DC2626",
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontSize: 13,
+                    }}
+                  >
+                    <FaBan size={12} /> Bulk Purge
+                  </button>
+                )}
               </div>
             </div>
 
@@ -806,7 +837,7 @@ const ActivityLog = () => {
                 <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
                   <thead>
                     <tr style={{ background: "#F9FAFB" }}>
-                      {["#", "User", "Company / Branch", "Action", "Module", "Description", "IP Address", "Timestamp", ""].map((h) => (
+                      {[...tableHeaders, ...(canManageLogs ? [""] : [])].map((h) => (
                         <th
                           key={h}
                           style={{
@@ -829,7 +860,33 @@ const ActivityLog = () => {
                   <tbody>
                     {logs.map((log, idx) => {
                       const actionStyle = getActionStyle(log.action_type);
-                      const userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ") || log.u_email || `User #${log.u_id}` || "—";
+                      
+                      // Improved user name handling - check all possible user fields
+                      let userName = "—";
+                      if (log.u_fname || log.u_lname) {
+                        userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
+                      } else if (log.u_email) {
+                        userName = log.u_email;
+                      } else if (log.user_name) {
+                        userName = log.user_name;
+                      } else if (log.user_email) {
+                        userName = log.user_email;
+                      } else if (log.u_id) {
+                        userName = `User #${log.u_id}`;
+                      } else if (log.user_id) {
+                        userName = `User #${log.user_id}`;
+                      }
+                      
+                      // If still empty, show "System" or "Unknown"
+                      if (userName === "—" || userName === "" || userName === "undefined" || userName === "null") {
+                        // Check if this is a system/auto action
+                        if (log.action_type === "LOGIN" || log.action_type === "LOGIN_FAILED") {
+                          userName = "System";
+                        } else {
+                          userName = "Unknown User";
+                        }
+                      }
+                      
                       const contextLabel = [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
 
                       return (
@@ -849,9 +906,17 @@ const ActivityLog = () => {
                             </span>
                           </td>
 
-                          {/* User */}
+                          {/* User - Improved with fallback */}
                           <td style={cellStyle}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                            <div style={{ 
+                              fontSize: 13, 
+                              fontWeight: 600, 
+                              color: userName === "System" || userName === "Unknown User" ? "#9CA3AF" : "#111827",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px"
+                            }}>
+                              {userName === "System" && <FaUser size={10} style={{ color: "#9CA3AF" }} />}
                               {userName}
                             </div>
                             {log.u_email && (
@@ -907,13 +972,6 @@ const ActivityLog = () => {
                             </span>
                           </td>
 
-                          {/* IP */}
-                          <td style={cellStyle}>
-                            <span style={{ fontSize: 12, color: "#6B7280", fontFamily: "monospace" }}>
-                              {log.ip_address || "—"}
-                            </span>
-                          </td>
-
                           {/* Timestamp */}
                           <td style={cellStyle}>
                             <span style={{ fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>
@@ -921,34 +979,35 @@ const ActivityLog = () => {
                             </span>
                           </td>
 
-                          {/* Delete */}
-                          <td style={{ ...cellStyle, textAlign: "center" }}>
-                            <button
-                              id={`btn-delete-log-${log.log_id || idx}`}
-                              title="Delete this log entry"
-                              onClick={() => setDeleteTarget(log.log_id || idx)}
-                              style={{
-                                background: "none",
-                                border: "none",
-                                cursor: "pointer",
-                                color: "#FCA5A5",
-                                fontSize: 14,
-                                padding: "4px 8px",
-                                borderRadius: 6,
-                                transition: "color 0.2s, background 0.2s",
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.color = "#DC2626";
-                                e.currentTarget.style.background = "#FEE2E2";
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.color = "#FCA5A5";
-                                e.currentTarget.style.background = "none";
-                              }}
-                            >
-                              <FaTrash />
-                            </button>
-                          </td>
+                          {canManageLogs && (
+                            <td style={{ ...cellStyle, textAlign: "center" }}>
+                              <button
+                                id={`btn-delete-log-${log.log_id || idx}`}
+                                title="Delete this log entry"
+                                onClick={() => setDeleteTarget(log.log_id || idx)}
+                                style={{
+                                  background: "none",
+                                  border: "none",
+                                  cursor: "pointer",
+                                  color: "#FCA5A5",
+                                  fontSize: 14,
+                                  padding: "4px 8px",
+                                  borderRadius: 6,
+                                  transition: "color 0.2s, background 0.2s",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = "#DC2626";
+                                  e.currentTarget.style.background = "#FEE2E2";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = "#FCA5A5";
+                                  e.currentTarget.style.background = "none";
+                                }}
+                              >
+                                <FaTrash />
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       );
                     })}
@@ -1057,7 +1116,7 @@ const ActivityLog = () => {
       </div>
 
       {/* ── Modals ──────────────────────────────────────────────── */}
-      {deleteTarget && (
+      {canManageLogs && deleteTarget && (
         <ConfirmModal
           title="Delete Log Entry"
           message="Are you sure you want to permanently delete this log entry? This action cannot be undone."
@@ -1067,7 +1126,7 @@ const ActivityLog = () => {
         />
       )}
 
-      {showPurge && (
+      {canManageLogs && showPurge && (
         <PurgeModal
           onConfirm={handlePurge}
           onCancel={() => setShowPurge(false)}

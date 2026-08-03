@@ -18,6 +18,7 @@ import {
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
+import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 import {
   getWaiterProfile,
   getBranchProducts,
@@ -294,11 +295,19 @@ const WaiterPos = () => {
       const orderRes = await createWaiterOrder(orderPayload);
       if (!orderRes.success) throw new Error(orderRes.error || "Failed to create order");
       
-      const orderId = orderRes.data.or_id || orderRes.data.order_id || orderRes.data.id; 
+      const orderId = orderRes.data.or_id || orderRes.data.order_id || orderRes.data.id;
 
       if (!orderId) {
         throw new Error("Created order ID is missing");
       }
+
+      // Emit order sent event for real‑time kitchen workflow
+      const socket = getSocket();
+      socket.emit(SOCKET_EVENTS.ORDER_SENT, {
+        orderId,
+        branchId,
+        total: Number(total.toFixed(2)),
+      });
 
       // Add order items
       await Promise.all(

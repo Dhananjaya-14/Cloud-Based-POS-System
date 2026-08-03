@@ -53,6 +53,13 @@ export const SOCKET_EVENTS = {
   BRANCH_CREATED: "branch:created",
   BRANCH_UPDATED: "branch:updated",
   BRANCH_DELETED: "branch:deleted",
+  // Activity Log events
+  ACTIVITY_LOG_CHANGED: "activity_log:changed",
+  // Order workflow events
+  ORDER_SENT: "order:sent",
+  ORDER_ACCEPTED: "order:accepted",
+  ORDER_READY: "order:ready",
+  ORDER_UPDATED: "order:updated",
 };
 
 export const getSocket = () => {
@@ -192,7 +199,7 @@ export const leaveBranchInventoryRoom = (branchId) => {
 // Helper function to subscribe to user updates (for super admins and admins)
 export const subscribeToUserUpdates = (callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onUserCreated,
@@ -230,7 +237,7 @@ export const subscribeToUserUpdates = (callbacks) => {
 // Helper function to subscribe to company updates
 export const subscribeToCompanyUpdates = (callbacks) => {
   const socket = getSocket();
-  if (!socket) return () => {};
+  if (!socket) return () => { };
 
   const {
     onCompanyCreated,
@@ -502,6 +509,77 @@ export const subscribeToPayHereUpdates = (orderId, callbacks) => {
   };
 };
 
+// Helper function to listen for order events
+export const subscribeToOrderUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => { };
+
+  const {
+    onOrderSent,
+    onOrderAccepted,
+    onOrderReady,
+    onOrderUpdated
+  } = callbacks;
+
+  // Join the branch room first
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+  }
+
+  if (onOrderSent) {
+    socket.on(SOCKET_EVENTS.ORDER_SENT, onOrderSent);
+  }
+  if (onOrderAccepted) {
+    socket.on(SOCKET_EVENTS.ORDER_ACCEPTED, onOrderAccepted);
+  }
+  if (onOrderReady) {
+    socket.on(SOCKET_EVENTS.ORDER_READY, onOrderReady);
+  }
+  if (onOrderUpdated) {
+    socket.on(SOCKET_EVENTS.ORDER_UPDATED, onOrderUpdated);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onOrderSent) {
+      socket.off(SOCKET_EVENTS.ORDER_SENT, onOrderSent);
+    }
+    if (onOrderAccepted) {
+      socket.off(SOCKET_EVENTS.ORDER_ACCEPTED, onOrderAccepted);
+    }
+    if (onOrderReady) {
+      socket.off(SOCKET_EVENTS.ORDER_READY, onOrderReady);
+    }
+    if (onOrderUpdated) {
+      socket.off(SOCKET_EVENTS.ORDER_UPDATED, onOrderUpdated);
+    }
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+    }
+  };
+};
+
+// Helper function to listen for activity log changes
+export const subscribeToActivityLogUpdates = (callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => { };
+
+  const {
+    onActivityLogChanged
+  } = callbacks;
+
+  if (onActivityLogChanged) {
+    socket.on(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, onActivityLogChanged);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onActivityLogChanged) {
+      socket.off(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, onActivityLogChanged);
+    }
+  };
+};
+
 export default {
   getSocket,
   connectSocket,
@@ -523,4 +601,6 @@ export default {
   subscribeToInventoryUpdates,
   subscribeToBranchProductUpdates,
   subscribeToPayHereUpdates,
+  subscribeToOrderUpdates,
+  subscribeToActivityLogUpdates,
 };

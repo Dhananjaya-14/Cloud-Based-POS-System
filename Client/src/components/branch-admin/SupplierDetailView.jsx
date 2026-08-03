@@ -89,9 +89,9 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
         })
       });
 
-      await fetchOrderData();
       setSelectedOrder(null);
       if (showToast) showToast("Order marked as received successfully!", "success");
+      await fetchOrderData();
     } catch (err) {
       if (showToast) showToast(err.message, "error");
       else alert("Error: " + err.message);
@@ -135,13 +135,38 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
               )}
             </div>
           </div>
-          <table style={{ width: "100%", fontSize: "14px", borderCollapse: "collapse" }}>
+          <table style={{ width: "100%", fontSize: "14px", borderCollapse: "collapse", tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: "300px" }} />
+              <col style={{ width: "180px" }} />
+              <col style={{ width: "300px" }} />
+              <col style={{ width: "300px" }} />
+              <col style={{ width: "auto" }} />
+            </colgroup>
+            <thead>
+              <tr style={{ borderTop: "1px solid #F2F4F7" }}>
+                <th style={{ padding: "10px 24px", textAlign: "left", color: "#98A2B3", fontWeight: 500, fontSize: "12px" }}>ITEM</th>
+                <th style={{ padding: "10px 24px", textAlign: "right", color: "#98A2B3", fontWeight: 500, fontSize: "12px", whiteSpace: "nowrap" }}>UNIT PRICE</th>
+                <th style={{ padding: "10px 24px", textAlign: "right", color: "#98A2B3", fontWeight: 500, fontSize: "12px" }}>QUANTITY</th>
+                <th style={{ padding: "10px 24px", textAlign: "right", color: "#98A2B3", fontWeight: 500, fontSize: "12px", whiteSpace: "nowrap" }}>PRICE</th>
+                <th></th>
+              </tr>
+            </thead>
             <tbody>
               {order.items.map((item, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #F2F4F7" }}>
-                  <td style={{ padding: "10px 24px" }}>{item.rm_name}</td>
-                  <td style={{ padding: "10px 24px" }}>{item.qty} {item.unit}</td>
-                  <td style={{ padding: "10px 24px", textAlign: "right" }}>Rs. {item.price}</td>
+                  <td style={{ padding: "10px 24px" }}>{item.rm_name || item.pro_name}</td>
+                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                    Rs. {Number(item.unit_price).toFixed(2)}
+                  </td>
+                  <td style={{ padding: "10px 24px" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", fontVariantNumeric: "tabular-nums" }}>
+                      <span style={{ minWidth: "70px", textAlign: "right" }}>{Number(item.qty).toFixed(3)}</span>
+                      <span style={{ minWidth: "30px", textAlign: "left", color: "#667085" }}>{item.rm_unit || (item.pro_id ? "pcs" : "")}</span>
+                    </div>
+                  </td>
+                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>Rs. {Number(item.price).toFixed(2)}</td>
+                  <td></td>
                 </tr>
               ))}
             </tbody>
@@ -154,6 +179,7 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
           order={selectedOrder}
           onClose={() => setSelectedOrder(null)}
           onConfirm={handleConfirmReceipt}
+          isProcessing={processingId === selectedOrder.po_id}
         />
       )}
     </div>

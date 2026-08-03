@@ -753,16 +753,15 @@ export async function receiveWithWastage(req, res, next) {
           }
         }
 
-        // Insert waste record if there's any waste
         // Insert waste record — raw materials only
         if (it.rm_id && wasteQty > 0) {
           const wType = wasteData.wastage_type || 'fixed';
           const wVal = Number(wasteData.wastage_value) || wasteQty;
 
           await client.query(
-            `INSERT INTO "public"."Waste" ("rm_id", "waste_qty", "reason", "recorded_at", "b_id", "po_id", "gross_received", "net_received", "wastage_type", "wastage_value", "u_id")
-             VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5, $6, $7, $8, $9, $10)`,
-            [it.rm_id, wasteQty, reason || `Damaged during delivery (PO #${id})`, poBranchId, id, grossQty, netQty, wType, wVal, req.user.u_id]
+            `INSERT INTO "public"."Waste" ("rm_id", "waste_qty", "reason", "recorded_at", "b_id", "po_id", "gross_received", "net_received", "wastage_type", "wastage_value")
+             VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5, $6, $7, $8, $9)`,
+            [it.rm_id, wasteQty, reason || `Damaged during delivery (PO #${id})`, poBranchId, id, grossQty, netQty, wType, wVal]
           );
         }
       }
