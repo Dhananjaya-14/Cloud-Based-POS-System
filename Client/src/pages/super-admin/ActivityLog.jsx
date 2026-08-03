@@ -27,6 +27,7 @@ import {
   FaTimesCircle,
   FaInfoCircle,
   FaBan,
+  FaUser,
 } from "react-icons/fa";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -527,7 +528,7 @@ const ActivityLog = () => {
   const loginCount   = summary?.byAction?.find((a) => a.action_type === "LOGIN")?.count ?? 0;
   const createCount  = summary?.byAction?.find((a) => a.action_type === "CREATE")?.count ?? 0;
   const deleteCount  = summary?.byAction?.find((a) => a.action_type === "DELETE")?.count ?? 0;
-  const tableHeaders = ["#", "User", "Company / Branch", "Action", "Module", "Description", "IP Address", "Timestamp"];
+  const tableHeaders = ["#", "User", "Company / Branch", "Action", "Module", "Description", "Timestamp"];
 
   // ─────────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -601,7 +602,7 @@ const ActivityLog = () => {
                   id="log-search"
                   value={filters.search}
                   onChange={(e) => onFilterChange("search", e.target.value)}
-                  placeholder="Search description or IP…"
+                  placeholder="Search description…"
                   style={{
                     width: "100%",
                     padding: "9px 12px 9px 36px",
@@ -859,7 +860,33 @@ const ActivityLog = () => {
                   <tbody>
                     {logs.map((log, idx) => {
                       const actionStyle = getActionStyle(log.action_type);
-                      const userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ") || log.u_email || `User #${log.u_id}` || "—";
+                      
+                      // Improved user name handling - check all possible user fields
+                      let userName = "—";
+                      if (log.u_fname || log.u_lname) {
+                        userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
+                      } else if (log.u_email) {
+                        userName = log.u_email;
+                      } else if (log.user_name) {
+                        userName = log.user_name;
+                      } else if (log.user_email) {
+                        userName = log.user_email;
+                      } else if (log.u_id) {
+                        userName = `User #${log.u_id}`;
+                      } else if (log.user_id) {
+                        userName = `User #${log.user_id}`;
+                      }
+                      
+                      // If still empty, show "System" or "Unknown"
+                      if (userName === "—" || userName === "" || userName === "undefined" || userName === "null") {
+                        // Check if this is a system/auto action
+                        if (log.action_type === "LOGIN" || log.action_type === "LOGIN_FAILED") {
+                          userName = "System";
+                        } else {
+                          userName = "Unknown User";
+                        }
+                      }
+                      
                       const contextLabel = [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
 
                       return (
@@ -879,9 +906,17 @@ const ActivityLog = () => {
                             </span>
                           </td>
 
-                          {/* User */}
+                          {/* User - Improved with fallback */}
                           <td style={cellStyle}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>
+                            <div style={{ 
+                              fontSize: 13, 
+                              fontWeight: 600, 
+                              color: userName === "System" || userName === "Unknown User" ? "#9CA3AF" : "#111827",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px"
+                            }}>
+                              {userName === "System" && <FaUser size={10} style={{ color: "#9CA3AF" }} />}
                               {userName}
                             </div>
                             {log.u_email && (
@@ -934,13 +969,6 @@ const ActivityLog = () => {
                               }}
                             >
                               {log.description || "—"}
-                            </span>
-                          </td>
-
-                          {/* IP */}
-                          <td style={cellStyle}>
-                            <span style={{ fontSize: 12, color: "#6B7280", fontFamily: "monospace" }}>
-                              {log.ip_address || "—"}
                             </span>
                           </td>
 
