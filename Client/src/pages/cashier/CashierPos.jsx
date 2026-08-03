@@ -1060,7 +1060,7 @@ const CashierPos = () => {
                   })();
                   // When inventory is disabled, made_to_order products are always billable (no stock limit)
                   const isMadeToOrder = product.product_type === "made_to_order";
-                  const ignoreStock = !inventoryEnabled && isMadeToOrder;
+                  const ignoreStock = isMadeToOrder;
                   const stockCount = Number(product.pro_quantity ?? 0);
                   const isOutOfStock = !ignoreStock && stockCount <= 0;
                   const priceLabel = Number(product.pro_price ?? 0).toFixed(2);
