@@ -25,7 +25,7 @@ const Sidebar = () => {
 
   const menuItem = (icon, label, path, isLocked = false) => {
     const isActive = location.pathname === path || location.pathname.startsWith(path);
-    
+
     const content = (
       <>
         {icon}
@@ -51,9 +51,9 @@ const Sidebar = () => {
 
     if (isLocked) {
       return (
-        <div 
+        <div
           key={label}
-          style={style} 
+          style={style}
           onClick={(e) => {
             e.preventDefault();
             toast.info("Upgrade Required", `Your current package doesn't include ${label}.`);
@@ -107,7 +107,7 @@ const Sidebar = () => {
           <div style={{ marginTop: 30 }}>
             {menuItem(<FaTachometerAlt />, "Dashboard", "/admin/dashboard")}
             {menuItem(<FaStore />, "Branches", "/branches")}
-            {menuItem(<FaBox />, "Products", "/admin/products", isLocked("has_inventory"))}
+            {menuItem(<FaBox />, "Products", "/admin/products")}
             {menuItem(<FaUsers />, "User Management", "/users")}
             {menuItem(<FaChartBar />, "Statistics", "/admin/statistics")}
             {menuItem(<FaMoneyBill />, "Transactions", "/admin/transactions")}

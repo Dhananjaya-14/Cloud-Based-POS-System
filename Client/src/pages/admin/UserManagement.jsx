@@ -49,7 +49,7 @@ const UserManagement = () => {
   useEffect(() => {
     fetchData();
     const cleanupSocketConnection = setupSocketConnection();
-    
+
     return () => {
       cleanupSocketConnection?.();
     };
@@ -262,13 +262,13 @@ const UserManagement = () => {
           style={{
             flex: 1,
             overflow: "hidden",
-	            padding: "14px 18px 16px",
-	            display: "flex",
-	            flexDirection: "column",
-	            gap: "14px",
-	          }}
-	        >
-	          {toasts.length > 0 && (
+            padding: "14px 18px 16px",
+            display: "flex",
+            flexDirection: "column",
+            gap: "14px",
+          }}
+        >
+          {toasts.length > 0 && (
             <div
               style={{
                 position: "fixed",
@@ -314,13 +314,13 @@ const UserManagement = () => {
                     aria-label="Dismiss notification"
                   >
                     <FaTimes />
-	                  </button>
-	                </div>
-	              ))}
-	            </div>
-		          )}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
-		          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h1 style={{ fontSize: "30px", margin: 0, fontWeight: 700, color: "#2f3d72", letterSpacing: "0.3px", lineHeight: 1 }}>
               User Management
             </h1>

@@ -17,11 +17,10 @@ import { useAuth } from "../../context/AuthContext";
 
 // -----Toast ─---------------
 const Toast = ({ message, type, onClose }) => (
-  <div className={`fixed top-6 right-6 z-50 px-5 py-3.5 rounded-xl flex items-center gap-2.5 font-semibold text-sm shadow-xl border-2 ${
-    type === "error"
+  <div className={`fixed top-6 right-6 z-50 px-5 py-3.5 rounded-xl flex items-center gap-2.5 font-semibold text-sm shadow-xl border-2 ${type === "error"
       ? "bg-red-50 border-red-300 text-red-600"
       : "bg-green-50 border-green-300 text-green-600"
-  }`}>
+    }`}>
     <span>{type === "error" ? "✕" : "✓"}</span>
     {message}
     <button onClick={onClose} className="ml-2 bg-transparent border-none cursor-pointer text-base text-inherit hover:opacity-75">×</button>
@@ -54,9 +53,8 @@ const Field = ({ label, required, children }) => (
 );
 
 const BranchCheckbox = ({ branch, checked, onChange, badge, badgeColor }) => (
-  <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all select-none ${
-    checked ? "border-gray-200 bg-gray-50 " : "border-gray-200 bg-gray-50 hover:border-gray-300"
-  }`}>
+  <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all select-none ${checked ? "border-gray-200 bg-gray-50 " : "border-gray-200 bg-gray-50 hover:border-gray-300"
+    }`}>
     <input
       type="checkbox"
       checked={checked}
@@ -73,10 +71,10 @@ const BranchCheckbox = ({ branch, checked, onChange, badge, badgeColor }) => (
 
 const inputClass = "w-full px-3.5 py-2.5 rounded-lg border-2 border-gray-300 text-sm text-gray-900 outline-none transition-colors focus:border-[#2E3E8F]";
 const btnClass = "px-5 py-2.5 rounded-lg border-none cursor-pointer font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed";
-const btnPrimary   = `${btnClass} bg-[#2E3E8F] text-white`;
+const btnPrimary = `${btnClass} bg-[#2E3E8F] text-white`;
 const btnSecondary = `${btnClass} bg-gray-100 text-gray-700`;
-const btnDanger    = `${btnClass} bg-red-600 text-white`;
-const btnSuccess   = `${btnClass} bg-green-600 text-white`;
+const btnDanger = `${btnClass} bg-red-600 text-white`;
+const btnSuccess = `${btnClass} bg-green-600 text-white`;
 
 // ----------------- Main Page-----------------
 const AdminSupplierManagement = () => {
@@ -97,8 +95,8 @@ const AdminSupplierManagement = () => {
 
   // Manage Branches Modal
   const [assignTarget, setAssignTarget] = useState(null);
-  const [initialAssignBids, setInitialAssignBids] = useState([]); 
-  const [selectedAssignBids, setSelectedAssignBids] = useState([]); 
+  const [initialAssignBids, setInitialAssignBids] = useState([]);
+  const [selectedAssignBids, setSelectedAssignBids] = useState([]);
   const [assignLoading, setAssignLoading] = useState(false);
   const [assigning, setAssigning] = useState(false);
 
@@ -121,7 +119,7 @@ const AdminSupplierManagement = () => {
         ...(filterBranch ? { b_id: filterBranch } : {}),
         ...(showDeleted ? { status: "inactive" } : {}),
       };
-      
+
       // Fetch branches independently so a supplier 403 doesn't break the dropdown
       try {
         const branchList = await getBranches();
@@ -138,7 +136,7 @@ const AdminSupplierManagement = () => {
         showToast(err?.response?.data?.message || "Failed to load suppliers", "error");
         setSuppliers([]);
       }
-      
+
     } finally {
       setLoading(false);
     }
@@ -273,21 +271,21 @@ const AdminSupplierManagement = () => {
       ];
 
       await Promise.all(promises);
-      
+
       showToast(`Branch assignments updated successfully!`);
       setAssignTarget(null);
       setSelectedAssignBids([]);
       setInitialAssignBids([]);
       setSuppliers((prev) =>
-          prev.map((supplier) =>
-            supplier.sup_id === assignTarget.sup_id
-              ? {
-                  ...supplier,
-                  branches: selectedAssignBids,
-                }
-              : supplier
-          )
-        );
+        prev.map((supplier) =>
+          supplier.sup_id === assignTarget.sup_id
+            ? {
+              ...supplier,
+              branches: selectedAssignBids,
+            }
+            : supplier
+        )
+      );
     } catch (err) {
       showToast(err?.response?.data?.message || "Failed to update branch assignments", "error");
     } finally {
@@ -389,11 +387,10 @@ const AdminSupplierManagement = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => { setShowDeleted(v => !v); setSearch(""); setFilterBranch(""); }}
-                className={`px-4 py-2.5 rounded-lg border-2 font-semibold text-sm cursor-pointer transition-colors ${
-                  showDeleted
+                className={`px-4 py-2.5 rounded-lg border-2 font-semibold text-sm cursor-pointer transition-colors ${showDeleted
                     ? "border-red-400 bg-red-50 text-red-600 hover:bg-red-100"
                     : "border-gray-300 bg-white text-gray-600 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 {showDeleted ? "🗑 Viewing Deleted" : "🗑 View Deleted"}
               </button>
@@ -441,13 +438,11 @@ const AdminSupplierManagement = () => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-5 justify-center">
               {filtered.map(sup => (
-                <div key={sup.sup_id} className={`bg-white rounded-2xl border p-6 shadow-sm transition-shadow ${
-                  showDeleted ? "border-red-200 opacity-80 hover:opacity-100" : "border-gray-200 hover:shadow-md"
-                }`}>
+                <div key={sup.sup_id} className={`bg-white rounded-2xl border p-6 shadow-sm transition-shadow ${showDeleted ? "border-red-200 opacity-80 hover:opacity-100" : "border-gray-200 hover:shadow-md"
+                  }`}>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${
-                      showDeleted ? "bg-gradient-to-br from-red-50 to-red-100" : "bg-gradient-to-br from-indigo-50 to-indigo-200"
-                    }`}>🏢</div>
+                    <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-xl ${showDeleted ? "bg-gradient-to-br from-red-50 to-red-100" : "bg-gradient-to-br from-indigo-50 to-indigo-200"
+                      }`}>🏢</div>
                     <div className="flex justify-between items-center w-full gap-2">
                       <h3 className="m-0 text-base font-bold text-gray-900 truncate">{sup.sup_name}</h3>
                       {showDeleted ? (
@@ -539,7 +534,7 @@ const AdminSupplierManagement = () => {
           )}
 
           <div className="flex gap-3 mt-2">
-            <button  onClick={() => { setAssignTarget(null); setSelectedAssignBids([]); setInitialAssignBids([]); }} className={`${btnSecondary} flex-1`}>Cancel</button>
+            <button onClick={() => { setAssignTarget(null); setSelectedAssignBids([]); setInitialAssignBids([]); }} className={`${btnSecondary} flex-1`}>Cancel</button>
             <button
               onClick={handleAssign}
               disabled={assigning}

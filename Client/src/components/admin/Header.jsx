@@ -331,10 +331,10 @@ const Header = ({ title = "Branch Management" }) => {
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
         {/* Notification Bell with Dropdown */}
         <div style={{ position: "relative" }}>
-          <div 
+          <div
             onClick={toggleNotifications}
-            style={{ 
-              cursor: "pointer", 
+            style={{
+              cursor: "pointer",
               position: "relative",
               padding: "8px",
               borderRadius: "50%",

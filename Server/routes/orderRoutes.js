@@ -40,8 +40,8 @@ const canCreateOrder = requireRole(
 
 // Update Order Status
 const canUpdateOrderStatus = requireRole(
-  [ROLES.KITCHEN_STAFF, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
-  "Kitchen Staff, Cashier, Branch Admin, or Admin",
+  [ROLES.WAITER, ROLES.KITCHEN_STAFF, ROLES.CASHIER, ROLES.BRANCH_ADMIN, ROLES.ADMIN],
+  "Waiter, Kitchen Staff, Cashier, Branch Admin, or Admin",
 );
 
 // Edit Orders

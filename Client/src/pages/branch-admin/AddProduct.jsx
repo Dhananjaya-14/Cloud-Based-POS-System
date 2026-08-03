@@ -230,7 +230,7 @@ const AddProduct = () => {
   // Setup WebSocket listeners for new products (from main product catalog)
   useEffect(() => {
     const socket = getSocket();
-    
+
     // Connect socket if not connected
     if (!socket.connected) {
       connectSocket();
@@ -244,7 +244,7 @@ const AddProduct = () => {
     // Listen for new products added to the main catalog
     const handleNewProduct = (data) => {
       console.log("New product received:", data);
-      
+
       // Add the new product to the products list
       setProducts((prevProducts) => {
         // Check if product already exists
@@ -589,11 +589,11 @@ const AddProduct = () => {
 
                         <div style={{ marginTop: "14px" }}>
                           <ProductChip label="Catalog price" value={`$${price.toFixed(2)}`} />
-                            </div>
+                        </div>
                       </button>
                     );
                   })}
-                  
+
                 </div>
               )}
             </div>
@@ -736,7 +736,7 @@ const AddProduct = () => {
                           )}
 
                           <div style={{ marginTop: "10px", fontSize: "12px", color: "#64748B", background: "#F8FAFC", borderRadius: "8px", padding: "8px 10px" }}>
-                            ℹ️ Stock quantity will be set to 0. 
+                            ℹ️ Stock quantity will be set to 0.
                             Update it later from the product page.
                           </div>
                         </div>
@@ -754,7 +754,7 @@ const AddProduct = () => {
                 }}
               >
                 <ProductChip label="Total selected" value={selectedCount} />
-                
+
               </div>
 
               <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>

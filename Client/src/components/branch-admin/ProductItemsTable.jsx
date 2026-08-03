@@ -16,8 +16,8 @@ const IngredientPopover = ({ productId, productName, onFetch, onClose, anchorRef
   const [loading, setLoading] = useState(true);
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const [error, setError] = useState("");
-  
-useEffect(() => {
+
+  useEffect(() => {
     if (anchorRef?.current) {
       const rect = anchorRef.current.getBoundingClientRect();
       const popW = 320;
@@ -29,7 +29,7 @@ useEffect(() => {
       setPosition({ top, left });
     }
   }, [anchorRef]);
-  
+
 
   useEffect(() => {
     let cancelled = false;
@@ -49,7 +49,7 @@ useEffect(() => {
     const handler = (e) => {
       if (
         popoverRef.current && !popoverRef.current.contains(e.target) &&
-        anchorRef.current  && !anchorRef.current.contains(e.target)
+        anchorRef.current && !anchorRef.current.contains(e.target)
       ) {
         onClose();
       }
@@ -72,7 +72,7 @@ useEffect(() => {
       </div>
       <div style={{ padding: "10px 0", maxHeight: "260px", overflowY: "auto" }}>
         {loading && <div style={{ padding: "20px", textAlign: "center", color: "#9CA3AF", fontSize: "13px" }}>Loading ingredients...</div>}
-        {error   && <div style={{ padding: "12px 14px", color: "#D04444", fontSize: "13px" }}>{error}</div>}
+        {error && <div style={{ padding: "12px 14px", color: "#D04444", fontSize: "13px" }}>{error}</div>}
         {!loading && !error && ingredients.length === 0 && <div style={{ padding: "12px 14px", color: "#9CA3AF", fontSize: "13px" }}>No recipe ingredients found.</div>}
         {!loading && !error && ingredients.map((ing) => (
           <div key={ing.rm_id} style={{ display: "flex", alignItems: "center", gap: "10px", padding: "8px 14px", background: ingredientRowColor(ing.status), borderBottom: "1px solid #F3F4F6" }}>
@@ -107,7 +107,7 @@ const StatusBadge = ({ item, onFetchIngredients }) => {
       </span>
     );
   }
-   return (
+  return (
     <>
       <button ref={badgeRef} type="button"
         onMouseDown={(e) => e.stopPropagation()}
@@ -234,18 +234,18 @@ const ProductItemsTable = ({
                 {showTypeColumn && (
                   <td style={{ padding: "10px 14px" }}>
                     <span style={{
-                      background: item.product_type === 'pre_made' ? '#E0F2FE' : 
-                                 item.product_type === 'finished' ? '#FEF3C7' : '#F3F4F6',
+                      background: item.product_type === 'pre_made' ? '#E0F2FE' :
+                        item.product_type === 'finished' ? '#FEF3C7' : '#F3F4F6',
                       color: item.product_type === 'pre_made' ? '#0369A1' :
-                             item.product_type === 'finished' ? '#B45309' : '#374151',
+                        item.product_type === 'finished' ? '#B45309' : '#374151',
                       padding: "4px 8px",
                       borderRadius: "6px",
                       fontSize: "12px",
                       fontWeight: "600",
                       whiteSpace: "nowrap"
                     }}>
-                      {item.product_type === 'pre_made' ? 'Pre-made' : 
-                       item.product_type === 'finished' ? 'External' : 'Made to Order'}
+                      {item.product_type === 'pre_made' ? 'Pre-made' :
+                        item.product_type === 'finished' ? 'External' : 'Made to Order'}
                     </span>
                   </td>
                 )}
@@ -278,9 +278,9 @@ const ProductItemsTable = ({
                             }}
                           >
                             {updatingStockId === item.id ? (
-                               <FaSpinner size={10} style={{ animation: "stockButtonSpin 0.8s linear infinite" }} />
+                              <FaSpinner size={10} style={{ animation: "stockButtonSpin 0.8s linear infinite" }} />
                             ) : null}
-                               
+
                             {item.product_type === 'finished' ? 'Order' : 'Add Stock'}
                           </button>
                         </>

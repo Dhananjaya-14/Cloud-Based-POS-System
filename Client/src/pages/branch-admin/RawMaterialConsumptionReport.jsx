@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import { getRawMaterialConsumptionReport,getBranchById } from "../../services/api";
+import { getRawMaterialConsumptionReport, getBranchById } from "../../services/api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -54,7 +54,7 @@ export default function RawMaterialConsumptionReport() {
     selectedMonth: currentMonthString,
     selectedWeek: "1",
   });
-  
+
   const [selectedColumns, setSelectedColumns] = useState(
     availableColumns.map((col) => col.key)
   );
@@ -76,7 +76,7 @@ export default function RawMaterialConsumptionReport() {
         const week = Number(filters.selectedWeek);
 
         const daysInMonth = new Date(year, month, 0).getDate();
-        
+
         const startDay = (week - 1) * 7 + 1;
         let endDay = startDay + 6;
 
@@ -190,15 +190,15 @@ export default function RawMaterialConsumptionReport() {
     if (formattedRows.length > 0) {
       const totalRow = {};
       const firstVisibleColumn = availableColumns.find(col => selectedColumns.includes(col.key));
-      
+
       if (firstVisibleColumn) {
         totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "TOTAL";
       }
-      
+
       if (selectedColumns.includes("total_cost")) {
         totalRow["Total Cost (Rs.)"] = Number(grandTotal).toFixed(2);
       }
-      
+
       formattedRows.push(totalRow);
     }
 
@@ -211,7 +211,7 @@ export default function RawMaterialConsumptionReport() {
         maxColumnWidths[colIndex] = Math.max(maxColumnWidths[colIndex] || 10, currentLength + 3);
       });
     });
-    
+
     worksheet["!cols"] = maxColumnWidths.map(w => ({ wch: w }));
 
     const workbook = XLSX.utils.book_new();
@@ -226,7 +226,7 @@ export default function RawMaterialConsumptionReport() {
     const generatedDate = reportDate.toLocaleDateString();
     const generatedTime = reportDate.toLocaleTimeString();
     const orderedColumns = availableColumns.filter((col) => selectedColumns.includes(col.key));
-    
+
     // HEADER
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
@@ -304,7 +304,7 @@ export default function RawMaterialConsumptionReport() {
         fontSize: 9,
       },
     });
-    
+
     const finalY = doc.lastAutoTable.finalY + 12;
 
     doc.setFillColor(240, 248, 255);
@@ -458,8 +458,8 @@ export default function RawMaterialConsumptionReport() {
             onClick={generateReport}
             disabled={loading}
             className={`mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all duration-150
-              ${loading 
-                ? "bg-blue-400 text-blue-100 cursor-not-allowed" 
+              ${loading
+                ? "bg-blue-400 text-blue-100 cursor-not-allowed"
                 : "bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] cursor-pointer"
               }`}
           >
@@ -503,7 +503,7 @@ export default function RawMaterialConsumptionReport() {
             ))}
           </div>
         </div>
-        
+
         {/* Table & Data Handling */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -533,8 +533,8 @@ export default function RawMaterialConsumptionReport() {
               <tbody>
                 {rows.length === 0 ? (
                   <tr>
-                    <td 
-                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length} 
+                    <td
+                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length}
                       className="text-center py-12 text-gray-400 font-medium"
                     >
                       No matching consumption data captured. Adjust your filters and reload.
@@ -594,8 +594,8 @@ export default function RawMaterialConsumptionReport() {
               {rows.length > 0 && (
                 <tfoot>
                   <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                    <td 
-                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} 
+                    <td
+                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1}
                       className="p-4 text-right"
                     >
                       Grand Total

@@ -124,7 +124,7 @@ const AddProduct = () => {
         setCategories(cats);
         setForm((prev) => ({ ...prev, cat_id: String(cats[0].cat_id) }));
       })
-      .catch(() => {});
+      .catch(() => { });
 
     // Initialize socket connection for admin
     const socket = getSocket();
@@ -189,7 +189,7 @@ const AddProduct = () => {
       };
 
       const response = await createProduct(payload);
-      
+
       // Socket event will be emitted from server, so we just show success
       setShowSuccessToast(true);
       showToastMessage("Product added successfully.", "success");
@@ -227,10 +227,10 @@ const AddProduct = () => {
           </h1>
 
           {error && (
-            <div style={{ 
-              background: "#FEE2E2", 
-              color: "#991B1B", 
-              padding: "12px", 
+            <div style={{
+              background: "#FEE2E2",
+              color: "#991B1B",
+              padding: "12px",
               borderRadius: "8px",
               marginBottom: "20px"
             }}>
@@ -244,10 +244,10 @@ const AddProduct = () => {
                 <div style={{ display: "grid", gridTemplateColumns: "1.25fr 0.75fr", gap: "12px", marginBottom: "10px" }}>
                   <div>
                     <label style={labelStyle}>Product Name</label>
-                    <input 
-                      style={inputStyle} 
-                      value={form.pro_name} 
-                      onChange={handleChange("pro_name")} 
+                    <input
+                      style={inputStyle}
+                      value={form.pro_name}
+                      onChange={handleChange("pro_name")}
                       placeholder="Enter product name"
                     />
                   </div>
@@ -580,7 +580,7 @@ const AddProduct = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Track Inventory Section - Added from the HEAD version */}
                 <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
                   <div style={{ fontSize: "16px", fontWeight: "700", lineHeight: 1 }}>Track Inventory</div>

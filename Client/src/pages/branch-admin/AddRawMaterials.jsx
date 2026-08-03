@@ -60,7 +60,7 @@ const AddRawMaterials = () => {
       return { ok: res.ok, status: res.status, body: text };
     }
   }
-  
+
 
   useEffect(() => {
     if (suppliersEnabled) fetchSuppliers();
@@ -84,7 +84,7 @@ const AddRawMaterials = () => {
           socket.off('connect', handleConnect);
         };
         socket.on('connect', handleConnect);
-        
+
         return () => {
           socket.off('connect', handleConnect);
         };
@@ -98,7 +98,7 @@ const AddRawMaterials = () => {
     if (!companyId) return;
 
     const socket = getSocket();
-    
+
     const handleSupplierCreated = (newSupplier) => {
       console.log('New supplier detected via WebSocket, refreshing list:', newSupplier);
       fetchSuppliers(); // Refresh the suppliers list
@@ -145,7 +145,7 @@ const AddRawMaterials = () => {
         socket.off('connect', handleConnect);
       };
       socket.on('connect', handleConnect);
-      
+
       return () => {
         socket.off('connect', handleConnect);
       };
@@ -373,7 +373,11 @@ const AddRawMaterials = () => {
         const materialPayload = {
           rm_name: normalizedName,
           unit: item.unit,
-          stock_qty: qty,
+          // This quantity is an incoming order, not stock in hand yet —
+          // stock only increases once the purchase order is marked as
+          // received (see receiveWithWastage). Setting it here would
+          // double-count the stock.
+          stock_qty: 0,
           record_level: Number(item.record_level) || 0,
           B_id: Number(branchId),
           com_id: user?.com_id ?? undefined,

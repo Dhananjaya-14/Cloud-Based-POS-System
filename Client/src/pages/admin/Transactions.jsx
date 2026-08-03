@@ -12,6 +12,8 @@ import {
   getBranches,
   getCurrentUser,
 } from "../../services/api";
+import { SOCKET_EVENTS } from "../../services/socket";
+import { getSocket, connectSocket } from "../../services/socket";
 
 export default function Transactions() {
   const [filters, setFilters] = useState({
@@ -22,7 +24,6 @@ export default function Transactions() {
     dateTo: null,
     tab: "all",
   });
-
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(null);
@@ -33,6 +34,7 @@ export default function Transactions() {
   const currentComId = currentUser?.com_id ?? null;
 
   useEffect(() => {
+    const socket = connectSocket();
     const load = async () => {
       setLoading(true);
       try {
@@ -61,13 +63,14 @@ export default function Transactions() {
           getPurchaseOrders().catch(() => []),
           getBranches().catch(() => []),
         ]);
+        // after initial load, set up socket listener for real-time updates
+        socket.on(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
 
         // normalize and scope branches to user's company (if present)
         const allBranches = branchesRaw?.data ?? branchesRaw ?? [];
         const scopedBranches = currentComId
           ? allBranches.filter((b) => b?.com_id != null && String(b.com_id) === String(currentComId))
           : allBranches;
-
         // map branch id -> branch
         const branchById = {};
         scopedBranches.forEach((b) => {
@@ -208,6 +211,18 @@ export default function Transactions() {
     };
 
     load();
+    // Register socket listeners for real-time updates
+    socket.on(SOCKET_EVENTS.ORDER_CREATED, load);
+    socket.on(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
+    socket.on(SOCKET_EVENTS.ORDER_UPDATED, load);
+    socket.on(SOCKET_EVENTS.ORDER_READY, load);
+    // Cleanup listeners on unmount
+    return () => {
+      socket.off(SOCKET_EVENTS.ORDER_CREATED, load);
+      socket.off(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
+      socket.off(SOCKET_EVENTS.ORDER_UPDATED, load);
+      socket.off(SOCKET_EVENTS.ORDER_READY, load);
+    };
   }, [filters.branch, currentComId]); // re-run when branch or company scope changes
 
   const filtered = useMemo(() => {

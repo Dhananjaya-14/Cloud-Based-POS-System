@@ -75,3 +75,26 @@ export async function updatePackage(req, res, next) {
     next(err);
   }
 }
+
+// DELETE /api/packages/:id — delete a package (Super Admin only)
+export async function deletePackage(req, res, next) {
+  try {
+    const { id } = req.params;
+    
+    // Check if any companies are currently using this package before deleting
+    const checkRes = await pool.query('SELECT com_id FROM "Company" WHERE package_id = $1 LIMIT 1', [id]);
+    if (checkRes.rows.length > 0) {
+      res.status(400);
+      throw new Error("Cannot delete package because it is currently assigned to one or more companies.");
+    }
+
+    const result = await pool.query('DELETE FROM "Package" WHERE package_id = $1 RETURNING *', [id]);
+    if (result.rows.length === 0) {
+      res.status(404);
+      throw new Error("Package not found");
+    }
+    res.json({ message: "Package deleted successfully", package: result.rows[0] });
+  } catch (err) {
+    next(err);
+  }
+}
