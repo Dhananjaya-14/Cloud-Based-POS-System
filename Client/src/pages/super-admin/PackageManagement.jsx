@@ -300,16 +300,21 @@ const PackageManagement = () => {
               <div>
                 <label style={labelStyle}>Included Modules</label>
                 <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <select style={{ ...inputStyle, flex: 1 }} value={moduleToAdd} onChange={e => setModuleToAdd(e.target.value)}>
+                  <select 
+                    style={{ ...inputStyle, flex: 1 }} 
+                    value="" 
+                    onChange={e => {
+                      const selected = e.target.value;
+                      if (selected && !formData.selected_modules.includes(selected)) {
+                        setFormData(f => ({ ...f, selected_modules: [...f.selected_modules, selected] }));
+                      }
+                    }}
+                  >
                     <option value="">— Select a module to add —</option>
                     {AVAILABLE_MODULES.filter(m => !formData.selected_modules.includes(m.id)).map(m => (
                       <option key={m.id} value={m.id}>{m.label}</option>
                     ))}
                   </select>
-                  <button onClick={addModule}
-                    style={{ background: "#10B981", color: "#fff", border: "none", borderRadius: 8, padding: "0 18px", cursor: "pointer", fontWeight: 600, fontSize: 14 }}>
-                    Add
-                  </button>
                 </div>
 
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, padding: 12, background: "#F9FAFB", borderRadius: 8, minHeight: 44 }}>
@@ -378,6 +383,6 @@ const thStyle = { padding: "14px 10px", textAlign: "left", fontSize: 13, fontWei
 const tdStyle = { padding: "14px 10px", fontSize: 14, color: "#4B5563", verticalAlign: "middle" };
 const iconBtnStyle = { background: "#F3F4F6", border: "none", borderRadius: 6, width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" };
 const labelStyle = { display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 };
-const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 6, border: "1px solid #D1D5DB", outline: "none", fontSize: 14, boxSizing: "border-box" };
+const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 12, border: "1px solid #D1D5DB", outline: "none", fontSize: 14, boxSizing: "border-box" };
 
 export default PackageManagement;

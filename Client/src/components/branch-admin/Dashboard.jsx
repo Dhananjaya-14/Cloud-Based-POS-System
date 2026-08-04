@@ -21,7 +21,8 @@ const formatCurrency = (value) => {
 };
 
 const Dashboard = () => {
-	const { user } = useAuth();
+	const { user, features } = useAuth();
+	const inventoryEnabled = features?.has_inventory === true;
 	const navigate = useNavigate();
 	const [orders, setOrders] = useState([]);
 	const [orderItems, setOrderItems] = useState([]);
@@ -45,35 +46,33 @@ const Dashboard = () => {
 				orderParams.b_id = user.b_id;
 			}
 
-			const results = await Promise.allSettled([
+			const apiCalls = [
 				getOrders(orderParams),
 				getUsers(),
 				getBranchProducts(),
 				getOrderItems(),
-				getRawMaterials(),
-				getLowStockMaterials(),
-			]);
+			];
+
+			if (inventoryEnabled) {
+				apiCalls.push(getRawMaterials(), getLowStockMaterials());
+			}
+
+			const results = await Promise.allSettled(apiCalls);
 
 			if (!isMounted) return;
 
-			const [
-				ordersResult,
-				usersResult,
-				branchProductsResult,
-				orderItemsResult,
-				rawMaterialsResult,
-				lowStockResult,
-			] = results;
-
-			const nextOrders = ordersResult.status === "fulfilled" ? ordersResult.value : [];
-			const nextUsers = usersResult.status === "fulfilled" ? usersResult.value : [];
-			const nextBranchProducts =
-				branchProductsResult.status === "fulfilled" ? branchProductsResult.value : [];
-			const nextOrderItems =
-				orderItemsResult.status === "fulfilled" ? orderItemsResult.value : [];
-			const nextRawMaterials =
-				rawMaterialsResult.status === "fulfilled" ? rawMaterialsResult.value : [];
-			const nextLowStock = lowStockResult.status === "fulfilled" ? lowStockResult.value : [];
+			const nextOrders = results[0]?.status === "fulfilled" ? results[0].value : [];
+			const nextUsers = results[1]?.status === "fulfilled" ? results[1].value : [];
+			const nextBranchProducts = results[2]?.status === "fulfilled" ? results[2].value : [];
+			const nextOrderItems = results[3]?.status === "fulfilled" ? results[3].value : [];
+			
+			let nextRawMaterials = [];
+			let nextLowStock = [];
+			
+			if (inventoryEnabled) {
+				nextRawMaterials = results[4]?.status === "fulfilled" ? results[4].value : [];
+				nextLowStock = results[5]?.status === "fulfilled" ? results[5].value : [];
+			}
 
 			setOrders(Array.isArray(nextOrders) ? nextOrders : []);
 			setUsers(Array.isArray(nextUsers) ? nextUsers : []);
@@ -81,11 +80,6 @@ const Dashboard = () => {
 			setOrderItems(Array.isArray(nextOrderItems) ? nextOrderItems : []);
 			setRawMaterials(Array.isArray(nextRawMaterials) ? nextRawMaterials : []);
 			setLowStockMaterials(Array.isArray(nextLowStock) ? nextLowStock : []);
-
-			const failed = results.find((result) => result.status === "rejected");
-			if (failed?.status === "rejected") {
-				setError("Some dashboard data could not be loaded.");
-			}
 
 			setIsLoading(false);
 		};
@@ -95,7 +89,7 @@ const Dashboard = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, [user?.b_id]);
+	}, [user?.b_id, inventoryEnabled]);
 
 	const cashierUsers = useMemo(
 		() => users.filter((item) => Number(item?.role_id) === 3),
@@ -255,7 +249,7 @@ const Dashboard = () => {
 					)}
 
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-						<div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm">
+						<div className={`bg-white rounded-2xl border border-slate-100 p-5 shadow-sm ${inventoryEnabled ? '' : 'lg:col-span-3'}`}>
 							<div className="mb-4">
 								<h4 className="text-sm font-bold text-slate-900">Today&apos;s Staff</h4>
 								<p className="text-xs text-slate-500">Staff performance</p>
@@ -302,71 +296,73 @@ const Dashboard = () => {
 							</div>
 						</div>
 
-						<div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm lg:col-span-2">
-							<div className="flex items-start justify-between mb-4">
-								<div>
-									<h4 className="text-sm font-bold text-slate-900">Inventory Updates</h4>
-									<p className="text-xs text-slate-500">Current stock levels</p>
-								</div>
-								<button
-									type="button"
-									onClick={() => navigate("/branch-admin/inventory")}
-									className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50"
-								>
-									Go to Inventory Page
-								</button>
-							</div>
-
-							<div className="mb-4">
-								<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between">
+						{inventoryEnabled && (
+							<div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm lg:col-span-2">
+								<div className="flex items-start justify-between mb-4">
 									<div>
-										<div className="text-xs font-semibold text-red-600">Low Stock Alert</div>
-										<div className="text-xs text-red-500">
-											{lowStockItem ? lowStockItem.rm_name : "No low stock alerts"}
+										<h4 className="text-sm font-bold text-slate-900">Inventory Updates</h4>
+										<p className="text-xs text-slate-500">Current stock levels</p>
+									</div>
+									<button
+										type="button"
+										onClick={() => navigate("/branch-admin/inventory")}
+										className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50"
+									>
+										Go to Inventory Page
+									</button>
+								</div>
+
+								<div className="mb-4">
+									<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between">
+										<div>
+											<div className="text-xs font-semibold text-red-600">Low Stock Alert</div>
+											<div className="text-xs text-red-500">
+												{lowStockItem ? lowStockItem.rm_name : "No low stock alerts"}
+											</div>
+										</div>
+										<div className="text-sm font-semibold text-red-600">
+											{lowStockItem ? `${Number(lowStockItem.stock_qty ?? 0)} left` : "--"}
 										</div>
 									</div>
-									<div className="text-sm font-semibold text-red-600">
-										{lowStockItem ? `${Number(lowStockItem.stock_qty ?? 0)} left` : "--"}
-									</div>
 								</div>
-							</div>
 
-							<div className="space-y-4">
-								{stockItems.length === 0 && !isLoading && (
-									<div className="text-xs text-slate-500">No stock data available.</div>
-								)}
-								{(isLoading ? Array.from({ length: 4 }) : stockItems).map((item, index) => {
-									if (!item) {
+								<div className="space-y-4">
+									{stockItems.length === 0 && !isLoading && (
+										<div className="text-xs text-slate-500">No stock data available.</div>
+									)}
+									{(isLoading ? Array.from({ length: 4 }) : stockItems).map((item, index) => {
+										if (!item) {
+											return (
+												<div key={`stock-skeleton-${index}`} className="h-12 rounded-xl bg-slate-50 animate-pulse" />
+											);
+										}
+
+										const stockQty = Number(item.stock_qty ?? 0);
+										const recordLevel = Number(item.record_level ?? 0);
+										const percent = maxStockQty > 0
+											? Math.round((stockQty / maxStockQty) * 100)
+											: 0;
+
 										return (
-											<div key={`stock-skeleton-${index}`} className="h-12 rounded-xl bg-slate-50 animate-pulse" />
-										);
-									}
-
-									const stockQty = Number(item.stock_qty ?? 0);
-									const recordLevel = Number(item.record_level ?? 0);
-									const percent = maxStockQty > 0
-										? Math.round((stockQty / maxStockQty) * 100)
-										: 0;
-
-									return (
-										<div key={item.rm_id} className="flex items-center gap-4">
-											<div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
-												{item.rm_name?.slice(0, 2)?.toUpperCase() || "RM"}
-											</div>
-											<div className="flex-1">
-												<div className="text-xs font-semibold text-slate-900">{item.rm_name}</div>
-												<div className="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
-													<div className="h-full bg-sky-500" style={{ width: `${percent}%` }} />
+											<div key={item.rm_id} className="flex items-center gap-4">
+												<div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
+													{item.rm_name?.slice(0, 2)?.toUpperCase() || "RM"}
+												</div>
+												<div className="flex-1">
+													<div className="text-xs font-semibold text-slate-900">{item.rm_name}</div>
+													<div className="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
+														<div className="h-full bg-sky-500" style={{ width: `${percent}%` }} />
+													</div>
+												</div>
+												<div className="text-xs text-slate-500">
+													{stockQty}{recordLevel ? ` / ${recordLevel}` : ""}
 												</div>
 											</div>
-											<div className="text-xs text-slate-500">
-												{stockQty}{recordLevel ? ` / ${recordLevel}` : ""}
-											</div>
-										</div>
-									);
-								})}
+										);
+									})}
+								</div>
 							</div>
-						</div>
+						)}
 					</div>
 
 					<div className="mt-8 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">

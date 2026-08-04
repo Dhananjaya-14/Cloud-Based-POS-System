@@ -22,8 +22,10 @@ import {
   getUsers,
 } from "../../services/api";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
+import { useAuth } from "../../context/AuthContext";
 
 const UserManagement = () => {
+  const { features } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -36,6 +38,16 @@ const UserManagement = () => {
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [toasts, setToasts] = useState([]);
+
+  const accessibleRoles = useMemo(() => {
+    return roles.filter((role) => {
+      if (Number(role.role_id) === 6) return false;
+      const roleName = String(role.role_name || "").toLowerCase();
+      if (roleName.includes("waiter") && features?.has_waiter !== true) return false;
+      if (roleName.includes("kitchen") && features?.has_kitchen !== true) return false;
+      return true;
+    });
+  }, [roles, features]);
 
   const [newUser, setNewUser] = useState({
     u_fname: "",
@@ -739,13 +751,11 @@ const AddUserModal = ({ roles, form, onChange, onClose, onSubmit }) => {
                   color: "#334466",
                 }}
               >
-                {roles
-                  .filter((role) => Number(role.role_id) !== 6)
-                  .map((role) => (
-                    <option key={role.role_id} value={String(role.role_id)}>
-                      {role.role_name}
-                    </option>
-                  ))}
+                {accessibleRoles.map((role) => (
+                  <option key={role.role_id} value={String(role.role_id)}>
+                    {role.role_name}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

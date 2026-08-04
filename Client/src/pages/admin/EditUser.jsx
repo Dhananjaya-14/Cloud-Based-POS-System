@@ -11,6 +11,7 @@ import StatusToggle from "../../components/admin/StatusToggle";
 import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { getBranches, getRoles, getUserById, updateUser } from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 function getComIdFromToken() {
     try {
@@ -26,6 +27,7 @@ function getComIdFromToken() {
 }
 
 const EditUser = () => {
+    const { features } = useAuth();
     const { userId } = useParams();
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
@@ -145,12 +147,18 @@ const EditUser = () => {
         }
 
         return roles
-            .filter((roleItem) => Number(roleItem.role_id) !== 6)
+            .filter((roleItem) => {
+				if (Number(roleItem.role_id) === 6) return false;
+				const roleName = String(roleItem.role_name || "").toLowerCase();
+				if (roleName.includes("waiter") && features?.has_waiter !== true) return false;
+				if (roleName.includes("kitchen") && features?.has_kitchen !== true) return false;
+				return true;
+			})
             .map((roleItem) => ({
                 label: roleItem.role_name,
                 value: String(roleItem.role_id),
             }));
-    }, [roles]);
+    }, [roles, features]);
     const isAdminRole = useMemo(() => {
         const selectedRole = roles.find(r => String(r.role_id) === String(formData.role));
         const roleName = selectedRole?.role_name?.toLowerCase() || "";
