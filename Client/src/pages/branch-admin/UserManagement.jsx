@@ -22,8 +22,10 @@ import {
   getUsers,
 } from "../../services/api";
 import { connectSocket, getSocket, joinBranchUserRoom, SOCKET_EVENTS } from "../../services/socket";
+import { useAuth } from "../../context/AuthContext";
 
 const UserManagement = () => {
+  const { features } = useAuth();
   const navigate = useNavigate();
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -39,8 +41,14 @@ const UserManagement = () => {
   const [toasts, setToasts] = useState([]);
 
   const accessibleRoles = useMemo(() => {
-    return roles.filter((role) => !String(role.role_name || "").toLowerCase().includes("admin"));
-  }, [roles]);
+    return roles.filter((role) => {
+      const roleName = String(role.role_name || "").toLowerCase();
+      if (roleName.includes("admin")) return false;
+      if (roleName.includes("waiter") && features?.has_waiter !== true) return false;
+      if (roleName.includes("kitchen") && features?.has_kitchen !== true) return false;
+      return true;
+    });
+  }, [roles, features]);
 
   const [newUser, setNewUser] = useState({
     u_fname: "",

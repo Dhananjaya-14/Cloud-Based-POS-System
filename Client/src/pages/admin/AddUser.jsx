@@ -11,6 +11,7 @@ import profileImage from "../../assets/images/Ellipse 11.png";
 import plusImage from "../../assets/images/Plus circle.png";
 import { createUser, getBranches, getRoles } from "../../services/api";
 import { Link } from 'react-router-dom';
+import { useAuth } from "../../context/AuthContext";
 const PHONE_RE = /^07[0-9]{8}$/;
 
 
@@ -28,6 +29,7 @@ function getComIdFromToken() {
 }
 
 const AddUser = () => {
+	const { features } = useAuth();
 	const [formData, setFormData] = useState({
 		firstName: "",
 		lastName: "",
@@ -122,12 +124,18 @@ const AddUser = () => {
 		}
 
 		return roles
-			.filter((roleItem) => Number(roleItem.role_id) !== 6)
+			.filter((roleItem) => {
+				if (Number(roleItem.role_id) === 6) return false;
+				const roleName = String(roleItem.role_name || "").toLowerCase();
+				if (roleName.includes("waiter") && features?.has_waiter !== true) return false;
+				if (roleName.includes("kitchen") && features?.has_kitchen !== true) return false;
+				return true;
+			})
 			.map((roleItem) => ({
 				label: roleItem.role_name,
 				value: String(roleItem.role_id),
 			}));
-	}, [roles]);
+	}, [roles, features]);
 
 	const branchOptions = useMemo(() => {
 		if (!branches.length) {
