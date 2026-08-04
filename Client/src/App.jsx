@@ -261,7 +261,7 @@ function App() {
       <Route
         path="/admin/suppliers"
         element={
-          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_suppliers">
+          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_inventory">
             <AdminSupplierManagement />
           </ProtectedRoute>
         }

@@ -112,7 +112,7 @@ const Sidebar = () => {
             {menuItem(<FaChartBar />, "Statistics", "/admin/statistics")}
             {menuItem(<FaMoneyBill />, "Transactions", "/admin/transactions")}
             {menuItem(<FaTag />, "Promotions", "/admin/promotions", isLocked("has_promotions"))}
-            {menuItem(<FaTruck />, "Suppliers", "/admin/suppliers", isLocked("has_suppliers"))}
+            {menuItem(<FaTruck />, "Suppliers", "/admin/suppliers", isLocked("has_inventory"))}
             {menuItem(<FaFileAlt />, "Reports", "/admin/sales-details", isLocked("has_reports"))}
             {menuItem(<FaClipboardList />, "Activity Log", "/admin/activity-log")}
           </div>

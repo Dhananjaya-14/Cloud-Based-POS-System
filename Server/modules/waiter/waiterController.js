@@ -1,5 +1,5 @@
-import pool from "../config/database.js";
-import { ROLES } from "../middleware/authMiddleware.js";
+import pool from "../../config/database.js";
+import { ROLES } from "../../middleware/authMiddleware.js";
 
 const VALID_STATUSES = ["pending", "preparing", "completed", "cancelled"];
 

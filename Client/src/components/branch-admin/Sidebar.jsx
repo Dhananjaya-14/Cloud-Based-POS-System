@@ -213,7 +213,7 @@ const Sidebar = () => {
               <>
                 {subItem("Inventory", "/branch-admin/inventory")}
                 {subItem("Add Inventory Item", "/branch-admin/raw-ingredient")}
-                {isLocked("has_suppliers")
+                {isLocked("has_inventory")
                   ? lockedSubItem("Supplier Directory")
                   : subItem("Supplier Directory", "/branch-admin/suppliers")
                 }

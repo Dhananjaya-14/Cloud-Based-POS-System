@@ -1,5 +1,7 @@
 import express from "express";
-import { requireAuth, requireBranchAdminOrAdmin } from "../middleware/authMiddleware.js";
+import { requireAuth, requireBranchAdminOrAdmin } from "../../../middleware/authMiddleware.js"
+import { requireModule } from "../../../middleware/saasMiddleware.js";
+;
 import {
   getRecipes,
   getRecipeById,
@@ -12,6 +14,9 @@ import {
 } from "../controllers/recipeController.js";
 
 const router = express.Router();
+
+router.use(requireAuth);
+router.use(requireModule("has_inventory"));
 
 router.use(requireAuth);
 router.use(requireBranchAdminOrAdmin);

@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { ROLES } from "./authMiddleware.js";
 
 const getCompanyFeatures = async (com_id) => {
   if (!com_id) return null;
@@ -50,8 +51,8 @@ export const checkQuota = (quotaName, tableName, companyColumn = "com_id") => {
       let target_com_id = req.user?.com_id;
 
       if (Number(req.user?.role_id) === 6) {
-        const bodyComId = req.body?.com_id ?? req.body?.company_id;
-        const bodyBId   = req.body?.B_id ?? req.body?.b_id ?? req.body?.branch_id;
+        const bodyComId = req.body?.com_id;
+        const bodyBId   = req.body?.B_id ;
 
         if (bodyComId) {
           target_com_id = Number(bodyComId);
@@ -93,3 +94,48 @@ export const checkQuota = (quotaName, tableName, companyColumn = "com_id") => {
     }
   };
 };
+
+// ─────────────────────────────────────────────
+// MODULE ISOLATION MIDDLEWARE 
+// ─────────────────────────────────────────────
+export function requireModule(moduleKey) {
+  return async (req, res, next) => {
+    try {
+      let com_id = req.user?.com_id;
+
+      if (Number(req.user?.role_id) === ROLES.SUPER_ADMIN) {
+        return next();
+      }
+
+      if (!com_id) {
+        return res.status(403).json({
+          success: false,
+          error: "Forbidden: Company not found for module verification."
+        });
+      }
+
+      // Query real-time package features from DB
+      const featRes = await pool.query(`
+        SELECT p.features FROM "Company" c
+        JOIN "Package" p ON c.package_id = p.package_id
+        WHERE c.com_id = $1
+      `, [com_id]);
+
+      const features = featRes.rows[0]?.features || {};
+
+      if (!features[moduleKey]) {
+        return res.status(403).json({
+          success: false,
+          error: `Forbidden: Package upgrade required. Missing module: ${moduleKey}`
+        });
+      }
+
+      req.user.features = features;
+      return next();
+
+    } catch (err) {
+      console.error("[requireModule] Error checking module access:", err);
+      return res.status(500).json({ success: false, error: "Internal server error during module verification" });
+    }
+  };
+}

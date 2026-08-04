@@ -13,15 +13,14 @@ import {
   requireRole,
   requireBranchAdminOrAdmin,
   ROLES,
-} from "../middleware/authMiddleware.js";
+  } from "../../../middleware/authMiddleware.js"
+import { requireModule } from "../../../middleware/saasMiddleware.js";
+;
 
-const router = Router();
-
-function Router() {
-  return express.Router();
-}
+const router = express.Router();
 
 router.use(requireAuth);
+router.use(requireModule("has_inventory"));
 
 // Anyone in kitchen staff, branch admin, or admin can list purchase items
 router.get(

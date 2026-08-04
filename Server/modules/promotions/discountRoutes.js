@@ -15,14 +15,20 @@ import {
   getActiveDiscountsToday,
   checkComboDiscount,
   getDiscountStats,
-} from "../controllers/discountController.js";
+} from "./discountController.js";
 
 import {
   requireAuth,
   requireBranchAdminOrAdmin,
   requireCashierOrAbove,
   requireWaiterOrAbove,
-} from "../middleware/authMiddleware.js";
+  } from "../../middleware/authMiddleware.js"
+import { requireModule } from "../../middleware/saasMiddleware.js";
+;
+
+// Global middlewares for the promotions module
+router.use(requireAuth);
+router.use(requireModule("has_promotions"));
 
 // ─────────────────────────────────────────────
 // POS OPERATIONS (LIVE SYSTEM)
@@ -31,7 +37,6 @@ import {
 // Active discounts
 router.get(
   "/active/today",
-  requireAuth,
   requireWaiterOrAbove,
   getActiveDiscountsToday,
 );
@@ -39,31 +44,28 @@ router.get(
 // Validate coupon
 router.get(
   "/validate/:coupon_code",
-  requireAuth,
   requireWaiterOrAbove,
   validateCoupon,
 );
 
 // Apply discount (calculation only)
-router.post("/apply", requireAuth, requireCashierOrAbove, applyDiscount);
+router.post("/apply", requireCashierOrAbove, applyDiscount);
 
 // Combo discount check
 router.post(
   "/combo/check",
-  requireAuth,
   requireCashierOrAbove,
   checkComboDiscount,
 );
 
 // Redeem discount (final usage)
-router.post("/:id/redeem", requireAuth, requireCashierOrAbove, redeemDiscount);
+router.post("/:id/redeem", requireCashierOrAbove, redeemDiscount);
 
 // ─────────────────────────────────────────────
 // ANALYTICS
 // ─────────────────────────────────────────────
 router.get(
   "/stats/summary",
-  requireAuth,
   requireBranchAdminOrAdmin,
   getDiscountStats,
 );
@@ -71,23 +73,22 @@ router.get(
 // ─────────────────────────────────────────────
 // READ (ALL STAFF)
 // ─────────────────────────────────────────────
-router.get("/", requireAuth, requireWaiterOrAbove, getDiscounts);
-router.get("/:id", requireAuth, requireWaiterOrAbove, getDiscountById);
+router.get("/", requireWaiterOrAbove, getDiscounts);
+router.get("/:id", requireWaiterOrAbove, getDiscountById);
 
 // ─────────────────────────────────────────────
 // MANAGEMENT (ADMIN ONLY)
 // ─────────────────────────────────────────────
-router.post("/", requireAuth, requireBranchAdminOrAdmin, createDiscount);
+router.post("/", requireBranchAdminOrAdmin, createDiscount);
 
-router.put("/:id", requireAuth, requireBranchAdminOrAdmin, updateDiscount);
+router.put("/:id", requireBranchAdminOrAdmin, updateDiscount);
 
-router.patch("/:id", requireAuth, requireBranchAdminOrAdmin, patchDiscount);
+router.patch("/:id", requireBranchAdminOrAdmin, patchDiscount);
 
-router.delete("/:id", requireAuth, requireBranchAdminOrAdmin, deleteDiscount);
+router.delete("/:id", requireBranchAdminOrAdmin, deleteDiscount);
 
 router.patch(
   "/:id/toggle",
-  requireAuth,
   requireBranchAdminOrAdmin,
   toggleDiscount,
 );

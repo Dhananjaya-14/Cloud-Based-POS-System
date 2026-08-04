@@ -328,6 +328,8 @@ export const createOrderItem = async (req, res) => {
     emitSocketEvent("order:created", {
       orderId: parsedOrderId,
       orderItem: result.rows[0],
+      b_id: order.b_id,
+      or_status: order.or_status,
     });
 
     await client.query("COMMIT");
