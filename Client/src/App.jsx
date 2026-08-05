@@ -591,6 +591,14 @@ function App() {
           </ProtectedRoute>}
       />
 
+       <Route
+        path="/branch-admin/tables"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <TableManagement />
+          </ProtectedRoute>}
+      />
+
       <Route
         path="/branch-admin/return-management"
         element={
