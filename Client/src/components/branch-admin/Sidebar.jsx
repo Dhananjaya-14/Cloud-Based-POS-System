@@ -29,6 +29,7 @@ const Sidebar = () => {
     "/branch-admin/raw-ingredient",
     "/branch-admin/recipe-mapper",
     "/branch-admin/waste-management",
+    "/branch-admin/return-management",
   ];
   const statisticsPaths = [
     "/branch-admin/sales-revenue",
@@ -218,6 +219,7 @@ const Sidebar = () => {
                   : subItem("Supplier Directory", "/branch-admin/suppliers")
                 }
                 {subItem("Waste Management", "/branch-admin/waste-management")}
+                {subItem("Return Management", "/branch-admin/return-management")}
                 {subItem("Recipe Mapper", "/branch-admin/recipe-mapper")}
               </>
             )}
