@@ -1,6 +1,6 @@
-import pool from "../config/database.js";
-import { ROLES } from "../middleware/authMiddleware.js";
-import { emitBranchProductEvent, SOCKET_EVENTS } from "../utils/socket.js";
+import pool from "../../../config/database.js";
+import { ROLES } from "../../../middleware/authMiddleware.js";
+import { emitBranchProductEvent, SOCKET_EVENTS } from "../../../utils/socket.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 

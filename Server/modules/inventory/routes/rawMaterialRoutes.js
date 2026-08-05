@@ -12,12 +12,14 @@ import {
   requireAuth,
   requireRole,
   ROLES,
-} from "../middleware/authMiddleware.js";
+} from "../../../middleware/authMiddleware.js";
+import { requireModule } from "../../../middleware/saasMiddleware.js";
 
 const router = express.Router();
 
 // Apply auth to all routes
 router.use(requireAuth);
+router.use(requireModule("has_inventory"));
 
 // ── Collection routes ──────────────────────────────────────────────────────
 

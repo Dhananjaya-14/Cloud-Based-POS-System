@@ -6,9 +6,16 @@ import {
     getRawMaterialConsumptionReport,
     getSalesDetailsReport,
     getBranchWiseSalesReport
-} from "../controllers/reportController.js";
+} from "./reportController.js";
+
+import { requireAuth } from "../../middleware/authMiddleware.js"
+import { requireModule } from "../../middleware/saasMiddleware.js";
+;
 
 const router = express.Router();
+
+router.use(requireAuth);
+router.use(requireModule("has_reports"));
 
 router.post("/sales", getSalesSummaryReport);
 router.post("/productsales",getProductSalesReport);

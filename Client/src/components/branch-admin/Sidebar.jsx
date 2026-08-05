@@ -12,6 +12,7 @@ import {
   FaUsers,
   FaFileAlt,
   FaLock,
+  FaChair,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
@@ -201,30 +202,32 @@ const Sidebar = () => {
             {menuItem(<FaBoxOpen />, "Product", "/branch-admin/products", productActive)}
             {menuItem(<FaUsers />, "User Management", "/branch-admin/users", isExactActive("/branch-admin/users"))}
 
-            {/* Inventory Management — locked if package has no has_inventory */}
-            {groupLabel(
-              <FaClipboardList />,
-              "Inventory Management",
-              inventoryActive,
-              isInventoryOpen,
-              () => setIsInventoryOpen((prev) => !prev),
-              isLocked("has_inventory")
-            )}
-            {isInventoryOpen && !isLocked("has_inventory") && (
+            {!isLocked("has_inventory") && (
               <>
-                {subItem("Inventory", "/branch-admin/inventory")}
-                {subItem("Add Inventory Item", "/branch-admin/raw-ingredient")}
-                {isLocked("has_suppliers")
-                  ? lockedSubItem("Supplier Directory")
-                  : subItem("Supplier Directory", "/branch-admin/suppliers")
-                }
-                {subItem("Waste Management", "/branch-admin/waste-management")}
-                {subItem("Return Management", "/branch-admin/return-management")}
-                {subItem("Recipe Mapper", "/branch-admin/recipe-mapper")}
+                {groupLabel(
+                  <FaClipboardList />,
+                  "Inventory Management",
+                  inventoryActive,
+                  isInventoryOpen,
+                  () => setIsInventoryOpen((prev) => !prev)
+                )}
+                {isInventoryOpen && (
+                  <>
+                    {subItem("Inventory", "/branch-admin/inventory")}
+                    {subItem("Add Inventory Item", "/branch-admin/raw-ingredient")}
+                    {isLocked("has_suppliers")
+                      ? lockedSubItem("Supplier Directory")
+                      : subItem("Supplier Directory", "/branch-admin/suppliers")
+                    }
+                    {subItem("Waste Management", "/branch-admin/waste-management")}
+                    {subItem("Return Management", "/branch-admin/return-management")}
+                    {subItem("Recipe Mapper", "/branch-admin/recipe-mapper")}
+                  </>
+                )}
               </>
             )}
+            {menuItem(<FaChair />, "Table Management", "/branch-admin/tables", isExactActive("/branch-admin/tables"))}
 
-            {/* Statistics — always accessible */}
             {groupLabel(
               <FaChartLine />,
               "Statistics",
@@ -246,21 +249,23 @@ const Sidebar = () => {
               isExactActive("/branch-admin/transactions")
             )}
 
-            {/* Reports — locked if package has no has_reports */}
-            {groupLabel(
-              <FaFileAlt />,
-              "Reports",
-              reportsActive,
-              isReportsOpen,
-              () => setIsReportsOpen((prev) => !prev),
-              isLocked("has_reports")
-            )}
-            {isReportsOpen && !isLocked("has_reports") && (
+            {!isLocked("has_reports") && (
               <>
-                {subItem("Sales Summary", "/branch-admin/summary-sales")}
-                {subItem("Product Sales", "/branch-admin/summary-productsales")}
-                {!isLocked("has_inventory") && subItem("Raw Material Stock", "/branch-admin/raw-material-stock")}
-                {!isLocked("has_inventory") && subItem("Raw Material Consumption", "/branch-admin/raw-material-consumption")}
+                {groupLabel(
+                  <FaFileAlt />,
+                  "Reports",
+                  reportsActive,
+                  isReportsOpen,
+                  () => setIsReportsOpen((prev) => !prev)
+                )}
+                {isReportsOpen && (
+                  <>
+                    {subItem("Sales Summary", "/branch-admin/summary-sales")}
+                    {subItem("Product Sales", "/branch-admin/summary-productsales")}
+                    {!isLocked("has_inventory") && subItem("Raw Material Stock", "/branch-admin/raw-material-stock")}
+                    {!isLocked("has_inventory") && subItem("Raw Material Consumption", "/branch-admin/raw-material-consumption")}
+                  </>
+                )}
               </>
             )}
 

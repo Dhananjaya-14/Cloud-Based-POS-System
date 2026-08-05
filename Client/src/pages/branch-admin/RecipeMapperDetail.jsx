@@ -207,8 +207,6 @@ const RecipeMapperDetail = () => {
       console.log('Product recipe cleared event received:', data);
       if (data.pro_id === parseInt(productId)) {
         setRecipeItems([]);
-        setNotice(`All ingredients removed from this recipe`);
-        setTimeout(() => setNotice(""), 3000);
       }
     };
 

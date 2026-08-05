@@ -29,7 +29,7 @@ function sanitizeBody(body, allowedFields) {
 export async function getTables(req, res, next) {
   try {
     const result = await pool.query(
-      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status,
+      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status, t.area,
               t.branch_id, b."B_name" AS branch_name
        FROM "TABLES" t
        LEFT JOIN "Branch" b ON t.branch_id = b."B_id"
@@ -47,7 +47,7 @@ export async function getTableById(req, res, next) {
     const id = parsePositiveInt(req.params.id, "table_id");
 
     const result = await pool.query(
-      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status,
+      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status, t.area,
               t.branch_id, b."B_name" AS branch_name
        FROM "TABLES" t
        LEFT JOIN "Branch" b ON t.branch_id = b."B_id"
@@ -82,7 +82,7 @@ export async function getTablesByBranch(req, res, next) {
     }
 
     const result = await pool.query(
-      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status,
+      `SELECT t.table_id, t.table_number, t.table_capacity, t.table_status, t.area,
               t.branch_id, b."B_name" AS branch_name
        FROM "TABLES" t
        LEFT JOIN "Branch" b ON t.branch_id = b."B_id"
@@ -105,9 +105,10 @@ export async function createTable(req, res, next) {
       "table_capacity",
       "table_status",
       "branch_id",
+      "area",
     ]);
 
-    const { table_number, table_capacity, table_status, branch_id } = body;
+    const { table_number, table_capacity, table_status, branch_id, area } = body;
 
     // Required fields
     if (!table_number || table_capacity === undefined || !branch_id) {
@@ -162,10 +163,10 @@ export async function createTable(req, res, next) {
     }
 
     const result = await pool.query(
-      `INSERT INTO "TABLES" (table_number, table_capacity, table_status, branch_id)
-       VALUES ($1, $2, $3, $4)
-       RETURNING table_id, table_number, table_capacity, table_status, branch_id`,
-      [table_number, capacityInt, status, branchIdInt],
+      `INSERT INTO "TABLES" (table_number, table_capacity, table_status, branch_id, area)
+       VALUES ($1, $2, $3, $4, COALESCE($5, 'Main Hall'))
+       RETURNING table_id, table_number, table_capacity, table_status, branch_id, area`,
+      [table_number, capacityInt, status, branchIdInt, area],
     );
 
     res.status(201).json(result.rows[0]);
@@ -194,16 +195,18 @@ export async function updateTable(req, res, next) {
       "table_capacity",
       "table_status",
       "branch_id",
+      "area",
     ]);
 
-    const { table_number, table_capacity, table_status, branch_id } = body;
+    const { table_number, table_capacity, table_status, branch_id, area } = body;
 
     // Reject empty body
     if (
       table_number === undefined &&
       table_capacity === undefined &&
       table_status === undefined &&
-      branch_id === undefined
+      branch_id === undefined &&
+      area === undefined
     ) {
       res.status(400);
       return next(new Error("No fields provided to update"));
@@ -278,14 +281,16 @@ export async function updateTable(req, res, next) {
          table_number   = COALESCE($1, table_number),
          table_capacity = COALESCE($2, table_capacity),
          table_status   = COALESCE($3, table_status),
-         branch_id      = COALESCE($4, branch_id)
-       WHERE table_id = $5
-       RETURNING table_id, table_number, table_capacity, table_status, branch_id`,
+         branch_id      = COALESCE($4, branch_id),
+         area           = COALESCE($5, area)
+       WHERE table_id = $6
+       RETURNING table_id, table_number, table_capacity, table_status, branch_id, area`,
       [
         table_number ?? null,
         capacityInt,
         table_status ?? null,
         branchIdInt,
+        area ?? null,
         id,
       ],
     );

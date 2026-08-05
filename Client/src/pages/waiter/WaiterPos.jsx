@@ -167,7 +167,7 @@ const WaiterPos = () => {
 
   const addToCart = (product) => {
     const isMadeToOrder = product.product_type === "made_to_order";
-    const ignoreStock = !inventoryEnabled && isMadeToOrder;
+    const ignoreStock = isMadeToOrder;
     const stockCount = Number(product.pro_quantity ?? 0);
     setCart((currentCart) => {
       const existing = currentCart.find((item) => item.Bpro_id === product.Bpro_id);
@@ -203,7 +203,7 @@ const WaiterPos = () => {
   const updateQuantity = (Bpro_id, delta) => {
     const product = products.find((p) => p.Bpro_id === Bpro_id);
     const isMadeToOrder = product?.product_type === "made_to_order";
-    const ignoreStock = !inventoryEnabled && isMadeToOrder;
+    const ignoreStock = isMadeToOrder;
     const stockCount = Number(product?.pro_quantity ?? 0);
 
     setCart((currentCart) =>

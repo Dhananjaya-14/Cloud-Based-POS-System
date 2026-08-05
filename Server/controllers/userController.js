@@ -124,15 +124,13 @@ export async function createUser(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
     const { u_fname, u_lname, u_email, u_pw, u_connumber, role_id, u_status } = req.body;
-    const { targetRoleId, B_id, com_id } = resolveUserScope(req, role_id, req.body, null);
-
     if (!u_fname || !u_lname || !u_email || !u_pw) {
       res.status(400);
       throw new Error("u_fname, u_lname, u_email and u_pw are required");
     }
 
-    B_id = null;
-    com_id = null;
+    let B_id = null;
+    let com_id = null;
 
     if (Number(role_id) === ROLES.SUPER_ADMIN) {
       // Super Admin needs no company or branch

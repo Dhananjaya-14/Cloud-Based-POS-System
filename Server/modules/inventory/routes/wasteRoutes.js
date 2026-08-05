@@ -2,8 +2,10 @@ import express from "express";
 import {
   requireAuth,
   requireBranchAdminOrAdmin,
-  requireAdmin,
-} from "../middleware/authMiddleware.js";
+  requireAdmin
+} from "../../../middleware/authMiddleware.js"
+import { requireModule } from "../../../middleware/saasMiddleware.js";
+;
 import {
   createWaste,
   getAllWaste,
@@ -16,6 +18,7 @@ import {
 const router = express.Router();
 
 router.use(requireAuth);
+router.use(requireModule("has_inventory"));
 
 // ── Static routes first ───────────────────────
 // Dashboard summary — Admin and Branch Admin can view

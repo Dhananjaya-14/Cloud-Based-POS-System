@@ -62,6 +62,7 @@ import CashierPerformance from './pages/branch-admin/CashierPerformance';
 import KitchenManagement from './pages/kitchen/KitchenManagement';
 import RecipeMapper from './pages/branch-admin/RecipeMapper';
 import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
+import TableManagement from './pages/branch-admin/TableManagement';
 import WaiterPos from './pages/waiter/WaiterPos';
 import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
 import AdminSupplierManagement from './pages/admin/SupplierManagement';
@@ -262,7 +263,7 @@ function App() {
       <Route
         path="/admin/suppliers"
         element={
-          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_suppliers">
+          <ProtectedRoute allowedRoles={[2, 6]} requiredFeature="has_inventory">
             <AdminSupplierManagement />
           </ProtectedRoute>
         }
