@@ -892,3 +892,24 @@ export const initiatePayHerePayment = async ({
   });
   return res.data;
 };
+
+// ─── Tables ──────────────────────────────────────────────────────────────────
+export const getTablesByBranch = async (branchId) => {
+  const response = await api.get(`/tables/branch/${branchId}`);
+  return response.data;
+};
+
+export const createTable = async (tableData) => {
+  const response = await api.post("/tables", tableData);
+  return response.data;
+};
+
+export const updateTable = async (id, tableData) => {
+  const response = await api.put(`/tables/${id}`, tableData);
+  return response.data;
+};
+
+export const deleteTable = async (id) => {
+  const response = await api.delete(`/tables/${id}`);
+  return response.data;
+};

@@ -62,6 +62,7 @@ import CashierPerformance from './pages/branch-admin/CashierPerformance';
 import KitchenManagement from './pages/kitchen/KitchenManagement';
 import RecipeMapper from './pages/branch-admin/RecipeMapper';
 import RecipeMapperDetail from './pages/branch-admin/RecipeMapperDetail';
+import TableManagement from './pages/branch-admin/TableManagement';
 import WaiterPos from './pages/waiter/WaiterPos';
 import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
 import AdminSupplierManagement from './pages/admin/SupplierManagement';
@@ -589,6 +590,13 @@ function App() {
           </ProtectedRoute>}
       />
 
+      <Route
+        path="/branch-admin/tables"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]}>
+            <TableManagement />
+          </ProtectedRoute>}
+      />
 
     </Routes>
   );

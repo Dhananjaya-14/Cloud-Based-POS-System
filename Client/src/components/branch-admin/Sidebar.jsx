@@ -12,6 +12,7 @@ import {
   FaUsers,
   FaFileAlt,
   FaLock,
+  FaChair,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
@@ -220,6 +221,7 @@ const Sidebar = () => {
                 )}
               </>
             )}
+            {menuItem(<FaChair />, "Table Management", "/branch-admin/tables", isExactActive("/branch-admin/tables"))}
 
             {groupLabel(
               <FaChartLine />,
