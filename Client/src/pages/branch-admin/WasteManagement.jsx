@@ -257,16 +257,11 @@ const WasteManagement = () => {
                               {record.rm_name || record.pro_name || "Unknown Item"}
                             </span>
                           </td>
-                          <td className="py-4 px-6">
-                            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${record.rm_id ? 'bg-amber-50 text-amber-700 border border-amber-200/50' : 'bg-emerald-50 text-emerald-700 border border-emerald-200/50'
-                              }`}>
-                              {record.rm_id ? 'Ingredient' : 'Finished Product'}
-                            </span>
+                          <td className="py-4 px-6 text-sm text-gray-700">
+                            {record.rm_id ? 'Ingredient' : 'Finished Product'}
                           </td>
-                          <td className="py-4 px-6">
-                            <span className="text-sm font-medium text-red-600 bg-red-50 px-2 py-1 rounded-md">
-                              {Number(record.waste_qty).toFixed(3)} {record.unit || (record.rm_id ? 'unit' : 'pcs')}
-                            </span>
+                          <td className="py-4 px-6 text-sm text-gray-700">
+                            {Number(record.waste_qty).toFixed(3)} {record.unit || (record.rm_id ? 'unit' : 'pcs')}
                           </td>
                           <td className="py-4 px-6">
                             <span className="text-sm text-gray-600 truncate max-w-[200px] block" title={record.reason}>

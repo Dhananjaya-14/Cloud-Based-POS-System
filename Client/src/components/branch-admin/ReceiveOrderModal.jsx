@@ -1,153 +1,142 @@
 import React, { useState } from "react";
 
 const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) => {
-  // State maps item index to its wastage settings
-  const [wastages, setWastages] = useState(
+  // State maps item index to { waste_qty, waste_reason, return_qty, return_reason }
+  const [adjustments, setAdjustments] = useState(
     order.items.reduce((acc, item, idx) => {
-      acc[idx] = { type: "none", value: "" };
+      acc[idx] = { waste_qty: "", waste_reason: "", return_qty: "", return_reason: "" };
       return acc;
     }, {})
   );
 
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [reason, setReason] = useState("");
 
-  const handleWastageChange = (idx, field, value) => {
-    setWastages((prev) => ({
+  const handleChange = (idx, field, value) => {
+    setAdjustments((prev) => ({
       ...prev,
-      [idx]: {
-        ...prev[idx],
-        [field]: value,
-      },
+      [idx]: { ...prev[idx], [field]: value },
     }));
   };
 
-  const calculateWasteQty = (item, wastage) => {
+  const getNumbers = (idx, item) => {
     const gross = Number(item.qty) || 0;
-    if (wastage.type === "none") return 0;
-    if (wastage.type === "percentage") {
-      const pct = Number(wastage.value) || 0;
-      return (gross * pct) / 100;
-    }
-    if (wastage.type === "fixed") {
-      return Number(wastage.value) || 0;
-    }
-    return 0;
+    const wasteQty = Number(adjustments[idx].waste_qty) || 0;
+    const returnQty = Number(adjustments[idx].return_qty) || 0;
+    const netQty = gross - wasteQty - returnQty;
+    return { gross, wasteQty, returnQty, netQty };
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (isProcessing) return;
 
-    const wastagePayload = [];
+    const itemsPayload = [];
 
     for (let i = 0; i < order.items.length; i++) {
       const item = order.items[i];
-      const w = wastages[i];
-      const grossQty = Number(item.qty) || 0;
-      const wasteQty = calculateWasteQty(item, w);
+      const { gross, wasteQty, returnQty, netQty } = getNumbers(i, item);
+      const itemName = item.rm_name || item.pro_name;
 
-      if (item.rm_id) {
-        if (wasteQty > grossQty) {
-          alert(`Wastage for ${item.rm_name} cannot exceed ordered quantity.`);
-          return;
-        }
+      if (wasteQty + returnQty > gross) {
+        alert(`Waste + Return for ${itemName} cannot exceed ordered quantity.`);
+        return;
+      }
+      if (netQty < 0) {
+        alert(`Invalid quantities for ${itemName}.`);
+        return;
+      }
 
-        if (wasteQty > 0) {
-          wastagePayload.push({
-            rm_id: item.rm_id,
-            waste_qty: wasteQty,
-            wastage_type: w.type,
-            wastage_value: Number(w.value) || 0,
-          });
-        }
+      if (wasteQty > 0 || returnQty > 0) {
+        itemsPayload.push({
+          rm_id: item.rm_id || undefined,
+          pro_id: item.pro_id || undefined,
+          waste_qty: wasteQty || undefined,
+          waste_reason: wasteQty > 0 ? (adjustments[i].waste_reason || undefined) : undefined,
+          return_qty: returnQty || undefined,
+          return_reason: returnQty > 0 ? (adjustments[i].return_reason || undefined) : undefined,
+        });
       }
     }
 
-    if (isProcessing) return;
-    onConfirm(wastagePayload, paymentMethod, reason);
+    onConfirm(itemsPayload, paymentMethod);
   };
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}>
-      <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", width: "90%", maxWidth: "600px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}>
+      <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", width: "90%", maxWidth: "640px", maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1)" }}>
         <h2 style={{ marginTop: 0, marginBottom: "20px", fontSize: "20px", color: "#111827" }}>Receive Order #{order.po_id}</h2>
 
         <form onSubmit={handleSubmit}>
           {order.items.map((item, idx) => {
-            const w = wastages[idx];
-            const wasteQty = calculateWasteQty(item, w);
-            const netQty = (Number(item.qty) || 0) - wasteQty;
+            const { gross, wasteQty, returnQty, netQty } = getNumbers(idx, item);
+            const unit = item.unit || item.rm_unit || (item.pro_id ? "pcs" : "");
+            const itemName = item.rm_name || item.pro_name;
 
             return (
-              <div key={idx} style={{ marginBottom: "24px", padding: "16px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "8px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                  <strong style={{ fontSize: "16px", color: "#374151" }}>{item.rm_name || item.pro_name}</strong>
-                  <span style={{ color: "#6B7280" }}>Ordered: {item.qty} {item.unit}</span>
+              <div key={idx} style={{ marginBottom: "20px", padding: "16px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "8px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "14px" }}>
+                  <strong style={{ fontSize: "16px", color: "#374151" }}>{itemName}</strong>
+                  <span style={{ color: "#6B7280" }}>Ordered: {gross} {unit}</span>
                 </div>
 
-                {item.pro_id ? (
-                  // External/pre-made products: no wastage tracking, full quantity always received
-                  <div style={{ paddingTop: "4px", display: "flex", justifyContent: "flex-end" }}>
-                    <span style={{ color: "#10B981", fontSize: "14px", fontWeight: "600" }}>
-                      Received: {item.qty} {item.unit}
-                    </span>
+                {/* Waste — staff-caused loss */}
+                <div style={{ marginBottom: "12px", padding: "10px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "6px" }}>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#374151", marginBottom: "6px" }}>
+                    Waste Qty (staff mistake / breakage)
+                  </label>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="0"
+                      value={adjustments[idx].waste_qty}
+                      onChange={(e) => handleChange(idx, "waste_qty", e.target.value)}
+                      style={{ width: "100px", padding: "8px 10px", border: "1px solid #D1D5DB", borderRadius: "6px" }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Waste reason (e.g. dropped by waiter)"
+                      value={adjustments[idx].waste_reason}
+                      onChange={(e) => handleChange(idx, "waste_reason", e.target.value)}
+                      style={{ flex: 1, padding: "8px 10px", border: "1px solid #D1D5DB", borderRadius: "6px" }}
+                    />
                   </div>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", gap: "16px", marginBottom: "12px", alignItems: "center" }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                        <input type="radio" name={`wastageType-${idx}`} checked={w.type === "none"} onChange={() => handleWastageChange(idx, "type", "none")} />
-                        None
-                      </label>
-                      <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                        <input type="radio" name={`wastageType-${idx}`} checked={w.type === "percentage"} onChange={() => handleWastageChange(idx, "type", "percentage")} />
-                        Percentage (%)
-                      </label>
-                      <label style={{ display: "flex", alignItems: "center", gap: "6px", cursor: "pointer" }}>
-                        <input type="radio" name={`wastageType-${idx}`} checked={w.type === "fixed"} onChange={() => handleWastageChange(idx, "type", "fixed")} />
-                        Fixed Quantity
-                      </label>
-                    </div>
+                </div>
 
-                    {w.type !== "none" && (
-                      <div style={{ marginBottom: "12px" }}>
-                        <input
-                          type="number"
-                          min="0"
-                          step="any"
-                          placeholder={w.type === "percentage" ? "Enter % (e.g. 10)" : "Enter amount"}
-                          value={w.value}
-                          onChange={(e) => handleWastageChange(idx, "value", e.target.value)}
-                          style={{ padding: "8px 12px", border: "1px solid #D1D5DB", borderRadius: "6px", width: "100%", maxWidth: "200px" }}
-                          required
-                        />
-                      </div>
-                    )}
+                {/* Return — supplier-caused */}
+                <div style={{ marginBottom: "12px", padding: "10px", background: "#F9FAFB", border: "1px solid #E5E7EB", borderRadius: "6px" }}>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#374151", marginBottom: "6px" }}>
+                    Return Qty (damaged/wrong from supplier)
+                  </label>
+                  <div style={{ display: "flex", gap: "10px" }}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      placeholder="0"
+                      value={adjustments[idx].return_qty}
+                      onChange={(e) => handleChange(idx, "return_qty", e.target.value)}
+                      style={{ width: "100px", padding: "8px 10px", border: "1px solid #D1D5DB", borderRadius: "6px" }}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Return reason (e.g. cracked bottles)"
+                      value={adjustments[idx].return_reason}
+                      onChange={(e) => handleChange(idx, "return_reason", e.target.value)}
+                      style={{ flex: 1, padding: "8px 10px", border: "1px solid #D1D5DB", borderRadius: "6px" }}
+                    />
+                  </div>
+                </div>
 
-                    <div style={{ paddingTop: "12px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ color: "#EF4444", fontSize: "14px", fontWeight: "500" }}>Wastage: {wasteQty.toFixed(2)} {item.unit}</span>
-                      <span style={{ color: "#10B981", fontSize: "14px", fontWeight: "600" }}>Net to Stock: {netQty.toFixed(2)} {item.unit}</span>
-                    </div>
-                  </>
-                )}
+                <div style={{ paddingTop: "10px", borderTop: "1px solid #E5E7EB", display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: "8px" }}>
+                  <span style={{ color: "#374151", fontSize: "13px", fontWeight: "500" }}>Waste: {wasteQty.toFixed(2)} {unit}</span>
+                  <span style={{ color: "#374151", fontSize: "13px", fontWeight: "500" }}>Return: {returnQty.toFixed(2)} {unit}</span>
+                  <span style={{ color: "#374151", fontSize: "13px", fontWeight: "600" }}>Net to Stock: {netQty.toFixed(2)} {unit}</span>
+                </div>
               </div>
             );
           })}
-
-          {order.items.some((item) => item.rm_id) && (
-            <div style={{ marginBottom: "20px" }}>
-              <label style={{ display: "block", marginBottom: "8px", fontSize: "14px", fontWeight: "500", color: "#4B5563" }}>
-                Reason (optional)
-              </label>
-              <textarea
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder="e.g. Damaged in transit, spoiled during storage..."
-                rows={2}
-                style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1D5DB", borderRadius: "8px", fontSize: "14px", color: "#111827", outline: "none", resize: "vertical", fontFamily: "inherit" }}
-              />
-            </div>
-          )}
 
           <div style={{ marginTop: "24px", paddingTop: "20px", borderTop: "2px dashed #E5E7EB" }}>
             <h3 style={{ marginTop: 0, marginBottom: "12px", fontSize: "16px", color: "#374151" }}>Payment Details</h3>
@@ -157,12 +146,15 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
             <select
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value)}
-              style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1D5DB", borderRadius: "8px", fontSize: "14px", color: "#111827", backgroundColor: "#fff", outline: "none", transition: "border-color 0.15s ease-in-out" }}
+              style={{ width: "100%", padding: "10px 12px", border: "1px solid #D1D5DB", borderRadius: "8px", fontSize: "14px", color: "#111827", backgroundColor: "#fff", outline: "none" }}
             >
               <option value="cash">Cash</option>
               <option value="bank_transfer">Bank Transfer</option>
               <option value="cheque">Cheque</option>
             </select>
+            <p style={{ marginTop: "8px", fontSize: "12px", color: "#9CA3AF" }}>
+              Payment is calculated on the full ordered quantity, regardless of waste or return.
+            </p>
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
@@ -181,13 +173,10 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
             >
               {isProcessing && (
                 <span style={{
-                  width: "14px",
-                  height: "14px",
+                  width: "14px", height: "14px",
                   border: "2px solid rgba(255,255,255,0.4)",
-                  borderTopColor: "#fff",
-                  borderRadius: "50%",
-                  display: "inline-block",
-                  animation: "spin 0.7s linear infinite",
+                  borderTopColor: "#fff", borderRadius: "50%",
+                  display: "inline-block", animation: "spin 0.7s linear infinite",
                 }} />
               )}
               {isProcessing ? "Processing..." : "Confirm Received"}

@@ -635,12 +635,14 @@ export async function updatePurchaseOrderStatus(req, res, next) {
     next(err);
   }
 }// ─── POST /api/purchase-orders/:id/receive ──────────────────────────────────────
+// ─── POST /api/purchase-orders/:id/receive ──────────────────────────────────────
+// Body: { items: [{ rm_id?, pro_id?, waste_qty?, waste_reason?, return_qty?, return_reason? }] }
 export async function receiveWithWastage(req, res, next) {
   try {
     const id = parsePositiveInt(req.params.id, "po_id");
-    const { wastage = [], reason } = req.body;
+    const { items: itemAdjustments = [] } = req.body;
     const { b_id, role_id, com_id } = req.user;
-    
+
     // ── Existence & Scoping check ──
     let existQuery = `
       SELECT po.po_id, po.status, po.b_id
@@ -671,7 +673,7 @@ export async function receiveWithWastage(req, res, next) {
       throw new Error("Purchase order is already received");
     }
 
-    // Perform the status update, stock adjustments, and waste records in a single transaction
+    // Perform the status update, stock adjustments, waste, and return records in a single transaction
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
@@ -689,26 +691,28 @@ export async function receiveWithWastage(req, res, next) {
         );
       }
 
-      // Create a map of wastage for quick lookup
-      const wastageMap = {};
-      for (const w of wastage) {
-        if (w.rm_id) wastageMap['rm_'+w.rm_id] = w;
-        else if (w.pro_id) wastageMap['pro_'+w.pro_id] = w;
+      // Map incoming per-item adjustments for quick lookup
+      const adjustmentMap = {};
+      for (const adj of itemAdjustments) {
+        if (adj.rm_id) adjustmentMap['rm_' + adj.rm_id] = adj;
+        else if (adj.pro_id) adjustmentMap['pro_' + adj.pro_id] = adj;
       }
 
-      // Update each stock and insert waste record
-      // NOTE: Wastage tracking currently applies ONLY to raw materials (rm_id).
-      // External/pre-made products (pro_id) always receive their full ordered quantity.
+      // Waste and Return both apply to raw materials AND external/pre-made products.
       for (const it of items.rows) {
         const grossQty = Number(it.qty) || 0;
-        const wasteData = it.rm_id ? (wastageMap['rm_'+it.rm_id] || {}) : {};
-        const wasteQty = it.rm_id ? (Number(wasteData.waste_qty) || 0) : 0;
-        const netQty = grossQty - wasteQty;
+        const key = it.rm_id ? 'rm_' + it.rm_id : 'pro_' + it.pro_id;
+        const adj = adjustmentMap[key] || {};
+        const wasteQty = Number(adj.waste_qty) || 0;
+        const returnQty = Number(adj.return_qty) || 0;
+        const netQty = grossQty - wasteQty - returnQty;
 
         if (netQty < 0) {
-           await client.query("ROLLBACK");
-           res.status(400);
-           throw new Error(`Waste quantity cannot be greater than received quantity for item`);
+          await client.query("ROLLBACK");
+          res.status(400);
+          throw new Error(
+            `Waste + Return quantity cannot exceed ordered quantity for item`,
+          );
         }
 
         // Add net quantity to stock
@@ -742,7 +746,6 @@ export async function receiveWithWastage(req, res, next) {
               throw new Error(`Product with id ${it.pro_id} not found in this branch`);
             }
 
-            // Emit real-time update so POS and Product Management pages refresh instantly
             emitBranchProductEvent(poBranchId, SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, {
               branch_product: {
                 Bpro_id: updateRes.rows[0].Bpro_id,
@@ -753,15 +756,39 @@ export async function receiveWithWastage(req, res, next) {
           }
         }
 
-        // Insert waste record — raw materials only
-        if (it.rm_id && wasteQty > 0) {
-          const wType = wasteData.wastage_type || 'fixed';
-          const wVal = Number(wasteData.wastage_value) || wasteQty;
-
+        // Insert waste record — staff-caused loss, applies to both rm_id and pro_id
+        if (wasteQty > 0) {
           await client.query(
-            `INSERT INTO "public"."Waste" ("rm_id", "waste_qty", "reason", "recorded_at", "b_id", "po_id", "gross_received", "net_received", "wastage_type", "wastage_value")
-             VALUES ($1, $2, $3, CURRENT_TIMESTAMP, $4, $5, $6, $7, $8, $9)`,
-            [it.rm_id, wasteQty, reason || `Damaged during delivery (PO #${id})`, poBranchId, id, grossQty, netQty, wType, wVal]
+            `INSERT INTO "public"."Waste" ("rm_id", "pro_id", "waste_qty", "reason", "recorded_at", "b_id", "po_id", "gross_received", "net_received", "wastage_type", "wastage_value")
+             VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5, $6, $7, $8, 'fixed', $9)`,
+            [
+              it.rm_id || null,
+              it.pro_id || null,
+              wasteQty,
+              adj.waste_reason || `Damaged during delivery (PO #${id})`,
+              poBranchId,
+              id,
+              grossQty,
+              netQty,
+              wasteQty,
+            ]
+          );
+        }
+
+        // Insert return record — supplier-caused, applies to both rm_id and pro_id
+        // Stock is NOT added for returned qty until fulfilled via /api/returns/:id/fulfill
+        if (returnQty > 0) {
+          await client.query(
+            `INSERT INTO "public"."Returns" ("rm_id", "pro_id", "po_id", "qty_returned", "reason", "status", "b_id", "recorded_at")
+             VALUES ($1, $2, $3, $4, $5, 'pending', $6, CURRENT_TIMESTAMP)`,
+            [
+              it.rm_id || null,
+              it.pro_id || null,
+              id,
+              returnQty,
+              adj.return_reason || `Returned to supplier (PO #${id})`,
+              poBranchId,
+            ]
           );
         }
       }
