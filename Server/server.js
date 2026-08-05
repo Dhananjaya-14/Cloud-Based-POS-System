@@ -4,6 +4,7 @@ import cors from "cors";
 import { createServer } from "http";
 import { initializeSocket } from "./utils/socket.js";
 import { activityLogger } from "./middleware/activityLogger.js";
+import returnRoutes from "./routes/returnRoutes.js";
 
 
 
@@ -163,6 +164,9 @@ app.use("/api/activity-logs", activityLogRoutes);
 
 // SaaS Package Management
 app.use("/api/packages", packageRoutes);
+
+//Return
+app.use("/api/returns", returnRoutes);
 
 // ─────────────────────────────────────────────
 // ERROR HANDLING (must be last)

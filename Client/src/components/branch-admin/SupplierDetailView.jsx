@@ -61,19 +61,26 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
     setSelectedOrder(order);
   };
 
-  const handleConfirmReceipt = async (wastagePayload, method, reason) => {
+  const handleConfirmReceipt = async (itemsPayload, method) => {
     if (!method) return;
 
     setProcessingId(selectedOrder.po_id);
     try {
       const token = localStorage.getItem("token");
 
-      // 1. Mark as received and process wastage/stock
-      await fetch(`/api/purchase-orders/${selectedOrder.po_id}/receive`, {
+      // 1. Mark as received and process waste/return/stock
+      // Payment is always based on the full ordered quantity — waste and
+      // returns don't reduce what's owed to the supplier.
+      const receiveRes = await fetch(`/api/purchase-orders/${selectedOrder.po_id}/receive`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ wastage: wastagePayload, reason })
+        body: JSON.stringify({ items: itemsPayload })
       });
+
+      if (!receiveRes.ok) {
+        const errData = await receiveRes.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || `Failed to receive order (status ${receiveRes.status})`);
+      }
 
       // 2. Process supplier payment
       const totalAmount = selectedOrder.items.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);

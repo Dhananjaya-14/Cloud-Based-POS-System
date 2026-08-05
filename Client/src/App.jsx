@@ -67,6 +67,7 @@ import WaiterPos from './pages/waiter/WaiterPos';
 import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
 import AdminSupplierManagement from './pages/admin/SupplierManagement';
 import WasteManagement from './pages/branch-admin/WasteManagement';
+import ReturnManagement from './pages/branch-admin/ReturnManagement';
 
 const BranchProfileRouter = () => {
   const { user } = useAuth();
@@ -590,13 +591,23 @@ function App() {
           </ProtectedRoute>}
       />
 
-      <Route
+       <Route
         path="/branch-admin/tables"
         element={
           <ProtectedRoute allowedRoles={[1, 2]}>
             <TableManagement />
           </ProtectedRoute>}
       />
+
+      <Route
+        path="/branch-admin/return-management"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]} requiredFeature="has_inventory">
+            <ReturnManagement />
+          </ProtectedRoute>
+        }
+      />
+
 
     </Routes>
   );

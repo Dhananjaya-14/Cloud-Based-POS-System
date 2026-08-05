@@ -30,6 +30,7 @@ const Sidebar = () => {
     "/branch-admin/raw-ingredient",
     "/branch-admin/recipe-mapper",
     "/branch-admin/waste-management",
+    "/branch-admin/return-management",
   ];
   const statisticsPaths = [
     "/branch-admin/sales-revenue",
@@ -214,8 +215,12 @@ const Sidebar = () => {
                   <>
                     {subItem("Inventory", "/branch-admin/inventory")}
                     {subItem("Add Inventory Item", "/branch-admin/raw-ingredient")}
-                    {subItem("Supplier Directory", "/branch-admin/suppliers")}
+                    {isLocked("has_suppliers")
+                      ? lockedSubItem("Supplier Directory")
+                      : subItem("Supplier Directory", "/branch-admin/suppliers")
+                    }
                     {subItem("Waste Management", "/branch-admin/waste-management")}
+                    {subItem("Return Management", "/branch-admin/return-management")}
                     {subItem("Recipe Mapper", "/branch-admin/recipe-mapper")}
                   </>
                 )}
