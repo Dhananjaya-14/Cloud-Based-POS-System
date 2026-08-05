@@ -227,9 +227,11 @@ const WaiterPos = () => {
     setCart((currentCart) => currentCart.filter((item) => item.Bpro_id !== Bpro_id));
   };
 
-  const fetchMyOrders = async () => {
+  const fetchMyOrders = async (showSpinner = true) => {
     try {
-      setLoadingMyOrders(true);
+      if (showSpinner) {
+        setLoadingMyOrders(true);
+      }
       const res = await getWaiterOrders();
       const orders = Array.isArray(res) ? res : (res?.data ?? []);
       const activeOrders = orders.filter(o => o.or_status !== "cancelled" && o.or_status !== "completed");
@@ -247,26 +249,24 @@ const WaiterPos = () => {
     } catch (err) {
       console.error("Failed to fetch my orders", err);
     } finally {
-      setLoadingMyOrders(false);
+      if(showSpinner) setLoadingMyOrders(false);
     }
   };
 
   const handleConfirmDelivery = async (orderId) => {
     try {
-      setLoadingMyOrders(true);
       await updateOrderStatus(orderId, "completed");
       showToast("Order delivered successfully!", "success");
-      await fetchMyOrders();
+      await fetchMyOrders(false);
     } catch (err) {
       showToast("Failed to confirm delivery: " + (err.response?.data?.error || err.message), "error");
     } finally {
-      setLoadingMyOrders(false);
+      fetchMyOrders(false);
     }
   };
 
   const handleCancelOrder = async (orderId) => {
     try {
-      setLoadingMyOrders(true);
       await updateOrderStatus(orderId, "cancelled");
       showToast(`Order #${orderId} cancelled.`, "success");
       setMyOrders((prev) =>
@@ -274,8 +274,6 @@ const WaiterPos = () => {
       );
     } catch (err) {
       showToast("Failed to cancel order: " + (err.response?.data?.error || err.message), "error");
-    } finally {
-      setLoadingMyOrders(false);
     }
   };
 
@@ -507,8 +505,7 @@ const WaiterPos = () => {
 
       {/* Cart Sidebar */}
       <aside className="flex flex-col border-l border-slate-200 bg-white shrink-0 w-full sm:w-[320px] md:w-[350px] lg:w-[380px]">
-
-        {/* Tab Header — only when kitchen is disabled */}
+        
         {!kitchenEnabled ? (
           <div className="flex border-b border-slate-200 flex-none">
             <button
@@ -522,7 +519,7 @@ const WaiterPos = () => {
               🛒 New Order
             </button>
             <button
-              onClick={() => { setActiveTab("myorders"); fetchMyOrders(); }}
+              onClick={() => { setActiveTab("myorders"); fetchMyOrders(false); }}
               className={`flex-1 py-4 text-sm font-bold transition-colors ${
                 activeTab === "myorders"
                   ? "border-b-2 border-[#55C24A] text-[#55C24A]"
@@ -624,9 +621,9 @@ const WaiterPos = () => {
         {/* My Orders Tab — only when kitchen disabled */}
         {!kitchenEnabled && activeTab === "myorders" && (
           <div className="flex-1 overflow-y-auto bg-slate-50/50 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm font-bold text-slate-600">Active Orders</span>
-              <button onClick={fetchMyOrders} disabled={loadingMyOrders} className="text-xs text-[#0A5BAE] font-semibold hover:underline disabled:opacity-50">
+            <div className="flex justify-between items-center mb-4">
+             <span className="text-sm font-bold text-slate-600">Active Orders</span>
+              <button onClick={() => fetchMyOrders(false)} disabled={loadingMyOrders} className="text-xs text-[#0A5BAE] font-semibold hover:underline disabled:opacity-50">
                 {loadingMyOrders ? "Refreshing..." : "↻ Refresh"}
               </button>
             </div>
