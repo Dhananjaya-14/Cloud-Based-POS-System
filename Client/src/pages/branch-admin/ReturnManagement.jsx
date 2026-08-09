@@ -1,13 +1,35 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { FaTrashAlt } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
+import ToastMessage from "../../components/branch-admin/ToastMessage";
 
 const ReturnManagement = () => {
   const [returns, setReturns] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeFilter, setActiveFilter] = useState("all"); // all | pending | fulfilled
+  const [typeFilter, setTypeFilter] = useState("all"); // all | rm | pro
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Add Return modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [rawMaterials, setRawMaterials] = useState([]);
+  const [branchProducts, setBranchProducts] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [selectedItem, setSelectedItem] = useState("");
+  const [selectedSupplier, setSelectedSupplier] = useState("");
+  const [addQty, setAddQty] = useState("");
+  const [selectedUnit, setSelectedUnit] = useState("");
+  const [addReason, setAddReason] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [toast, setToast] = useState({ show: false, message: "", type: "success" });
+
+  const showToast = (message, type = "success") => {
+    setToast({ show: true, message, type });
+    setTimeout(() => setToast((t) => ({ ...t, show: false })), 4000);
+  };
 
   const [editTarget, setEditTarget] = useState(null);
   const [editQty, setEditQty] = useState("");
@@ -21,7 +43,45 @@ const ReturnManagement = () => {
 
   useEffect(() => {
     fetchReturns();
+    fetchItemsForReturn();
   }, []);
+
+  useEffect(() => {
+    if (selectedItem) {
+      if (selectedItem.startsWith('rm_')) {
+        const id = selectedItem.replace('rm_', '');
+        const rm = rawMaterials.find(m => String(m.rm_id) === String(id));
+        if (rm) setSelectedUnit(rm.unit);
+      } else if (selectedItem.startsWith('pro_')) {
+        setSelectedUnit('pcs');
+      }
+    }
+  }, [selectedItem, rawMaterials]);
+
+  const getAvailableUnits = (baseUnit) => {
+    const lower = String(baseUnit || "").toLowerCase();
+    if (lower === "kg" || lower === "g") return ["kg", "g"];
+    if (lower === "l" || lower === "ml") return ["l", "ml"];
+    return [baseUnit || 'pcs'];
+  };
+
+  const calculateFinalQty = (qty, inputUnit, baseUnit) => {
+    const q = parseFloat(qty);
+    if (isNaN(q)) return 0;
+
+    const iUnit = String(inputUnit).toLowerCase();
+    const bUnit = String(baseUnit).toLowerCase();
+
+    if (iUnit === bUnit) return q;
+
+    if (iUnit === 'ml' && bUnit === 'l') return q / 1000;
+    if (iUnit === 'g' && bUnit === 'kg') return q / 1000;
+
+    if (iUnit === 'l' && bUnit === 'ml') return q * 1000;
+    if (iUnit === 'kg' && bUnit === 'g') return q * 1000;
+
+    return q;
+  };
 
   const fetchReturns = async () => {
     setIsLoading(true);
@@ -41,10 +101,126 @@ const ReturnManagement = () => {
     }
   };
 
-  const filteredReturns = returns.filter((r) => {
-    if (activeFilter === "all") return true;
-    return r.status === activeFilter;
-  });
+  const fetchItemsForReturn = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const rmRes = await fetch("/api/raw-materials", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (rmRes.ok) {
+        const rmData = await rmRes.json();
+        setRawMaterials(Array.isArray(rmData) ? rmData : rmData.data || []);
+      }
+
+      const user = JSON.parse(localStorage.getItem("user"));
+      const b_id = user?.B_id;
+
+      const bpRes = await fetch(`/api/branch_products${b_id ? `?B_id=${b_id}` : ''}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (bpRes.ok) {
+        const bpData = await bpRes.json();
+        const items = Array.isArray(bpData) ? bpData : bpData.data || [];
+        setBranchProducts(items.filter(p => p.product_type === 'finished'));
+      }
+
+      const supRes = await fetch("/api/suppliers", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (supRes.ok) {
+        const supData = await supRes.json();
+        setSuppliers(Array.isArray(supData) ? supData : supData.data || []);
+      }
+    } catch (err) {
+      console.error("Failed to load items for return", err);
+    }
+  };
+
+  const handleAddReturn = async (e) => {
+    e.preventDefault();
+    setAddError("");
+
+    if (!selectedItem || !addQty) {
+      setAddError("Item and Quantity are required.");
+      return;
+    }
+    const qty = parseFloat(addQty);
+    if (isNaN(qty) || qty <= 0) {
+      setAddError("Quantity must be a positive number.");
+      return;
+    }
+
+    if (!selectedUnit) {
+      setAddError("Please select a unit.");
+      return;
+    }
+
+    setIsAdding(true);
+    const isRawMaterial = selectedItem.startsWith('rm_');
+    const actualId = selectedItem.replace(isRawMaterial ? 'rm_' : 'pro_', '');
+
+    let baseUnit = 'pcs';
+    if (isRawMaterial) {
+      const rm = rawMaterials.find(m => String(m.rm_id) === String(actualId));
+      baseUnit = rm?.unit || 'pcs';
+    }
+    const finalQty = calculateFinalQty(qty, selectedUnit, baseUnit);
+
+    try {
+      const token = localStorage.getItem("token");
+      const payload = { qty_returned: finalQty, reason: addReason };
+      if (isRawMaterial) payload.rm_id = actualId;
+      else payload.pro_id = actualId;
+      if (selectedSupplier) payload.sup_id = selectedSupplier;
+
+      const res = await fetch("/api/returns", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Failed to record return");
+
+      setShowAddModal(false);
+      setSelectedItem("");
+      setSelectedSupplier("");
+      setAddQty("");
+      setSelectedUnit("");
+      setAddReason("");
+      showToast("Return recorded successfully");
+      fetchReturns();
+      fetchItemsForReturn();
+    } catch (err) {
+      setAddError(err.message);
+    } finally {
+      setIsAdding(false);
+    }
+  };
+
+  const filteredReturns = useMemo(() => {
+    let list = returns;
+
+    if (activeFilter !== "all") list = list.filter((r) => r.status === activeFilter);
+    if (typeFilter === "rm") list = list.filter((r) => r.rm_id);
+    if (typeFilter === "pro") list = list.filter((r) => r.pro_id);
+
+    const term = searchTerm.trim().toLowerCase();
+    if (term) {
+      list = list.filter((r) => {
+        const name = (r.item_name || "").toLowerCase();
+        const supplier = (r.sup_name || "").toLowerCase();
+        const reasonText = (r.reason || "").toLowerCase();
+        return name.includes(term) || supplier.includes(term) || reasonText.includes(term);
+      });
+    }
+
+    return list;
+  }, [returns, activeFilter, typeFilter, searchTerm]);
 
   const pendingCount = returns.filter((r) => r.status === "pending").length;
   const fulfilledCount = returns.filter((r) => r.status === "fulfilled").length;
@@ -85,6 +261,7 @@ const ReturnManagement = () => {
       }
 
       setEditTarget(null);
+      showToast("Return record updated successfully");
       fetchReturns();
     } catch (err) {
       setFormError(err.message);
@@ -109,6 +286,7 @@ const ReturnManagement = () => {
       }
 
       setDeleteTarget(null);
+      showToast("Return record deleted");
       fetchReturns();
     } catch (err) {
       alert(err.message);
@@ -120,6 +298,7 @@ const ReturnManagement = () => {
   return (
     <div className="font-sans bg-gray-50">
       <Sidebar />
+      {toast.show && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast({ ...toast, show: false })} />}
       <div className="flex flex-col h-screen overflow-hidden" style={{ marginLeft: 240 }}>
         <Header />
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">
@@ -132,6 +311,15 @@ const ReturnManagement = () => {
                   Items returned to suppliers due to damage or delivery issues
                 </p>
               </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="bg-[#0E6DCF] hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-sm flex items-center gap-2"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Record Return
+              </button>
             </div>
 
             {error && (
@@ -165,6 +353,33 @@ const ReturnManagement = () => {
               >
                 Fulfilled ({fulfilledCount})
               </button>
+
+              <select
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="px-4 py-2 rounded-full text-sm font-semibold bg-white text-gray-600 border border-gray-200 outline-none"
+              >
+                <option value="all">All Types</option>
+                <option value="rm">Ingredients</option>
+                <option value="pro">Finished Products</option>
+              </select>
+            </div>
+
+            {/* Search bar */}
+            <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-2.5 max-w-md">
+              <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search by item, supplier, or reason..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full text-sm outline-none text-gray-700 placeholder-gray-400"
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm("")} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>
+              )}
             </div>
 
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -186,7 +401,11 @@ const ReturnManagement = () => {
                     {isLoading ? (
                       <tr><td colSpan="8" className="py-8 text-center text-gray-400 text-sm">Loading records...</td></tr>
                     ) : filteredReturns.length === 0 ? (
-                      <tr><td colSpan="8" className="py-8 text-center text-gray-400 text-sm">No return records found</td></tr>
+                      <tr>
+                        <td colSpan="8" className="py-8 text-center text-gray-400 text-sm">
+                          {returns.length === 0 ? "No return records found" : "No records match your search/filter"}
+                        </td>
+                      </tr>
                     ) : (
                       filteredReturns.map((r) => (
                         <tr key={r.return_id} className="hover:bg-gray-50/50 transition-colors">
@@ -311,6 +530,138 @@ const ReturnManagement = () => {
                   className="flex-1 px-4 py-2.5 bg-[#0E6DCF] hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-70"
                 >
                   {isSaving ? "Saving..." : "Save Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Return Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
+              <h2 className="text-lg font-bold text-gray-900">Record Return</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleAddReturn} className="p-6 space-y-5">
+              {addError && (
+                <div className="bg-red-50 text-red-600 text-sm p-3 rounded-xl border border-red-100">{addError}</div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Select Item</label>
+                <select
+                  className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] outline-none"
+                  value={selectedItem}
+                  onChange={(e) => setSelectedItem(e.target.value)}
+                  required
+                >
+                  <option value="" disabled>Choose an item...</option>
+                  <optgroup label="Ingredients (Raw Materials)">
+                    {rawMaterials.map((m) => (
+                      <option key={`rm_${m.rm_id}`} value={`rm_${m.rm_id}`}>
+                        {m.rm_name} (In stock: {m.stock_qty} {m.unit})
+                      </option>
+                    ))}
+                  </optgroup>
+                  {branchProducts.length > 0 && (
+                    <optgroup label="External Products">
+                      {branchProducts.map((p) => (
+                        <option key={`pro_${p.pro_id}`} value={`pro_${p.pro_id}`}>
+                          {p.pro_name} (In stock: {p.pro_quantity} pcs)
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Supplier (optional)</label>
+                <select
+                  className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] outline-none bg-white"
+                  value={selectedSupplier}
+                  onChange={(e) => setSelectedSupplier(e.target.value)}
+                >
+                  <option value="">— No supplier selected —</option>
+                  {suppliers.map((s) => (
+                    <option key={s.sup_id} value={s.sup_id}>{s.sup_name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Quantity</label>
+                  <input
+                    type="number"
+                    step="0.001"
+                    min="0.001"
+                    className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] outline-none"
+                    value={addQty}
+                    onChange={(e) => setAddQty(e.target.value)}
+                    placeholder="e.g. 2"
+                    required
+                  />
+                </div>
+
+                <div className="w-[120px]">
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Unit</label>
+                  <select
+                    className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] outline-none bg-gray-50"
+                    value={selectedUnit}
+                    onChange={(e) => setSelectedUnit(e.target.value)}
+                    required
+                    disabled={!selectedItem}
+                  >
+                    <option value="" disabled>Unit</option>
+                    {selectedItem && getAvailableUnits(
+                      selectedItem.startsWith('rm_')
+                        ? (rawMaterials.find(m => String(m.rm_id) === String(selectedItem.replace('rm_', '')))?.unit || 'pcs')
+                        : 'pcs'
+                    ).map(u => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <p className="text-xs text-gray-400 -mt-2">
+                This quantity will be removed from stock until the return is marked as fulfilled.
+              </p>
+
+              <div>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">Reason</label>
+                <textarea
+                  className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] outline-none resize-none"
+                  rows="3"
+                  value={addReason}
+                  onChange={(e) => setAddReason(e.target.value)}
+                  placeholder="Why is this being returned to the supplier?"
+                />
+              </div>
+
+              <div className="pt-2 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isAdding}
+                  className="flex-1 px-4 py-2.5 bg-[#0E6DCF] hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-70"
+                >
+                  {isAdding ? "Saving..." : "Confirm Return"}
                 </button>
               </div>
             </form>
