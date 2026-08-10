@@ -28,7 +28,6 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
     sup_id: '',
     quantity: '',
     unit: material?.unit || 'pcs',
-    unitPrice: ''
   });
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -110,11 +109,6 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
       const order = await orderRes.json();
 
       const enteredQty = parseFloat(formData.quantity);
-      // Unit Price is always understood as price per BASE unit
-      // (e.g. per kg, per liter, per pcs) — not per whatever unit was
-      // picked for quantity. This matches how prices are actually known
-      // in real life (you know the price per kg, not per gram).
-      const basePrice = parseFloat(formData.unitPrice);
 
       // Convert the entered qty into the material's base unit
       // (e.g. 500 "g" → 0.5 if base unit is "kg").
@@ -124,9 +118,8 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         qtyToSend = convertToBaseUnit(enteredQty, formData.unit, baseUnit);
       }
 
-      const unitPriceToSend = basePrice;
-      const totalPrice = qtyToSend * unitPriceToSend;
-
+      // Price is not known at order time — the supplier confirms it when
+      // the delivery arrives. Branch admin enters it during receiving.
       const itemRes = await fetch('/api/purchase-items', {
         method: 'POST',
         headers: {
@@ -138,8 +131,6 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
           po_id: order.po_id,
           ...(material.rm_id ? { rm_id: material.rm_id } : { pro_id: material._original?.pro_id || material.pro_id }),
           qty: qtyToSend,
-          unit_price: unitPriceToSend,
-          price: totalPrice
         })
       });
 
@@ -225,24 +216,6 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
                   </select>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">
-                  Price per {material?.rm_id ? (material.unit || 'kg') : 'unit'} (LKR)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="w-full border-gray-200 border rounded-xl p-3"
-                  required
-                  onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
-                />
-              </div>
-              {formData.quantity && formData.unitPrice && material?.rm_id && (
-                <div className="text-sm text-gray-500 -mt-2">
-                  Total: Rs. {(convertToBaseUnit(parseFloat(formData.quantity) || 0, formData.unit, material.unit || 'kg') * (parseFloat(formData.unitPrice) || 0)).toFixed(2)}
-                </div>
-              )}
 
               <div className="pt-6 flex gap-3">
                 <button type="button" onClick={onClose} className="flex-1 py-3 text-gray-500 font-semibold">Cancel</button>

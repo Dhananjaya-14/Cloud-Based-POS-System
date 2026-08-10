@@ -4,7 +4,10 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
   // State maps item index to { waste_qty, waste_reason, return_qty, return_reason }
   const [adjustments, setAdjustments] = useState(
     order.items.reduce((acc, item, idx) => {
-      acc[idx] = { waste_qty: "", waste_reason: "", return_qty: "", return_reason: "" };
+      acc[idx] = {
+        waste_qty: "", waste_reason: "", return_qty: "", return_reason: "",
+        unit_price: item.unit_price ?? "",
+      };
       return acc;
     }, {})
   );
@@ -36,6 +39,7 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
       const item = order.items[i];
       const { gross, wasteQty, returnQty, netQty } = getNumbers(i, item);
       const itemName = item.rm_name || item.pro_name;
+      const unitPrice = parseFloat(adjustments[i].unit_price);
 
       if (wasteQty + returnQty > gross) {
         alert(`Waste + Return for ${itemName} cannot exceed ordered quantity.`);
@@ -45,17 +49,20 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
         alert(`Invalid quantities for ${itemName}.`);
         return;
       }
-
-      if (wasteQty > 0 || returnQty > 0) {
-        itemsPayload.push({
-          rm_id: item.rm_id || undefined,
-          pro_id: item.pro_id || undefined,
-          waste_qty: wasteQty || undefined,
-          waste_reason: wasteQty > 0 ? (adjustments[i].waste_reason || undefined) : undefined,
-          return_qty: returnQty || undefined,
-          return_reason: returnQty > 0 ? (adjustments[i].return_reason || undefined) : undefined,
-        });
+      if (isNaN(unitPrice) || unitPrice <= 0) {
+        alert(`Please enter the unit price for ${itemName}.`);
+        return;
       }
+
+      itemsPayload.push({
+        rm_id: item.rm_id || undefined,
+        pro_id: item.pro_id || undefined,
+        waste_qty: wasteQty || undefined,
+        waste_reason: wasteQty > 0 ? (adjustments[i].waste_reason || undefined) : undefined,
+        return_qty: returnQty || undefined,
+        return_reason: returnQty > 0 ? (adjustments[i].return_reason || undefined) : undefined,
+        unit_price: unitPrice,
+      });
     }
 
     onConfirm(itemsPayload, paymentMethod);
@@ -77,6 +84,22 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "14px" }}>
                   <strong style={{ fontSize: "16px", color: "#374151" }}>{itemName}</strong>
                   <span style={{ color: "#6B7280" }}>Ordered: {gross} {unit}</span>
+                </div>
+
+                <div style={{ marginBottom: "12px" }}>
+                  <label style={{ display: "block", fontSize: "12px", fontWeight: "600", color: "#374151", marginBottom: "6px" }}>
+                    Unit Price ({unit}) — enter the price confirmed by the supplier
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="e.g. 850.00"
+                    value={adjustments[idx].unit_price}
+                    onChange={(e) => handleChange(idx, "unit_price", e.target.value)}
+                    style={{ width: "160px", padding: "8px 10px", border: "1px solid #D1D5DB", borderRadius: "6px" }}
+                    required
+                  />
                 </div>
 
                 {/* Waste — staff-caused loss */}
@@ -152,9 +175,7 @@ const ReceiveOrderModal = ({ order, onClose, onConfirm, isProcessing = false }) 
               <option value="bank_transfer">Bank Transfer</option>
               <option value="cheque">Cheque</option>
             </select>
-            <p style={{ marginTop: "8px", fontSize: "12px", color: "#9CA3AF" }}>
-              Payment is calculated on the full ordered quantity, regardless of waste or return.
-            </p>
+            
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
