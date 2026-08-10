@@ -83,7 +83,16 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
       }
 
       // 2. Process supplier payment
-      const totalAmount = selectedOrder.items.reduce((sum, item) => sum + parseFloat(item.price || 0), 0);
+      // Total is computed from the unit prices just entered in the receive
+      // modal (item.price on selectedOrder is stale — fetched before
+      // receiving, when prices were still unknown/null).
+      const totalAmount = itemsPayload.reduce((sum, item) => {
+        const orderedItem = selectedOrder.items.find(
+          (oi) => (oi.rm_id && oi.rm_id === item.rm_id) || (oi.pro_id && oi.pro_id === item.pro_id)
+        );
+        const gross = Number(orderedItem?.qty) || 0;
+        return sum + gross * Number(item.unit_price || 0);
+      }, 0);
       await fetch(`/api/supplier-payments`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -163,8 +172,8 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
               {order.items.map((item, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #F2F4F7" }}>
                   <td style={{ padding: "10px 24px" }}>{item.rm_name || item.pro_name}</td>
-                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                    Rs. {Number(item.unit_price).toFixed(2)}
+                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: item.unit_price ? "inherit" : "#9CA3AF", fontStyle: item.unit_price ? "normal" : "italic" }}>
+                    {item.unit_price ? `Rs. ${Number(item.unit_price).toFixed(2)}` : "Pending"}
                   </td>
                   <td style={{ padding: "10px 24px" }}>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", fontVariantNumeric: "tabular-nums" }}>
@@ -172,7 +181,9 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
                       <span style={{ minWidth: "30px", textAlign: "left", color: "#667085" }}>{item.rm_unit || (item.pro_id ? "pcs" : "")}</span>
                     </div>
                   </td>
-                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>Rs. {Number(item.price).toFixed(2)}</td>
+                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: item.price ? "inherit" : "#9CA3AF", fontStyle: item.price ? "normal" : "italic" }}>
+                    {item.price ? `Rs. ${Number(item.price).toFixed(2)}` : "Pending"}
+                  </td>
                   <td></td>
                 </tr>
               ))}
