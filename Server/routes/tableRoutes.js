@@ -8,20 +8,18 @@ import {
   updateTableStatus,
   deleteTable,
 } from "../controllers/tableController.js";
-import { requireAuth, requireBranchAdminOrAdmin } from "../middleware/authMiddleware.js";
+import { requireAuth, requireBranchAdminOrAdmin, requireWaiterOrAbove } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Branch Admin (1) + Admin (2) only
-router.use(requireAuth, requireBranchAdminOrAdmin);
+router.use(requireAuth);
 
-
-router.get("/", getTables);
-router.get("/branch/:branchId", getTablesByBranch); 
-router.get("/:id", getTableById);
-router.post("/", createTable);
-router.put("/:id", updateTable);
-router.patch("/:id/status", updateTableStatus);
-router.delete("/:id", deleteTable);
+router.get("/", requireWaiterOrAbove, getTables);
+router.get("/branch/:branchId", requireWaiterOrAbove, getTablesByBranch); 
+router.get("/:id", requireWaiterOrAbove, getTableById);
+router.post("/", requireBranchAdminOrAdmin, createTable);
+router.put("/:id", requireBranchAdminOrAdmin, updateTable);
+router.patch("/:id/status", requireBranchAdminOrAdmin, updateTableStatus);
+router.delete("/:id", requireBranchAdminOrAdmin, deleteTable);
 
 export default router;

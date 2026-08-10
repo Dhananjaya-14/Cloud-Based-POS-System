@@ -86,18 +86,14 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
 }
 
 /**
- * Validates order type business rules:
- * - delivery → cust_id required
+ * Validates order type business rules.
  * Returns an error string or null if valid.
  */
-function validateTypeConstraints(or_type, cust_id, table_id, features) {
+function validateTypeConstraints(or_type, table_id, features) {
   if (or_type === "dine-in" && !table_id) {
     if (features?.has_waiter) {
       return "table_id is required for dine-in orders when Waiter module is active";
     }
-  }
-  if (or_type === "delivery" && !cust_id) {
-    return "cust_id is required for delivery orders";
   }
   return null;
 }
@@ -228,7 +224,7 @@ export const checkOrderStock = async (req, res) => {
 // ─────────────────────────────────────────────
 export const getAllOrders = async (req, res) => {
   try {
-    const { status, type, b_id, cust_id, u_id, date } = req.query;
+    const { status, type, b_id, u_id, date } = req.query;
 
     // Validate filter values if provided
     if (status && !VALID_STATUSES.includes(status)) {
@@ -254,34 +250,34 @@ export const getAllOrders = async (req, res) => {
     let i = 1;
 
     if (status) {
-      conditions.push(`or_status = $${i++}`);
+      conditions.push(`o.or_status = $${i++}`);
       values.push(status);
     }
     if (type) {
-      conditions.push(`or_type = $${i++}`);
+      conditions.push(`o.or_type = $${i++}`);
       values.push(type);
     }
     if (b_id) {
-      conditions.push(`b_id = $${i++}`);
+      conditions.push(`o.b_id = $${i++}`);
       values.push(b_id);
     }
-    if (cust_id) {
-      conditions.push(`cust_id = $${i++}`);
-      values.push(cust_id);
-    }
     if (u_id) {
-      conditions.push(`u_id = $${i++}`);
+      conditions.push(`o.u_id = $${i++}`);
       values.push(u_id);
     }
     if (date) {
-      conditions.push(`or_date = $${i++}`);
+      conditions.push(`o.or_date = $${i++}`);
       values.push(date);
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const { rows } = await pool.query(
-      `SELECT * FROM "ORDER" ${where} ORDER BY or_date DESC, or_time DESC`,
+      `SELECT o.*, p.pay_status 
+       FROM "ORDER" o 
+       LEFT JOIN "Payment" p ON p.or_id = o.or_id 
+       ${where} 
+       ORDER BY o.or_date DESC, o.or_time DESC`,
       values,
     );
 
@@ -330,7 +326,6 @@ export const createOrder = async (req, res) => {
       or_totalCostWtax,
       or_status = "pending",
       or_type,
-      cust_id,
       u_id,
       b_id,
       table_id,
@@ -382,16 +377,15 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ success: false, error: costError });
     }
 
-    // ── Type-specific business rules ──
-    const typeError = validateTypeConstraints(or_type, cust_id, table_id, req.user?.features);
+    const typeError = validateTypeConstraints(or_type, table_id, req.user?.features);
     if (typeError) {
       return res.status(400).json({ success: false, error: typeError });
     }
 
     const { rows } = await pool.query(
       `INSERT INTO "ORDER"
-         (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type, cust_id, u_id, b_id, table_id, or_notes, or_addons, or_addons_price, or_allergies)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type,u_id, b_id, table_id, or_notes, or_addons, or_addons_price, or_allergies)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         parseFloat(or_tax),
@@ -399,14 +393,13 @@ export const createOrder = async (req, res) => {
         parseFloat(or_totalCostWtax),
         or_status,
         or_type,
-        cust_id ?? null,
         u_id,
         b_id,
         table_id ?? null,
-        or_notes,
-        or_addons,
+        or_notes || null,
+        or_addons || null,
         parseFloat(or_addons_price),
-        or_allergies,
+        or_allergies || null,
       ],
     );
 
@@ -427,7 +420,7 @@ export const createOrder = async (req, res) => {
         .status(400)
         .json({
           success: false,
-          error: "Foreign key violation — check b_id, u_id, cust_id, table_id",
+          error: "Foreign key violation — check b_id, u_id, table_id",
         });
     }
     res.status(500).json({ success: false, error: err.message });
@@ -453,7 +446,6 @@ export const updateOrder = async (req, res) => {
       or_totalCostWtax,
       or_status,
       or_type,
-      cust_id,
       u_id,
       b_id,
       table_id,
@@ -482,7 +474,7 @@ export const updateOrder = async (req, res) => {
 
     // ── Fetch current order to validate status transition ──
     const existing = await pool.query(
-      `SELECT or_status FROM "ORDER" WHERE or_id = $1`,
+      `SELECT or_status, table_id FROM "ORDER" WHERE or_id = $1`,
       [id],
     );
     if (!existing.rows.length) {
@@ -531,7 +523,7 @@ export const updateOrder = async (req, res) => {
     }
 
     // ── Type-specific business rules ──
-    const typeError = validateTypeConstraints(or_type, cust_id, table_id, req.user?.features);
+    const typeError = validateTypeConstraints(or_type, table_id, req.user?.features);
     if (typeError) {
       return res.status(400).json({ success: false, error: typeError });
     }
@@ -543,15 +535,14 @@ export const updateOrder = async (req, res) => {
          "or_totalCostWtax" = $3,
          or_status          = $4,
          or_type            = $5,
-         cust_id            = $6,
-         u_id               = $7,
-         b_id               = $8,
-         table_id           = $9,
-         or_notes           = $10,
-         or_addons          = $11,
-         or_addons_price    = $12,
-         or_allergies       = $13
-       WHERE or_id = $14
+         u_id               = $6,
+         b_id               = $7,
+         table_id           = $8,
+         or_notes           = $9,
+         or_addons          = $10,
+         or_addons_price    = $11,
+         or_allergies       = $12
+       WHERE or_id = $13
        RETURNING *`,
       [
         parseFloat(or_tax),
@@ -559,14 +550,13 @@ export const updateOrder = async (req, res) => {
         parseFloat(or_totalCostWtax),
         or_status,
         or_type,
-        cust_id ?? null,
         u_id,
         b_id,
-        table_id ?? null,
-        or_notes,
-        or_addons,
+        table_id !== undefined ? table_id : existing.rows[0].table_id,
+        or_notes || null,
+        or_addons || null,
         parseFloat(or_addons_price),
-        or_allergies,
+        or_allergies || null,
         id,
       ],
     );
@@ -589,7 +579,7 @@ export const updateOrder = async (req, res) => {
         .status(400)
         .json({
           success: false,
-          error: "Foreign key violation — check b_id, u_id, cust_id, table_id",
+          error: "Foreign key violation — check b_id, u_id, table_id",
         });
     res.status(500).json({ success: false, error: err.message });
   }
@@ -614,7 +604,6 @@ export const patchOrder = async (req, res) => {
       "or_totalCostWtax",
       "or_status",
       "or_type",
-      "cust_id",
       "u_id",
       "b_id",
       "table_id",
@@ -628,7 +617,13 @@ export const patchOrder = async (req, res) => {
     const incoming = Object.fromEntries(
       allowed
         .filter((k) => req.body[k] !== undefined)
-        .map((k) => [k, req.body[k]]),
+        .map((k) => {
+          let val = req.body[k];
+          if ((k === "or_notes" || k === "or_addons" || k === "or_allergies") && val === "") {
+            val = null;
+          }
+          return [k, val];
+        }),
     );
 
     if (!Object.keys(incoming).length) {
@@ -703,7 +698,6 @@ export const patchOrder = async (req, res) => {
     }
 
     // ── Type-specific business rules using merged state ──
-    const newCustId = incoming.cust_id ?? current.cust_id;
     const newTableId = incoming.table_id ?? current.table_id;
     const typeError = validateTypeConstraints(newType, newCustId, newTableId, req.user?.features);
     if (typeError) {
@@ -751,7 +745,7 @@ export const patchOrder = async (req, res) => {
         .status(400)
         .json({
           success: false,
-          error: "Foreign key violation — check b_id, u_id, cust_id, table_id",
+          error: "Foreign key violation — check b_id, u_id, table_id",
         });
     res.status(500).json({ success: false, error: err.message });
   }
@@ -813,6 +807,13 @@ export const updateOrderStatus = async (req, res) => {
         [status, id],
       );
       updatedOrder = rows[0];
+
+      if (status === "cancelled" && updatedOrder.table_id) {
+        await client.query(
+          `UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`,
+          [updatedOrder.table_id]
+        );
+      }
 
       await client.query("COMMIT");
     } catch (err) {
