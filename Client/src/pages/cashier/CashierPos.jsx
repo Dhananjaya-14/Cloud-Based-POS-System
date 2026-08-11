@@ -357,6 +357,12 @@ const CashierPos = () => {
   }, [user?.b_id, user?.B_id]);
 
   useEffect(() => {
+    if (waiterEnabled) {
+      fetchWaiterOrders();
+    }
+  }, [waiterEnabled, branchId]);
+
+  useEffect(() => {
     if (!user?.u_id) {
       setOrderReadyAlerts([]);
       return;

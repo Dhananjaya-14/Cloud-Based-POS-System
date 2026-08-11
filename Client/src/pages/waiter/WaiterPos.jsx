@@ -18,6 +18,7 @@ import {
   FaSyncAlt,
 } from "react-icons/fa";
 import { PiPlayPauseBold } from "react-icons/pi";
+import { MdTableBar } from "react-icons/md";
 import { useAuth } from "../../context/AuthContext";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
@@ -162,6 +163,7 @@ const WaiterPos = () => {
 
   useEffect(() => {
     loadData();
+    fetchMyOrders(false);
   }, [user]);
 
   const refreshTables = async () => {
@@ -524,7 +526,7 @@ const WaiterPos = () => {
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-black tracking-tight text-slate-800">Table Layout</h2>
-            <p className="text-xs font-bold text-slate-400 mt-1">{tables.length} Tables Available</p>
+            <p className="text-xs font-bold text-slate-400 mt-1">{tables.filter(t => t.table_status?.toLowerCase() === 'available').length} Tables Available</p>
           </div>
           <button 
             onClick={refreshTables}
@@ -595,7 +597,7 @@ const WaiterPos = () => {
             <FaSearch className="absolute left-4 z-10 text-slate-400" />
             <input
               type="text"
-              placeholder="Search menu (Ctrl+F)..."
+              placeholder="Search menu items..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-full border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#0A5BAE] focus:bg-white focus:ring-4 focus:ring-blue-500/10"
@@ -691,7 +693,7 @@ const WaiterPos = () => {
           {/* Selected Table Info */}
           <div className="mx-4 mt-4 bg-white rounded-2xl border border-blue-100 p-4 shadow-sm flex items-center gap-4">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-50 text-[#0A5BAE]">
-              <FaBed className="h-5 w-5" />
+              <MdTableBar className="h-5 w-5" />
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800">
@@ -795,7 +797,7 @@ const WaiterPos = () => {
               disabled={cart.length === 0}
               className="flex-1 py-3 rounded-xl bg-yellow-400 text-yellow-900 font-bold text-sm shadow-sm hover:bg-yellow-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <PiPlayPauseBold /> Hold
+              <PiPlayPauseBold className="h-4 w-4"/> Hold
             </button>
             <button
               onClick={handlePlaceOrder}
