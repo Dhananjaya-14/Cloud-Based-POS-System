@@ -144,6 +144,11 @@ export const getCompanies = async () => {
   return response.data;
 };
 
+export const getCompanyById = async (id) => {
+  const response = await api.get(`/companies/${id}`);
+  return response.data;
+};
+
 export const createCompany = async (companyData) => {
   const response = await api.post("/companies", companyData);
   return response.data;
