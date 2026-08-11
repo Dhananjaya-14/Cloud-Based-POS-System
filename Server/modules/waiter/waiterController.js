@@ -176,7 +176,7 @@ export async function getMyTables(req, res, next) {
   try {
     const userId = req.user.u_id;
     const roleId = req.user.role_id;
-    const { date = getTodayStr(), shift } = req.query;
+    const { date = getTodayStr() } = req.query;
 
     if (roleId !== ROLES.WAITER) {
       // For non-waiters (Cashier, Branch Admin, Admin), fetch all tables in their branch
@@ -218,16 +218,11 @@ export async function getMyTables(req, res, next) {
     const values = [userId, date];
     let idx = 3;
 
-    if (shift) {
-      conditions.push(`ta.shift = $${idx++}`);
-      values.push(shift);
-    }
 
     const { rows } = await pool.query(
       `SELECT
          ta.assign_id,
          ta.assigned_date,
-         ta.shift,
          ta.notes,
          t.table_id,
          t.table_number,
@@ -239,7 +234,7 @@ export async function getMyTables(req, res, next) {
        JOIN "TABLES" t ON t.table_id = ta.table_id
        LEFT JOIN "Branch" b ON b."B_id" = t.branch_id
        WHERE ${conditions.join(" AND ")}
-       ORDER BY ta.shift, t.table_number`,
+       ORDER BY t.table_number`,
       values,
     );
 
@@ -374,10 +369,12 @@ export async function createWaiterOrder(req, res, next) {
     const waiterId = req.user.u_id;
     const {
       table_id,
-      cust_id,
       or_tax = 0,
       or_totalcost,
       or_totalCostWtax,
+      or_notes,
+      or_addons,
+      or_allergies,
     } = req.body;
 
     if (or_totalcost === undefined || or_totalCostWtax === undefined) {
@@ -407,15 +404,7 @@ export async function createWaiterOrder(req, res, next) {
         return next(new Error("Table not found"));
       }
 
-      if (req.user.role_id === ROLES.WAITER) {
-        const isAssigned = await ensureWaiterAssignedToTable(waiterId, tableIdInt);
-        if (!isAssigned) {
-          res.status(403);
-          return next(
-            new Error("You can only create orders for tables assigned to you today"),
-          );
-        }
-      }
+      // Table assignment check removed per user request
 
       branchId = table.rows[0].branch_id;
     } else {
@@ -436,17 +425,19 @@ export async function createWaiterOrder(req, res, next) {
       const orderResult = await client.query(
         `INSERT INTO "ORDER"
            (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type,
-            cust_id, u_id, b_id, table_id)
-         VALUES ($1, $2, $3, 'pending', 'dine-in', $4, $5, $6, $7)
+            u_id, b_id, table_id, or_notes, or_addons, or_allergies)
+         VALUES ($1, $2, $3, 'pending', 'dine-in', $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
           parseFloat(or_tax),
           parseFloat(or_totalcost),
           parseFloat(or_totalCostWtax),
-          cust_id ?? null,
           waiterId,
           branchId,
           tableIdInt,
+          or_notes || null,
+          or_addons || null,
+          or_allergies || null,
         ],
       );
 
@@ -468,9 +459,9 @@ export async function createWaiterOrder(req, res, next) {
       client.release();
     }
   } catch (err) {
-    if (err?.code === "23503") {
+    if (err.code === "23503") {
       res.status(400);
-      return next(new Error("Invalid reference: table_id, cust_id or waiter"));
+      return next(new Error("Invalid reference: table_id or waiter"));
     }
     next(err);
   }

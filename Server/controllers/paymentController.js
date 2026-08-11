@@ -301,10 +301,10 @@ export const createPaymentValidation = [
       if (!rows.length) {
         throw new Error(`Order ${or_id} does not exist`);
       }
-      if (!["pending", "preparing"].includes(rows[0].or_status)) {
+      if (!["pending", "preparing", "completed"].includes(rows[0].or_status)) {
         throw new Error(
           `Cannot create a payment for an order with status '${rows[0].or_status}'. ` +
-          `Order must be pending or preparing.`,
+          `Order must be pending, preparing, or completed.`,
         );
       }
       return true;
@@ -344,6 +344,12 @@ export async function createPayment(req, res, next) {
       [pay_method, pay_status, pay_date, pay_amount, or_id],
     );
 
+    if (pay_status === "paid") {
+      const orderRes = await client.query(`SELECT table_id FROM "ORDER" WHERE or_id = $1`, [or_id]);
+      if (orderRes.rows.length && orderRes.rows[0].table_id) {
+        await client.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [orderRes.rows[0].table_id]);
+      }
+    }
 
     await client.query('COMMIT');
 
@@ -480,6 +486,13 @@ export async function updatePayment(req, res, next) {
        RETURNING *`,
       [pay_method, pay_status, pay_date, pay_amount, or_id, id],
     );
+
+    if (pay_status === "paid" && prevStatus !== "paid") {
+      const orderRes = await pool.query(`SELECT table_id FROM "ORDER" WHERE or_id = $1`, [or_id]);
+      if (orderRes.rows.length && orderRes.rows[0].table_id) {
+        await pool.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [orderRes.rows[0].table_id]);
+      }
+    }
 
     if (!rows.length) {
       return res
