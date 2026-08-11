@@ -224,40 +224,52 @@ export async function createPurchaseItem(req, res, next) {
     const { po_id, rm_id, pro_id, qty, price, unit_price } = body;
 
     // ── Required fields ──
+    // price/unit_price are intentionally NOT required here — the supplier's
+    // actual cost isn't known until the order is received. They're entered
+    // later via the receive flow (see purchaseOrderController.receiveWithWastage).
     if (
       po_id      === undefined ||
       (rm_id === undefined && pro_id === undefined) ||
-      qty        === undefined ||
-      price      === undefined ||
-      unit_price === undefined
+      qty        === undefined
     ) {
       res.status(400);
-      throw new Error("po_id, either rm_id or pro_id, qty, price and unit_price are required");
+      throw new Error("po_id, either rm_id or pro_id, and qty are required");
     }
 
-    const parsedPoId      = parsePositiveInt(po_id,      "po_id");
-    const parsedRmId      = rm_id ? parsePositiveInt(rm_id, "rm_id") : null;
-    const parsedProId     = pro_id ? parsePositiveInt(pro_id, "pro_id") : null;
-    const parsedQty       = parsePositiveDecimal(qty,        "qty");
-    const parsedPrice     = parsePositiveDecimal(price,      "price");
-    const parsedUnitPrice = parsePositiveDecimal(unit_price, "unit_price");
+    const parsedPoId  = parsePositiveInt(po_id,      "po_id");
+    const parsedRmId  = rm_id ? parsePositiveInt(rm_id, "rm_id") : null;
+    const parsedProId = pro_id ? parsePositiveInt(pro_id, "pro_id") : null;
+    const parsedQty   = parsePositiveDecimal(qty,        "qty");
 
     if (parsedQty > MAX_QTY) {
       res.status(400);
       throw new Error(`qty cannot exceed ${MAX_QTY.toLocaleString()}`);
     }
-    if (parsedUnitPrice > MAX_UNIT_PRICE) {
-      res.status(400);
-      throw new Error(`unit_price cannot exceed ${MAX_UNIT_PRICE.toLocaleString()}`);
-    }
 
-    // ── price must match qty × unit_price (±0.05 rounding tolerance) ──
-    const expectedPrice = parsedQty * parsedUnitPrice;
-    if (Math.abs(parsedPrice - expectedPrice) > 0.05) {
-      res.status(400);
-      throw new Error(
-        `price (${parsedPrice}) does not match qty × unit_price (${expectedPrice.toFixed(2)})`,
-      );
+    // Price fields are optional at creation time — validate only if provided
+    // (e.g. for the rare case a price is already known upfront).
+    let parsedPrice = null;
+    let parsedUnitPrice = null;
+    if (price !== undefined || unit_price !== undefined) {
+      if (price === undefined || unit_price === undefined) {
+        res.status(400);
+        throw new Error("If providing a price, both price and unit_price are required together");
+      }
+      parsedPrice = parsePositiveDecimal(price, "price");
+      parsedUnitPrice = parsePositiveDecimal(unit_price, "unit_price");
+
+      if (parsedUnitPrice > MAX_UNIT_PRICE) {
+        res.status(400);
+        throw new Error(`unit_price cannot exceed ${MAX_UNIT_PRICE.toLocaleString()}`);
+      }
+
+      const expectedPrice = parsedQty * parsedUnitPrice;
+      if (Math.abs(parsedPrice - expectedPrice) > 0.05) {
+        res.status(400);
+        throw new Error(
+          `price (${parsedPrice}) does not match qty × unit_price (${expectedPrice.toFixed(2)})`,
+        );
+      }
     }
 
     // ── Purchase order existence, status & scoping check ──

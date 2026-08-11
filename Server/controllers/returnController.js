@@ -33,7 +33,7 @@ export async function getAllReturns(req, res, next) {
       LEFT JOIN "Raw_Material" rm ON rm.rm_id = r.rm_id
       LEFT JOIN "Product" p ON p.pro_id = r.pro_id
       LEFT JOIN purchase_order po ON po.po_id = r.po_id
-      LEFT JOIN "SUPPLIER" s ON s.sup_id = po.sup_id
+      LEFT JOIN "SUPPLIER" s ON s.sup_id = COALESCE(r.sup_id, po.sup_id)
       LEFT JOIN "Branch" b ON b."B_id" = r.b_id
     `;
     const conditions = [];
@@ -196,49 +196,90 @@ export async function deleteReturn(req, res, next) {
   }
 }
 
-// ─── PATCH /api/returns/:id/fulfill — mark fulfilled, add qty to stock ─────
-export async function fulfillReturn(req, res, next) {
+// ─── POST /api/returns — manually record a return for existing stock ───────
+export async function createReturn(req, res, next) {
   const client = await pool.connect();
   try {
-    const id = parsePositiveInt(req.params.id, "return_id");
+    const { rm_id, pro_id, qty_returned, reason, sup_id } = req.body;
+    const parsedSupId = sup_id ? parsePositiveInt(sup_id, "sup_id") : null;
 
-    const existing = await pool.query(`SELECT * FROM "Returns" WHERE return_id = $1`, [id]);
-    if (existing.rows.length === 0) {
-      res.status(404);
-      throw new Error("Return record not found");
+    if (!rm_id && !pro_id) {
+      res.status(400);
+      throw new Error("Either rm_id or pro_id is required.");
     }
-    const ret = existing.rows[0];
-    if (ret.status === "fulfilled") {
-      res.status(409);
-      throw new Error("This return has already been fulfilled");
+    if (rm_id && pro_id) {
+      res.status(400);
+      throw new Error("Provide only one of rm_id or pro_id, not both.");
+    }
+
+    const qty = parsePositiveDecimal(qty_returned, "qty_returned");
+    const bId = req.user?.b_id || req.user?.B_id || null;
+    if (!bId) {
+      res.status(400);
+      throw new Error("No branch associated with this user.");
     }
 
     await client.query("BEGIN");
 
-    if (ret.rm_id) {
-      await client.query(
-        `UPDATE "Raw_Material" SET stock_qty = COALESCE(stock_qty, 0) + $1 WHERE rm_id = $2`,
-        [ret.qty_returned, ret.rm_id],
+    if (rm_id) {
+      const parsedRmId = parsePositiveInt(rm_id, "rm_id");
+      const rmCheck = await client.query(
+        `SELECT stock_qty FROM "Raw_Material" WHERE rm_id = $1 AND b_id = $2`,
+        [parsedRmId, bId],
       );
-    } else if (ret.pro_id) {
-      // Branch_Product.pro_quantity is an integer column — Returns.qty_returned
-      // is stored as NUMERIC(10,3), so round to the nearest whole unit here.
-      const wholeQty = Math.round(Number(ret.qty_returned));
+      if (rmCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        res.status(404);
+        throw new Error("Raw material not found in this branch.");
+      }
+      const currentStock = parseFloat(rmCheck.rows[0].stock_qty);
+      if (qty > currentStock) {
+        await client.query("ROLLBACK");
+        res.status(400);
+        throw new Error(`Cannot return ${qty} — only ${currentStock} in stock.`);
+      }
+
       await client.query(
-        `UPDATE "Branch_Product" SET "pro_quantity" = COALESCE("pro_quantity", 0) + $1
-         WHERE "pro_id" = $2 AND "B_id" = $3`,
-        [wholeQty, ret.pro_id, ret.b_id],
+        `UPDATE "Raw_Material" SET stock_qty = GREATEST(0, stock_qty - $1) WHERE rm_id = $2`,
+        [qty, parsedRmId],
+      );
+      await client.query(
+        `INSERT INTO "Returns" (rm_id, qty_returned, reason, status, b_id, sup_id, recorded_at)
+         VALUES ($1, $2, $3, 'pending', $4, $5, CURRENT_TIMESTAMP)`,
+        [parsedRmId, qty, reason || null, bId, parsedSupId],
+      );
+    } else {
+      const parsedProId = parsePositiveInt(pro_id, "pro_id");
+      const bpCheck = await client.query(
+        `SELECT "pro_quantity" FROM "Branch_Product" WHERE "pro_id" = $1 AND "B_id" = $2`,
+        [parsedProId, bId],
+      );
+      if (bpCheck.rows.length === 0) {
+        await client.query("ROLLBACK");
+        res.status(404);
+        throw new Error("Product not found in this branch.");
+      }
+      const currentStock = parseFloat(bpCheck.rows[0].pro_quantity);
+      if (qty > currentStock) {
+        await client.query("ROLLBACK");
+        res.status(400);
+        throw new Error(`Cannot return ${qty} — only ${currentStock} in stock.`);
+      }
+
+      const wholeQty = Math.round(qty);
+      await client.query(
+        `UPDATE "Branch_Product" SET "pro_quantity" = GREATEST(0, "pro_quantity" - $1) WHERE "pro_id" = $2 AND "B_id" = $3`,
+        [wholeQty, parsedProId, bId],
+      );
+      await client.query(
+        `INSERT INTO "Returns" (pro_id, qty_returned, reason, status, b_id, sup_id, recorded_at)
+         VALUES ($1, $2, $3, 'pending', $4, $5, CURRENT_TIMESTAMP)`,
+        [parsedProId, qty, reason || null, bId, parsedSupId],
       );
     }
 
-    const result = await client.query(
-      `UPDATE "Returns" SET status = 'fulfilled', fulfilled_at = CURRENT_TIMESTAMP
-       WHERE return_id = $1 RETURNING *`,
-      [id],
-    );
-
     await client.query("COMMIT");
-    res.json(result.rows[0]);
+    res.status(201).json({ message: "Return recorded and stock updated." });
   } catch (err) {
     await client.query("ROLLBACK");
     next(err);

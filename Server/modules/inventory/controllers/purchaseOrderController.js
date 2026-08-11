@@ -715,6 +715,24 @@ export async function receiveWithWastage(req, res, next) {
           );
         }
 
+        // Price is confirmed by the supplier at delivery time — save it now.
+        // Payment is always based on the FULL ordered quantity (grossQty),
+        // not netQty, since waste/return don't reduce what's owed.
+        const unitPrice = Number(adj.unit_price);
+        if (!unitPrice || unitPrice <= 0) {
+          await client.query("ROLLBACK");
+          res.status(400);
+          throw new Error(`unit_price is required for each item being received`);
+        }
+        const totalPrice = parseFloat((grossQty * unitPrice).toFixed(2));
+
+        await client.query(
+          `UPDATE purchase_item
+           SET unit_price = $1, price = $2
+           WHERE po_id = $3 AND ${it.rm_id ? 'rm_id = $4' : 'pro_id = $4'}`,
+          [unitPrice, totalPrice, id, it.rm_id || it.pro_id],
+        );
+
         // Add net quantity to stock
         if (netQty > 0) {
           if (it.rm_id) {
