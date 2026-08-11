@@ -4,7 +4,7 @@ import Header from "../../components/admin/Header";
 import Sidebar from "../../components/admin/Sidebar";
 import OverviewCards from "../../components/admin/OverviewCards";
 import TodayActivitiesChart from "../../components/admin/TodayActivitiesChart";
-import { getStatsOverview, getBranchStats, getOrders, getBranches, getCurrentUser } from "../../services/api";
+import { getStatsOverview, getBranchStats, getOrders, getBranches, getCurrentUser,getCompanyById} from "../../services/api";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { FiPlus, FiBarChart2 } from "react-icons/fi";
@@ -13,7 +13,8 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 function OrderSummaryChart() {
   const [counts, setCounts] = React.useState({ completed: 0, pending: 0, other: 0 });
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(true); 
+  const [currentComName, setCurrentComName] = useState("Unknown Company");
 
   React.useEffect(() => {
     let mounted = true;
@@ -126,7 +127,8 @@ export default function AdminDashboardPage() {
   // read logged-in user to determine company scope
   const currentUser = getCurrentUser();
   const currentComId = currentUser?.com_id ?? null;
-  const companyLabel = currentComId ? `Company ID: ${currentComId}` : "All companies";
+  const [currentComName, setCurrentComName] = useState("Unknown Company");
+  const companyLabel = currentComId ? `${currentComName}` : "All companies";
 
   useEffect(() => {
     let mounted = true;
@@ -134,10 +136,18 @@ export default function AdminDashboardPage() {
       setLoading(true);
       try {
         // fetch server stats and the branch catalog (branches include com_id)
-        const [o, bs, allBranches] = await Promise.all([getStatsOverview(), getBranchStats(), getBranches()]);
+        const [o, bs, allBranches, companyData] = await Promise.all([
+          getStatsOverview(),
+          getBranchStats(),
+          getBranches(),
+          currentComId ? getCompanyById(currentComId).catch(e => { console.error("Failed to fetch company", e); return null; }) : Promise.resolve(null)
+        ]);
 
         if (!mounted) return;
 
+        if (currentComId && companyData) {
+          setCurrentComName(companyData.com_name || "Unknown Company");
+        }
         const branchesList = allBranches?.data ?? allBranches ?? [];
         let filteredBranches = Array.isArray(bs) ? bs.slice() : [];
 
@@ -180,7 +190,8 @@ export default function AdminDashboardPage() {
 
         setError(null);
       } catch (err) {
-        setError("Failed to load dashboard data.");
+        console.error("Dashboard load error:", err);
+        setError(`Failed to load dashboard data. Please try again later.`);
       } finally {
         if (mounted) setLoading(false);
       }
