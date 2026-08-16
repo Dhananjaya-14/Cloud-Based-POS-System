@@ -55,6 +55,8 @@ export const SOCKET_EVENTS = {
   BRANCH_DELETED: "branch:deleted",
   // Activity Log events
   ACTIVITY_LOG_CHANGED: "activity_log:changed",
+  // Table events
+  TABLE_UPDATED: "table:updated",
   // Order workflow events
   ORDER_SENT: "order:sent",
   ORDER_ACCEPTED: "order:accepted",
@@ -580,6 +582,30 @@ export const subscribeToActivityLogUpdates = (callbacks) => {
   };
 };
 
+export const subscribeToTableUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => { };
+
+  const { onTableUpdated } = callbacks;
+
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+  }
+
+  if (onTableUpdated) {
+    socket.on(SOCKET_EVENTS.TABLE_UPDATED, onTableUpdated);
+  }
+
+  return () => {
+    if (onTableUpdated) {
+      socket.off(SOCKET_EVENTS.TABLE_UPDATED, onTableUpdated);
+    }
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+    }
+  };
+};
+
 export default {
   getSocket,
   connectSocket,
@@ -603,4 +629,5 @@ export default {
   subscribeToPayHereUpdates,
   subscribeToOrderUpdates,
   subscribeToActivityLogUpdates,
+  subscribeToTableUpdates,
 };

@@ -1,5 +1,6 @@
 import pool from "../../config/database.js";
 import { ROLES } from "../../middleware/authMiddleware.js";
+import { emitSocketEvent, SOCKET_EVENTS } from "../../utils/socket.js";
 
 const VALID_STATUSES = ["pending", "preparing", "completed", "cancelled"];
 
@@ -329,6 +330,7 @@ export async function getMyOrders(req, res, next) {
         o.or_status,
         o."or_totalCostWtax",
         o.b_id,
+        o.table_id,
 
         b."B_name" AS branch_name
 
@@ -451,6 +453,11 @@ export async function createWaiterOrder(req, res, next) {
       }
 
       await client.query("COMMIT");
+
+      if (tableIdInt) {
+        emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: tableIdInt, table_status: 'occupied', branch_id: branchId }, { room: `branch-updates` });
+      }
+
       res.status(201).json({ success: true, data: orderResult.rows[0] });
     } catch (err) {
       await client.query("ROLLBACK");

@@ -57,6 +57,8 @@ export const SOCKET_EVENTS = {
   BRANCH_UPDATED: "branch:updated",
   BRANCH_DELETED: "branch:deleted",
   ACTIVITY_LOG_CHANGED: "activity_log:changed",
+  // Table events
+  TABLE_UPDATED: "table:updated",
 };
 
 function extractSocketToken(socket) {
