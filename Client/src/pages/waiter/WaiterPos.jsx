@@ -21,7 +21,7 @@ import { PiPlayPauseBold } from "react-icons/pi";
 import { MdTableBar } from "react-icons/md";
 import { useAuth } from "../../context/AuthContext";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
-import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
+import { connectSocket, getSocket, SOCKET_EVENTS, subscribeToTableUpdates, subscribeToOrderUpdates } from "../../services/socket";
 import {
   getWaiterProfile,
   getBranchProducts,
@@ -166,15 +166,36 @@ const WaiterPos = () => {
     fetchMyOrders(false);
   }, [user]);
 
-  const refreshTables = async () => {
+  useEffect(() => {
     if (!branchId) return;
-    try {
-      const tablesRes = await getTablesByBranch(branchId);
-      setTables(Array.isArray(tablesRes) ? tablesRes : []);
-    } catch (e) {
-      console.error("Failed to refresh tables:", e);
-    }
-  };
+    
+    connectSocket();
+
+    const unsubscribeTables = subscribeToTableUpdates(branchId, {
+      onTableUpdated: (data) => {
+        setTables((prev) =>
+          prev.map((t) =>
+            t.table_id === data.table_id
+              ? { ...t, table_status: data.table_status }
+              : t
+          )
+        );
+      },
+    });
+
+    const unsubscribeOrders = subscribeToOrderUpdates(branchId, {
+      onOrderReady: (data) => {
+        showToast(`Kitchen completed Order #${data.or_id}!`, "success");
+        fetchMyOrders(false);
+      },
+    });
+
+    return () => {
+      unsubscribeTables();
+      unsubscribeOrders();
+    };
+  }, [branchId]);
+
 
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -528,13 +549,6 @@ const WaiterPos = () => {
             <h2 className="text-xl font-black tracking-tight text-slate-800">Table Layout</h2>
             <p className="text-xs font-bold text-slate-400 mt-1">{tables.filter(t => t.table_status?.toLowerCase() === 'available').length} Tables Available</p>
           </div>
-          <button 
-            onClick={refreshTables}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-500 hover:bg-[#0A5BAE] hover:text-white transition-colors"
-            title="Refresh Tables"
-          >
-            <FaSyncAlt className="h-4 w-4" />
-          </button>
         </div>
         
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -896,9 +910,8 @@ const WaiterPos = () => {
   
                           {order.table_id && (
                             <div className="flex flex-col items-end">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Table</span>
                               <div className="flex h-7 min-w-[32px] items-center justify-center rounded-lg bg-blue-50 px-2 text-sm font-black text-[#0A5BAE]">
-                                {tables.find(t => t.table_id === order.table_id)?.table_number || order.table_id}
+                                {tables.find(t => t.table_id === order.table_id)?.table_number}
                               </div>
                             </div>
                           )}
@@ -977,10 +990,9 @@ const WaiterPos = () => {
                             </span>
                           </div>
                           {ho.selectedTable && (
-                            <div className="flex flex-col items-end">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-1">Table</span>
+                            <div className="flex flex-col items-end"> 
                               <div className="flex h-7 min-w-[32px] items-center justify-center rounded-lg bg-blue-50 px-2 text-sm font-black text-[#0A5BAE]">
-                                {ho.selectedTable.table_number || ho.selectedTable.table_id}
+                                {ho.selectedTable.table_number}
                               </div>
                             </div>
                           )}

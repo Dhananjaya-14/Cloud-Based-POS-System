@@ -4,6 +4,7 @@ import {
   emitSocketEvent,
   getCashierSocketRoom,
   KITCHEN_SOCKET_ROOM,
+  SOCKET_EVENTS
 } from "../utils/socket.js";
 import { adjustStockForOrderItem } from "./orderItemController.js";
 
@@ -813,6 +814,7 @@ export const updateOrderStatus = async (req, res) => {
           `UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`,
           [updatedOrder.table_id]
         );
+        emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: updatedOrder.table_id, table_status: 'available', branch_id: updatedOrder.b_id }, { room: `branch-updates` });
       }
 
       await client.query("COMMIT");
@@ -834,6 +836,9 @@ export const updateOrderStatus = async (req, res) => {
     );
 
     if (status === "completed") {
+      emitSocketEvent("order:ready", updatedOrder, {
+        room: `branch-updates`,
+      });
       emitSocketEvent("order:ready", updatedOrder, {
         room: getCashierSocketRoom(updatedOrder.u_id),
       });
