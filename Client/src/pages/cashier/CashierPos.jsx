@@ -16,6 +16,7 @@ import {
   FaUserCircle,
   FaWineGlassAlt,
   FaBell,
+  FaSpinner,
 } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import posIcon from "../../assets/images/PosIcon.png";
@@ -87,6 +88,8 @@ const CashierPos = () => {
   const [heldOrders, setHeldOrders] = useState([]);
   const [showHeldOrdersModal, setShowHeldOrdersModal] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState(null);
+  const [editingOrderStatus, setEditingOrderStatus] = useState(null);
+  const [editingOrderTableId, setEditingOrderTableId] = useState(null);
 
   const [waiterOrders, setWaiterOrders] = useState([]);
   const [showWaiterOrdersModal, setShowWaiterOrdersModal] = useState(false);
@@ -581,7 +584,7 @@ const CashierPos = () => {
       if (editingOrderId) {
         // Update existing order
         await updateOrder(editingOrderId, {
-          or_tax: Number(tax.toFixed(2)),
+          or_tax: taxRate,
           or_totalcost: Number(taxableBase.toFixed(2)),
           or_totalCostWtax: Number(total.toFixed(2)),
           or_status: paymentMethod === "PayHere" ? "pending" : "completed",
@@ -613,7 +616,7 @@ const CashierPos = () => {
         }
       } else {
         const orderResponse = await createOrder({
-          or_tax: Number(tax.toFixed(2)),
+          or_tax: taxRate,
           or_totalcost: Number(taxableBase.toFixed(2)),
           or_totalCostWtax: Number(total.toFixed(2)),
           or_status: "pending",
@@ -690,6 +693,7 @@ const CashierPos = () => {
       // ── Cash / Card: complete immediately ──────────────────────────────────
       setCart([]);
       setEditingOrderId(null);
+      setEditingOrderTableId(null);
       navigate("/cashier/invoice-preview", {
         state: buildInvoiceState(orderId, invoiceItems),
       });
@@ -724,11 +728,63 @@ const CashierPos = () => {
       setAddonsPrice(ao.or_addons_price || "");
       setAllergies(ao.or_allergies || "");
       setEditingOrderId(ao.or_id);
+      setEditingOrderStatus(ao.or_status);
+      setEditingOrderTableId(ao.table_id || null);
       setShowWaiterOrdersModal(false);
     } catch (err) {
       alert("Failed to load order for editing: " + err.message);
     } finally {
       setLoadingWaiterOrders(false);
+    }
+  };
+
+  const handleUpdateOrder = async () => {
+    if (cart.length === 0 || !editingOrderId) return;
+    
+    try {
+      setSubmitting(true);
+      setError("");
+
+      const stockResult = await checkOrderStock(
+        cart.map((item) => ({ Bpro_id: item.Bpro_id, pro_quantity: item.qty }))
+      );
+
+      if (!stockResult.success) {
+        setStockErrorModal({ shortages: stockResult.shortages });
+        setSubmitting(false);
+        return;
+      }
+
+      const orderPayload = {
+        table_id: editingOrderTableId,
+        or_tax: taxRate,
+        or_totalcost: Number(taxableBase.toFixed(2)),
+        or_totalCostWtax: Number(total.toFixed(2)),
+        or_notes: notes?.trim() || "",
+        or_addons: addons?.trim() || "",
+        or_allergies: allergies?.trim() || "",
+        items: cart.map(item => ({
+          Bpro_id: item.Bpro_id,
+          qty: item.qty,
+          unit_price: item.unitPrice
+        }))
+      };
+
+      await updateOrder(editingOrderId, orderPayload);
+      
+      setCart([]);
+      setNotes("");
+      setAddons("");
+      setAllergies("");
+      setEditingOrderId(null);
+      setEditingOrderTableId(null);
+      setSearchTerm("");
+      fetchWaiterOrders();
+    } catch (err) {
+      console.error(err);
+      setError("Failed to update order: " + err.message);
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1311,24 +1367,51 @@ const CashierPos = () => {
                 </div>
               </div>
 
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleHoldOrder}
-                  disabled={submitting || cart.length === 0}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#0A5BAE] bg-white px-5 py-4 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:bg-[#0A5BAE] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
-                >
-                  Hold Order
-                </button>
+              <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleHoldOrder}
+                    disabled={submitting || cart.length === 0}
+                    className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#0A5BAE] bg-white px-5 py-4 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:bg-[#0A5BAE] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
+                  >
+                    Hold Order
+                  </button>
 
-                <button
-                  onClick={handleCheckout}
-                  disabled={submitting || cart.length === 0 || !branchId}
-                  className="inline-flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
-                >
-                  <FaShoppingCart className="h-4 w-4" />
-                  {submitting ? "Processing..." : "Checkout"}
-                </button>
+                  <button
+                    onClick={handleCheckout}
+                    disabled={submitting || cart.length === 0 || !branchId}
+                    className="inline-flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
+                  >
+                    <FaShoppingCart className="h-4 w-4" />
+                    {submitting ? "Processing..." : "Checkout"}
+                  </button>
+                </div>
+                {editingOrderId && editingOrderStatus !== 'completed' && (
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={handleUpdateOrder}
+                      disabled={submitting || cart.length === 0}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#0A5BAE] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#08498d] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Update Order
+                    </button>
+                    <button
+                      onClick={() => {
+                         setEditingOrderId(null);
+                         setEditingOrderStatus(null);
+                         setEditingOrderTableId(null);
+                         setCart([]);
+                         setNotes("");
+                         setAddons("");
+                         setAllergies("");
+                      }}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-200 px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-300"
+                    >
+                      Cancel Edit
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </aside>
@@ -1407,7 +1490,10 @@ const CashierPos = () => {
 
             <div className="flex flex-col gap-4">
               {loadingWaiterOrders ? (
-                <div className="text-center py-6 text-slate-500">Loading orders...</div>
+                <div className="flex flex-col items-center justify-center py-10 opacity-60">
+                  <FaSpinner className="h-10 w-10 animate-spin text-[#0A5BAE] mb-4" />
+                  <p className="text-sm font-bold text-slate-500">Loading orders...</p>
+                </div>
               ) : waiterOrders.length === 0 ? (
                 <div className="text-center py-6 text-slate-500">No waiter orders available.</div>
               ) : (

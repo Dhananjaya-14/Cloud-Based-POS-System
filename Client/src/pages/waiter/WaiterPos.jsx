@@ -16,6 +16,9 @@ import {
   FaClipboardList,
   FaCoffee,
   FaSyncAlt,
+  FaBell,
+  FaClock,
+  FaEdit,
 } from "react-icons/fa";
 import { PiPlayPauseBold } from "react-icons/pi";
 import { MdTableBar } from "react-icons/md";
@@ -32,6 +35,7 @@ import {
   getWaiterOrders,
   updateOrderStatus,
   getOrderItemsByOrderId,
+  updateOrder
 } from "../../services/api";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
@@ -87,26 +91,28 @@ const WaiterPos = () => {
   const submittingRef = useRef(false);
   const [error, setError] = useState("");
   
-  // Tax calculations
   const [taxRate, setTaxRate] = useState(10);
 
-  // My Orders state (for no-kitchen confirm delivery flow)
   const [myOrders, setMyOrders] = useState([]);
   const [processingOrderIds, setProcessingOrderIds] = useState([]);
   const [loadingMyOrders, setLoadingMyOrders] = useState(false);
   const [showMyOrdersModal, setShowMyOrdersModal] = useState(false);
   const [activeOrdersTab, setActiveOrdersTab] = useState("active");
   
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  
   const [heldOrders, setHeldOrders] = useState([]);
 
-  // Table Layout State
   const [tables, setTables] = useState([]);
   const [selectedTable, setSelectedTable] = useState(null);
 
-  // Order Details State
   const [orderAllergies, setOrderAllergies] = useState("");
   const [orderAddOns, setOrderAddOns] = useState("");
   const [orderNotes, setOrderNotes] = useState("");
+  
+  const [editingOrderId, setEditingOrderId] = useState(null);
+  const [editingHeldOrderId, setEditingHeldOrderId] = useState(null);
 
   const showToast = (message, type = "success") => {
     setToast({ show: true, message, type });
@@ -185,9 +191,17 @@ const WaiterPos = () => {
 
     const unsubscribeOrders = subscribeToOrderUpdates(branchId, {
       onOrderReady: (data) => {
-        showToast(`Kitchen completed Order #${data.or_id}!`, "success");
+        const message = `Kitchen completed Order #${data.or_id}!`;
+        showToast(message, "success");
+        setNotifications((prev) => [
+          { id: Date.now(), message, time: new Date() },
+          ...prev,
+        ]);
         fetchMyOrders(false);
       },
+      onOrderUpdated: () => {
+        fetchMyOrders(false);
+      }
     });
 
     return () => {
@@ -342,7 +356,7 @@ const WaiterPos = () => {
   const handleHoldOrder = () => {
     if (cart.length === 0) return;
     const newHeldOrder = {
-      id: Date.now(),
+      id: editingHeldOrderId || Date.now(),
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       cart: [...cart],
       selectedTable,
@@ -350,9 +364,13 @@ const WaiterPos = () => {
       orderAddOns,
       orderNotes
     };
-    setHeldOrders((prev) => [...prev, newHeldOrder]);
+    if (editingHeldOrderId) {
+      setHeldOrders(prev => prev.map(ho => ho.id === editingHeldOrderId ? newHeldOrder : ho));
+      setEditingHeldOrderId(null);
+    } else {
+      setHeldOrders((prev) => [...prev, newHeldOrder]);
+    }
 
-    // Reset form
     setCart([]);
     setSelectedTable(null);
     setOrderAllergies("");
@@ -461,6 +479,16 @@ const WaiterPos = () => {
     showToast("Held order removed.", "success");
   };
 
+  const handleEditHeldOrder = (heldOrder) => {
+    setCart(heldOrder.cart);
+    setSelectedTable(heldOrder.selectedTable || null);
+    setOrderAllergies(heldOrder.orderAllergies || "");
+    setOrderAddOns(heldOrder.orderAddOns || "");
+    setOrderNotes(heldOrder.orderNotes || "");
+    setEditingHeldOrderId(heldOrder.id);
+    setShowMyOrdersModal(false);
+  };
+
   const handlePlaceOrder = async () => {
     if (!selectedTable) {
       showToast("Please select a table", "error");
@@ -473,7 +501,75 @@ const WaiterPos = () => {
       setOrderNotes("");
       setOrderAddOns("");
       setOrderAllergies("");
+      if (editingHeldOrderId) {
+        setHeldOrders(prev => prev.filter(ho => ho.id !== editingHeldOrderId));
+        setEditingHeldOrderId(null);
+      }
       showToast("Order placed successfully!", "success");
+    }
+  };
+
+  const handleEditOrder = (order) => {
+    setEditingOrderId(order.or_id);
+    setCart(order.items.map(i => ({
+      Bpro_id: i.Bpro_id,
+      pro_name: i.pro_name,
+      unitPrice: Number(i.unit_price || i.branch_price || 0),
+      qty: Number(i.pro_quantity || 1)
+    })));
+    let table = tables.find(t => String(t.table_id) === String(order.table_id));
+    if (!table && order.table_id) {
+      table = { table_id: order.table_id, table_number: order.table_id, table_capacity: "Unknown" };
+    }
+    setSelectedTable(table || null);
+    setOrderNotes(order.or_notes || "");
+    setOrderAddOns(order.or_addons || "");
+    setOrderAllergies(order.or_allergies || "");
+    setShowMyOrdersModal(false);
+  };
+
+  const handleUpdateOrder = async () => {
+    if (!selectedTable) {
+      showToast("Please select a table", "error");
+      return;
+    }
+    setSubmitting(true);
+    submittingRef.current = true;
+    try {
+      const calculatedTaxableBase = cart.reduce((sum, item) => sum + (item.unitPrice * item.qty), 0);
+      const calculatedTaxAmount = (calculatedTaxableBase * taxRate) / 100;
+      const calculatedTotal = calculatedTaxableBase + calculatedTaxAmount;
+
+      const orderPayload = {
+        table_id: selectedTable.table_id,
+        or_tax: taxRate,
+        or_totalcost: Number(calculatedTaxableBase.toFixed(2)),
+        or_totalCostWtax: Number(calculatedTotal.toFixed(2)),
+        or_notes: orderNotes?.trim() || "",
+        or_addons: orderAddOns?.trim() || "",
+        or_allergies: orderAllergies?.trim() || "",
+        items: cart.map(item => ({
+          Bpro_id: item.Bpro_id,
+          qty: item.qty,
+          unit_price: item.unitPrice
+        }))
+      };
+
+      await updateOrder(editingOrderId, orderPayload);
+      
+      showToast("Order updated successfully!", "success");
+      setCart([]);
+      setSelectedTable(null);
+      setOrderNotes("");
+      setOrderAddOns("");
+      setOrderAllergies("");
+      setEditingOrderId(null);
+      fetchMyOrders(true);
+    } catch (err) {
+      showToast(err.response?.data?.error || err.message || "Failed to update order.", "error");
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
   };
 
@@ -502,7 +598,6 @@ const WaiterPos = () => {
           onClose={() => setToast((current) => ({ ...current, show: false }))}
         />
       )}
-      {/* Top Header */}
       <header className="border-b border-black/5 bg-gradient-to-r from-[#094f96] via-[#0c87b1] to-[#50c164] text-white shadow-[0_10px_30px_rgba(2,8,23,0.15)] flex-none z-30">
         <div className="mx-auto flex w-full items-center justify-between gap-4 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3">
@@ -516,6 +611,71 @@ const WaiterPos = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/15 text-white transition hover:bg-white/20"
+              >
+                <FaBell className="h-5 w-5" />
+                {notifications.length > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[9px] font-bold text-white shadow-sm">
+                    {notifications.length}
+                  </span>
+                )}
+              </button>
+
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/5">
+                  <div className="mb-2 px-3 pt-2">
+                    <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
+                  </div>
+                  <div className="max-h-60 overflow-y-auto custom-scrollbar">
+                    {notifications.length === 0 ? (
+                      <div className="px-4 py-6 text-center text-sm text-slate-400">
+                        No new notifications
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-1">
+                        {notifications.map((notif) => (
+                          <div
+                            key={notif.id}
+                            className="group relative flex flex-col gap-1 rounded-xl bg-slate-50 p-3 text-sm transition-colors hover:bg-slate-100"
+                          >
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
+                              }}
+                              className="absolute right-2 top-2 hidden h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-600 group-hover:flex"
+                              title="Dismiss"
+                            >
+                              ✕
+                            </button>
+                            <span className="pr-5 font-semibold text-slate-700">
+                              {notif.message}
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              {notif.time.toLocaleTimeString()}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {notifications.length > 0 && (
+                    <div className="mt-2 border-t border-slate-100 pt-2">
+                      <button
+                        onClick={() => setNotifications([])}
+                        className="w-full rounded-lg py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-white/15 px-3 py-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white text-[#0A5BAE]">
                 <FaUserCircle className="h-5 w-5" />
@@ -625,7 +785,6 @@ const WaiterPos = () => {
               {filteredProducts.map((p) => {
                 const price = Number(p.pro_price || p[" Pro_Price"] || p.Pro_Price || 0);
                 const cartItem = cart.find(item => item.Bpro_id === p.Bpro_id);
-                const cartQty = cartItem ? cartItem.qty : 0;
                 return (
                   <div
                     key={p.Bpro_id}
@@ -674,7 +833,6 @@ const WaiterPos = () => {
            )}
         </div>
         
-
         <div className="absolute bottom-8 right-8 z-20">
           <button 
             onClick={() => { setShowMyOrdersModal(true); fetchMyOrders(false); }}
@@ -805,22 +963,39 @@ const WaiterPos = () => {
             <span className="text-2xl font-black tracking-tight text-[#0A5BAE] tabular-nums">${total.toFixed(2)}</span>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button 
-              onClick={handleHoldOrder}
-              disabled={cart.length === 0}
-              className="flex-1 py-3 rounded-xl bg-yellow-400 text-yellow-900 font-bold text-sm shadow-sm hover:bg-yellow-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <PiPlayPauseBold className="h-4 w-4"/> Hold
-            </button>
-            <button
-              onClick={handlePlaceOrder}
-              disabled={submitting || cart.length === 0 || !selectedTable}
-              className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#55C24A] py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              <FaShoppingCart className="h-4 w-4" />
-              {submitting ? "Processing..." : "Confirm"}
-            </button>
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-3">
+              <button 
+                onClick={handleHoldOrder}
+                disabled={cart.length === 0}
+                className="flex-1 py-3 rounded-xl bg-yellow-400 text-yellow-900 font-bold text-sm shadow-sm hover:bg-yellow-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <PiPlayPauseBold className="h-4 w-4"/> Hold
+              </button>
+              <button
+                onClick={editingOrderId ? handleUpdateOrder : handlePlaceOrder}
+                disabled={cart.length === 0 || !selectedTable || submitting}
+                className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#55C24A] py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                {submitting ? "Processing..." : (editingOrderId ? "Update Order" : "Confirm")}
+              </button>
+            </div>
+            {(editingOrderId || editingHeldOrderId) && (
+              <button
+                onClick={() => {
+                  setEditingOrderId(null);
+                  setEditingHeldOrderId(null);
+                  setCart([]);
+                  setSelectedTable(null);
+                  setOrderNotes("");
+                  setOrderAddOns("");
+                  setOrderAllergies("");
+                }}
+                className="w-full rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-600 hover:bg-slate-200"
+              >
+                Cancel Edit
+              </button>
+            )}
           </div>
           {!selectedTable && cart.length > 0 && (
              <p className="text-center text-red-500 text-xs font-bold mt-3">Select a table to confirm order.</p>
@@ -879,46 +1054,54 @@ const WaiterPos = () => {
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {myOrders.map((order) => (
                       <div key={order.or_id} className="group relative flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md">
-                        {/* Absolute Delete Button */}
-                        <button 
-                          onClick={() => handleCancelOrder(order.or_id)} 
-                          disabled={processingOrderIds.includes(order.or_id)}
-                          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 opacity-80 transition-all hover:bg-rose-500 hover:text-white hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Cancel Order"
-                        >
-                          <FaTrashAlt className="h-3.5 w-3.5" />
-                        </button>
-  
-                        {/* Header */}
-                        <div className="mb-3 flex items-start justify-between border-b border-dashed border-slate-200 pb-3 pr-10">
-                          <div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <span className="text-xs font-bold text-slate-400">ORDER</span>
-                              <span className="text-lg font-black text-slate-900">#{order.or_id}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                                order.or_status === "pending"   ? "bg-amber-100 text-amber-700" :
-                                order.or_status === "preparing" ? "bg-blue-100 text-blue-700" :
-                                "bg-slate-100 text-slate-700"
-                              }`}>
-                                <span className="mr-1 h-1.5 w-1.5 rounded-full fill-current bg-current"></span>
-                                {order.or_status?.replace(/_/g, " ")}
-                              </span>
-                            </div>
+                        <div className="absolute right-3 top-3 flex flex-col items-end gap-2">
+                          <div className="flex gap-2">
+                            {order.or_status === 'pending' && (
+                              <button
+                                onClick={() => handleEditOrder(order)}
+                                className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A5BAE]/10 text-[#0A5BAE] transition-colors hover:bg-[#0A5BAE]/20"
+                                title="Edit Order"
+                              >
+                                <FaEdit className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button 
+                              onClick={() => handleCancelOrder(order.or_id)} 
+                              disabled={processingOrderIds.includes(order.or_id)}
+                              className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 opacity-80 transition-all hover:bg-rose-500 hover:text-white hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
+                              title="Cancel Order"
+                            >
+                              <FaTrashAlt className="h-3.5 w-3.5" />
+                            </button>
                           </div>
-  
                           {order.table_id && (
-                            <div className="flex flex-col items-end">
-                              <div className="flex h-7 min-w-[32px] items-center justify-center rounded-lg bg-blue-50 px-2 text-sm font-black text-[#0A5BAE]">
-                                {tables.find(t => t.table_id === order.table_id)?.table_number}
-                              </div>
+                            <div className="flex h-7 min-w-[32px] items-center justify-center rounded-lg bg-blue-50 px-2 text-sm font-black text-[#0A5BAE]">
+                              {tables.find(t => String(t.table_id) === String(order.table_id))?.table_number || order.table_id}
                             </div>
                           )}
                         </div>
   
+                        <div className="flex items-center justify-between border-b border-slate-100  pb-3 mb-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-black text-slate-800">#{order.or_id}</span>
+                              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
+                                order.or_status === 'pending' ? 'bg-amber-100 text-amber-700' :
+                                order.or_status === 'preparing' ? 'bg-orange-100 text-orange-700' :
+                                'bg-[#55C24A]/20 text-[#55C24A]'
+                              }`}>
+                                {order.or_status}
+                              </span>
+                            </div>
+                            <div className="text-[10px] font-semibold text-slate-400 mt-0.5 flex items-center gap-1">
+                              <FaClock className="w-2.5 h-2.5" />
+                              {order.or_time?.slice(0,5)}
+                            </div>
+                          </div>
+                        </div>
+  
                         {/* Items */}
-                        <div className="flex-1 space-y-3">
+                        <div className="flex-1 py-3 overflow-y-auto">
                           {order.items && order.items.length > 0 ? (
                             <div className="space-y-2 max-h-12 overflow-y-auto pr-2 custom-scrollbar">
                               {order.items.map((item, idx) => (
@@ -971,18 +1154,26 @@ const WaiterPos = () => {
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     {heldOrders.map((ho) => (
                       <div key={ho.id} className="group relative flex flex-col rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-100 transition-all hover:shadow-md">
-                        <button 
-                          onClick={() => handleDeleteHeldOrder(ho.id)} 
-                          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 opacity-80 transition-all hover:bg-rose-500 hover:text-white hover:opacity-100"
-                          title="Delete Held Order"
-                        >
-                          <FaTrashAlt className="h-3.5 w-3.5" />
-                        </button>
+                        <div className="absolute right-3 top-3 flex gap-2">
+                          <button
+                            onClick={() => handleEditHeldOrder(ho)}
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 opacity-80 transition-all hover:bg-yellow-500 hover:text-white hover:opacity-100"
+                            title="Edit Held Order"
+                          >
+                            <FaEdit className="h-3.5 w-3.5" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteHeldOrder(ho.id)} 
+                            className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 opacity-80 transition-all hover:bg-rose-500 hover:text-white hover:opacity-100"
+                            title="Delete Held Order"
+                          >
+                            <FaTrashAlt className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
   
-                        <div className="mb-3 flex items-start justify-between border-b border-dashed border-slate-200 pb-3 pr-10">
+                        <div className="mb-3 flex items-start justify-between border-b border-dashed border-slate-200 pb-3 pr-16">
                           <div>
                             <div className="flex items-center gap-1.5 mb-1">
-                              <span className="text-xs font-bold text-slate-400">HELD</span>
                               <span className="text-lg font-black text-slate-900">{ho.timestamp}</span>
                             </div>
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-yellow-100 text-yellow-700">

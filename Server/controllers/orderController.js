@@ -6,7 +6,7 @@ import {
   KITCHEN_SOCKET_ROOM,
   SOCKET_EVENTS
 } from "../utils/socket.js";
-import { adjustStockForOrderItem } from "./orderItemController.js";
+import { adjustStockForOrderItem, fetchBranchProduct } from "./orderItemController.js";
 
 
 // Unit conversion for recipe ingredients
@@ -77,10 +77,11 @@ function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
   }
   // Sanity check: cost with tax should roughly match (within 1% tolerance for rounding)
   if (or_tax !== undefined && or_tax !== null && !isNaN(tax)) {
-    const expected = parseFloat((cost + tax).toFixed(2));
+    const taxAmount = (cost * tax) / 100;
+    const expected = parseFloat((cost + taxAmount).toFixed(2));
     const diff = Math.abs(expected - costWtx);
-    if (diff > 0.05) {
-      return `or_totalCostWtax (${costWtx}) does not match or_totalcost + or_tax = ${expected}`;
+    if (diff > 1.0) {
+      return `or_totalCostWtax (${costWtx}) does not match expected cost with ${tax}% tax (${expected})`;
     }
   }
   return null;
@@ -429,160 +430,150 @@ export const createOrder = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
-// PUT /orders/:id — full update
-// Roles allowed: Branch Admin (1), Admin (2)
+// PUT /orders/:id — update order (unified)
 // ─────────────────────────────────────────────
 export const updateOrder = async (req, res) => {
+  const client = await pool.connect();
   try {
     const id = parseInt(req.params.id, 10);
     if (isNaN(id) || id <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid order ID" });
+      return res.status(400).json({ success: false, error: "Invalid order ID" });
     }
 
-    const {
-      or_tax,
-      or_totalcost,
-      or_totalCostWtax,
-      or_status,
-      or_type,
-      u_id,
-      b_id,
-      table_id,
-      or_notes = null,
-      or_addons = null,
-      or_addons_price = 0,
-      or_allergies = null,
-    } = req.body;
+    await client.query("BEGIN");
 
-    // ── Required fields for full update ──
-    const missing = [];
-    if (or_tax === undefined) missing.push("or_tax");
-    if (or_totalcost === undefined) missing.push("or_totalcost");
-    if (or_totalCostWtax === undefined) missing.push("or_totalCostWtax");
-    if (!or_status) missing.push("or_status");
-    if (!or_type) missing.push("or_type");
-    if (!u_id) missing.push("u_id");
-    if (!b_id) missing.push("b_id");
-
-    if (missing.length) {
-      return res.status(400).json({
-        success: false,
-        error: `Missing required fields for full update: ${missing.join(", ")}`,
-      });
-    }
-
-    // ── Fetch current order to validate status transition ──
-    const existing = await pool.query(
-      `SELECT or_status, table_id FROM "ORDER" WHERE or_id = $1`,
-      [id],
+    // Fetch existing order FOR UPDATE
+    const existingResult = await client.query(
+      `SELECT * FROM "ORDER" WHERE or_id = $1 FOR UPDATE`,
+      [id]
     );
-    if (!existing.rows.length) {
+    if (!existingResult.rows.length) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ success: false, error: "Order not found" });
     }
-    const currentStatus = existing.rows[0].or_status;
+    const existing = existingResult.rows[0];
 
-    // ── Enum validation ──
+    // Merge incoming data with existing
+    const or_tax = req.body.or_tax !== undefined ? req.body.or_tax : existing.or_tax;
+    const or_totalcost = req.body.or_totalcost !== undefined ? req.body.or_totalcost : existing.or_totalcost;
+    const or_totalCostWtax = req.body.or_totalCostWtax !== undefined ? req.body.or_totalCostWtax : existing["or_totalCostWtax"];
+    const or_status = req.body.or_status !== undefined ? req.body.or_status : existing.or_status;
+    const or_type = req.body.or_type !== undefined ? req.body.or_type : existing.or_type;
+    const u_id = req.body.u_id !== undefined ? req.body.u_id : existing.u_id;
+    const b_id = req.body.b_id !== undefined ? req.body.b_id : existing.b_id;
+    const table_id = req.body.table_id !== undefined ? req.body.table_id : existing.table_id;
+    const or_notes = req.body.or_notes !== undefined ? req.body.or_notes : existing.or_notes;
+    const or_addons = req.body.or_addons !== undefined ? req.body.or_addons : existing.or_addons;
+    const or_addons_price = req.body.or_addons_price !== undefined ? req.body.or_addons_price : existing.or_addons_price;
+    const or_allergies = req.body.or_allergies !== undefined ? req.body.or_allergies : existing.or_allergies;
+    
+    const items = req.body.items; // array or undefined
+
+    // Validation
     if (!VALID_TYPES.includes(or_type)) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: `Invalid or_type. Use: ${VALID_TYPES.join(" | ")}`,
-        });
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, error: `Invalid or_type. Use: ${VALID_TYPES.join(" | ")}` });
     }
 
-    // ── Status transition guard ──
-    if (or_status !== currentStatus) {
-      const transitionError = validateStatusTransition(
-        currentStatus,
-        or_status,
-      );
+    if (or_status !== existing.or_status) {
+      const transitionError = validateStatusTransition(existing.or_status, or_status);
       if (transitionError) {
+        await client.query("ROLLBACK");
         return res.status(400).json({ success: false, error: transitionError });
       }
     }
 
-    // ── Block editing terminal orders (completed / cancelled) ──
     const isCashier = req.user?.role_id === ROLES.CASHIER;
-    const isStatusUnchanged = or_status === currentStatus;
+    const isStatusUnchanged = or_status === existing.or_status;
     if (
-      currentStatus === "cancelled" ||
-      (currentStatus === "completed" && !(isCashier && isStatusUnchanged))
+      existing.or_status === "cancelled" ||
+      (existing.or_status === "completed" && !(isCashier && isStatusUnchanged))
     ) {
-      return res.status(400).json({
-        success: false,
-        error: `Cannot edit a "${currentStatus}" order`,
-      });
+      await client.query("ROLLBACK");
+      return res.status(400).json({ success: false, error: `Cannot edit a "${existing.or_status}" order` });
     }
 
-    // ── Cost validation ──
     const costError = validateCosts(or_tax, or_totalcost, or_totalCostWtax);
     if (costError) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: costError });
     }
 
-    // ── Type-specific business rules ──
     const typeError = validateTypeConstraints(or_type, table_id, req.user?.features);
     if (typeError) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: typeError });
     }
 
-    const { rows } = await pool.query(
+    // UPDATE ORDER
+    const orderUpdate = await client.query(
       `UPDATE "ORDER" SET
-         or_tax             = $1,
-         or_totalcost       = $2,
-         "or_totalCostWtax" = $3,
-         or_status          = $4,
-         or_type            = $5,
-         u_id               = $6,
-         b_id               = $7,
-         table_id           = $8,
-         or_notes           = $9,
-         or_addons          = $10,
-         or_addons_price    = $11,
-         or_allergies       = $12
+         or_tax = $1, or_totalcost = $2, "or_totalCostWtax" = $3,
+         or_status = $4, or_type = $5, u_id = $6, b_id = $7,
+         table_id = $8, or_notes = $9, or_addons = $10,
+         or_addons_price = $11, or_allergies = $12
        WHERE or_id = $13
        RETURNING *`,
       [
-        parseFloat(or_tax),
-        parseFloat(or_totalcost),
-        parseFloat(or_totalCostWtax),
-        or_status,
-        or_type,
-        u_id,
-        b_id,
-        table_id !== undefined ? table_id : existing.rows[0].table_id,
-        or_notes || null,
-        or_addons || null,
-        parseFloat(or_addons_price),
-        or_allergies || null,
-        id,
-      ],
+        parseFloat(or_tax), parseFloat(or_totalcost), parseFloat(or_totalCostWtax),
+        or_status, or_type, u_id, b_id, table_id || null, or_notes || null, or_addons || null,
+        parseFloat(or_addons_price), or_allergies || null, id
+      ]
     );
 
-    emitSocketEvent("order:updated", rows[0]);
-    if (rows[0].or_status === "completed") {
-      emitSocketEvent("order:ready", rows[0]);
+    // Table transitions
+    if (existing.table_id && existing.table_id !== table_id) {
+      await client.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [existing.table_id]);
+      emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: existing.table_id, table_status: 'available', branch_id: existing.b_id }, { room: `branch-updates` });
     }
-    res.status(200).json({ success: true, data: rows[0] });
+    if (table_id && existing.table_id !== table_id) {
+      await client.query(`UPDATE "TABLES" SET table_status = 'occupied' WHERE table_id = $1`, [table_id]);
+      emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: table_id, table_status: 'occupied', branch_id: existing.b_id }, { room: `branch-updates` });
+    }
+
+    // Item replacements
+    if (items !== undefined && Array.isArray(items)) {
+      const oldItemsRes = await client.query(
+        `SELECT "orderItem_id", "Bpro_id", pro_quantity FROM "ORDER_ITEM" WHERE order_id = $1 FOR UPDATE`,
+        [id]
+      );
+      for (const item of oldItemsRes.rows) {
+        const bProduct = await fetchBranchProduct(item.Bpro_id);
+        if (bProduct) await adjustStockForOrderItem(client, bProduct, item.pro_quantity, "add");
+        await client.query(`DELETE FROM "ORDER_ITEM" WHERE "orderItem_id" = $1`, [item.orderItem_id]);
+      }
+      for (const item of items) {
+        const bProduct = await fetchBranchProduct(item.Bpro_id);
+        if (!bProduct) throw new Error(`Branch product ${item.Bpro_id} not found`);
+        const qty = parseInt(item.qty || item.pro_quantity || 1, 10);
+        const price = parseFloat(item.unit_price || item.branch_price || 0);
+        const total_price = parseFloat((price * qty).toFixed(2));
+        await adjustStockForOrderItem(client, bProduct, qty, "subtract");
+        await client.query(
+          `INSERT INTO "ORDER_ITEM" ("Bpro_id", pro_quantity, unit_price, total_price, order_id) VALUES ($1, $2, $3, $4, $5)`,
+          [item.Bpro_id, qty, price, total_price, id]
+        );
+      }
+    }
+
+    await client.query("COMMIT");
+
+    emitSocketEvent(SOCKET_EVENTS.ORDER_UPDATED, orderUpdate.rows[0]);
+    if (orderUpdate.rows[0].or_status === "completed") {
+      emitSocketEvent("order:ready", orderUpdate.rows[0]);
+    }
+    res.status(200).json({ success: true, data: orderUpdate.rows[0] });
   } catch (err) {
-    if (err.code === "23514")
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Constraint violation: invalid status or type value",
-        });
-    if (err.code === "23503")
-      return res
-        .status(400)
-        .json({
-          success: false,
-          error: "Foreign key violation — check b_id, u_id, table_id",
-        });
+    await client.query("ROLLBACK");
+    if (err.code === "23514") {
+      return res.status(400).json({ success: false, error: "Constraint violation: invalid status or type value" });
+    }
+    if (err.code === "23503") {
+      return res.status(400).json({ success: false, error: "Foreign key violation — check b_id, u_id, table_id" });
+    }
     res.status(500).json({ success: false, error: err.message });
+  } finally {
+    client.release();
   }
 };
 
@@ -838,9 +829,6 @@ export const updateOrderStatus = async (req, res) => {
     if (status === "completed") {
       emitSocketEvent("order:ready", updatedOrder, {
         room: `branch-updates`,
-      });
-      emitSocketEvent("order:ready", updatedOrder, {
-        room: getCashierSocketRoom(updatedOrder.u_id),
       });
     }
 
