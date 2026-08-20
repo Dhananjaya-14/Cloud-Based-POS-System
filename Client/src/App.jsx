@@ -69,6 +69,7 @@ import BranchWiseSalesReport from './pages/admin/BranchWiseSalesReport';
 import AdminSupplierManagement from './pages/admin/SupplierManagement';
 import WasteManagement from './pages/branch-admin/WasteManagement';
 import ReturnManagement from './pages/branch-admin/ReturnManagement';
+import BillSettings from './pages/admin/InvoiceSettings';
 
 const BranchProfileRouter = () => {
   const { user } = useAuth();
@@ -148,6 +149,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[2, 6]}>
             <AdminActivityLog />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/admin/bill-settings"
+        element={
+          <ProtectedRoute allowedRoles={[2]}>
+            <BillSettings />
           </ProtectedRoute>
         }
       />

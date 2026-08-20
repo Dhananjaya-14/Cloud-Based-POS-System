@@ -11,7 +11,7 @@ function sanitizeName(value) {
 export async function getCompanies(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id" FROM "Company" ORDER BY "com_id"',
+      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo" FROM "Company" ORDER BY "com_id"',
     );
     res.json(result.rows);
   } catch (err) {
@@ -22,8 +22,14 @@ export async function getCompanies(req, res, next) {
 export async function getCompanyById(req, res, next) {
   try {
     const { id } = req.params;
+
+    if (req.user.role_id !== 6 && parseInt(req.user.com_id) !== parseInt(id)) {
+      res.status(403);
+      throw new Error("You can only view your own company");
+    }
+
     const result = await pool.query(
-      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone" FROM "Company" WHERE "com_id" = $1',
+      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "bill_greeting", "bill_logo" FROM "Company" WHERE "com_id" = $1',
       [id],
     );
 
@@ -86,10 +92,10 @@ export async function createCompany(req, res, next) {
 export async function updateCompany(req, res, next) {
   try {
     const { id } = req.params;
-    const { com_name, c_status, c_email, reg_date, location, phone, package_id } = req.body;
+    const { com_name, c_status, c_email, reg_date, location, phone, package_id, bill_greeting, bill_logo } = req.body;
     const sanitizedName = com_name ? sanitizeName(com_name) : null;
 
-    if (!sanitizedName && c_status === undefined && !c_email && !reg_date && !location && !phone && package_id === undefined) {
+    if (!sanitizedName && c_status === undefined && !c_email && !reg_date && !location && !phone && package_id === undefined && bill_greeting === undefined && bill_logo === undefined) {
       res.status(400);
       throw new Error("At least one field is required to update");
     }
@@ -111,10 +117,12 @@ export async function updateCompany(req, res, next) {
            "reg_date" = COALESCE($4, "reg_date"),
            "location" = COALESCE($5, "location"),
            "phone"    = COALESCE($6, "phone"),
-           "package_id" = COALESCE($8, "package_id")
+           "package_id" = COALESCE($8, "package_id"),
+           "bill_greeting" = COALESCE($9, "bill_greeting"),
+           "bill_logo" = COALESCE($10, "bill_logo")
        WHERE "com_id" = $7
-       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id"`,
-      [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null],
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo"`,
+      [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null, bill_greeting ?? null, bill_logo ?? null],
     );
 
     const updatedCompany = result.rows[0];
@@ -200,6 +208,68 @@ export async function deleteCompany(req, res, next) {
           "Cannot delete company: it is referenced by existing records",
         ),
       );
+    }
+    next(err);
+  }
+}
+
+export async function updateCompanySettings(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { com_name, location, phone, bill_greeting, bill_logo } = req.body;
+    
+    // Ensure the user is updating their own company if they are not super admin
+    if (req.user.role_id !== 6 && parseInt(req.user.com_id) !== parseInt(id)) {
+      res.status(403);
+      throw new Error("You can only update your own company settings");
+    }
+
+    const sanitizedName = com_name ? sanitizeName(com_name) : null;
+
+    if (!sanitizedName && location === undefined && phone === undefined && bill_greeting === undefined && bill_logo === undefined) {
+      res.status(400);
+      throw new Error("At least one setting field is required to update");
+    }
+
+    const existing = await pool.query(
+      'SELECT "com_id" FROM "Company" WHERE "com_id" = $1',
+      [id],
+    );
+    if (existing.rows.length === 0) {
+      res.status(404);
+      throw new Error("Company not found");
+    }
+
+    const result = await pool.query(
+      `UPDATE "Company"
+       SET "com_name" = COALESCE($1, "com_name"),
+           "location" = COALESCE($2, "location"),
+           "phone" = COALESCE($3, "phone"),
+           "bill_greeting" = COALESCE($4, "bill_greeting"),
+           "bill_logo" = COALESCE($5, "bill_logo")
+       WHERE "com_id" = $6
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo"`,
+      [sanitizedName ?? null, location ?? null, phone ?? null, bill_greeting ?? null, bill_logo ?? null, id],
+    );
+
+    const updatedCompany = result.rows[0];
+    
+    // Emit company updated event to all connected super admins
+    try {
+      const io = getIO();
+      if (io) {
+        io.emit(SOCKET_EVENTS.COMPANY_UPDATED, updatedCompany);
+        emitCompanyEvent(SOCKET_EVENTS.COMPANY_UPDATED, updatedCompany, updatedCompany.com_id);
+      }
+    } catch (socketError) {
+      console.error("Error emitting socket event:", socketError);
+    }
+
+    res.json(updatedCompany);
+  } catch (err) {
+    if (err?.code === "23505") {
+      res.status(409);
+      return next(new Error("A company with that name already exists"));
     }
     next(err);
   }
