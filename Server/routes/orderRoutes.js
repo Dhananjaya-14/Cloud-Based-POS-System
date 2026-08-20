@@ -8,6 +8,7 @@ import {
   updateOrderStatus,
   deleteOrder,
   checkOrderStock,
+
 } from "../controllers/orderController.js";
 
 import {
@@ -59,6 +60,9 @@ const canDeleteOrder = requireRole(
 router.get("/", requireAuth, canReadOrders, getAllOrders);
 
 router.get("/:id", requireAuth, canReadOrders, getOrderById);
+
+// Bulk edit for waitstaff and cashiers
+
 
 // POST /orders/check-stock — must be before POST "/"
 router.post("/check-stock", requireAuth, canCreateOrder, checkOrderStock);

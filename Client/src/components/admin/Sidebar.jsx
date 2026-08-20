@@ -15,6 +15,7 @@ import {
   FaClipboardList,
   FaLock,
 } from "react-icons/fa";
+import { PiInvoiceBold } from "react-icons/pi";
 import { useAuth } from "../../context/AuthContext";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
@@ -115,6 +116,7 @@ const Sidebar = () => {
             {!isLocked("has_inventory") && menuItem(<FaTruck />, "Suppliers", "/admin/suppliers")}
             {!isLocked("has_reports") && menuItem(<FaFileAlt />, "Reports", "/admin/sales-details")}
             {menuItem(<FaClipboardList />, "Activity Log", "/admin/activity-log")}
+            {menuItem(<PiInvoiceBold  />, "Invoice Settings", "/admin/bill-settings")}
           </div>
         </div>
 

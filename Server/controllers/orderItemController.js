@@ -56,7 +56,7 @@ async function fetchOrder(order_id) {
  * Verifies that the referenced branch product exists in the DB.
  * Returns the branch product row or null.
  */
-async function fetchBranchProduct(Bpro_id) {
+export async function fetchBranchProduct(Bpro_id) {
   const { rows } = await pool.query(
     `SELECT bp."Bpro_id", bp.pro_name, bp." Pro_Price" AS "Pro_Price", bp.pro_id, bp."B_id", p.product_type
      FROM public."Branch_Product" bp
