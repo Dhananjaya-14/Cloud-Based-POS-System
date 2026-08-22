@@ -1,7 +1,7 @@
 // controllers/paymentController.js
 import { body, param, query, validationResult } from "express-validator";
 import pool from "../config/database.js";
-import { emitSocketEvent, ADMIN_PAYMENT_ROOM } from "../utils/socket.js";
+import { emitSocketEvent, ADMIN_PAYMENT_ROOM, SOCKET_EVENTS } from "../utils/socket.js";
 
 // ─── DB-Aligned Constants ─────────────────────────────────────────────────────
 // Adjust these to match your Payment table CHECK constraints if you have them
@@ -301,10 +301,10 @@ export const createPaymentValidation = [
       if (!rows.length) {
         throw new Error(`Order ${or_id} does not exist`);
       }
-      if (!["pending", "preparing"].includes(rows[0].or_status)) {
+      if (!["pending", "preparing", "completed"].includes(rows[0].or_status)) {
         throw new Error(
           `Cannot create a payment for an order with status '${rows[0].or_status}'. ` +
-          `Order must be pending or preparing.`,
+          `Order must be pending, preparing, or completed.`,
         );
       }
       return true;
@@ -344,8 +344,23 @@ export async function createPayment(req, res, next) {
       [pay_method, pay_status, pay_date, pay_amount, or_id],
     );
 
+    let updatedTableId = null;
+    let branchId = null;
+
+    if (pay_status === "paid") {
+      const orderRes = await client.query(`SELECT table_id, b_id FROM "ORDER" WHERE or_id = $1`, [or_id]);
+      if (orderRes.rows.length && orderRes.rows[0].table_id) {
+        updatedTableId = orderRes.rows[0].table_id;
+        branchId = orderRes.rows[0].b_id;
+        await client.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [updatedTableId]);
+      }
+    }
 
     await client.query('COMMIT');
+
+    if (updatedTableId && branchId) {
+      emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: updatedTableId, table_status: 'available', branch_id: branchId }, { room: `branch-updates` });
+    }
 
     res.status(201).json({ success: true, data: paymentResult.rows[0] });
   } catch (err) {
@@ -480,6 +495,21 @@ export async function updatePayment(req, res, next) {
        RETURNING *`,
       [pay_method, pay_status, pay_date, pay_amount, or_id, id],
     );
+
+    let updatedTableId = null;
+    let branchId = null;
+    if (pay_status === "paid" && prevStatus !== "paid") {
+      const orderRes = await pool.query(`SELECT table_id, b_id FROM "ORDER" WHERE or_id = $1`, [or_id]);
+      if (orderRes.rows.length && orderRes.rows[0].table_id) {
+        updatedTableId = orderRes.rows[0].table_id;
+        branchId = orderRes.rows[0].b_id;
+        await pool.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [updatedTableId]);
+      }
+    }
+
+    if (updatedTableId && branchId) {
+      emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: updatedTableId, table_status: 'available', branch_id: branchId }, { room: `branch-updates` });
+    }
 
     if (!rows.length) {
       return res

@@ -43,6 +43,7 @@ import RawMaterialConsumptionReport from './pages/branch-admin/RawMaterialConsum
 import SalesDetailsReport from './pages/cashier/SalesDetailsReport';
 import SuperAdminActivityLog from './pages/super-admin/ActivityLog';
 import AdminActivityLog from './pages/admin/ActivityLog';
+import CreatePurchaseOrder from './pages/branch-admin/CreatePurchaseOrder';
 
 // const BranchProfileRouter = () => {
 //   const { user } = useAuth();
@@ -594,7 +595,7 @@ function App() {
        <Route
         path="/branch-admin/tables"
         element={
-          <ProtectedRoute allowedRoles={[1, 2]}>
+          <ProtectedRoute allowedRoles={[1, 2, 8]}>
             <TableManagement />
           </ProtectedRoute>}
       />
@@ -604,6 +605,15 @@ function App() {
         element={
           <ProtectedRoute allowedRoles={[1, 2]} requiredFeature="has_inventory">
             <ReturnManagement />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/branch-admin/purchase-orders/new"
+        element={
+          <ProtectedRoute allowedRoles={[1, 2]} requiredFeature="has_inventory">
+            <CreatePurchaseOrder />
           </ProtectedRoute>
         }
       />

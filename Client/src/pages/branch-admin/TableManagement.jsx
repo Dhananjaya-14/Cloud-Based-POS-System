@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { getTablesByBranch, createTable, updateTable, deleteTable } from "../../services/api";
+import { connectSocket, subscribeToTableUpdates } from "../../services/socket";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import { FaPlus,FaRegEdit, FaTrash, FaSearch, FaCheck, FaChair, FaClock, FaHeartbeat, FaMapMarkerAlt, FaUserFriends, FaThLarge, FaList, FaExclamationTriangle } from "react-icons/fa";
@@ -191,6 +192,22 @@ const TableManagement = () => {
 
   useEffect(() => {
     fetchTables(true);
+
+    if (user?.b_id) {
+      connectSocket();
+      const unsubscribe = subscribeToTableUpdates(user.b_id, {
+        onTableUpdated: (data) => {
+          setTables((prev) =>
+            prev.map((t) =>
+              t.table_id === data.table_id
+                ? { ...t, table_status: data.table_status, status: data.table_status.charAt(0).toUpperCase() + data.table_status.slice(1) }
+                : t
+            )
+          );
+        }
+      });
+      return () => unsubscribe();
+    }
   }, [user?.b_id]);
 
   const openAddModal = () => {
