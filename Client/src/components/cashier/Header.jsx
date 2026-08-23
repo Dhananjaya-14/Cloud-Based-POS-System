@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
 import { FaBell, FaUserCircle, FaSignOutAlt } from "react-icons/fa";
 import icon1 from "../../assets/images/DashboardIcon.png";
@@ -15,7 +16,8 @@ const ROLE_LABELS = {
 };
 
 const CashierHeader = () => {
-  const { user, logout } = useAuth();
+  const { t } = useTranslation();
+const { user, logout } = useAuth();
   const [branchName, setBranchName] = useState("Loading...");
   const roleLabel = ROLE_LABELS[user?.role_id] || "Staff";
 
@@ -45,13 +47,13 @@ const CashierHeader = () => {
           <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-white/20">
             <img
               src={posIcon}
-              alt="Hotel POS logo"
+              alt={t("cashier.hotel_pos_logo", "Hotel POS logo")}
               className="w-7 h-7 object-contain"
             />
           </div>
           <div className="leading-tight">
-            <div className="text-[17px] font-semibold tracking-wide">Hotel POS</div>
-            <div className="text-[13px] text-white/80">Point of Sale System</div>
+            <div className="text-[17px] font-semibold tracking-wide">{t("cashier.hotel_pos", "Hotel POS")}</div>
+            <div className="text-[13px] text-white/80">{t("cashier.point_of_sale_system", "Point of Sale System")}</div>
           </div>
         </div>
 
@@ -73,7 +75,7 @@ const CashierHeader = () => {
             className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80"
           >
             <FaSignOutAlt className="h-3.5 w-3.5" />
-            <span>Logout</span>
+            <span>{t("cashier.logout", "Logout")}</span>
           </button>
         </div>
       </div>

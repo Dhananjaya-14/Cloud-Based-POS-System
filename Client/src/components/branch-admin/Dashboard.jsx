@@ -13,6 +13,7 @@ import {
 	getRawMaterials,
 	getLowStockMaterials,
 } from "../../services/api";
+import { useTranslation } from "react-i18next";
 
 const formatCurrency = (value) => {
 	const number = Number(value || 0);
@@ -32,6 +33,7 @@ const Dashboard = () => {
 	const [users, setUsers] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
+	const { t } = useTranslation();
 
 	useEffect(() => {
 		let isMounted = true;
@@ -186,26 +188,26 @@ const Dashboard = () => {
 		<>
 			<Sidebar />
 			<div style={{ marginLeft: 240, background: "#F4F6FB", minHeight: "100vh" }}>
-				<Header title="Branch Admin Overview" showAddUserIcon={false} />
+				<Header title={t("branch_admin.branch_admin_overview", "Branch Admin Overview")} showAddUserIcon={false} />
 
 				<div className="p-8">
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
 						<div>
-							<h3 className="text-[22px] font-bold text-slate-900">Today&apos;s Sales</h3>
-							<p className="text-[15px] text-slate-500">Sales summary</p>
+							<h3 className="text-[22px] font-bold text-slate-900">{t("branch_admin.today_s_sales", "Today's Sales")}</h3>
+							<p className="text-[15px] text-slate-500">{t("branch_admin.sales_summary", "Sales summary")}</p>
 						</div>
 						<button
 							type="button"
 							onClick={() => navigate("/branch-admin/transactions")}
 							className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50"
 						>
-							See Transactions
+							{t("branch_admin.see_transactions", t("buttons.see_transactions", "See Transactions"))}
 						</button>
 					</div>
 
 					<div className="flex flex-col lg:flex-row gap-4 mb-8">
 						<StatCard
-							title="Total Revenue"
+							title={t("branch_admin.total_revenue", "Total Revenue")}
 							value={isLoading ? "..." : formatCurrency(totalRevenue)}
 							showAction={false}
 							cardClass=""
@@ -214,7 +216,7 @@ const Dashboard = () => {
 							icon={<FaDollarSign />}
 						/>
 						<StatCard
-							title="Total Sales"
+							title={t("branch_admin.total_sales", "Total Sales")}
 							value={isLoading ? "..." : String(orders.length)}
 							showAction={false}
 							cardClass=""
@@ -223,7 +225,7 @@ const Dashboard = () => {
 							icon={<FaShoppingCart />}
 						/>
 						<StatCard
-							title="Top Selling Item"
+							title={t("branch_admin.top_selling_item", "Top Selling Item")}
 							value={isLoading ? "..." : topSelling.name}
 							showAction={false}
 							cardClass=""
@@ -232,7 +234,7 @@ const Dashboard = () => {
 							icon={<FaStar />}
 						/>
 						<StatCard
-							title="Active Staff"
+							title={t("branch_admin.active_staff", "Active Staff")}
 							value={isLoading ? "..." : String(cashierUsers.length)}
 							showAction={false}
 							cardClass=""

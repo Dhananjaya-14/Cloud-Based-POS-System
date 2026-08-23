@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
@@ -5,7 +6,8 @@ import LoginLayout from "../components/register/LoginLayout";
 import { useAuth } from "../context/AuthContext";
 
 const Login = () => {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
+const navigate = useNavigate();
   const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [u_email, setEmail] = useState("");
@@ -40,19 +42,19 @@ const Login = () => {
       <div>
         <div style={badgeStyle}>
           <span style={dotStyle}></span>
-          Hotel POS
+          {t("auth.hotel_pos", "Hotel POS")}
         </div>
 
         <h2 style={{ fontSize: "26px", color: "#1a1a1a", margin: "12px 0 4px" }}>
-          Login
+          {t("auth.login", "Login")}
         </h2>
         <p style={{ color: "#888", marginBottom: "28px", fontSize: "14px" }}>
-          Welcome back! Please login to your account.
+          {t("auth.welcome_back_please_login_to_your_account", "Welcome back! Please login to your account.")}
         </p>
 
         <form onSubmit={handleSubmit}>
           <div style={inputGroup}>
-            <label style={labelStyle}>Email</label>
+            <label style={labelStyle}>{t("auth.email", "Email")}</label>
             <div style={{ position: "relative" }}>
               <Mail size={18} style={iconStyle} />
               <input
@@ -60,14 +62,14 @@ const Login = () => {
                 value={u_email}
                 onChange={(e) => setEmail(e.target.value)}
                 style={inputWithIconStyle}
-                placeholder="Enter your email"
+                placeholder={t("auth.enter_your_email", "Enter your email")}
                 required
               />
             </div>
           </div>
 
           <div style={{ ...inputGroup, marginTop: "18px" }}>
-            <label style={labelStyle}>Password</label>
+            <label style={labelStyle}>{t("auth.password", "Password")}</label>
             <div style={{ position: "relative" }}>
               <Lock size={18} style={iconStyle} />
               <input
@@ -75,7 +77,7 @@ const Login = () => {
                 value={u_pw}
                 onChange={(e) => setPw(e.target.value)}
                 style={inputWithIconStyle}
-                placeholder="Enter your password"
+                placeholder={t("auth.enter_your_password", "Enter your password")}
                 required
               />
               <button
@@ -90,10 +92,10 @@ const Login = () => {
 
           <div style={rowStyle}>
             <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", color: "#555" }}>
-              <input type="checkbox" /> Remember Me
+              <input type="checkbox" /> {t("auth.remember_me", "Remember Me")}
             </label>
             <span style={{ color: "#0056A2", fontSize: "13px", cursor: "pointer", fontWeight: "600" }}>
-              Forgot Password?
+              {t("auth.forgot_password", "Forgot Password?")}
             </span>
           </div>
 
@@ -105,9 +107,9 @@ const Login = () => {
         </form>
 
         <p style={{ marginTop: "20px", fontSize: "14px", color: "#666", textAlign: "center" }}>
-          New Here?{" "}
+          {t("auth.new_here", "New Here?")}{" "}
           <span onClick={() => navigate("/register/step-1")} style={{ color: "#0056A2", fontWeight: "bold", cursor: "pointer", textDecoration: "underline" }}>
-            Sign Up
+            {t("auth.sign_up", "Sign Up")}
           </span>
         </p>
 

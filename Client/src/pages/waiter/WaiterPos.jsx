@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -68,7 +69,8 @@ const getCategoryIcon = (name) => {
 };
 
 const WaiterPos = () => {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
+const navigate = useNavigate();
   const { user, logout, features } = useAuth();
   const kitchenEnabled = features?.has_kitchen === true;
   const inventoryEnabled = features?.has_inventory === true;
@@ -583,7 +585,7 @@ const WaiterPos = () => {
       <div className="flex min-h-screen items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-4">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#55C24A]"></div>
-          <p className="font-medium text-slate-600">Loading Waiter System...</p>
+          <p className="font-medium text-slate-600">{t("waiter.loading_waiter_system", "Loading Waiter System...")}</p>
         </div>
       </div>
     );
@@ -605,8 +607,8 @@ const WaiterPos = () => {
               <FaStore className="h-5 w-5" />
             </div>
             <div className="leading-tight">
-              <div className="text-[15px] font-semibold tracking-wide">Hotel POS</div>
-              <div className="text-[11px] text-white/80">Point of Sale System</div>
+              <div className="text-[15px] font-semibold tracking-wide">{t("waiter.hotel_pos", "Hotel POS")}</div>
+              <div className="text-[11px] text-white/80">{t("waiter.point_of_sale_system", "Point of Sale System")}</div>
             </div>
           </div>
 
@@ -627,12 +629,12 @@ const WaiterPos = () => {
               {showNotifications && (
                 <div className="absolute right-0 mt-2 w-72 origin-top-right rounded-2xl bg-white p-2 shadow-2xl ring-1 ring-black/5">
                   <div className="mb-2 px-3 pt-2">
-                    <h3 className="text-sm font-bold text-slate-800">Notifications</h3>
+                    <h3 className="text-sm font-bold text-slate-800">{t("waiter.notifications", "Notifications")}</h3>
                   </div>
                   <div className="max-h-60 overflow-y-auto custom-scrollbar">
                     {notifications.length === 0 ? (
                       <div className="px-4 py-6 text-center text-sm text-slate-400">
-                        No new notifications
+                        {t("waiter.no_new_notifications", "No new notifications")}
                       </div>
                     ) : (
                       <div className="flex flex-col gap-1">
@@ -647,7 +649,7 @@ const WaiterPos = () => {
                                 setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
                               }}
                               className="absolute right-2 top-2 hidden h-5 w-5 items-center justify-center rounded-md text-slate-400 hover:bg-slate-200 hover:text-slate-600 group-hover:flex"
-                              title="Dismiss"
+                              title={t("waiter.dismiss", "Dismiss")}
                             >
                               ✕
                             </button>
@@ -668,7 +670,7 @@ const WaiterPos = () => {
                         onClick={() => setNotifications([])}
                         className="w-full rounded-lg py-1.5 text-xs font-bold text-slate-500 hover:bg-slate-50 hover:text-slate-700"
                       >
-                        Clear All
+                        {t("waiter.clear_all", "Clear All")}
                       </button>
                     </div>
                   )}
@@ -693,7 +695,7 @@ const WaiterPos = () => {
               className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80"
             >
               <FaSignOutAlt className="h-3.5 w-3.5" />
-              Logout
+              {t("waiter.logout", "Logout")}
             </button>
           </div>
         </div>
@@ -706,8 +708,8 @@ const WaiterPos = () => {
       <aside className="flex flex-col w-[350px] shrink-0 border-r border-slate-200 bg-white shadow-[2px_0_10px_rgba(0,0,0,0.02)] z-20">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-black tracking-tight text-slate-800">Table Layout</h2>
-            <p className="text-xs font-bold text-slate-400 mt-1">{tables.filter(t => t.table_status?.toLowerCase() === 'available').length} Tables Available</p>
+            <h2 className="text-xl font-black tracking-tight text-slate-800">{t("waiter.table_layout", "Table Layout")}</h2>
+            <p className="text-xs font-bold text-slate-400 mt-1">{tables.filter(t => t.table_status?.toLowerCase() === 'available').length} {t("waiter.tables_available", "Tables Available")}</p>
           </div>
         </div>
         
@@ -771,7 +773,7 @@ const WaiterPos = () => {
             <FaSearch className="absolute left-4 z-10 text-slate-400" />
             <input
               type="text"
-              placeholder="Search menu items..."
+              placeholder={t("waiter.search_menu_items", "Search menu items...")}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full rounded-full border border-slate-200 bg-slate-50 py-3 pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-[#0A5BAE] focus:bg-white focus:ring-4 focus:ring-blue-500/10"
@@ -810,7 +812,7 @@ const WaiterPos = () => {
                         {p.pro_name}
                       </h3>
                       <div className="text-xs font-semibold text-slate-500 mb-2">
-                        Stock: {p.pro_quantity}
+                        {t("waiter.stock", "Stock:")} {p.pro_quantity}
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="text-lg font-black text-[#55C24A]">
@@ -828,7 +830,7 @@ const WaiterPos = () => {
            ) : (
             <div className="flex h-[400px] flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 bg-white/50">
               <FaStore className="h-12 w-12 text-slate-300 mb-4" />
-              <p className="text-lg font-bold text-slate-500">No products found</p>
+              <p className="text-lg font-bold text-slate-500">{t("waiter.no_products_found", "No products found")}</p>
             </div>
            )}
         </div>
@@ -846,7 +848,7 @@ const WaiterPos = () => {
                 </span>
               )}
             </div>
-            View My Orders
+            {t("waiter.view_my_orders", "View My Orders")}
           </button>
         </div>
       </main>
@@ -854,10 +856,10 @@ const WaiterPos = () => {
       {/* RIGHT COLUMN: Cart */}
       <aside className="flex flex-col w-[380px] shrink-0 border-l border-slate-200 bg-white shadow-[-2px_0_10px_rgba(0,0,0,0.02)] z-20">
         <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-2xl font-black tracking-tight text-slate-800">Order</h2>
+          <h2 className="text-2xl font-black tracking-tight text-slate-800">{t("waiter.order", "Order")}</h2>
           <div className="flex items-center gap-2 bg-blue-50 text-[#0A5BAE] px-3 py-1.5 rounded-lg font-bold text-sm">
             <FaShoppingCart className="h-4 w-4" />
-            <span>{cart.length} Items</span>
+            <span>{cart.length} {t("waiter.items", "Items")}</span>
           </div>
         </div>
 
@@ -909,37 +911,37 @@ const WaiterPos = () => {
           <div className="px-4 pb-6 space-y-4">
             <div>
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                ⚠️ Allergies / Dietary Restrictions
+                {t("waiter.allergies_dietary_restrictions", "⚠️ Allergies / Dietary Restrictions")}
               </label>
               <input 
                 type="text" 
                 value={orderAllergies}
                 onChange={e => setOrderAllergies(e.target.value)}
-                placeholder="e.g., Nuts, Gluten, Dairy..." 
+                placeholder={t("waiter.e_g_nuts_gluten_dairy", "e.g., Nuts, Gluten, Dairy...")} 
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-500/20 shadow-sm"
               />
             </div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                ➕ Add Ons
+                {t("waiter.add_ons", "➕ Add Ons")}
               </label>
               <input 
                 type="text" 
                 value={orderAddOns}
                 onChange={e => setOrderAddOns(e.target.value)}
-                placeholder="Extra cheese, toppings, sides..." 
+                placeholder={t("waiter.extra_cheese_toppings_sides", "Extra cheese, toppings, sides...")} 
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-[#0A5BAE] focus:ring-2 focus:ring-blue-500/20 shadow-sm"
               />
             </div>
             <div>
               <label className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-2 flex items-center gap-1.5">
-                📝 Notes
+                {t("waiter.notes", "📝 Notes")}
               </label>
               <input 
                 type="text" 
                 value={orderNotes}
                 onChange={e => setOrderNotes(e.target.value)}
-                placeholder="Special requests, preferences..." 
+                placeholder={t("waiter.special_requests_preferences", "Special requests, preferences...")} 
                 className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:outline-none focus:border-[#0A5BAE] focus:ring-2 focus:ring-blue-500/20 shadow-sm"
               />
             </div>
@@ -950,16 +952,16 @@ const WaiterPos = () => {
         <div className="border-t border-slate-200 bg-white p-5 shadow-[0_-10px_40px_rgba(0,0,0,0.03)] z-10 flex-none">
           <div className="space-y-2 border-b border-slate-100 pb-4 text-sm mb-4">
             <div className="flex justify-between">
-              <span className="font-semibold text-slate-500">Subtotal</span>
+              <span className="font-semibold text-slate-500">{t("waiter.subtotal", "Subtotal")}</span>
               <span className="font-bold text-slate-800 tabular-nums">${taxableBase.toFixed(2)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="font-semibold text-slate-500">Tax ({taxRate}%)</span>
+              <span className="font-semibold text-slate-500">{t("waiter.tax", "Tax (")}{taxRate}%)</span>
               <span className="font-bold text-slate-800 tabular-nums">${taxAmount.toFixed(2)}</span>
             </div>
           </div>
           <div className="flex items-center justify-between mb-5 bg-[#E8F3FF] p-4 rounded-2xl">
-            <span className="text-lg font-black text-[#0A5BAE]">Total</span>
+            <span className="text-lg font-black text-[#0A5BAE]">{t("waiter.total", "Total")}</span>
             <span className="text-2xl font-black tracking-tight text-[#0A5BAE] tabular-nums">${total.toFixed(2)}</span>
           </div>
 
@@ -970,7 +972,7 @@ const WaiterPos = () => {
                 disabled={cart.length === 0}
                 className="flex-1 py-3 rounded-xl bg-yellow-400 text-yellow-900 font-bold text-sm shadow-sm hover:bg-yellow-500 transition-colors flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <PiPlayPauseBold className="h-4 w-4"/> Hold
+                <PiPlayPauseBold className="h-4 w-4"/> {t("waiter.hold", "Hold")}
               </button>
               <button
                 onClick={editingOrderId ? handleUpdateOrder : handlePlaceOrder}
@@ -993,12 +995,12 @@ const WaiterPos = () => {
                 }}
                 className="w-full rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-600 hover:bg-slate-200"
               >
-                Cancel Edit
+                {t("waiter.cancel_edit", "Cancel Edit")}
               </button>
             )}
           </div>
           {!selectedTable && cart.length > 0 && (
-             <p className="text-center text-red-500 text-xs font-bold mt-3">Select a table to confirm order.</p>
+             <p className="text-center text-red-500 text-xs font-bold mt-3">{t("waiter.select_a_table_to_confirm_order", "Select a table to confirm order.")}</p>
           )}
         </div>
       </aside>
@@ -1009,7 +1011,7 @@ const WaiterPos = () => {
           <div className="w-full max-w-4xl bg-white rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[680px]">
             <div className="flex flex-col border-b border-slate-100 bg-slate-50/50">
               <div className="flex items-center justify-between p-6 md:px-8 pb-4">
-                <h2 className="text-2xl font-black tracking-tight text-slate-800">My Orders</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-800">{t("waiter.my_orders", "My Orders")}</h2>
                 <div className="flex items-center gap-4">
                   {activeOrdersTab === "active" && (
                     <button onClick={() => fetchMyOrders(false)} disabled={loadingMyOrders} className="text-sm font-bold text-[#0A5BAE] hover:underline disabled:opacity-50">
@@ -1026,13 +1028,13 @@ const WaiterPos = () => {
                   onClick={() => setActiveOrdersTab("active")}
                   className={`pb-4 text-sm font-bold border-b-2 transition-colors ${activeOrdersTab === "active" ? "border-[#0A5BAE] text-[#0A5BAE]" : "border-transparent text-slate-500 hover:text-slate-800"}`}
                 >
-                  Active Orders {myOrders.length > 0 && <span className="ml-1 rounded-full bg-[#0A5BAE]/10 px-2 py-0.5 text-[#0A5BAE]">{myOrders.length}</span>}
+                  {t("waiter.active_orders", "Active Orders")} {myOrders.length > 0 && <span className="ml-1 rounded-full bg-[#0A5BAE]/10 px-2 py-0.5 text-[#0A5BAE]">{myOrders.length}</span>}
                 </button>
                 <button 
                   onClick={() => setActiveOrdersTab("held")}
                   className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeOrdersTab === "held" ? "border-yellow-500 text-yellow-600" : "border-transparent text-slate-500 hover:text-slate-800"}`}
                 >
-                  <PiPlayPauseBold className={activeOrdersTab === "held" ? "text-yellow-500" : ""} /> Held Orders 
+                  <PiPlayPauseBold className={activeOrdersTab === "held" ? "text-yellow-500" : ""} /> {t("waiter.held_orders", "Held Orders")} 
                   {heldOrders.length > 0 && <span className="ml-1 rounded-full bg-yellow-100 px-2 py-0.5 text-yellow-700">{heldOrders.length}</span>}
                 </button>
               </div>
@@ -1047,8 +1049,8 @@ const WaiterPos = () => {
                 ) : myOrders.length === 0 ? (
                   <div className="py-20 flex flex-col items-center opacity-60">
                     <FaClipboardList className="h-20 w-20 text-slate-300 mb-5" />
-                    <p className="text-xl font-bold text-slate-600">No active orders</p>
-                    <p className="text-sm font-semibold text-slate-400 mt-2">Orders you place will appear here</p>
+                    <p className="text-xl font-bold text-slate-600">{t("waiter.no_active_orders", "No active orders")}</p>
+                    <p className="text-sm font-semibold text-slate-400 mt-2">{t("waiter.orders_you_place_will_appear_here", "Orders you place will appear here")}</p>
                   </div>
                 ) : (
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -1060,7 +1062,7 @@ const WaiterPos = () => {
                               <button
                                 onClick={() => handleEditOrder(order)}
                                 className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A5BAE]/10 text-[#0A5BAE] transition-colors hover:bg-[#0A5BAE]/20"
-                                title="Edit Order"
+                                title={t("waiter.edit_order", "Edit Order")}
                               >
                                 <FaEdit className="h-3.5 w-3.5" />
                               </button>
@@ -1069,7 +1071,7 @@ const WaiterPos = () => {
                               onClick={() => handleCancelOrder(order.or_id)} 
                               disabled={processingOrderIds.includes(order.or_id)}
                               className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 opacity-80 transition-all hover:bg-rose-500 hover:text-white hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
-                              title="Cancel Order"
+                              title={t("waiter.cancel_order", "Cancel Order")}
                             >
                               <FaTrashAlt className="h-3.5 w-3.5" />
                             </button>
@@ -1117,14 +1119,14 @@ const WaiterPos = () => {
                               ))}
                             </div>
                           ) : (
-                            <div className="text-xs italic text-slate-400">No items</div>
+                            <div className="text-xs italic text-slate-400">{t("waiter.no_items", "No items")}</div>
                           )}
                         </div>
   
                         {/* Footer */}
                         <div className="mt-4 pt-3 border-t border-dashed border-slate-200">
                           <div className="flex items-end justify-between mb-3">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total</span>
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t("waiter.total", "Total")}</span>
                             <span className="text-2xl font-black text-[#55C24A] tracking-tighter">
                               ${Number(order.or_totalCostWtax || order.or_totalcost || 0).toFixed(2)}
                             </span>
@@ -1148,7 +1150,7 @@ const WaiterPos = () => {
                 heldOrders.length === 0 ? (
                   <div className="py-20 flex flex-col items-center opacity-60">
                     <PiPlayPauseBold className="h-20 w-20 text-slate-300 mb-5" />
-                    <p className="text-xl font-bold text-slate-600">No held orders</p>
+                    <p className="text-xl font-bold text-slate-600">{t("waiter.no_held_orders", "No held orders")}</p>
                   </div>
                 ) : (
                   <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -1158,14 +1160,14 @@ const WaiterPos = () => {
                           <button
                             onClick={() => handleEditHeldOrder(ho)}
                             className="flex h-8 w-8 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 opacity-80 transition-all hover:bg-yellow-500 hover:text-white hover:opacity-100"
-                            title="Edit Held Order"
+                            title={t("waiter.edit_held_order", "Edit Held Order")}
                           >
                             <FaEdit className="h-3.5 w-3.5" />
                           </button>
                           <button 
                             onClick={() => handleDeleteHeldOrder(ho.id)} 
                             className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 opacity-80 transition-all hover:bg-rose-500 hover:text-white hover:opacity-100"
-                            title="Delete Held Order"
+                            title={t("waiter.delete_held_order", "Delete Held Order")}
                           >
                             <FaTrashAlt className="h-3.5 w-3.5" />
                           </button>
@@ -1177,7 +1179,7 @@ const WaiterPos = () => {
                               <span className="text-lg font-black text-slate-900">{ho.timestamp}</span>
                             </div>
                             <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-yellow-100 text-yellow-700">
-                              On Hold
+                              {t("waiter.on_hold", "On Hold")}
                             </span>
                           </div>
                           {ho.selectedTable && (
@@ -1204,7 +1206,7 @@ const WaiterPos = () => {
   
                         <div className="mt-4 pt-3 border-t border-dashed border-slate-200">
                           <div className="flex items-end justify-between mb-3">
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total</span>
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t("waiter.total", "Total")}</span>
                             <span className="text-2xl font-black text-yellow-500 tracking-tighter">
                               ${(ho.cart.reduce((sum, item) => sum + (item.unitPrice * item.qty), 0) * (1 + taxRate/100)).toFixed(2)}
                             </span>

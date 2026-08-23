@@ -1,50 +1,56 @@
+import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import ReceiveOrderModal from "./ReceiveOrderModal";
-
-const SupplierDetailView = ({ supplier, onBack, showToast }) => {
-  const [orders, setOrders] = useState([]);
+const SupplierDetailView = ({
+  supplier,
+  onBack,
+  showToast
+}) => {
+  const { t } = useTranslation();
+const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
 
   // 1. COMPONENT GUARD: Prevent rendering if supplier is missing
   if (!supplier) {
-    return <div style={{ padding: "20px" }}>No supplier selected.</div>;
+    return <div style={{
+      padding: "20px"
+    }}>{t("branch_admin.no_supplier_selected", "No supplier selected.")}</div>;
   }
-
   const fetchOrderData = async () => {
     // 2. LOGIC GUARD: Prevent API calls if sup_id isn't available
     if (!supplier?.sup_id) return;
-
     setLoading(true);
     try {
       const token = localStorage.getItem("token");
-      
       const poRes = await fetch(`/api/purchase-orders/supplier/${supplier.sup_id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
       const poList = await poRes.json();
       const actualPOList = Array.isArray(poList) ? poList : poList.data || [];
-
       const payRes = await fetch(`/api/supplier-payments/supplier/${supplier.sup_id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
       });
       const payData = await payRes.json();
       const payments = Array.isArray(payData) ? payData : payData.data || [];
-
-      const mergedData = await Promise.all(actualPOList.map(async (po) => {
+      const mergedData = await Promise.all(actualPOList.map(async po => {
         const itemRes = await fetch(`/api/purchase-items/order/${po.po_id}`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         });
         const itemData = await itemRes.json();
-        
-        return { 
-          ...po, 
+        return {
+          ...po,
           items: Array.isArray(itemData) ? itemData : itemData.data || [],
-          payment: payments.find(p => p.po_id === po.po_id) 
+          payment: payments.find(p => p.po_id === po.po_id)
         };
       }));
-
       setOrders(mergedData);
     } catch (err) {
       console.error("Error loading history:", err);
@@ -52,18 +58,15 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchOrderData();
   }, [supplier?.sup_id]); // Use optional chaining in dependency array
 
-  const onMarkAsReceived = (order) => {
+  const onMarkAsReceived = order => {
     setSelectedOrder(order);
   };
-
   const handleConfirmReceipt = async (itemsPayload, method) => {
     if (!method) return;
-
     setProcessingId(selectedOrder.po_id);
     try {
       const token = localStorage.getItem("token");
@@ -73,10 +76,14 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
       // returns don't reduce what's owed to the supplier.
       const receiveRes = await fetch(`/api/purchase-orders/${selectedOrder.po_id}/receive`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ items: itemsPayload })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          items: itemsPayload
+        })
       });
-
       if (!receiveRes.ok) {
         const errData = await receiveRes.json().catch(() => ({}));
         throw new Error(errData.message || errData.error || `Failed to receive order (status ${receiveRes.status})`);
@@ -87,15 +94,16 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
       // modal (item.price on selectedOrder is stale — fetched before
       // receiving, when prices were still unknown/null).
       const totalAmount = itemsPayload.reduce((sum, item) => {
-        const orderedItem = selectedOrder.items.find(
-          (oi) => (oi.rm_id && oi.rm_id === item.rm_id) || (oi.pro_id && oi.pro_id === item.pro_id)
-        );
+        const orderedItem = selectedOrder.items.find(oi => oi.rm_id && oi.rm_id === item.rm_id || oi.pro_id && oi.pro_id === item.pro_id);
         const gross = Number(orderedItem?.qty) || 0;
         return sum + gross * Number(item.unit_price || 0);
       }, 0);
       await fetch(`/api/supplier-payments`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           sup_id: supplier.sup_id,
           po_id: selectedOrder.po_id,
@@ -104,142 +112,203 @@ const SupplierDetailView = ({ supplier, onBack, showToast }) => {
           payment_date: new Date().toISOString()
         })
       });
-
       setSelectedOrder(null);
       if (showToast) showToast("Order marked as received successfully!", "success");
       await fetchOrderData();
     } catch (err) {
-      if (showToast) showToast(err.message, "error");
-      else alert("Error: " + err.message);
+      if (showToast) showToast(err.message, "error");else alert("Error: " + err.message);
     } finally {
       setProcessingId(null);
     }
   };
+  return <div>
+      <button onClick={onBack} style={{
+      marginBottom: "20px",
+      background: "none",
+      border: "none",
+      color: "#3A4DBF",
+      fontWeight: "600",
+      cursor: "pointer"
+    }}>{t("branch_admin.back_to_directory", "← Back to Directory")}</button>
 
-  return (
-    <div>
-      <button onClick={onBack} style={{ marginBottom: "20px", background: "none", border: "none", color: "#3A4DBF", fontWeight: "600", cursor: "pointer" }}>
-        ← Back to Directory
-      </button>
-
-      <div style={{ background: "#fff", padding: "24px", borderRadius: "12px", border: "1px solid #E4E7EC", marginBottom: "24px" }}>
-        <h2 style={{ margin: 0 }}>{supplier.sup_name}</h2>
-        <p style={{ color: "#667085" }}>{supplier.sup_email} | {supplier.sup_contact}</p>
+      <div style={{
+      background: "#fff",
+      padding: "24px",
+      borderRadius: "12px",
+      border: "1px solid #E4E7EC",
+      marginBottom: "24px"
+    }}>
+        <h2 style={{
+        margin: 0
+      }}>{supplier.sup_name}</h2>
+        <p style={{
+        color: "#667085"
+      }}>{supplier.sup_email} | {supplier.sup_contact}</p>
       </div>
 
-      {loading ? <p>Loading history...</p> : orders.map((order) => (
-        <div key={order.po_id} style={{ background: "#fff", borderRadius: "12px", border: "1px solid #EAECF0", marginBottom: "20px", overflow: "hidden" }}>
-          <div style={{ padding: "16px 24px", background: "#F9FAFB", display: "flex", justifyContent: "space-between" }}>
+      {loading ? <p>{t("branch_admin.loading_history", "Loading history...")}</p> : orders.map(order => <div key={order.po_id} style={{
+      background: "#fff",
+      borderRadius: "12px",
+      border: "1px solid #EAECF0",
+      marginBottom: "20px",
+      overflow: "hidden"
+    }}>
+          <div style={{
+        padding: "16px 24px",
+        background: "#F9FAFB",
+        display: "flex",
+        justifyContent: "space-between"
+      }}>
             <div>
-              <strong>Order #{order.po_id}</strong>
-              <div style={{ fontSize: "12px", color: "#667085" }}>{new Date(order.order_date).toLocaleDateString()}</div>
+              <strong>{t("branch_admin.order", "Order #")}{order.po_id}</strong>
+              <div style={{
+            fontSize: "12px",
+            color: "#667085"
+          }}>{new Date(order.order_date).toLocaleDateString()}</div>
             </div>
             <div>
-              {order.status === "pending" ? (
-                <button 
-                  onClick={() => onMarkAsReceived(order)}
-                  disabled={processingId === order.po_id}
-                  style={{ padding: "6px 12px", background: "#3A4DBF", color: "#fff", border: "none", borderRadius: "6px" }}
-                >
-                  {processingId === order.po_id ? "Processing..." : "Mark as Received"}
-                </button>
-              ) : (
-                <div style={{ textAlign: "right" }}>
-                  <span style={{ padding: "4px 8px", background: "#ECFDF3", color: "#027A48", borderRadius: "6px", fontSize: "12px" }}>RECEIVED</span>
-                  {order.payment && <div style={{ fontSize: "10px", marginTop: "4px" }}>Via {order.payment.method}</div>}
-                </div>
-              )}
+              {order.status === "pending" ? <button onClick={() => onMarkAsReceived(order)} disabled={processingId === order.po_id} style={{
+            padding: "6px 12px",
+            background: "#3A4DBF",
+            color: "#fff",
+            border: "none",
+            borderRadius: "6px"
+          }}>
+                  {processingId === order.po_id ? t("buttons.processing", "Processing...") : "Mark as Received"}
+                </button> : <div style={{
+            textAlign: "right"
+          }}>
+                  <span style={{
+              padding: "4px 8px",
+              background: "#ECFDF3",
+              color: "#027A48",
+              borderRadius: "6px",
+              fontSize: "12px"
+            }}>{t("branch_admin.received", "RECEIVED")}</span>
+                  {order.payment && <div style={{
+              fontSize: "10px",
+              marginTop: "4px"
+            }}>{t("branch_admin.via", "Via")}{order.payment.method}</div>}
+                </div>}
             </div>
           </div>
-          <table style={{ width: "100%", fontSize: "14px", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <table style={{
+        width: "100%",
+        fontSize: "14px",
+        borderCollapse: "collapse",
+        tableLayout: "fixed"
+      }}>
             <colgroup>
-              <col style={{ width: "300px" }} />
-              <col style={{ width: "180px" }} />
-              <col style={{ width: "300px" }} />
-              <col style={{ width: "300px" }} />
-              <col style={{ width: "auto" }} />
+              <col style={{
+            width: "300px"
+          }} />
+              <col style={{
+            width: "180px"
+          }} />
+              <col style={{
+            width: "300px"
+          }} />
+              <col style={{
+            width: "300px"
+          }} />
+              <col style={{
+            width: "auto"
+          }} />
             </colgroup>
             <thead>
-              <tr style={{ borderTop: "1px solid #F2F4F7" }}>
-                <th style={{ padding: "10px 24px", textAlign: "left", color: "#98A2B3", fontWeight: 500, fontSize: "12px" }}>ITEM</th>
-                <th style={{ padding: "10px 24px", textAlign: "right", color: "#98A2B3", fontWeight: 500, fontSize: "12px", whiteSpace: "nowrap" }}>UNIT PRICE</th>
-                <th style={{ padding: "10px 24px", textAlign: "right", color: "#98A2B3", fontWeight: 500, fontSize: "12px" }}>QUANTITY</th>
-                <th style={{ padding: "10px 24px", textAlign: "right", color: "#98A2B3", fontWeight: 500, fontSize: "12px", whiteSpace: "nowrap" }}>PRICE</th>
+              <tr style={{
+            borderTop: "1px solid #F2F4F7"
+          }}>
+                <th style={{
+              padding: "10px 24px",
+              textAlign: "left",
+              color: "#98A2B3",
+              fontWeight: 500,
+              fontSize: "12px"
+            }}>{t("branch_admin.item", "ITEM")}</th>
+                <th style={{
+              padding: "10px 24px",
+              textAlign: "right",
+              color: "#98A2B3",
+              fontWeight: 500,
+              fontSize: "12px",
+              whiteSpace: "nowrap"
+            }}>{t("branch_admin.unit_price", "UNIT PRICE")}</th>
+                <th style={{
+              padding: "10px 24px",
+              textAlign: "right",
+              color: "#98A2B3",
+              fontWeight: 500,
+              fontSize: "12px"
+            }}>{t("branch_admin.quantity", "QUANTITY")}</th>
+                <th style={{
+              padding: "10px 24px",
+              textAlign: "right",
+              color: "#98A2B3",
+              fontWeight: 500,
+              fontSize: "12px",
+              whiteSpace: "nowrap"
+            }}>{t("branch_admin.price", "PRICE")}</th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              {order.items.map((item, i) => (
-                <tr key={i} style={{ borderTop: "1px solid #F2F4F7" }}>
-                  <td style={{ padding: "10px 24px" }}>{item.rm_name || item.pro_name}</td>
-                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: item.unit_price ? "inherit" : "#9CA3AF", fontStyle: item.unit_price ? "normal" : "italic" }}>
+              {order.items.map((item, i) => <tr key={i} style={{
+            borderTop: "1px solid #F2F4F7"
+          }}>
+                  <td style={{
+              padding: "10px 24px"
+            }}>{item.rm_name || item.pro_name}</td>
+                  <td style={{
+              padding: "10px 24px",
+              textAlign: "right",
+              fontVariantNumeric: "tabular-nums",
+              whiteSpace: "nowrap",
+              color: item.unit_price ? "inherit" : "#9CA3AF",
+              fontStyle: item.unit_price ? "normal" : "italic"
+            }}>
                     {item.unit_price ? `Rs. ${Number(item.unit_price).toFixed(2)}` : "Pending"}
                   </td>
-                  <td style={{ padding: "10px 24px" }}>
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "6px", fontVariantNumeric: "tabular-nums" }}>
-                      <span style={{ minWidth: "70px", textAlign: "right" }}>{Number(item.qty).toFixed(3)}</span>
-                      <span style={{ minWidth: "30px", textAlign: "left", color: "#667085" }}>{item.rm_unit || (item.pro_id ? "pcs" : "")}</span>
+                  <td style={{
+              padding: "10px 24px"
+            }}>
+                    <div style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "6px",
+                fontVariantNumeric: "tabular-nums"
+              }}>
+                      <span style={{
+                  minWidth: "70px",
+                  textAlign: "right"
+                }}>{Number(item.qty).toFixed(3)}</span>
+                      <span style={{
+                  minWidth: "30px",
+                  textAlign: "left",
+                  color: "#667085"
+                }}>{item.rm_unit || (item.pro_id ? "pcs" : "")}</span>
                     </div>
                   </td>
-                  <td style={{ padding: "10px 24px", textAlign: "right", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap", color: item.price ? "inherit" : "#9CA3AF", fontStyle: item.price ? "normal" : "italic" }}>
+                  <td style={{
+              padding: "10px 24px",
+              textAlign: "right",
+              fontVariantNumeric: "tabular-nums",
+              whiteSpace: "nowrap",
+              color: item.price ? "inherit" : "#9CA3AF",
+              fontStyle: item.price ? "normal" : "italic"
+            }}>
                     {item.price ? `Rs. ${Number(item.price).toFixed(2)}` : "Pending"}
                   </td>
                   <td></td>
-                </tr>
-              ))}
+                </tr>)}
             </tbody>
           </table>
-        </div>
-      ))}
+        </div>)}
 
-      {selectedOrder && (
-        <ReceiveOrderModal
-          order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
-          onConfirm={handleConfirmReceipt}
-          isProcessing={processingId === selectedOrder.po_id}
-        />
-      )}
-    </div>
-  );
+      {selectedOrder && <ReceiveOrderModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onConfirm={handleConfirmReceipt} isProcessing={processingId === selectedOrder.po_id} />}
+    </div>;
 };
-
 export default SupplierDetailView;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // import React, { useState, useEffect } from "react";
 
@@ -325,7 +394,7 @@ export default SupplierDetailView;
 //                 {order.status.toUpperCase()}
 //               </span>
 //             </div>
-            
+
 //             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "14px" }}>
 //               <thead>
 //                 <tr style={{ textAlign: "left", color: "#667085", borderBottom: "1px solid #EAECF0" }}>

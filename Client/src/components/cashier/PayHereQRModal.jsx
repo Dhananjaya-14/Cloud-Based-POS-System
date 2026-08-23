@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useRef, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { getSocket } from "../../services/socket";
@@ -5,6 +6,7 @@ import { getSocket } from "../../services/socket";
 const TIMEOUT_SECONDS = 300; // 5 minutes
 
 export default function PayHereQRModal({ paymentUrl, orderId, onSuccess, onCancel }) {
+  const { t } = useTranslation();
   const [secondsLeft, setSecondsLeft] = useState(TIMEOUT_SECONDS);
   const [status, setStatus] = useState("waiting"); // "waiting" | "confirmed" | "expired"
   const timerRef = useRef(null);
@@ -56,12 +58,12 @@ export default function PayHereQRModal({ paymentUrl, orderId, onSuccess, onCance
           <div className="flex items-center gap-3 mb-1">
             {/* PayHere logo text */}
             <span className="text-2xl font-black text-white tracking-tight">
-              pay<span className="text-yellow-300">here</span>
+              {t("cashier.pay", "pay")}<span className="text-yellow-300">{t("cashier.here", "here")}</span>
             </span>
-            <span className="text-blue-200 text-sm font-medium">QR Payment</span>
+            <span className="text-blue-200 text-sm font-medium">{t("cashier.qr_payment", "QR Payment")}</span>
           </div>
           <p className="text-blue-100 text-sm">
-            Order <span className="font-bold text-white">#{orderId}</span>
+            {t("cashier.order", "Order")} <span className="font-bold text-white">#{orderId}</span>
           </p>
         </div>
 
@@ -72,7 +74,7 @@ export default function PayHereQRModal({ paymentUrl, orderId, onSuccess, onCance
           {status === "waiting" && (
             <>
               <p className="text-center text-slate-500 text-sm mb-5">
-                Ask the customer to scan this QR code with their mobile to complete payment.
+                {t("cashier.ask_the_customer_to_scan_this_qr_code_with_their_mobile_to_complete_payment", "Ask the customer to scan this QR code with their mobile to complete payment.")}
               </p>
 
               {/* QR Code */}
@@ -118,7 +120,7 @@ export default function PayHereQRModal({ paymentUrl, orderId, onSuccess, onCance
                 onClick={onCancel}
                 className="w-full rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition"
               >
-                Cancel Payment
+                {t("cashier.cancel_payment", "Cancel Payment")}
               </button>
             </>
           )}
@@ -131,8 +133,8 @@ export default function PayHereQRModal({ paymentUrl, orderId, onSuccess, onCance
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
               </div>
-              <h3 className="text-2xl font-bold text-green-600 mb-1">Payment Received!</h3>
-              <p className="text-slate-500 text-sm">Preparing invoice...</p>
+              <h3 className="text-2xl font-bold text-green-600 mb-1">{t("cashier.payment_received", "Payment Received!")}</h3>
+              <p className="text-slate-500 text-sm">{t("cashier.preparing_invoice", "Preparing invoice...")}</p>
             </div>
           )}
 
@@ -144,15 +146,15 @@ export default function PayHereQRModal({ paymentUrl, orderId, onSuccess, onCance
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-slate-700 mb-1">QR Code Expired</h3>
+              <h3 className="text-xl font-bold text-slate-700 mb-1">{t("cashier.qr_code_expired", "QR Code Expired")}</h3>
               <p className="text-slate-500 text-sm mb-6">
-                The payment window has timed out. Please try again.
+                {t("cashier.the_payment_window_has_timed_out_please_try_again", "The payment window has timed out. Please try again.")}
               </p>
               <button
                 onClick={onCancel}
                 className="w-full rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-700 transition"
               >
-                Back to Checkout
+                {t("cashier.back_to_checkout", "Back to Checkout")}
               </button>
             </div>
           )}

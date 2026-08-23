@@ -1,4 +1,4 @@
-import jwt from "jsonwebtoken";
+﻿import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
@@ -65,6 +65,7 @@ export async function login(req, res, next) {
     let b_id = user.B_id ?? null;
     let com_id = user.com_id ?? null;
     let features = null;
+    let companyLanguage = 'en';
 
     if (user.role_id === ROLES.SUPER_ADMIN) {
       b_id = null;
@@ -77,17 +78,19 @@ export async function login(req, res, next) {
     // Fetch package features if company is linked to a package
     if (com_id) {
       const featRes = await pool.query(`
-        SELECT p.features FROM "Company" c
+        SELECT p.features, c.language_code FROM "Company" c
         JOIN "Package" p ON c.package_id = p.package_id
         WHERE c.com_id = $1
       `, [com_id]);
       features = featRes.rows[0]?.features ?? null;
+      companyLanguage = featRes.rows[0]?.language_code ?? 'en';
     }
 
     //token creation
     const token = signToken({
       u_id: user.u_id,
       role_id: user.role_id,
+      language_code: user.language_code || companyLanguage,
       u_email: user.u_email,
       ...(b_id != null ? { b_id } : {}),
       ...(com_id != null ? { com_id } : {}),
@@ -100,6 +103,7 @@ export async function login(req, res, next) {
       u_email: user.u_email,
       u_connumber: user.u_connumber,
       role_id: user.role_id,
+      language_code: user.language_code || companyLanguage,
       ...(b_id != null ? { b_id } : {}),
       ...(com_id != null ? { com_id } : {}),
       ...(features != null ? { features } : {}),
@@ -114,4 +118,6 @@ export async function login(req, res, next) {
     next(err);
   }
 }
+
+
 

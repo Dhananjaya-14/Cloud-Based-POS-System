@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FaSearch, FaClock, FaBell } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
@@ -61,7 +62,8 @@ const statusPalette = {
 };
 
 const KitchenManagement = () => {
-	const { user } = useAuth();
+  const { t } = useTranslation();
+const { user } = useAuth();
 	const branchId = user?.b_id ?? user?.B_id;
 	const [orders, setOrders] = useState([]);
 	const [orderItems, setOrderItems] = useState([]);
@@ -369,7 +371,7 @@ const KitchenManagement = () => {
 					<div className="flex flex-wrap items-center justify-between gap-3">
 						<div>
 							<div className="text-sm font-semibold text-slate-900">
-								ORD{String(order.or_id).padStart(5, "0")}
+								{t("kitchen.ord", "ORD")}{String(order.or_id).padStart(5, "0")}
 							</div>
 							<div className="text-[12px] font-semibold text-slate-500">
 								{order.or_type || "Dine in"} | {order.or_time?.slice(0, 5) || "--:--"}
@@ -397,19 +399,19 @@ const KitchenManagement = () => {
 						<div className="flex flex-col gap-1 mt-1 p-2.5 rounded-xl bg-amber-50/50 border border-amber-100/50">
 							{order.or_allergies && (
 								<div className="text-xs text-rose-600 font-medium">
-									<span className="uppercase text-[10px] bg-rose-100 px-1.5 py-0.5 rounded mr-1.5 font-bold">Allergies</span>
+									<span className="uppercase text-[10px] bg-rose-100 px-1.5 py-0.5 rounded mr-1.5 font-bold">{t("kitchen.allergies", "Allergies")}</span>
 									{order.or_allergies}
 								</div>
 							)}
 							{order.or_addons && (
 								<div className="text-xs text-sky-700 font-medium mt-1">
-									<span className="uppercase text-[10px] bg-sky-100 px-1.5 py-0.5 rounded mr-1.5 font-bold">Add-ons</span>
+									<span className="uppercase text-[10px] bg-sky-100 px-1.5 py-0.5 rounded mr-1.5 font-bold">{t("kitchen.add_ons", "Add-ons")}</span>
 									{order.or_addons}
 								</div>
 							)}
 							{order.or_notes && (
 								<div className="text-xs text-amber-800 font-medium mt-1">
-									<span className="uppercase text-[10px] bg-amber-200 px-1.5 py-0.5 rounded mr-1.5 font-bold">Note</span>
+									<span className="uppercase text-[10px] bg-amber-200 px-1.5 py-0.5 rounded mr-1.5 font-bold">{t("kitchen.note", "Note")}</span>
 									{order.or_notes}
 								</div>
 							)}
@@ -424,14 +426,14 @@ const KitchenManagement = () => {
 									disabled={updatingOrderId === order.or_id}
 									className="px-5 py-1.5 rounded-lg border border-emerald-200 bg-emerald-100 text-emerald-700 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-emerald-300 hover:text-emerald-800 hover:border-emerald-300"
 								>
-									Accept
+									{t("kitchen.accept", "Accept")}
 								</button>
 								<button
 									onClick={() => updateStatus(order.or_id, "cancelled")}
 									disabled={updatingOrderId === order.or_id}
 									className="px-5 py-1.5 rounded-lg border border-rose-200 bg-rose-100 text-rose-600 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-rose-300 hover:text-rose-800 hover:border-rose-300"
 								>
-									Decline
+									{t("kitchen.decline", "Decline")}
 								</button>
 							</>
 						)}
@@ -442,7 +444,7 @@ const KitchenManagement = () => {
 								disabled={updatingOrderId === order.or_id}
 								className="px-4 py-1.5 rounded-lg border border-emerald-200 bg-emerald-500 text-white text-xs font-semibold cursor-pointer"
 							>
-								Ready
+								{t("kitchen.ready", "Ready")}
 							</button>
 						)}
 					</div>
@@ -465,7 +467,7 @@ const KitchenManagement = () => {
 				{ordersInColumn.length ? (
 					ordersInColumn.map(renderOrderCard)
 				) : (
-					<div className="text-sm text-slate-500">No orders</div>
+					<div className="text-sm text-slate-500">{t("kitchen.no_orders", "No orders")}</div>
 				)}
 			</div>
 		);
@@ -524,7 +526,7 @@ const KitchenManagement = () => {
 		if (!items.length) {
 			return (
 				<div className="text-xs text-slate-400 italic">
-					Items not available
+					{t("kitchen.items_not_available", "Items not available")}
 				</div>
 			);
 		}
@@ -544,12 +546,12 @@ const KitchenManagement = () => {
 						{image ? (
 							<img src={image} alt={name} className="w-full h-full object-cover" />
 						) : (
-							<span className="text-xs text-slate-500">IMG</span>
+							<span className="text-xs text-slate-500">{t("kitchen.img", "IMG")}</span>
 						)}
 					</div>
 					<div className="flex-1">
 						<div className="text-sm font-semibold text-slate-900">{name}</div>
-						<div className="text-[11px] text-slate-500">Qty: {quantity}</div>
+						<div className="text-[11px] text-slate-500">{t("kitchen.qty", "Qty:")} {quantity}</div>
 					</div>
 				</div>
 			);
@@ -601,7 +603,7 @@ const KitchenManagement = () => {
 									color: '#1F2937',
 									marginBottom: '4px'
 								}}>
-									🍽️ New Order Received
+									{t("kitchen.new_order_received", "🍽️ New Order Received")}
 								</div>
 								<div style={{
 									fontSize: '14px',
@@ -644,7 +646,7 @@ const KitchenManagement = () => {
 									e.currentTarget.style.transform = 'scale(1)';
 								}}
 							>
-								OK
+								{t("kitchen.ok", "OK")}
 							</button>
 						</div>
 					))}
@@ -656,10 +658,10 @@ const KitchenManagement = () => {
 					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
 						<div>
 							<h1 className="text-xl sm:text-2xl font-semibold text-slate-900">
-								Kitchen Order Management
+								{t("kitchen.kitchen_order_management", "Kitchen Order Management")}
 							</h1>
 							<p className="text-xs sm:text-sm text-slate-500 mt-1">
-								Manage and track all incoming orders
+								{t("kitchen.manage_and_track_all_incoming_orders", "Manage and track all incoming orders")}
 							</p>
 						</div>
 
@@ -691,7 +693,7 @@ const KitchenManagement = () => {
 							<input
 								value={searchTerm}
 								onChange={(event) => setSearchTerm(event.target.value)}
-								placeholder="Search items..."
+								placeholder={t("kitchen.search_items", "Search items...")}
 								className="w-full rounded-xl border border-slate-200 bg-white px-9 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-200"
 							/>
 						</div>
@@ -704,7 +706,7 @@ const KitchenManagement = () => {
 					)}
 
 					{loading ? (
-						<div className="text-sm text-slate-500">Loading orders...</div>
+						<div className="text-sm text-slate-500">{t("kitchen.loading_orders", "Loading orders...")}</div>
 					) : (
 						<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 							{renderOrderColumn("Received orders", pendingOrders)}

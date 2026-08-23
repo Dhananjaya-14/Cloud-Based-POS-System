@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
@@ -9,102 +10,87 @@ import autoTable from "jspdf-autotable";
 import Header from "../../components/branch-admin/Header";
 import Sidebar from "../../components/branch-admin/Sidebar";
 
-const availableColumns = [
-  {
-    key: "pay_date",
-    label: "Date",
-  },
-  {
-    key: "pay_time",
-    label: "Time",
-  },
-  {
-    key: "prod_name",
-    label: "Product Name",
-  },
-  {
-    key: "quantity",
-    label: "Quantity Sold",
-  },
-  {
-    key: "unit_price",
-    label: "Unit Price",
-  },
-  {
-    key: "total_sale",
-    label: "Total Sale",
-  },
-];
-
 export default function ProductSalesReport() {
-  const { user } = useAuth();
+  const { t } = useTranslation();
+
+  const availableColumns = [{
+    key: "pay_date",
+    label: t("reports.date", "Date")
+  }, {
+    key: "pay_time",
+    label: t("reports.time", "Time")
+  }, {
+    key: "prod_name",
+    label: t("reports.product_name", "Product Name")
+  }, {
+    key: "quantity",
+    label: t("reports.quantity_sold", "Quantity Sold")
+  }, {
+    key: "unit_price",
+    label: t("reports.unit_price", "Unit Price")
+  }, {
+    key: "total_sale",
+    label: t("reports.total_sale", "Total Sale")
+  }];
+const {
+    user
+  } = useAuth();
   const [rows, setRows] = useState([]);
   const [grandTotal, setGrandTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [branchName, setBranchName] = useState("");
-  const [activeRange, setActiveRange] = useState({ from: "", to: "" });
-
+  const [activeRange, setActiveRange] = useState({
+    from: "",
+    to: ""
+  });
   const today = new Date().toISOString().split("T")[0];
   const currentMonthString = new Date().toISOString().substring(0, 7);
-
   const [filters, setFilters] = useState({
     filterType: "daily",
     fromDate: today,
     toDate: today,
     selectedMonth: currentMonthString,
-    selectedWeek: "1",
+    selectedWeek: "1"
   });
-
-  const [selectedColumns, setSelectedColumns] = useState(
-    availableColumns.map((col) => col.key)
-  );
-
+  const [selectedColumns, setSelectedColumns] = useState(availableColumns.map(col => col.key));
   const generateReport = async () => {
     try {
       setLoading(true);
-
       let finalFromDate = filters.fromDate;
       let finalToDate = filters.toDate;
-
       if (filters.filterType === "daily") {
         finalFromDate = today;
         finalToDate = today;
       }
-
       if (filters.filterType === "weekly") {
         const [year, month] = filters.selectedMonth.split("-").map(Number);
         const week = Number(filters.selectedWeek);
-
         const daysInMonth = new Date(year, month, 0).getDate();
-
         const startDay = (week - 1) * 7 + 1;
         let endDay = startDay + 6;
-
         if (endDay > daysInMonth) {
           endDay = daysInMonth;
         }
-
         finalFromDate = `${year}-${String(month).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`;
         finalToDate = `${year}-${String(month).padStart(2, "0")}-${String(endDay).padStart(2, "0")}`;
       }
-
       if (filters.filterType === "monthly") {
         const [year, month] = filters.selectedMonth.split("-");
         finalFromDate = `${year}-${month}-01`;
         const lastDay = new Date(year, parseInt(month), 0).getDate().toString().padStart(2, "0");
         finalToDate = `${year}-${month}-${lastDay}`;
       }
-
-      setActiveRange({ from: finalFromDate, to: finalToDate });
-
+      setActiveRange({
+        from: finalFromDate,
+        to: finalToDate
+      });
       const response = await getProductSalesReport({
         b_id: user?.b_id,
         filterType: filters.filterType,
         fromDate: finalFromDate,
         toDate: finalToDate,
-        columns: selectedColumns,
+        columns: selectedColumns
       });
-
       setRows(response.data || []);
       setGrandTotal(response.grandTotal || 0);
     } catch (error) {
@@ -114,23 +100,19 @@ export default function ProductSalesReport() {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     if (user?.b_id) {
       generateReport();
     }
   }, [user?.b_id]);
-
   useEffect(() => {
     let mounted = true;
-
     const loadBranch = async () => {
       const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
       if (fromUser) {
         if (mounted) setBranchName(fromUser);
         return;
       }
-
       if (user?.b_id) {
         try {
           const res = await getBranchById(user.b_id);
@@ -143,7 +125,6 @@ export default function ProductSalesReport() {
         if (mounted) setBranchName("");
       }
     };
-
     loadBranch();
     return () => {
       mounted = false;
@@ -152,18 +133,13 @@ export default function ProductSalesReport() {
 
   // Excel export logic
   const exportExcel = () => {
-    const formattedRows = rows.map((row) => {
+const formattedRows = rows.map(row => {
       const dataRow = {};
-
       if (selectedColumns.includes("pay_date")) {
         dataRow["Date"] = row.pay_date ? row.pay_date.split("T")[0] : "";
       }
       if (selectedColumns.includes("pay_time")) {
-        dataRow["Time"] = row.pay_time
-          ? (row.pay_time.includes("T")
-            ? row.pay_time.split("T")[1].split(".")[0]
-            : row.pay_time.slice(0, 8))
-          : "";
+        dataRow["Time"] = row.pay_time ? row.pay_time.includes("T") ? row.pay_time.split("T")[1].split(".")[0] : row.pay_time.slice(0, 8) : "";
       }
       if (selectedColumns.includes("prod_name")) {
         dataRow["Product Name"] = row.prod_name;
@@ -179,42 +155,36 @@ export default function ProductSalesReport() {
       }
       return dataRow;
     });
-
     if (formattedRows.length > 0) {
       const totalRow = {};
       const firstVisibleColumn = availableColumns.find(col => selectedColumns.includes(col.key));
-
       if (firstVisibleColumn) {
         totalRow[availableColumns.find(col => col.key === firstVisibleColumn.key).label] = "TOTAL";
       }
-
       if (selectedColumns.includes("total_sale")) {
         totalRow["Total Sale (Rs.)"] = parseFloat(grandTotal);
       }
-
       formattedRows.push(totalRow);
     }
-
     const worksheet = XLSX.utils.json_to_sheet(formattedRows);
     const maxColumnWidths = [];
-    formattedRows.forEach((row) => {
+    formattedRows.forEach(row => {
       Object.keys(row).forEach((key, colIndex) => {
         const cellValue = row[key] ? row[key].toString() : "";
         const currentLength = Math.max(key.length, cellValue.length);
         maxColumnWidths[colIndex] = Math.max(maxColumnWidths[colIndex] || 10, currentLength + 3);
       });
     });
-
-    worksheet["!cols"] = maxColumnWidths.map(w => ({ wch: w }));
-
+    worksheet["!cols"] = maxColumnWidths.map(w => ({
+      wch: w
+    }));
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Product Sales Report");
     const timestamp = new Date().toISOString().split("T")[0];
     XLSX.writeFile(workbook, `Product_Sales_Report_${timestamp}.xlsx`);
   };
-
   const exportPDF = () => {
-    const doc = new jsPDF();
+const doc = new jsPDF();
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
     const generatedTime = reportDate.toLocaleTimeString();
@@ -247,41 +217,33 @@ export default function ProductSalesReport() {
     // TABLE
     autoTable(doc, {
       startY: 55,
-      head: [
-        availableColumns
-          .filter((col) => selectedColumns.includes(col.key))
-          .map((col) => col.label),
-      ],
-      body: rows.map((row) =>
-        selectedColumns.map((col) => {
-          if (col === "unit_price" || col === "total_sale") {
-            return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
-          }
-          if (col === "pay_date") {
-            return row[col].includes("T") ? row[col].split("T")[0] : row[col];
-          }
-          if (col === "pay_time") {
-            return row[col]?.slice(0, 8);
-          }
-          return row[col] ?? "";
-        })
-      ),
+      head: [availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => col.label)],
+      body: rows.map(row => selectedColumns.map(col => {
+        if (col === "unit_price" || col === "total_sale") {
+          return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
+        }
+        if (col === "pay_date") {
+          return row[col].includes("T") ? row[col].split("T")[0] : row[col];
+        }
+        if (col === "pay_time") {
+          return row[col]?.slice(0, 8);
+        }
+        return row[col] ?? "";
+      })),
       theme: "striped",
       headStyles: {
         fillColor: [0, 82, 168],
         fontSize: 10,
-        align: "center",
+        align: "center"
       },
       bodyStyles: {
-        fontSize: 9,
+        fontSize: 9
       },
       alternateRowStyles: {
-        fillColor: [245, 247, 250],
-      },
+        fillColor: [245, 247, 250]
+      }
     });
-
     const finalY = doc.lastAutoTable.finalY + 12;
-
     doc.setFillColor(240, 248, 255);
     doc.rect(135, finalY - 6, 70, 12, "F");
     doc.setFontSize(11);
@@ -298,291 +260,178 @@ export default function ProductSalesReport() {
     }
     doc.save(`Sales_Report_${generatedDate}.pdf`);
   };
-
-  return (
-    <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
+  return <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
       <Sidebar />
-      <div className="flex flex-1 flex-col" style={{ marginLeft: 240 }}>
-        <Header title="Analytical Report" />
+      <div className="flex flex-1 flex-col" style={{
+      marginLeft: 240
+    }}>
+        <Header title={t("branch_admin.analytical_report", "Analytical Report")} />
 
-        <h1 className="text-2xl px-5 py-2 font-bold tracking-tight text-gray-600 ">
-          Products Sales Report
-        </h1>
+        <h1 className="text-2xl px-5 py-2 font-bold tracking-tight text-gray-600 ">{t("branch_admin.products_sales_report", "Products Sales Report")}</h1>
 
         {/* Export Buttons */}
         <div className="absolute top-18 right-6 flex gap-2.5 ">
-          <button
-            onClick={exportExcel}
-            className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150"
-          >
-            <FaFileExcel className="text-base" />
-            Export Excel
-          </button>
-          <button
-            onClick={exportPDF}
-            className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150"
-          >
-            <FaFilePdf className="text-base" />
-            Export PDF
-          </button>
+          <button onClick={exportExcel} className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150">
+            <FaFileExcel className="text-base" />{t("branch_admin.export_excel", "Export Excel")}</button>
+          <button onClick={exportPDF} className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150">
+            <FaFilePdf className="text-base" />{t("branch_admin.export_pdf", "Export PDF")}</button>
         </div>
 
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <h3 className="font-bold text-gray-800 text-base mb-3">Interval Configuration</h3>
+          <h3 className="font-bold text-gray-800 text-base mb-3">{t("branch_admin.interval_configuration", "Interval Configuration")}</h3>
           <div className="flex flex-wrap gap-6 items-center border-b border-gray-100 pb-4 mb-4">
             <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input
-                type="radio"
-                className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                checked={filters.filterType === "daily"}
-                onChange={() => setFilters({ ...filters, filterType: "daily" })}
-              />
-              Daily Processing
-            </label>
+              <input type="radio" className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked={filters.filterType === "daily"} onChange={() => setFilters({
+              ...filters,
+              filterType: "daily"
+            })} />{t("branch_admin.daily_processing", "Daily Processing")}</label>
             <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input
-                type="radio"
-                checked={filters.filterType === "weekly"}
-                onChange={() => setFilters({ ...filters, filterType: "weekly" })}
-              />
-              Weekly Statement
-            </label>
+              <input type="radio" checked={filters.filterType === "weekly"} onChange={() => setFilters({
+              ...filters,
+              filterType: "weekly"
+            })} />{t("branch_admin.weekly_statement", "Weekly Statement")}</label>
             <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input
-                type="radio"
-                className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                checked={filters.filterType === "monthly"}
-                onChange={() => setFilters({ ...filters, filterType: "monthly" })}
-              />
-              Monthly Statement
-            </label>
+              <input type="radio" className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked={filters.filterType === "monthly"} onChange={() => setFilters({
+              ...filters,
+              filterType: "monthly"
+            })} />{t("branch_admin.monthly_statement", "Monthly Statement")}</label>
             <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input
-                type="radio"
-                className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                checked={filters.filterType === "custom"}
-                onChange={() => setFilters({ ...filters, filterType: "custom" })}
-              />
-              Custom Date Range
-            </label>
+              <input type="radio" className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked={filters.filterType === "custom"} onChange={() => setFilters({
+              ...filters,
+              filterType: "custom"
+            })} />{t("branch_admin.custom_date_range", "Custom Date Range")}</label>
           </div>
 
-          {filters.filterType === "weekly" && (
-            <div className="flex gap-4 items-end mt-2 animate-fadeIn">
+          {filters.filterType === "weekly" && <div className="flex gap-4 items-end mt-2 animate-fadeIn">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Month</label>
-                <input
-                  type="month"
-                  value={filters.selectedMonth}
-                  onChange={(e) => setFilters({ ...filters, selectedMonth: e.target.value })}
-                  className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm"
-                />
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.month", "Month")}</label>
+                <input type="month" value={filters.selectedMonth} onChange={e => setFilters({
+              ...filters,
+              selectedMonth: e.target.value
+            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Week</label>
-                <select
-                  value={filters.selectedWeek}
-                  onChange={(e) => setFilters({ ...filters, selectedWeek: e.target.value })}
-                  className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm"
-                >
-                  <option value="1">Week 1</option>
-                  <option value="2">Week 2</option>
-                  <option value="3">Week 3</option>
-                  <option value="4">Week 4</option>
-                  <option value="5">Week 5</option>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.week", "Week")}</label>
+                <select value={filters.selectedWeek} onChange={e => setFilters({
+              ...filters,
+              selectedWeek: e.target.value
+            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm">
+                  <option value="1">{t("branch_admin.week_1", "Week 1")}</option>
+                  <option value="2">{t("branch_admin.week_2", "Week 2")}</option>
+                  <option value="3">{t("branch_admin.week_3", "Week 3")}</option>
+                  <option value="4">{t("branch_admin.week_4", "Week 4")}</option>
+                  <option value="5">{t("branch_admin.week_5", "Week 5")}</option>
                 </select>
               </div>
-            </div>
-          )}
+            </div>}
 
-          {filters.filterType === "monthly" && (
-            <div className="flex flex-col gap-1.5 max-w-xs animate-fadeIn">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Select Operational Month</label>
-              <input
-                type="month"
-                value={filters.selectedMonth}
-                onChange={(e) => setFilters({ ...filters, selectedMonth: e.target.value })}
-                className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-              />
-            </div>
-          )}
+          {filters.filterType === "monthly" && <div className="flex flex-col gap-1.5 max-w-xs animate-fadeIn">
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.select_operational_month", "Select Operational Month")}</label>
+              <input type="month" value={filters.selectedMonth} onChange={e => setFilters({
+            ...filters,
+            selectedMonth: e.target.value
+          })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+            </div>}
 
-          {filters.filterType === "custom" && (
-            <div className="flex gap-4 items-center mt-2 animate-fadeIn">
+          {filters.filterType === "custom" && <div className="flex gap-4 items-center mt-2 animate-fadeIn">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">From Date</label>
-                <input
-                  type="date"
-                  value={filters.fromDate}
-                  onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
-                  className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                />
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.from_date", "From Date")}</label>
+                <input type="date" value={filters.fromDate} onChange={e => setFilters({
+              ...filters,
+              fromDate: e.target.value
+            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">To Date</label>
-                <input
-                  type="date"
-                  value={filters.toDate}
-                  onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-                  className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
-                />
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.to_date", "To Date")}</label>
+                <input type="date" value={filters.toDate} onChange={e => setFilters({
+              ...filters,
+              toDate: e.target.value
+            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
               </div>
-            </div>
-          )}
+            </div>}
 
-          <button
-            onClick={generateReport}
-            disabled={loading}
-            className={`mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all duration-150
-              ${loading
-                ? "bg-blue-400 text-blue-100 cursor-not-allowed"
-                : "bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] cursor-pointer"
-              }`}
-          >
-            {loading ? (
-              <>
+          <button onClick={generateReport} disabled={loading} className={`mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all duration-150
+              ${loading ? "bg-blue-400 text-blue-100 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] cursor-pointer"}`}>
+            {loading ? <>
                 <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                Processing...
-              </>
-            ) : (
-              "Generate Report"
-            )}
+                </svg>{t("branch_admin.processing", t("buttons.processing", "Processing..."))}</> : t("buttons.generate_report", "Generate Report")}
           </button>
         </div>
 
         {/* Columns Grid */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-          <h3 className="font-bold text-gray-800 text-base mb-3">Visible Data Fields</h3>
+          <h3 className="font-bold text-gray-800 text-base mb-3">{t("branch_admin.visible_data_fields", "Visible Data Fields")}</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {availableColumns.map((col) => (
-              <label
-                key={col.key}
-                className="flex items-center gap-2.5 p-2 rounded-lg border border-gray-50 hover:bg-gray-50 transition-colors text-sm text-gray-600 font-medium cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                  checked={selectedColumns.includes(col.key)}
-                  onChange={() => {
-                    if (selectedColumns.includes(col.key)) {
-                      setSelectedColumns(selectedColumns.filter((c) => c !== col.key));
-                    } else {
-                      setSelectedColumns([...selectedColumns, col.key]);
-                    }
-                  }}
-                />
+            {availableColumns.map(col => <label key={col.key} className="flex items-center gap-2.5 p-2 rounded-lg border border-gray-50 hover:bg-gray-50 transition-colors text-sm text-gray-600 font-medium cursor-pointer">
+                <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4" checked={selectedColumns.includes(col.key)} onChange={() => {
+              if (selectedColumns.includes(col.key)) {
+                setSelectedColumns(selectedColumns.filter(c => c !== col.key));
+              } else {
+                setSelectedColumns([...selectedColumns, col.key]);
+              }
+            }} />
                 {col.label}
-              </label>
-            ))}
+              </label>)}
           </div>
         </div>
 
         {/* Table & Data Handling */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-3">
+        {loading ? <div className="flex flex-col items-center justify-center py-16 gap-3">
             <div className="flex items-center gap-1.5 h-6">
               <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
               <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
               <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
             </div>
-            <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">
-              Please wait...
-            </span>
-          </div>
-        ) : (
-          <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
+            <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">{t("branch_admin.please_wait", "Please wait...")}</span>
+          </div> : <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
             <table className="w-full min-w-max">
               <thead className="bg-gray-100">
                 <tr>
-                  {availableColumns
-                    .filter((col) => selectedColumns.includes(col.key))
-                    .map((col) => (
-                      <th key={col.key} className="p-3 text-left font-semibold text-sm text-gray-700">
+                  {availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => <th key={col.key} className="p-3 text-left font-semibold text-sm text-gray-700">
                         {col.label}
-                      </th>
-                    ))}
+                      </th>)}
                 </tr>
               </thead>
               <tbody>
-                {rows.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length}
-                      className="text-center py-12 text-gray-400 font-medium"
-                    >
-                      No matching sales data captured. Adjust your filters and reload.
-                    </td>
-                  </tr>
-                ) : (
-                  rows.map((row, rowIndex) => (
-                    <tr key={rowIndex} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
-                      {availableColumns
-                        .filter((col) => selectedColumns.includes(col.key))
-                        .map((col) => {
-                          const cellValue = row[col.key];
-
-                          if (col.key === "unit_price" || col.key === "total_sale") {
-                            return (
-                              <td key={col.key} className="p-4 text-sm text-gray-600">
-                                Rs. {Number(cellValue || 0).toFixed(2)}
-                              </td>
-                            );
-                          }
-
-                          if (col.key === "pay_date" && cellValue) {
-                            return (
-                              <td key={col.key} className="p-4 text-sm text-gray-600">
+                {rows.length === 0 ? <tr>
+                    <td colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length} className="text-center py-12 text-gray-400 font-medium">{t("branch_admin.no_matching_sales_data_captured_adjust_y", "No matching sales data captured. Adjust your filters and reload.")}</td>
+                  </tr> : rows.map((row, rowIndex) => <tr key={rowIndex} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
+                      {availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => {
+                const cellValue = row[col.key];
+                if (col.key === "unit_price" || col.key === "total_sale") {
+                  return <td key={col.key} className="p-4 text-sm text-gray-600">{t("branch_admin.rs", "Rs.")}{Number(cellValue || 0).toFixed(2)}
+                              </td>;
+                }
+                if (col.key === "pay_date" && cellValue) {
+                  return <td key={col.key} className="p-4 text-sm text-gray-600">
                                 {cellValue.includes("T") ? cellValue.split("T")[0] : cellValue}
-                              </td>
-                            );
-                          }
-                          if (col.key === "pay_time" && cellValue) {
-                            return (
-                              <td key={col.key} className="p-4 text-sm text-gray-600">
+                              </td>;
+                }
+                if (col.key === "pay_time" && cellValue) {
+                  return <td key={col.key} className="p-4 text-sm text-gray-600">
                                 {cellValue.split(".")[0]}
-                              </td>
-                            );
-                          }
-                          return (
-                            <td key={col.key} className="p-4 text-sm text-gray-600">
+                              </td>;
+                }
+                return <td key={col.key} className="p-4 text-sm text-gray-600">
                               {String(cellValue ?? "")}
-                            </td>
-                          );
-                        })}
-                    </tr>
-                  ))
-                )}
+                            </td>;
+              })}
+                    </tr>)}
               </tbody>
-              {rows.length > 0 && (
-                <tfoot>
+              {rows.length > 0 && <tfoot>
                   <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                    <td
-                      colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1}
-                      className="p-4 text-right"
-                    >
-                      Grand Total
-                    </td>
-                    <td className="p-4 text-green-600 text-base">
-                      Rs. {Number(grandTotal).toFixed(2)}
+                    <td colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length - 1} className="p-4 text-right">{t("branch_admin.grand_total", "Grand Total")}</td>
+                    <td className="p-4 text-green-600 text-base">{t("branch_admin.rs", "Rs.")}{Number(grandTotal).toFixed(2)}
                     </td>
                   </tr>
-                </tfoot>
-              )}
+                </tfoot>}
             </table>
-          </div>
-        )}
-        <button
-          onClick={() => window.history.back()}
-          className="fixed bottom-6 right-6 inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-lg hover:shadow-xl active:scale-95 transition-all duration-150 z-50 group border border-slate-700 cursor-pointer"
-        >
-          <FaArrowLeft className="text-xs group-hover:-translate-x-1 transition-transform" />
-          Back
-        </button>
+          </div>}
+        <button onClick={() => window.history.back()} className="fixed bottom-6 right-6 inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-lg hover:shadow-xl active:scale-95 transition-all duration-150 z-50 group border border-slate-700 cursor-pointer">
+          <FaArrowLeft className="text-xs group-hover:-translate-x-1 transition-transform" />{t("branch_admin.back", "Back")}</button>
       </div>
-    </div>
-  );
+    </div>;
 }
