@@ -12,7 +12,7 @@ import autoTable from "jspdf-autotable";
 
 
 export default function SalesDetailsReport() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const availableColumns = [
     { key: "invoice_no", label: t("reports.invoice_no", "Invoice No") },
@@ -183,7 +183,77 @@ const { user } = useAuth();
     XLSX.writeFile(workbook, `Sales_Details_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
+    const exportPDFJsPdf = () => {
+    const doc = new jsPDF();
+    const reportDate = new Date();
+    const generatedDate = reportDate.toLocaleDateString();
+    const generatedTime = reportDate.toLocaleTimeString();
+    
+    doc.setFontSize(22);
+    doc.setTextColor(0, 82, 168);
+    doc.text('ales etails eport', 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Generated: ' + generatedDate + ' ' + generatedTime, 14, 28);
+    
+    const head = selectedColumns.map(col => availableColumns.find(c => c.key === col)?.label || col);
+    const body = rows.map(row => {
+      return selectedColumns.map(colKey => {
+        let val = row[colKey];
+        if (colKey === 'unit_price' || colKey === 'total_sale' || colKey === 'total_amount' || colKey === 'amount' || colKey === 'total_cost' || colKey === 'tax' || colKey === 'totalCostWtax') {
+          return 'Rs. ' + Number(val || 0).toFixed(2);
+        }
+        if (colKey === 'pay_date' && val) return val.split('T')[0];
+        if (colKey === 'pay_time' && val) {
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? val : d.toLocaleTimeString();
+        }
+        if (colKey === 'date' && val) return val.split('T')[0];
+        return val || '';
+      });
+    });
+
+    if (body.length > 0 && typeof grandTotal !== 'undefined') {
+       const totalRow = Array(selectedColumns.length).fill('');
+       totalRow[0] = 'TOTAL';
+       const totalIndex = selectedColumns.findIndex(c => c === 'total_sale' || c === 'total_amount' || c === 'amount');
+       if (totalIndex !== -1) totalRow[totalIndex] = 'Rs. ' + Number(grandTotal).toFixed(2);
+       body.push(totalRow);
+    }
+
+    doc.line(14, 35, 196, 35);
+    
+    autoTable(doc, {
+      startY: 42,
+      head: [head],
+      body: body,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [0, 82, 168],
+        fontSize: 10,
+        align: 'center'
+      },
+      bodyStyles: {
+        fontSize: 9
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      }
+    });
+    
+    doc.save('ales_etails_eport_' + generatedDate + '.pdf');
+  };
+
   const exportPDF = () => {
+    if (i18n.language === 'en') {
+      exportPDFJsPdf();
+    } else {
+      exportPDFHtml();
+    }
+  };
+
+  const exportPDFHtml = () => {
     const doc = new jsPDF();
     const reportDate = new Date();
 

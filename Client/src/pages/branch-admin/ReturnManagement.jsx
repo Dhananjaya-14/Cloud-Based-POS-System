@@ -290,7 +290,7 @@ const q = parseFloat(qty);
       <div className="flex flex-col h-screen overflow-hidden" style={{
       marginLeft: 240
     }}>
-        <Header />
+        <Header title={t("branch_admin.return_management", "Return Management")} />
         <main className="flex-1 overflow-y-auto p-4 lg:p-8">
           <div className="max-w-7xl mx-auto space-y-6">
 
@@ -496,7 +496,7 @@ const q = parseFloat(qty);
               <div className="pt-2 flex gap-3">
                 <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
                 <button type="submit" disabled={isAdding} className="flex-1 px-4 py-2.5 bg-[#0E6DCF] hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-70">
-                  {isAdding ? t("buttons.saving", "Saving...") : "Confirm Return"}
+                  {isAdding ? t("buttons.saving", "Saving...") : t("branch_admin.confirm_return", "Confirm Return")}
                 </button>
               </div>
             </form>

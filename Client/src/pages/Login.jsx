@@ -102,7 +102,7 @@ const navigate = useNavigate();
           {error && <div style={{ color: "red", marginTop: 12 }}>{error}</div>}
 
           <button type="submit" style={primaryBtn} disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
+            {loading ? t("auth.logging_in", "Logging in...") : t("auth.login", "Login")}
           </button>
         </form>
 

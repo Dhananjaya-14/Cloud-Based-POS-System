@@ -469,7 +469,7 @@ setEditTarget(null);
       </div>
 
       {/* Add/Edit Modal */}
-      <Modal isOpen={isModalOpen} onClose={closeModal} title={editTarget ? "Edit Table" : "Add New Table"}>
+      <Modal isOpen={isModalOpen} onClose={closeModal} title={editTarget ? t("branch_admin.edit_table", "Edit Table") : t("branch_admin.add_new_table", "Add New Table")}>
         <form onSubmit={handleSave} className="space-y-5">
           <Input id="table_number" label={t("fields.table_number", "Table Number")} placeholder={t("branch_admin.e_g_t01", "e.g. T01")} required value={formData.table_number} onChange={e => setFormData({
           ...formData,

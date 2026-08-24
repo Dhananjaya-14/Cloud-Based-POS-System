@@ -123,7 +123,7 @@ const formattedRows = rows.map(row => {
     const timestamp = new Date().toISOString().split("T")[0];
     XLSX.writeFile(workbook, `Raw_Material_Stock_Report_${timestamp}.xlsx`);
   };
-  const exportPDF = () => {
+  const exportPDFJsPdf = () => {
 const doc = new jsPDF();
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
@@ -178,7 +178,73 @@ const doc = new jsPDF();
     }
     doc.save(`Raw_Material_Stock_Report_${generatedDate}.pdf`);
   };
-  return <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
+    const exportPDFHtml = () => {
+    const printWindow = window.open("", "_blank");
+    const reportDate = new Date();
+    const generatedDate = reportDate.toLocaleDateString();
+    const generatedTime = reportDate.toLocaleTimeString();
+    const title = "aw aterial tock eport";
+    
+    const headers = selectedColumns.map(col => availableColumns.find(c => c.key === col)?.label || col);
+    
+    const bodyHtml = rows.map(row => {
+      return "<tr>" + selectedColumns.map(colKey => {
+        let val = row[colKey];
+        if (colKey === "unit_price" || colKey === "total_sale" || colKey === "total_amount" || colKey === "amount" || colKey === "total_cost" || colKey === "tax" || colKey === "totalCostWtax") {
+          val = "Rs. " + Number(val || 0).toFixed(2);
+        } else if (colKey === "pay_date" && val) {
+          val = val.split("T")[0];
+        } else if (colKey === "pay_time" && val) {
+          const d = new Date(val);
+          val = isNaN(d.getTime()) ? val : d.toLocaleTimeString();
+        } else if (colKey === "date" && val) {
+          val = val.split("T")[0];
+        }
+        return "<td>" + (val || "") + "</td>";
+      }).join("") + "</tr>";
+    }).join("");
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title></title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; }
+            h2 { color: #0056A2; text-align: center; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+          </style>
+        </head>
+        <body>
+          <h2></h2>
+          <p><strong>Generated:</strong>  </p>
+          <table>
+            <thead>
+              <tr></tr>
+            </thead>
+            <tbody>
+              
+            </tbody>
+          </table>
+          <script>
+            window.onload = function() { window.print(); window.close(); }
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
+  };
+
+  const exportPDF = () => {
+    if (i18n.language === "en") {
+      exportPDFJsPdf();
+    } else {
+      exportPDFHtml();
+    }
+  };
+
+return <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
       <Sidebar />
       <div className="flex flex-1 flex-col" style={{
       marginLeft: 240

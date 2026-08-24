@@ -166,11 +166,11 @@ const location = useLocation();
             {!isLocked("has_inventory") && <>
                 {groupLabel(<FaClipboardList />, t("branch_admin.inventory_management", "Inventory Management"), inventoryActive, isInventoryOpen, () => setIsInventoryOpen(prev => !prev))}
                 {isInventoryOpen && <>
-                    {subItem("Inventory", "/branch-admin/inventory")}
-                    {subItem("Add Inventory Item", "/branch-admin/raw-ingredient")}
-                    {isLocked("has_suppliers") ? lockedSubItem("Supplier Directory") : subItem("Supplier Directory", "/branch-admin/suppliers")}
-                    {subItem("Waste Management", "/branch-admin/waste-management")}
-                    {subItem("Return Management", "/branch-admin/return-management")}
+                    {subItem(t("branch_admin.inventory", "Inventory"), "/branch-admin/inventory")}
+                    {subItem(t("branch_admin.add_inventory_item", "Add Inventory Item"), "/branch-admin/raw-ingredient")}
+                    {isLocked("has_suppliers") ? lockedSubItem(t("branch_admin.supplier_directory", "Supplier Directory")) : subItem(t("branch_admin.supplier_directory", "Supplier Directory"), "/branch-admin/suppliers")}
+                    {subItem(t("branch_admin.waste_management", "Waste Management"), "/branch-admin/waste-management")}
+                    {subItem(t("branch_admin.return_management", "Return Management"), "/branch-admin/return-management")}
                     {subItem(t("branch_admin.recipe_mapper", "Recipe Mapper"), "/branch-admin/recipe-mapper")}
                   </>}
               </>}
@@ -178,7 +178,7 @@ const location = useLocation();
 
             {groupLabel(<FaChartLine />, t("branch_admin.statistics", "Statistics"), statisticsActive, isStatisticsOpen, () => setIsStatisticsOpen(prev => !prev))}
             {isStatisticsOpen && <>
-                {subItem("Sales & Revenue", "/branch-admin/sales-revenue")}
+                {subItem(t("branch_admin.sales_revenue", "Sales & Revenue"), "/branch-admin/sales-revenue")}
                 {subItem(t("branch_admin.cashier_performance", "Cashier Performance"), "/branch-admin/cashier-performance")}
               </>}
 
@@ -187,10 +187,10 @@ const location = useLocation();
             {!isLocked("has_reports") && <>
                 {groupLabel(<FaFileAlt />, t("branch_admin.reports", "Reports"), reportsActive, isReportsOpen, () => setIsReportsOpen(prev => !prev))}
                 {isReportsOpen && <>
-                    {subItem("Sales Summary", "/branch-admin/summary-sales")}
+                    {subItem(t("branch_admin.sales_summary", "Sales Summary"), "/branch-admin/summary-sales")}
                     {subItem(t("branch_admin.product_sales", "Product Sales"), "/branch-admin/summary-productsales")}
-                    {!isLocked("has_inventory") && subItem("Raw Material Stock", "/branch-admin/raw-material-stock")}
-                    {!isLocked("has_inventory") && subItem("Raw Material Consumption", "/branch-admin/raw-material-consumption")}
+                    {!isLocked("has_inventory") && subItem(t("branch_admin.raw_material_stock", "Raw Material Stock"), "/branch-admin/raw-material-stock")}
+                    {!isLocked("has_inventory") && subItem(t("branch_admin.raw_material_consumption", "Raw Material Consumption"), "/branch-admin/raw-material-consumption")}
                   </>}
               </>}
 

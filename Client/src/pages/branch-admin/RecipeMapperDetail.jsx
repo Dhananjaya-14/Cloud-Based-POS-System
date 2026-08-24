@@ -477,7 +477,7 @@ console.log('Socket disconnected in RecipeMapperDetail');
               fontWeight: 600,
               cursor: "pointer"
             }}>
-                {saving ? t("buttons.saving", "Saving...") : "+  Add new ingredient"}
+                {saving ? t("buttons.saving", "Saving...") : t("branch_admin.add_new_ingredient", "Add new ingredient")}
               </button>
             </div>
 
@@ -553,7 +553,7 @@ console.log('Socket disconnected in RecipeMapperDetail');
             cursor: "pointer",
             opacity: savingMapping ? 0.7 : 1
           }}>
-              {savingMapping ? t("buttons.saving", "Saving...") : "Save ingredients mapping"}
+              {savingMapping ? t("buttons.saving", "Saving...") : t("branch_admin.save_ingredients_mapping", "Save ingredients mapping")}
             </button>
           </div>
         </div>

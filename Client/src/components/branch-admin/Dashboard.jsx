@@ -253,8 +253,8 @@ const Dashboard = () => {
 					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 						<div className={`bg-white rounded-2xl border border-slate-100 p-5 shadow-sm ${inventoryEnabled ? '' : 'lg:col-span-3'}`}>
 							<div className="mb-4">
-								<h4 className="text-sm font-bold text-slate-900">Today&apos;s Staff</h4>
-								<p className="text-xs text-slate-500">Staff performance</p>
+								<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.todays_staff", "Today&apos;s Staff")}</h4>
+								<p className="text-xs text-slate-500">{t("branch_admin.staff_performance", "Staff performance")}</p>
 							</div>
 							<div className="space-y-4">
 								{topStaff.length === 0 && !isLoading && (
@@ -302,24 +302,24 @@ const Dashboard = () => {
 							<div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm lg:col-span-2">
 								<div className="flex items-start justify-between mb-4">
 									<div>
-										<h4 className="text-sm font-bold text-slate-900">Inventory Updates</h4>
-										<p className="text-xs text-slate-500">Current stock levels</p>
+										<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.inventory_updates", "Inventory Updates")}</h4>
+										<p className="text-xs text-slate-500">{t("branch_admin.current_stock_levels", "Current stock levels")}</p>
 									</div>
 									<button
 										type="button"
 										onClick={() => navigate("/branch-admin/inventory")}
 										className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50"
 									>
-										Go to Inventory Page
+										{t("branch_admin.go_to_inventory_page", "Go to Inventory Page")}
 									</button>
 								</div>
 
 								<div className="mb-4">
 									<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between">
 										<div>
-											<div className="text-xs font-semibold text-red-600">Low Stock Alert</div>
+											<div className="text-xs font-semibold text-red-600">{t("branch_admin.low_stock_alert", "Low Stock Alert")}</div>
 											<div className="text-xs text-red-500">
-												{lowStockItem ? lowStockItem.rm_name : "No low stock alerts"}
+												{lowStockItem ? lowStockItem.rm_name : t("branch_admin.no_low_stock_alerts", "No low stock alerts")}
 											</div>
 										</div>
 										<div className="text-sm font-semibold text-red-600">
@@ -369,8 +369,8 @@ const Dashboard = () => {
 
 					<div className="mt-8 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
 						<div className="mb-4">
-							<h4 className="text-sm font-bold text-slate-900">Today&apos;s Cashiers</h4>
-							<p className="text-xs text-slate-500">Work distribution</p>
+							<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.todays_cashiers", "Today&apos;s Cashiers")}</h4>
+							<p className="text-xs text-slate-500">{t("branch_admin.work_distribution", "Work distribution")}</p>
 						</div>
 
 						<div className="flex flex-wrap gap-3 mb-5">
@@ -389,9 +389,9 @@ const Dashboard = () => {
 								<thead>
 									<tr className="text-slate-400 text-[11px] text-left border-b">
 										<th className="py-2">#</th>
-										<th className="py-2">NAME</th>
-										<th className="py-2">AREA</th>
-										<th className="py-2">SALES (%)</th>
+										<th className="py-2">{t("branch_admin.name_upper", "NAME")}</th>
+										<th className="py-2">{t("branch_admin.area_upper", "AREA")}</th>
+										<th className="py-2">{t("branch_admin.sales_percent", "SALES (%)")}</th>
 									</tr>
 								</thead>
 								<tbody>
