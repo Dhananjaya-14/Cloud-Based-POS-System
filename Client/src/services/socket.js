@@ -722,6 +722,43 @@ export const subscribeToBranchAdminDashboardUpdates = (branchId, callbacks) => {
   };
 };
 
+// Helper function to listen for waste updates
+export const subscribeToWasteUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const { onWasteCreated, onWasteUpdated, onWasteDeleted } = callbacks;
+
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+  }
+
+  if (onWasteCreated) {
+    socket.on("waste:created", onWasteCreated);
+  }
+  if (onWasteUpdated) {
+    socket.on("waste:updated", onWasteUpdated);
+  }
+  if (onWasteDeleted) {
+    socket.on("waste:deleted", onWasteDeleted);
+  }
+
+  return () => {
+    if (onWasteCreated) {
+      socket.off("waste:created", onWasteCreated);
+    }
+    if (onWasteUpdated) {
+      socket.off("waste:updated", onWasteUpdated);
+    }
+    if (onWasteDeleted) {
+      socket.off("waste:deleted", onWasteDeleted);
+    }
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+    }
+  };
+};
+
 export default {
   getSocket,
   connectSocket,
@@ -748,4 +785,5 @@ export default {
   subscribeToTableUpdates,
   subscribeToAdminStatsUpdates,
   subscribeToBranchAdminDashboardUpdates,
+  subscribeToWasteUpdates,
 };
