@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { FaPrint, FaTimes } from "react-icons/fa";
 import { printReceipt } from "../../utils/printReceipt";
 import { useAuth } from "../../context/AuthContext";
+import { getCompanyById } from "../../services/api";
 
 const defaultState = {
   orderId: "INV-0000000",
@@ -28,7 +29,8 @@ const defaultState = {
 const InvoicePreview = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const [companySettings, setCompanySettings] = useState({});
 
   const invoice = useMemo(() => ({
     ...defaultState,
@@ -37,6 +39,14 @@ const InvoicePreview = () => {
 
   const [isPaid, setIsPaid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false); // To prevent double-clicks
+
+  useEffect(() => {
+    if (user?.com_id) {
+      getCompanyById(user.com_id).then(data => {
+        setCompanySettings(data);
+      }).catch(err => console.error("Error fetching company settings:", err));
+    }
+  }, [user]);
 
   useEffect(() => {
     if (isPaid) {
@@ -53,7 +63,7 @@ const InvoicePreview = () => {
   const tax = Number(invoice.tax ?? 0).toFixed(2);
 
   const handlePrint = () => {
-    printReceipt(invoice);
+    printReceipt(invoice, companySettings);
   };
 
   const handlePay = async () => {
@@ -138,9 +148,12 @@ const InvoicePreview = () => {
             <section className="rounded-2xl bg-linear-to-r from-[#0A5BAE] via-[#11A9DF] to-[#55C24A] px-4 py-3 text-white shadow-[0_12px_24px_rgba(16,185,129,0.12)]">
               <div className="flex flex-col gap-2.5 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">Hotel POS</h2>
-                  <p className="mt-1 text-[11px] text-white/80 sm:text-xs">Point of Sale System</p>
-                  <p className="mt-1 whitespace-pre-line text-[11px] text-white/80 sm:text-xs">{invoice.branchLabel}</p>
+                  <h2 className="text-xl font-semibold tracking-tight sm:text-2xl">{companySettings.com_name || "Hotel POS"}</h2>
+                  {companySettings.location && <p className="mt-1 text-[11px] text-white/80 sm:text-xs">{companySettings.location}</p>}
+                  {companySettings.phone && <p className="mt-0.5 text-[11px] text-white/80 sm:text-xs">{companySettings.phone}</p>}
+                  {!companySettings.location && !companySettings.phone && (
+                    <p className="mt-1 whitespace-pre-line text-[11px] text-white/80 sm:text-xs">{invoice.branchLabel}</p>
+                  )}
                 </div>
 
                 <div className="grid gap-2 sm:grid-cols-2 md:min-w-52">
@@ -215,7 +228,7 @@ const InvoicePreview = () => {
             
 
             <div className="border-t border-slate-200 pt-2 text-center text-[11px] text-slate-500">
-              <p>Thank you for your purchase!</p>
+              <p>{companySettings.bill_greeting}</p>
             </div>
           </div>
         </div>

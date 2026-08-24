@@ -1,6 +1,6 @@
 import pool from "../../../config/database.js";
 import { ROLES } from "../../../middleware/authMiddleware.js";
-import { emitBranchProductEvent, SOCKET_EVENTS } from "../../../utils/socket.js";
+import { emitBranchProductEvent, emitSocketEvent, SOCKET_EVENTS } from "../../../utils/socket.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -624,6 +624,7 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       );
 
       await client.query("COMMIT");
+      emitSocketEvent("purchase_order:updated", result.rows[0]);
       res.json(result.rows[0]);
     } catch (txErr) {
       await client.query("ROLLBACK");
@@ -823,6 +824,7 @@ export async function receiveWithWastage(req, res, next) {
       );
 
       await client.query("COMMIT");
+      emitSocketEvent("purchase_order:updated", result.rows[0]);
       res.json(result.rows[0]);
     } catch (txErr) {
       await client.query("ROLLBACK");

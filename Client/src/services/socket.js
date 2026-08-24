@@ -606,6 +606,59 @@ export const subscribeToTableUpdates = (branchId, callbacks) => {
   };
 };
 
+// Helper function to listen for admin statistics updates
+export const subscribeToAdminStatsUpdates = (callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const {
+    onOrderCreated,
+    onOrderUpdated,
+    onPaymentCompleted,
+    onBranchChanged,
+    onPurchaseOrderReceived
+  } = callbacks;
+
+  if (onOrderCreated) {
+    socket.on("order:created", onOrderCreated);
+  }
+  if (onOrderUpdated) {
+    socket.on("order:updated", onOrderUpdated);
+  }
+  if (onPaymentCompleted) {
+    socket.on("payment:completed", onPaymentCompleted);
+  }
+  if (onBranchChanged) {
+    socket.on("branch:created", onBranchChanged);
+    socket.on("branch:updated", onBranchChanged);
+    socket.on("branch:deleted", onBranchChanged);
+  }
+  if (onPurchaseOrderReceived) {
+    socket.on("purchase_order:updated", onPurchaseOrderReceived);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onOrderCreated) {
+      socket.off("order:created", onOrderCreated);
+    }
+    if (onOrderUpdated) {
+      socket.off("order:updated", onOrderUpdated);
+    }
+    if (onPaymentCompleted) {
+      socket.off("payment:completed", onPaymentCompleted);
+    }
+    if (onBranchChanged) {
+      socket.off("branch:created", onBranchChanged);
+      socket.off("branch:updated", onBranchChanged);
+      socket.off("branch:deleted", onBranchChanged);
+    }
+    if (onPurchaseOrderReceived) {
+      socket.off("purchase_order:updated", onPurchaseOrderReceived);
+    }
+  };
+};
+
 export default {
   getSocket,
   connectSocket,
@@ -630,4 +683,5 @@ export default {
   subscribeToOrderUpdates,
   subscribeToActivityLogUpdates,
   subscribeToTableUpdates,
+  subscribeToAdminStatsUpdates,
 };

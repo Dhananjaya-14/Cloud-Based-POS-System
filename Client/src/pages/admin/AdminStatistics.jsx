@@ -9,6 +9,7 @@ import SalesChart from "../../components/admin/SalesChart";
 import PeakHoursChart from "../../components/admin/PeakHoursChart";
 import BusyDaysChart from "../../components/admin/BusyDaysChart";
 import BranchComparisonTable from "../../components/admin/BranchComparisonTable";
+import { connectSocket, subscribeToAdminStatsUpdates } from "../../services/socket";
 
 export default function AdminStatistics() {
   const [overview, setOverview] = useState({});
@@ -20,9 +21,32 @@ export default function AdminStatistics() {
   const [peakHours, setPeakHours] = useState([]);
   const [busyDays, setBusyDays] = useState([]);
   const [branchCompare, setBranchCompare] = useState([]);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const currentUser = getCurrentUser();
   const currentComId = currentUser?.com_id ?? null;
+
+  // Set up WebSocket connection and real-time statistics listeners
+  useEffect(() => {
+    connectSocket();
+    
+    const handleStatsRefresh = () => {
+      console.log("WebSocket event received: triggering statistics re-fetch...");
+      setRefreshTrigger((prev) => prev + 1);
+    };
+
+    const unsubscribe = subscribeToAdminStatsUpdates({
+      onOrderCreated: handleStatsRefresh,
+      onOrderUpdated: handleStatsRefresh,
+      onPaymentCompleted: handleStatsRefresh,
+      onBranchChanged: handleStatsRefresh,
+      onPurchaseOrderReceived: handleStatsRefresh,
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -46,7 +70,7 @@ export default function AdminStatistics() {
         console.error(err);
       }
     })();
-  }, [currentComId]);
+  }, [currentComId, refreshTrigger]);
 
   useEffect(() => {
     const toISODate = (d) => d.toISOString().slice(0, 10);
@@ -143,7 +167,7 @@ export default function AdminStatistics() {
         console.error("Failed to build stats:", err);
       }
     })();
-  }, [filters, branches, currentComId]);
+  }, [filters, branches, currentComId, refreshTrigger]);
 
   return (
     <div style={{ display: "flex", background: "#f8fafc", minHeight: "100vh" }}>

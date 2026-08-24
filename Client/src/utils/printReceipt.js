@@ -1,10 +1,14 @@
-export const printReceipt = (invoice) => {
+export const printReceipt = (invoice, companySettings = {}) => {
   const printWindow = window.open("", "_blank");
 
   const subtotal = Number(invoice.subtotal || 0).toFixed(2);
   const discount = Number(invoice.discount || 0).toFixed(2);
   const tax = Number(invoice.tax || 0).toFixed(2);
   const total = Number(invoice.total || 0).toFixed(2);
+  
+  const hotelName = companySettings.com_name || "HOTEL POS";
+  const logoUrl = companySettings.bill_logo || "";
+  const greeting = companySettings.bill_greeting || "Thank You For Your Visit!\nPlease Come Again";
 
   printWindow.document.write(`
     <html>
@@ -110,8 +114,10 @@ export const printReceipt = (invoice) => {
       <body>
 
         <div class="header">
-          <div class="hotel-name">HOTEL POS</div>
-          <div class="subtitle">Payment Receipt</div>
+          ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-width: 80px; max-height: 80px; margin-bottom: 10px;" />` : ''}
+          <div class="hotel-name">${hotelName}</div>
+          ${companySettings.location ? `<div class="subtitle" style="font-size: 14px; margin-top: 4px;">${companySettings.location}</div>` : ''}
+          ${companySettings.phone ? `<div class="subtitle" style="font-size: 14px; margin-top: 2px;">${companySettings.phone}</div>` : ''}
         </div>
 
         <div class="divider"></div>
@@ -177,8 +183,7 @@ export const printReceipt = (invoice) => {
         </div>
 
         <div class="footer">
-          <p>Thank You For Your Visit!</p>
-          <p>Please Come Again</p>
+          ${greeting.split('\n').map(line => `<p>${line}</p>`).join('')}
         </div>
 
       </body>
