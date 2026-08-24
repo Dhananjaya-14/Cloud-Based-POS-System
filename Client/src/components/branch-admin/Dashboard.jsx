@@ -13,6 +13,7 @@ import {
 	getRawMaterials,
 	getLowStockMaterials,
 } from "../../services/api";
+import { connectSocket, subscribeToBranchAdminDashboardUpdates } from "../../services/socket";
 
 const formatCurrency = (value) => {
 	const number = Number(value || 0);
@@ -32,6 +33,27 @@ const Dashboard = () => {
 	const [users, setUsers] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+	// Socket connection and real-time dashboard listeners
+	useEffect(() => {
+		if (!user?.b_id) return;
+
+		connectSocket();
+
+		const handleRefresh = () => {
+			console.log("WebSocket event: refreshing branch admin dashboard...");
+			setRefreshTrigger((prev) => prev + 1);
+		};
+
+		const unsubscribe = subscribeToBranchAdminDashboardUpdates(user.b_id, {
+			onRefresh: handleRefresh,
+		});
+
+		return () => {
+			unsubscribe();
+		};
+	}, [user?.b_id]);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -89,7 +111,7 @@ const Dashboard = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, [user?.b_id, inventoryEnabled]);
+	}, [user?.b_id, inventoryEnabled, refreshTrigger]);
 
 	const cashierUsers = useMemo(
 		() => users.filter((item) => Number(item?.role_id) === 3),

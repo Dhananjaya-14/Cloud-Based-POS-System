@@ -659,6 +659,69 @@ export const subscribeToAdminStatsUpdates = (callbacks) => {
   };
 };
 
+// Helper function to listen for branch admin dashboard updates
+export const subscribeToBranchAdminDashboardUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const { onRefresh } = callbacks;
+
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+    joinBranchUserRoom(branchId);
+  }
+
+  // Register listeners
+  socket.on(SOCKET_EVENTS.ORDER_SENT, onRefresh);
+  socket.on(SOCKET_EVENTS.ORDER_ACCEPTED, onRefresh);
+  socket.on(SOCKET_EVENTS.ORDER_READY, onRefresh);
+  socket.on(SOCKET_EVENTS.ORDER_UPDATED, onRefresh);
+  socket.on("order:created", onRefresh);
+  socket.on("order:updated", onRefresh);
+  socket.on("payment:completed", onRefresh);
+
+  socket.on(SOCKET_EVENTS.USER_CREATED, onRefresh);
+  socket.on(SOCKET_EVENTS.USER_UPDATED, onRefresh);
+  socket.on(SOCKET_EVENTS.USER_DELETED, onRefresh);
+
+  socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, onRefresh);
+  socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, onRefresh);
+  socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, onRefresh);
+
+  socket.on(SOCKET_EVENTS.INVENTORY_CREATED, onRefresh);
+  socket.on(SOCKET_EVENTS.INVENTORY_UPDATED, onRefresh);
+  socket.on(SOCKET_EVENTS.INVENTORY_DELETED, onRefresh);
+  socket.on("purchase_order:updated", onRefresh);
+
+  return () => {
+    socket.off(SOCKET_EVENTS.ORDER_SENT, onRefresh);
+    socket.off(SOCKET_EVENTS.ORDER_ACCEPTED, onRefresh);
+    socket.off(SOCKET_EVENTS.ORDER_READY, onRefresh);
+    socket.off(SOCKET_EVENTS.ORDER_UPDATED, onRefresh);
+    socket.off("order:created", onRefresh);
+    socket.off("order:updated", onRefresh);
+    socket.off("payment:completed", onRefresh);
+
+    socket.off(SOCKET_EVENTS.USER_CREATED, onRefresh);
+    socket.off(SOCKET_EVENTS.USER_UPDATED, onRefresh);
+    socket.off(SOCKET_EVENTS.USER_DELETED, onRefresh);
+
+    socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, onRefresh);
+    socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, onRefresh);
+    socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, onRefresh);
+
+    socket.off(SOCKET_EVENTS.INVENTORY_CREATED, onRefresh);
+    socket.off(SOCKET_EVENTS.INVENTORY_UPDATED, onRefresh);
+    socket.off(SOCKET_EVENTS.INVENTORY_DELETED, onRefresh);
+    socket.off("purchase_order:updated", onRefresh);
+
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+      leaveBranchUserRoom(branchId);
+    }
+  };
+};
+
 export default {
   getSocket,
   connectSocket,
@@ -684,4 +747,5 @@ export default {
   subscribeToActivityLogUpdates,
   subscribeToTableUpdates,
   subscribeToAdminStatsUpdates,
+  subscribeToBranchAdminDashboardUpdates,
 };
