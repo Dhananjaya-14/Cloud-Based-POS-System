@@ -3,6 +3,7 @@ import { FaTrashAlt } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
+import { connectSocket, subscribeToReturnUpdates } from "../../services/socket";
 
 const ReturnManagement = () => {
   const [returns, setReturns] = useState([]);
@@ -40,11 +41,36 @@ const ReturnManagement = () => {
 
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Set up WebSocket connection and real-time listeners for return records
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const b_id = user?.B_id || user?.b_id;
+    if (!b_id) return;
+
+    connectSocket();
+
+    const handleReturnRefresh = () => {
+      console.log("WebSocket event: refreshing return inventory data...");
+      setRefreshTrigger((prev) => prev + 1);
+    };
+
+    const unsubscribe = subscribeToReturnUpdates(b_id, {
+      onReturnCreated: handleReturnRefresh,
+      onReturnUpdated: handleReturnRefresh,
+      onReturnDeleted: handleReturnRefresh,
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     fetchReturns();
     fetchItemsForReturn();
-  }, []);
+  }, [refreshTrigger]);
 
   useEffect(() => {
     if (selectedItem) {

@@ -759,6 +759,43 @@ export const subscribeToWasteUpdates = (branchId, callbacks) => {
   };
 };
 
+// Helper function to listen for return updates
+export const subscribeToReturnUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const { onReturnCreated, onReturnUpdated, onReturnDeleted } = callbacks;
+
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+  }
+
+  if (onReturnCreated) {
+    socket.on("return:created", onReturnCreated);
+  }
+  if (onReturnUpdated) {
+    socket.on("return:updated", onReturnUpdated);
+  }
+  if (onReturnDeleted) {
+    socket.on("return:deleted", onReturnDeleted);
+  }
+
+  return () => {
+    if (onReturnCreated) {
+      socket.off("return:created", onReturnCreated);
+    }
+    if (onReturnUpdated) {
+      socket.off("return:updated", onReturnUpdated);
+    }
+    if (onReturnDeleted) {
+      socket.off("return:deleted", onReturnDeleted);
+    }
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+    }
+  };
+};
+
 export default {
   getSocket,
   connectSocket,
@@ -786,4 +823,5 @@ export default {
   subscribeToAdminStatsUpdates,
   subscribeToBranchAdminDashboardUpdates,
   subscribeToWasteUpdates,
+  subscribeToReturnUpdates,
 };
