@@ -333,7 +333,10 @@
     "branch_added_successfully": "கிளை வெற்றிகரமாக சேர்க்கப்பட்டது.",
     "branch_created_under_company": "இந்த கிளை உங்கள் நிறுவனத்தின் கீழ் உருவாக்கப்படும் (உங்கள் உள்நுழைவிலிருந்து).",
     "branch_email_placeholder": "branch@company.com",
-    "branch_contact_placeholder": "+94 77 ..."
+    "branch_contact_placeholder": "+94 77 ...",
+    "completed": "முடிந்தது",
+    "pending": "நிலுவையில்",
+    "other": "மற்றவை"
   },
   "branch_admin": {
     "0": "0",
@@ -751,7 +754,8 @@
     "confirm_waste": "கழிவுகளை உறுதிப்படுத்தவும்",
     "add_new_ingredient": "+ புதிய மூலப்பொருளைச் சேர்க்கவும்",
     "save_ingredients_mapping": "மூலப்பொருள் மேப்பிங்கைச் சேமிக்கவும்",
-    "imported_from_product": "தயாரிப்பில் இருந்து இறக்குமதி செய்யப்பட்டது"
+    "imported_from_product": "தயாரிப்பில் இருந்து இறக்குமதி செய்யப்பட்டது",
+    "confirm_return": "திரும்பியதை உறுதிப்படுத்தவும்"
   },
   "Branches listing is not permitted for this account": {
     "": "பிழை"
@@ -865,7 +869,15 @@
     "role_9": "சமையலறை ஊழியர்கள்",
     "receipt": "ரசீது",
     "greeting": "உங்கள் வருகைக்கு நன்றி!\nமீண்டும் வாருங்கள்",
-    "tax": "வரி"
+    "tax": "வரி",
+    "ready_to_start_your_day_let_s_make_it_productive": "உங்கள் நாளைத் தொடங்கத் தயாரா? அதை பயனுள்ளதாக்குவோம்.",
+    "pay_now": "இப்போது செலுத்துங்கள்",
+    "paid": "செலுத்தப்பட்டது",
+    "processing": "செயலாக்கப்படுகிறது...",
+    "checkout": "வெளியேறு",
+    "bill_order": "பில் ஆர்டர்",
+    "pending": "நிலுவையில் உள்ளது",
+    "edit_order": "ஆர்டரைத் திருத்து"
   },
   "This item is out of stock": {
     "": "பிழை"
@@ -921,7 +933,18 @@
     "no_held_orders": "வைத்திருக்கும் உத்தரவுகள் இல்லை",
     "edit_held_order": "வைத்திருக்கும் வரிசையைத் திருத்தவும்",
     "delete_held_order": "வைத்திருக்கும் ஆர்டரை நீக்கு",
-    "on_hold": "நிறுத்தி வைக்கப்பட்டுள்ளது"
+    "on_hold": "நிறுத்தி வைக்கப்பட்டுள்ளது",
+    "table": "அட்டவணை",
+    "no_table_selected": "எந்த அட்டவணையும் தேர்ந்தெடுக்கப்படவில்லை",
+    "seats_available": "இருக்கைகள் உள்ளன",
+    "please_select_a_table": "தொடர அட்டவணையைத் தேர்ந்தெடுக்கவும்",
+    "processing": "செயலாக்கப்படுகிறது...",
+    "confirm_delivery": "டெலிவரியை உறுதிப்படுத்தவும்",
+    "restore_order": "ஆர்டரை மீட்டமை",
+    "refreshing": "புதுப்பிக்கப்படுகிறது...",
+    "refresh_data": "தரவைப் புதுப்பிக்கவும்",
+    "confirm": "உறுதிப்படுத்து",
+    "update": "புதுப்பி"
   },
   "kitchen": {
     "ord": "ORD",
@@ -940,7 +963,25 @@
     "kitchen_order_management": "சமையலறை ஒழுங்கு மேலாண்மை",
     "manage_and_track_all_incoming_orders": "அனைத்து உள்வரும் ஆர்டர்களையும் நிர்வகிக்கவும் மற்றும் கண்காணிக்கவும்",
     "search_items": "உருப்படிகளைத் தேடு...",
-    "loading_orders": "ஆர்டர்களை ஏற்றுகிறது..."
+    "loading_orders": "ஆர்டர்களை ஏற்றுகிறது...",
+    "pending_upper": "நிலுவையில் உள்ளவை",
+    "items_waiting": "பொருட்கள் காத்திருக்கின்றன",
+    "preparing_upper": "தயாராகிறது",
+    "in_progress": "நடைபெறுகிறது",
+    "ready_upper": "தயார்",
+    "ready_to_serve": "பரிமாறத் தயார்",
+    "active_orders_upper": "செயலில் உள்ள ஆர்டர்கள்",
+    "total_orders": "மொத்த ஆர்டர்கள்",
+    "received_orders_upper": "பெறப்பட்ட ஆர்டர்கள்",
+    "accepted_orders_upper": "ஏற்றுக்கொள்ளப்பட்ட ஆர்டர்கள்",
+    "rejected_orders_upper": "நிராகரிக்கப்பட்ட ஆர்டர்கள்",
+    "pending": "நிலுவையில்",
+    "preparing": "தயாராகிறது",
+    "completed": "முடிந்தது",
+    "declined": "நிராகரிக்கப்பட்டது",
+    "dine_in": "உள்ளே சாப்பிடுதல்",
+    "takeaway": "எடுத்துச் செல்லுதல்",
+    "delivery": "விநியோகம்"
   },
   "auth": {
     "hotel_pos": "ஹோட்டல் பிஓஎஸ்",

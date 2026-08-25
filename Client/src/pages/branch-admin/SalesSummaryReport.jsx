@@ -198,7 +198,7 @@ const formattedRows = rows.map(row => {
     
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
-    doc.text('ales ummary eport', 14, 20);
+    doc.text('Sales Summary Report', 14, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -249,7 +249,7 @@ const formattedRows = rows.map(row => {
       }
     });
     
-    doc.save('ales_ummary_eport_' + generatedDate + '.pdf');
+    doc.save('Sales_Summary_Report_' + generatedDate + '.pdf');
   };
 
   const exportPDF = () => {
@@ -261,7 +261,7 @@ const formattedRows = rows.map(row => {
   };
 
   const exportPDFHtml = () => {
-const doc = new jsPDF();
+    const doc = new jsPDF();
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
     const generatedTime = reportDate.toLocaleTimeString();

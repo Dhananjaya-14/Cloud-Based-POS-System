@@ -711,21 +711,44 @@ const HotelManagement = () => {
               >
                 Cancel
               </button>
-              <button
+             <button
                 onClick={handleSave}
                 disabled={isSaving}
                 style={{
                   ...saveBtnStyle,
                   background: "#3B82F6",
-                  cursor: isSaving ? "not-allowed" : "pointer",
-                  opacity: isSaving ? 0.7 : 1,
+                  width: 160,
+                  minWidth: 160,
+                  maxWidth: 160,
+                  flexShrink: 0,
+                  boxSizing: "border-box",
                   display: "flex",
                   alignItems: "center",
-                  gap: 8
+                  justifyContent: "center",
+                  gap: 8,
+                  whiteSpace: "nowrap",
+                  cursor: isSaving ? "not-allowed" : "pointer",
                 }}
               >
-                {isSaving && <Spinner size={14} color="#ffffff" />}
-                {isSaving ? "Saving..." : modalMode === "add" ? "Save Company" : "Save Changes"}
+                <span
+                  style={{
+                    width: 14,
+                    height: 14,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {isSaving && <Spinner size={14} color="#ffffff" />}
+                </span>
+
+                <span>
+                  {isSaving
+                    ? "Saving..."
+                    : modalMode === "add"
+                      ? "Save Company"
+                      : "Save Changes"}
+                </span>
               </button>
             </div>
           </div>
@@ -774,20 +797,22 @@ const HotelManagement = () => {
                 {t("super_admin.cancel", "Cancel")}
               </button>
               <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                style={{
-                  ...saveBtnStyle,
-                  background: "#EF4444",
-                  cursor: isDeleting ? "not-allowed" : "pointer",
-                  opacity: isDeleting ? 0.7 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8
-                }}
-              >
-                {isDeleting && <Spinner size={14} color="#ffffff" />}
-                {isDeleting ? "Deleting..." : "Delete"}
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  style={{
+                    ...saveBtnStyle,
+                    background: "#EF4444",
+                    cursor: isDeleting ? "not-allowed" : "pointer",
+                    opacity: isDeleting ? 0.7 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    width: 160, flexShrink: 0,
+                    justifyContent: "center"
+                  }}
+                >
+                  {isDeleting && <Spinner size={14} color="#ffffff" />}
+                  {isDeleting ? "Deleting..." : "Delete Company"}
               </button>
             </div>
           </div>

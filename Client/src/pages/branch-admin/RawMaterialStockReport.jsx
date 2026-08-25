@@ -10,7 +10,7 @@ import Header from "../../components/branch-admin/Header";
 import Sidebar from "../../components/branch-admin/Sidebar";
 
 export default function RawMaterialStockReport() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const availableColumns = [{
     key: "rm_name",
@@ -254,10 +254,10 @@ return <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antia
         {/* Export Buttons */}
         <div className="absolute top-18 right-6 flex gap-2.5">
           <button onClick={exportExcel} className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150">
-            <FaFileExcel />{t("branch_admin.export_excel", "Export Excel")}</button>
+            <FaFileExcel className="text-base"/>{t("branch_admin.export_excel", "Export Excel")}</button>
 
           <button onClick={exportPDF} className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150">
-            <FaFilePdf />{t("branch_admin.export_pdf", "Export PDF")}</button>
+            <FaFilePdf className="text-base" />{t("branch_admin.export_pdf", "Export PDF")}</button>
         </div>
 
         {/* Filter Section */}

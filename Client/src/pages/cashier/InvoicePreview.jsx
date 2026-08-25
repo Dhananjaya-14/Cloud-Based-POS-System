@@ -223,7 +223,7 @@ const navigate = useNavigate();
                 disabled={isPaid || isSubmitting}
                 className="inline-flex items-center justify-center rounded-xl bg-[#55C24A] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#49b03f] disabled:cursor-default disabled:opacity-70 sm:text-sm"
               >
-                {isPaid ? "PAID" : isSubmitting ? "PROCESSING..." : "PAY NOW"}
+                {isPaid ? (t("cashier.paid", "PAID")) : isSubmitting ? t("cashier.processing", "PROCESSING...") : t("cashier.pay_now", "PAY NOW")}
               </button>
             </section>
 

@@ -374,7 +374,7 @@ const { user } = useAuth();
 								{t("kitchen.ord", "ORD")}{String(order.or_id).padStart(5, "0")}
 							</div>
 							<div className="text-[12px] font-semibold text-slate-500">
-								{order.or_type || "Dine in"} | {order.or_time?.slice(0, 5) || "--:--"}
+								{t("kitchen." + (order.or_type || "Dine in").toLowerCase().replace(/-/g, "_").replace(/ /g, "_"), order.or_type || "Dine in")} | {order.or_time?.slice(0, 5) || "--:--"}
 							</div>
 						</div>
 
@@ -382,7 +382,7 @@ const { user } = useAuth();
 							<span
 								className={`px-2 py-1 rounded-full text-[10px] font-semibold border ${tagStyle}`}
 							>
-								{statusLabel}
+								{t("kitchen." + statusLabel.toLowerCase(), statusLabel)}
 							</span>
 							<span className="text-[12px] text-slate-400 flex items-center gap-1">
 								<FaClock />
@@ -674,15 +674,11 @@ const { user } = useAuth();
 								key={card.key}
 								className={`rounded-2xl border ${card.border} bg-gradient-to-br ${card.tone} p-4 shadow-sm`}
 							>
-								<div className={card.titleStyles || "text-[11px] uppercase tracking-wide text-slate-500"}>
-									{card.title}
-								</div>
+								<div className={card.titleStyles || "text-[11px] uppercase tracking-wide text-slate-500"}>{card.key === "active" ? t("kitchen.active_orders_upper", "ACTIVE ORDERS") : t("kitchen." + card.key + "_upper", card.title.toUpperCase())}</div>
 								<div className={`text-1xl font-semibold ${card.accent} mt-2`}>
 									{statusCounts[card.key]}
 								</div>
-								<div className={card.subtitleStyles || "text-[11px] text-slate-500 mt-1"}>
-									{card.subtitle}
-								</div>
+								<div className={card.subtitleStyles || "text-[11px] text-slate-500 mt-1"}>{t("kitchen." + card.subtitle.toLowerCase().replace(/ /g, "_"), card.subtitle)}</div>
 							</div>
 						))}
 					</div>
@@ -709,9 +705,9 @@ const { user } = useAuth();
 						<div className="text-sm text-slate-500">{t("kitchen.loading_orders", "Loading orders...")}</div>
 					) : (
 						<div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-							{renderOrderColumn("Received orders", pendingOrders)}
-							{renderOrderColumn("Accepted orders", acceptedOrders)}
-							{renderOrderColumn("Rejected orders", rejectedOrders)}
+							{renderOrderColumn(t("kitchen.received_orders_upper", "RECEIVED ORDERS"), pendingOrders)}
+							{renderOrderColumn(t("kitchen.accepted_orders_upper", "ACCEPTED ORDERS"), acceptedOrders)}
+							{renderOrderColumn(t("kitchen.rejected_orders_upper", "REJECTED ORDERS"), rejectedOrders)}
 						</div>
 					)}
 				</div>

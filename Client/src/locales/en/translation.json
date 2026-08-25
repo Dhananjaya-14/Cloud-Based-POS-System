@@ -310,7 +310,10 @@
     "this_action_cannot_be_undone_and_will_re": "'? This action cannot be undone and will remove the product from all ups menus and historical reports.",
     "manage_your_restaurant_s_promotions": "Manage your restaurant's promotions",
     "today_s_activities": "Today's Activities",
-    "products": "Products"
+    "products": "Products",
+    "completed": "Completed",
+    "pending": "Pending",
+    "other": "Other"
   },
   "Failed to load branch data": "error",
   "branch_admin": {
@@ -462,7 +465,7 @@
     "back": "Back",
     "raw_material_consumption_report": "Raw Material Consumption Report",
     "no_matching_consumption_data_captured_ad": "No matching consumption data captured. Adjust your filters and reload.",
-    "in_stock": "(In stock:",
+    "in_stock": "In stock",
     "raw_material_stock_report": "Raw Material Stock Report",
     "stock_configuration": "Stock Configuration",
     "all_materials": "All Materials",
@@ -696,7 +699,8 @@
     "statistics": "Statistics",
     "reports": "Reports",
     "sales_details": "Sales Details",
-    "product_sales": "Product Sales"
+    "product_sales": "Product Sales",
+    "confirm_return": "Confirm Return"
   },
   "Session expired — please login": "error",
   "Please login to access branches": "error",
@@ -811,7 +815,15 @@
     "role_3": "Cashier",
     "role_6": "Super Admin",
     "role_8": "Waiter",
-    "role_9": "Kitchen Staff"
+    "role_9": "Kitchen Staff",
+    "ready_to_start_your_day_let_s_make_it_productive": "Ready to start your day? Let's make it productive.",
+    "pay_now": "Pay Now",
+    "paid": "Paid",
+    "processing": "Processing...",
+    "checkout": "Checkout",
+    "bill_order": "Bill Order",
+    "pending": "Pending",
+    "edit_order": "Edit Order"
   },
   "This item is out of stock": {
     "": "error"
@@ -872,7 +884,14 @@
     "no_held_orders": "No held orders",
     "edit_held_order": "Edit Held Order",
     "delete_held_order": "Delete Held Order",
-    "on_hold": "On Hold"
+    "on_hold": "On Hold",
+    "processing": "Processing...",
+    "confirm_delivery": "Confirm Delivery",
+    "restore_order": "Restore Order",
+    "refreshing": "Refreshing...",
+    "refresh_data": "Refresh Data",
+    "confirm": "Confirm",
+    "update": "Update"
   },
   "kitchen": {
     "ord": "ORD",

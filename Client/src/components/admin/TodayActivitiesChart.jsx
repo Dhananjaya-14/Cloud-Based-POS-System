@@ -16,14 +16,14 @@ const sorted = [...data].sort((a, b) => (b.income || 0) - (a.income || 0));
   const chartData = {
     labels,
     datasets: [{
-      label: "Income",
+      label: t("company_admin.income", "Income"),
       data: incomes,
       backgroundColor: INCOME_COLOR,
       borderRadius: 12,
       // let Chart.js compute width; limit max thickness
       maxBarThickness: 38
     }, {
-      label: "Expenses",
+      label: t("company_admin.expenses", "Expenses"),
       data: expenses,
       backgroundColor: EXPENSE_COLOR,
       borderRadius: 12,

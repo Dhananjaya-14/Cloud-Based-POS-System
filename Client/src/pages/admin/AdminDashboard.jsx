@@ -55,7 +55,7 @@ const [counts, setCounts] = React.useState({
     justifyContent: "center"
   }}>{t("company_admin.loading", "Loading...")}</div>;
   const data = {
-    labels: ["Completed", "Pending", "Other"],
+    labels: [t("company_admin.completed", "Completed"), t("company_admin.pending", "Pending"), t("company_admin.other", "Other")],
     datasets: [{
       data: [counts.completed, counts.pending, counts.other],
       backgroundColor: ["#16A34A", "#0D5EA8", "#EF4444"]

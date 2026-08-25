@@ -246,7 +246,7 @@ const formattedRows = rows.map(row => {
   };
 
   const exportPDF = () => {
-    if (i18n.language === 'en') {
+    if (i18n.lng === 'en') {
       exportPDFJsPdf();
     } else {
       exportPDFHtml();

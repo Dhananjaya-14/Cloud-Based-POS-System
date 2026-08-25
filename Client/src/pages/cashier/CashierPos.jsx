@@ -1386,7 +1386,7 @@ const source = `${product.pro_name ?? ""} ${product.pro_des ?? ""}`.toLowerCase(
                     className="inline-flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                   >
                     <FaShoppingCart className="h-4 w-4" />
-                    {submitting ? "Processing..." : "Checkout"}
+                    {submitting ? t("cashier.processing", "Processing...") : t("cashier.checkout", "Checkout")}
                   </button>
                 </div>
                 {editingOrderId && editingOrderStatus !== 'completed' && (
@@ -1530,7 +1530,7 @@ const source = `${product.pro_name ?? ""} ${product.pro_des ?? ""}`.toLowerCase(
                               : 'border border-[#0A5BAE] text-[#0A5BAE] hover:bg-[#0A5BAE] hover:text-white'
                           }`}
                         >
-                          {ao.or_status === 'completed' ? 'Bill Order' : 'Edit Order'}
+                          {ao.or_status === 'completed' ? (t("cashier.bill_order", "Bill Order")) : t("cashier.edit_order", "Edit Order")}
                         </button>
                       </div>
                     </div>

@@ -8,9 +8,6 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-
-
-
 export default function SalesDetailsReport() {
   const { t, i18n } = useTranslation();
 
@@ -191,7 +188,7 @@ const { user } = useAuth();
     
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
-    doc.text('ales etails eport', 14, 20);
+    doc.text('Sales Details Report', 14, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -242,7 +239,7 @@ const { user } = useAuth();
       }
     });
     
-    doc.save('ales_etails_eport_' + generatedDate + '.pdf');
+    doc.save('Sales_Details_Report_' + generatedDate + '.pdf');
   };
 
   const exportPDF = () => {

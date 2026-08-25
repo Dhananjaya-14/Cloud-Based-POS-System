@@ -871,10 +871,10 @@ const navigate = useNavigate();
             </div>
             <div>
               <p className="text-sm font-bold text-slate-800">
-                {selectedTable ? `Table ${selectedTable.table_number || selectedTable.table_id}` : "No Table Selected"}
+                {selectedTable ? `${t("waiter.table", "Table")} ${selectedTable.table_number || selectedTable.table_id}` : t("waiter.no_table_selected", "No Table Selected")}
               </p>
               <p className="text-xs font-semibold text-slate-500 mt-1">
-                {selectedTable ? `${selectedTable.table_capacity} Seats Available` : "Please select a table to proceed"}
+                {selectedTable ? `${selectedTable.table_capacity} ${t("waiter.seats_available", "Seats Available")}` : t("waiter.please_select_a_table", "Please select a table to proceed")}
               </p>
             </div>
           </div>
@@ -979,7 +979,7 @@ const navigate = useNavigate();
                 disabled={cart.length === 0 || !selectedTable || submitting}
                 className="flex-[2] flex items-center justify-center gap-2 rounded-xl bg-[#55C24A] py-3 text-sm font-bold text-white shadow-sm transition-all hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:opacity-50 disabled:bg-slate-200 disabled:text-slate-400"
               >
-                {submitting ? "Processing..." : (editingOrderId ? "Update Order" : "Confirm")}
+                {submitting ? t("waiter.processing", "Processing...") : (editingOrderId ? t("waiter.update", "Update Order") : t("waiter.confirm", "Confirm"))}
               </button>
             </div>
             {(editingOrderId || editingHeldOrderId) && (
@@ -1015,7 +1015,7 @@ const navigate = useNavigate();
                 <div className="flex items-center gap-4">
                   {activeOrdersTab === "active" && (
                     <button onClick={() => fetchMyOrders(false)} disabled={loadingMyOrders} className="text-sm font-bold text-[#0A5BAE] hover:underline disabled:opacity-50">
-                      {loadingMyOrders ? "Refreshing..." : "↻ Refresh Data"}
+                      {loadingMyOrders ? t("waiter.refreshing", "Refreshing...") : t("waiter.refresh_data", "↻ Refresh Data")}
                     </button>
                   )}
                   <button onClick={() => setShowMyOrdersModal(false)} className="h-10 w-10 flex items-center justify-center rounded-full bg-slate-200 hover:bg-slate-300 transition-colors text-slate-600 font-bold">
@@ -1138,7 +1138,7 @@ const navigate = useNavigate();
                               disabled={processingOrderIds.includes(order.or_id)}
                               className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 text-sm font-bold text-white transition-transform hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0"
                             >
-                              {processingOrderIds.includes(order.or_id) ? "Processing..." : "Confirm Delivery"}
+                              {processingOrderIds.includes(order.or_id) ? t("waiter.processing") : t("waiter.confirm_delivery")}
                             </button>
                           )}
                         </div>
@@ -1216,7 +1216,7 @@ const navigate = useNavigate();
                             disabled={processingOrderIds.includes(ho.id)}
                             className="flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-yellow-400 text-yellow-900 text-sm font-bold transition-transform hover:-translate-y-0.5 hover:shadow-lg hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:-translate-y-0 disabled:hover:shadow-none"
                           >
-                            {processingOrderIds.includes(ho.id) ? "Processing..." : "Restore Order"}
+                            {processingOrderIds.includes(ho.id) ? (t("waiter.processing")) : t("waiter.restore_order")}
                           </button>
                         </div>
                       </div>
