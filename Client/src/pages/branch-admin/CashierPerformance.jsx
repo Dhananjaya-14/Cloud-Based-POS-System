@@ -13,10 +13,11 @@ import {
 	Filler,
 } from "chart.js";
 import { FaDownload } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import { useAuth } from "../../context/AuthContext";
-import { getOrders, getUsers } from "../../services/api";
+import { getOrders, getUsers, getCashierPerformanceReport } from "../../services/api";
 import topPerformerIcon from "../../assets/images/top performer.png";
 import timeIcon from "../../assets/images/time.png";
 import salesIcon from "../../assets/images/sales.png";
@@ -206,6 +207,93 @@ const CashierPerformance = () => {
 		return { label: "Needs Attention", color: "bg-rose-100 text-rose-700" };
 	};
 
+	const [isExporting, setIsExporting] = useState(false);
+
+	const exportReport = async () => {
+		if (!user?.b_id) return;
+		setIsExporting(true);
+		try {
+			const today = new Date().toISOString().split("T")[0];
+			let fromDate = "";
+			let toDate = today;
+
+			const counts = { today: 1, weekly: 7, monthly: 30, "30days": 30 };
+			const totalDays = counts[timeRange] || 30;
+			const start = new Date();
+			start.setDate(start.getDate() - (totalDays - 1));
+			fromDate = start.toISOString().split("T")[0];
+
+			const response = await getCashierPerformanceReport({
+				b_id: user.b_id,
+				filterType: timeRange,
+				fromDate,
+				toDate,
+			});
+
+			const reportData = response.data || [];
+
+			// Format rows for Excel
+			const formattedRows = reportData.map((row, index) => {
+				let statusLabel = "Needs Attention";
+				const revenue = Number(row.revenue || 0);
+				const orders = Number(row.orders || 0);
+
+				if (index === 0 && revenue > 0) {
+					statusLabel = "Top Performer";
+				} else {
+					if (revenue >= avgOrderValue * orders && orders > 0) {
+						statusLabel = "High Efficiency";
+					} else if (revenue >= totalRevenue * 0.2 && revenue > 0) {
+						statusLabel = "Steady";
+					}
+				}
+
+				return {
+					"Cashier Name": row.name || "Staff",
+					"Total Revenue (Rs.)": revenue,
+					"Total Orders": orders,
+					"Average Order Value (Rs.)": Number(row.avgOrder || 0),
+					"Status": statusLabel,
+				};
+			});
+
+			// Add TOTAL summary row
+			if (formattedRows.length > 0) {
+				formattedRows.push({
+					"Cashier Name": "TOTAL",
+					"Total Revenue (Rs.)": Number(totalRevenue),
+					"Total Orders": Number(totalOrders),
+					"Average Order Value (Rs.)": Number(avgOrderValue),
+					"Status": "",
+				});
+			}
+
+			const worksheet = XLSX.utils.json_to_sheet(formattedRows);
+
+			// Auto-adjust column widths
+			const maxColumnWidths = [];
+			formattedRows.forEach((row) => {
+				Object.keys(row).forEach((key, colIndex) => {
+					const cellValue = row[key] ? row[key].toString() : "";
+					const currentLength = Math.max(key.length, cellValue.length);
+					maxColumnWidths[colIndex] = Math.max(maxColumnWidths[colIndex] || 10, currentLength + 3);
+				});
+			});
+			worksheet["!cols"] = maxColumnWidths.map((w) => ({ wch: w }));
+
+			const workbook = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(workbook, worksheet, "Cashier Performance");
+
+			const timestamp = new Date().toISOString().split("T")[0];
+			XLSX.writeFile(workbook, `Cashier_Performance_Report_${timestamp}.xlsx`);
+		} catch (err) {
+			console.error("Export failed:", err);
+			alert("Failed to export report.");
+		} finally {
+			setIsExporting(false);
+		}
+	};
+
 	return (
 		<>
 			<Sidebar />
@@ -226,10 +314,12 @@ const CashierPerformance = () => {
 							</button>
 							<button
 								type="button"
-								className="flex items-center gap-2 rounded-full bg-[#0D5EA8] px-4 py-2 text-xs font-semibold text-white shadow"
+								onClick={exportReport}
+								disabled={isExporting}
+								className="flex items-center gap-2 rounded-full bg-[#0D5EA8] px-4 py-2 text-xs font-semibold text-white shadow disabled:opacity-50"
 							>
 								<FaDownload />
-								Export Report
+								{isExporting ? "Exporting..." : "Export Report"}
 							</button>
 						</div>
 					</div>
