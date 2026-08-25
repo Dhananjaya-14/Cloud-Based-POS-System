@@ -1,3 +1,4 @@
+﻿import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
 import { DollarSign, ShoppingBag, Users, Truck } from "lucide-react";
 import { getStatsOverview, getBranches, getOrders, getBranchStats, getCurrentUser } from "../../services/api";
@@ -12,6 +13,7 @@ import BranchComparisonTable from "../../components/admin/BranchComparisonTable"
 import { connectSocket, subscribeToAdminStatsUpdates } from "../../services/socket";
 
 export default function AdminStatistics() {
+  const { t } = useTranslation();
   const [overview, setOverview] = useState({});
   const [branches, setBranches] = useState([]);
   const [filters, setFilters] = useState({ days: 7, b_id: "all" });
@@ -174,7 +176,7 @@ export default function AdminStatistics() {
       <Sidebar />
 
       <div style={{ flex: 1, marginLeft: 240, transition: "all 0.3s" }}>
-        <Header title="Admin Statistics" />
+        <Header title={t("company_admin.admin_statistics", "Admin Statistics")} />
 
         <div style={{ padding: "30px" }}>
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "24px" }}>
@@ -184,7 +186,7 @@ export default function AdminStatistics() {
           {/* Stat Cards Grid */}
           <div style={{ display: "flex", gap: "20px", flexWrap: "wrap" }}>
             <StatCard
-              title="Total Revenue"
+              title={t("company_admin.total_revenue", "Total Revenue")}
               value={overview.totalRevenue ?? 0}
               icon={DollarSign}
               color="#10b981"
@@ -192,7 +194,7 @@ export default function AdminStatistics() {
               trendValue="12"
             />
             <StatCard
-              title="Total Orders"
+              title={t("company_admin.total_orders", "Total Orders")}
               value={overview.totalOrders ?? 0}
               icon={ShoppingBag}
               color="#f43f5e"
@@ -200,7 +202,7 @@ export default function AdminStatistics() {
               trendValue="5"
             />
             <StatCard
-              title="Dine-In Orders"
+              title={t("company_admin.dine_in_orders", "Dine-In Orders")}
               value={typeBreakdown.find((t) => t.or_type === "dine-in")?.count ?? 0}
               icon={Users}
               color="#0b76ef"
@@ -208,7 +210,7 @@ export default function AdminStatistics() {
               trendValue="8"
             />
             <StatCard
-              title="Takeaway Orders"
+              title={t("company_admin.takeaway_orders", "Takeaway Orders")}
               value={typeBreakdown.find((t) => t.or_type === "takeaway")?.count ?? 0}
               icon={Truck}
               color="#f59e0b"
@@ -237,6 +239,8 @@ export default function AdminStatistics() {
     </div>
   );
 }
+
+
 
 
 

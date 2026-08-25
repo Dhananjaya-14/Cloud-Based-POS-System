@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -60,7 +61,8 @@ const categories = [
 ];
 
 const CashierPos = () => {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
+const navigate = useNavigate();
   const { user, logout, features } = useAuth();
   const inventoryEnabled = features?.has_inventory === true;
   const waiterEnabled = features?.has_waiter === true;
@@ -915,7 +917,7 @@ const CashierPos = () => {
                   color: '#1F2937',
                   marginBottom: '4px'
                 }}>
-                  📢 New Product Available
+                  {t("cashier.new_product_available", "📢 New Product Available")}
                 </div>
                 <div style={{
                   fontSize: '14px',
@@ -958,7 +960,7 @@ const CashierPos = () => {
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
               >
-                OK
+                {t("cashier.ok", "OK")}
               </button>
             </div>
           ))}
@@ -971,13 +973,13 @@ const CashierPos = () => {
             <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center border border-white/20">
               <img
                 src={posIcon}
-                alt="Hotel POS logo"
+                alt={t("cashier.hotel_pos_logo", "Hotel POS logo")}
                 className="w-7 h-7 object-contain"
               />
             </div>
             <div className="leading-tight">
-              <div className="text-[17px] font-semibold tracking-wide">Hotel POS</div>
-              <div className="text-[13px] text-white/80">Point of Sale System</div>
+              <div className="text-[17px] font-semibold tracking-wide">{t("cashier.hotel_pos", "Hotel POS")}</div>
+              <div className="text-[13px] text-white/80">{t("cashier.point_of_sale_system", "Point of Sale System")}</div>
             </div>
           </div>
 
@@ -986,14 +988,14 @@ const CashierPos = () => {
               onClick={() => setShowHeldOrdersModal(true)}
               className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
             >
-              <span>Held Orders ({heldOrders.length})</span>
+              <span>{t("cashier.held_orders", "Held Orders (")}{heldOrders.length})</span>
             </button>
             {waiterEnabled && (
               <button
                 onClick={handleOpenWaiterOrders}
                 className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
               >
-                <span>Waiter Orders ({waiterOrders.length})</span>
+                <span>{t("cashier.waiter_orders", "Waiter Orders (")}{waiterOrders.length})</span>
               </button>
             )}
             <button
@@ -1001,14 +1003,14 @@ const CashierPos = () => {
               className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:-translate-y-px"
             >
               <FaShoppingCart className="h-3.5 w-3.5" />
-              POS
+              {t("cashier.pos", "POS")}
             </button>
             <button
               onClick={() => navigate("/cashier/dashboard")}
               className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/20"
             >
               <span className="text-base">▦</span>
-              Dashboard
+              {t("cashier.dashboard", "Dashboard")}
             </button>
           </nav>
 
@@ -1030,7 +1032,7 @@ const CashierPos = () => {
               className="inline-flex items-center gap-2 rounded-xl border border-black/20 bg-black px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-black/80"
             >
               <FaSignOutAlt className="h-3.5 w-3.5" />
-              Logout
+              {t("cashier.logout", "Logout")}
             </button>
           </div>
         </div>
@@ -1038,7 +1040,7 @@ const CashierPos = () => {
 
       <main className="mx-auto max-w-380 px-3 py-6 sm:px-6 lg:px-8">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">Point of Sale</h1>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[30px]">{t("cashier.point_of_sale", "Point of Sale")}</h1>
           <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
             <span className="text-slate-400">⌖</span>
             <span>{branchName}</span>
@@ -1058,7 +1060,7 @@ const CashierPos = () => {
                 <FaSearch className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search products by name or description..."
+                  placeholder={t("cashier.search_products_by_name_or_description", "Search products by name or description...")}
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   className="h-14 w-full rounded-2xl border border-slate-200 bg-slate-50 pl-11 pr-4 text-sm outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100"
@@ -1085,16 +1087,16 @@ const CashierPos = () => {
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {loading ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-                  Loading products ...
+                  {t("cashier.loading_products", "Loading products ...")}
                 </div>
               ) : filteredProducts.length === 0 ? (
                 <div className="col-span-full rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
-                  No products match your search.
+                  {t("cashier.no_products_match_your_search", "No products match your search.")}
                 </div>
               ) : (
                 filteredProducts.map((product, index) => {
                   const Icon = (() => {
-                    const source = `${product.pro_name ?? ""} ${product.pro_des ?? ""}`.toLowerCase();
+const source = `${product.pro_name ?? ""} ${product.pro_des ?? ""}`.toLowerCase();
                     if (source.includes("coffee")) return FaCoffee;
                     if (
                       source.includes("beer") ||
@@ -1175,9 +1177,9 @@ const CashierPos = () => {
                     <FaShoppingCart className="h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold">Shopping Cart</h2>
+                    <h2 className="text-lg font-semibold">{t("cashier.shopping_cart", "Shopping Cart")}</h2>
                     <p className="text-xs text-white/80">
-                      {selectedProductCount} item{selectedProductCount === 1 ? "" : "s"}
+                      {selectedProductCount} {t("cashier.item", "item")}{selectedProductCount === 1 ? "" : "s"}
                     </p>
                   </div>
                 </div>
@@ -1193,7 +1195,7 @@ const CashierPos = () => {
             <div className="space-y-4 p-4 sm:p-5">
               {cart.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-                  Add products from the left panel to build the order.
+                  {t("cashier.add_products_from_the_left_panel_to_build_the_order", "Add products from the left panel to build the order.")}
                 </div>
               ) : (
                 cart.map((item) => (
@@ -1244,7 +1246,7 @@ const CashierPos = () => {
                     type="text"
                     value={allergies}
                     onChange={(e) => setAllergies(e.target.value)}
-                    placeholder="Allergies / Dietary (e.g., Nuts, Gluten)"
+                    placeholder={t("cashier.allergies_dietary_e_g_nuts_gluten", "Allergies / Dietary (e.g., Nuts, Gluten)")}
                     className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
                   />
 
@@ -1254,7 +1256,7 @@ const CashierPos = () => {
                       type="text"
                       value={addons}
                       onChange={(e) => setAddons(e.target.value)}
-                      placeholder="Add Ons (e.g., Extra cheese)"
+                      placeholder={t("cashier.add_ons_e_g_extra_cheese", "Add Ons (e.g., Extra cheese)")}
                       className="h-9 w-2/3 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
                     />
                     <input
@@ -1262,7 +1264,7 @@ const CashierPos = () => {
                       type="number"
                       value={addonsPrice}
                       onChange={(e) => setAddonsPrice(e.target.value)}
-                      placeholder="Price"
+                      placeholder={t("cashier.price", "Price")}
                       className="h-9 w-1/3 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
                     />
                   </div>
@@ -1272,7 +1274,7 @@ const CashierPos = () => {
                     type="text"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Notes (special requests)"
+                    placeholder={t("cashier.notes_special_requests", "Notes (special requests)")}
                     className="h-9 w-full rounded-md border border-slate-200 bg-slate-50 px-3 text-xs outline-none"
                   />
                 </div>
@@ -1280,22 +1282,22 @@ const CashierPos = () => {
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between text-sm text-slate-500">
-                  <span>Subtotal</span>
+                  <span>{t("cashier.subtotal", "Subtotal")}</span>
                   <span className="font-semibold text-slate-900">${subtotal.toFixed(2)}</span>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-sm text-slate-500">
-                  <span>Tax (10%)</span>
+                  <span>{t("cashier.tax_10", "Tax (10%)")}</span>
                   <span className="font-semibold text-slate-900">${tax.toFixed(2)}</span>
                 </div>
                 <div className="my-4 h-px bg-slate-200" />
                 <div className="flex items-center justify-between text-base font-semibold text-slate-900">
-                  <span>Total</span>
+                  <span>{t("cashier.total", "Total")}</span>
                   <span className="text-2xl tracking-tight">${total.toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <h3 className="text-sm font-semibold text-slate-900">Order Type</h3>
+                <h3 className="text-sm font-semibold text-slate-900">{t("cashier.order_type", "Order Type")}</h3>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -1305,7 +1307,7 @@ const CashierPos = () => {
                       : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
                   >
-                    Takeaway
+                    {t("cashier.takeaway", "Takeaway")}
                   </button>
                   <button
                     type="button"
@@ -1315,13 +1317,13 @@ const CashierPos = () => {
                       : "border-emerald-200 bg-white text-slate-700 hover:border-emerald-300 hover:bg-emerald-50"
                       }`}
                   >
-                    Dine-in
+                    {t("cashier.dine_in", "Dine-in")}
                   </button>
                 </div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                <h3 className="text-sm font-semibold text-slate-900">Payment Method</h3>
+                <h3 className="text-sm font-semibold text-slate-900">{t("cashier.payment_method", "Payment Method")}</h3>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <button
                     type="button"
@@ -1334,7 +1336,7 @@ const CashierPos = () => {
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "Cash" ? "bg-[#00B67A]" : "bg-slate-300"}`}
                     />
-                    Cash
+                    {t("cashier.cash", "Cash")}
                   </button>
                   <button
                     type="button"
@@ -1347,7 +1349,7 @@ const CashierPos = () => {
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "Card" ? "bg-[#00B67A]" : "bg-slate-300"}`}
                     />
-                    Card
+                    {t("cashier.card", "Card")}
                   </button>
                   <button
                     type="button"
@@ -1361,7 +1363,7 @@ const CashierPos = () => {
                       className={`h-2.5 w-2.5 rounded-full ${paymentMethod === "PayHere" ? "bg-[#0E6DCF]" : "bg-slate-300"}`}
                     />
                     <span className="font-bold">
-                      pay<span className={paymentMethod === "PayHere" ? "text-yellow-400" : "text-slate-400"}>here</span>
+                      {t("cashier.pay", "pay")}<span className={paymentMethod === "PayHere" ? "text-yellow-400" : "text-slate-400"}>{t("cashier.here", "here")}</span>
                     </span>
                   </button>
                 </div>
@@ -1375,7 +1377,7 @@ const CashierPos = () => {
                     disabled={submitting || cart.length === 0}
                     className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl border border-[#0A5BAE] bg-white px-5 py-4 text-sm font-semibold text-[#0A5BAE] shadow-sm transition hover:bg-[#0A5BAE] hover:text-white disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400 disabled:border-slate-200"
                   >
-                    Hold Order
+                    {t("cashier.hold_order", "Hold Order")}
                   </button>
 
                   <button
@@ -1384,7 +1386,7 @@ const CashierPos = () => {
                     className="inline-flex flex-[2] items-center justify-center gap-2 rounded-2xl bg-[#55C24A] px-5 py-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(85,194,74,0.28)] transition hover:bg-[#49b03f] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
                   >
                     <FaShoppingCart className="h-4 w-4" />
-                    {submitting ? "Processing..." : "Checkout"}
+                    {submitting ? t("cashier.processing", "Processing...") : t("cashier.checkout", "Checkout")}
                   </button>
                 </div>
                 {editingOrderId && editingOrderStatus !== 'completed' && (
@@ -1394,7 +1396,7 @@ const CashierPos = () => {
                       disabled={submitting || cart.length === 0}
                       className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#0A5BAE] px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#08498d] disabled:cursor-not-allowed disabled:opacity-50"
                     >
-                      Update Order
+                      {t("cashier.update_order", "Update Order")}
                     </button>
                     <button
                       onClick={() => {
@@ -1408,7 +1410,7 @@ const CashierPos = () => {
                       }}
                       className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-slate-200 px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition hover:bg-slate-300"
                     >
-                      Cancel Edit
+                      {t("cashier.cancel_edit", "Cancel Edit")}
                     </button>
                   </div>
                 )}
@@ -1423,7 +1425,7 @@ const CashierPos = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h2 className="text-xl font-bold text-slate-800">Held Orders ({heldOrders.length})</h2>
+              <h2 className="text-xl font-bold text-slate-800">{t("cashier.held_orders", "Held Orders (")}{heldOrders.length})</h2>
               <button
                 onClick={() => setShowHeldOrdersModal(false)}
                 className="rounded-full bg-slate-100 p-2 text-slate-500 hover:bg-slate-200"
@@ -1434,14 +1436,14 @@ const CashierPos = () => {
 
             <div className="flex flex-col gap-4">
               {heldOrders.length === 0 ? (
-                <div className="text-center py-6 text-slate-500">No held orders available.</div>
+                <div className="text-center py-6 text-slate-500">{t("cashier.no_held_orders_available", "No held orders available.")}</div>
               ) : (
                 heldOrders.map((ho) => (
                   <div key={ho.id} className="flex justify-between items-center rounded-xl border p-4 hover:shadow-md transition">
                     <div>
-                      <div className="font-semibold text-slate-800">Order at {ho.timestamp}</div>
+                      <div className="font-semibold text-slate-800">{t("cashier.order_at", "Order at")} {ho.timestamp}</div>
                       <div className="text-sm text-slate-500">
-                        {ho.cart.length} items • {ho.orderType} • {ho.paymentMethod}
+                        {ho.cart.length} {t("cashier.items", "items •")} {ho.orderType} • {ho.paymentMethod}
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -1449,13 +1451,13 @@ const CashierPos = () => {
                         onClick={() => handleRemoveHeldOrder(ho.id)}
                         className="rounded-lg bg-red-50 text-red-500 px-3 py-2 text-sm font-medium hover:bg-red-100"
                       >
-                        Remove
+                        {t("cashier.remove", "Remove")}
                       </button>
                       <button
                         onClick={() => handleResumeOrder(ho.id)}
                         className="rounded-lg bg-[#0A5BAE] text-white px-4 py-2 text-sm font-semibold hover:bg-blue-700"
                       >
-                        Resume
+                        {t("cashier.resume", "Resume")}
                       </button>
                     </div>
                   </div>
@@ -1471,13 +1473,13 @@ const CashierPos = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
           <div className="w-full max-w-4xl rounded-2xl bg-white p-6 shadow-2xl relative max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6 border-b pb-4">
-              <h2 className="text-xl font-bold text-slate-800">Waiter Orders ({waiterOrders.length})</h2>
+              <h2 className="text-xl font-bold text-slate-800">{t("cashier.waiter_orders", "Waiter Orders (")}{waiterOrders.length})</h2>
               <div className="flex gap-2">
                 <button
                   onClick={fetchWaiterOrders}
                   className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200"
                 >
-                  Refresh
+                  {t("cashier.refresh", "Refresh")}
                 </button>
                 <button
                   onClick={() => setShowWaiterOrdersModal(false)}
@@ -1492,17 +1494,17 @@ const CashierPos = () => {
               {loadingWaiterOrders ? (
                 <div className="flex flex-col items-center justify-center py-10 opacity-60">
                   <FaSpinner className="h-10 w-10 animate-spin text-[#0A5BAE] mb-4" />
-                  <p className="text-sm font-bold text-slate-500">Loading orders...</p>
+                  <p className="text-sm font-bold text-slate-500">{t("cashier.loading_orders", "Loading orders...")}</p>
                 </div>
               ) : waiterOrders.length === 0 ? (
-                <div className="text-center py-6 text-slate-500">No waiter orders available.</div>
+                <div className="text-center py-6 text-slate-500">{t("cashier.no_waiter_orders_available", "No waiter orders available.")}</div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {waiterOrders.map((ao) => (
                     <div key={ao.or_id} className="flex flex-col justify-between rounded-xl border p-4 shadow-sm hover:shadow-md transition">
                       <div>
                         <div className="flex justify-between items-start mb-2">
-                          <div className="font-semibold text-slate-800 text-lg">Order #{ao.or_id}</div>
+                          <div className="font-semibold text-slate-800 text-lg">{t("cashier.order", "Order #")}{ao.or_id}</div>
                           <span className={`text-[10px] font-bold px-2 py-1 rounded-md uppercase tracking-wide ${ao.or_status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
                             ao.or_status === 'sent_to_kitchen' ? 'bg-orange-100 text-orange-700' :
                               ao.or_status === 'sent_to_bar' ? 'bg-purple-100 text-purple-700' :
@@ -1512,9 +1514,9 @@ const CashierPos = () => {
                           </span>
                         </div>
                         <div className="text-sm text-slate-500 space-y-1">
-                          <p><strong>Table:</strong> {ao.table_id || 'Takeaway'}</p>
-                          <p><strong>Type:</strong> {ao.or_type}</p>
-                          <p><strong>Total:</strong> ${Number(ao.or_totalCostWtax || ao.or_totalcost || 0).toFixed(2)}</p>
+                          <p><strong>{t("cashier.table", "Table:")}</strong> {ao.table_id || 'Takeaway'}</p>
+                          <p><strong>{t("cashier.type", "Type:")}</strong> {ao.or_type}</p>
+                          <p><strong>{t("cashier.total", "Total:")}</strong> ${Number(ao.or_totalCostWtax || ao.or_totalcost || 0).toFixed(2)}</p>
                           {ao.or_notes && <p className="text-xs italic mt-2 text-red-500 line-clamp-2">{ao.or_notes}</p>}
                         </div>
                       </div>
@@ -1528,7 +1530,7 @@ const CashierPos = () => {
                               : 'border border-[#0A5BAE] text-[#0A5BAE] hover:bg-[#0A5BAE] hover:text-white'
                           }`}
                         >
-                          {ao.or_status === 'completed' ? 'Bill Order' : 'Edit Order'}
+                          {ao.or_status === 'completed' ? (t("cashier.bill_order", "Bill Order")) : t("cashier.edit_order", "Edit Order")}
                         </button>
                       </div>
                     </div>
@@ -1548,11 +1550,11 @@ const CashierPos = () => {
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-rose-100 text-rose-600 text-xl font-bold">
                 !
               </div>
-              <h2 className="text-lg font-bold text-slate-800">Insufficient Stock</h2>
+              <h2 className="text-lg font-bold text-slate-800">{t("cashier.insufficient_stock", "Insufficient Stock")}</h2>
             </div>
 
             <p className="text-sm text-slate-600 mb-3">
-              This order cannot be placed. The following ingredients don't have enough stock:
+              {t("cashier.this_order_cannot_be_placed_the_following_ingredients_don_t_have_enough_stock", "This order cannot be placed. The following ingredients don't have enough stock:")}
             </p>
 
             <ul className="space-y-2 mb-5">
@@ -1561,9 +1563,9 @@ const CashierPos = () => {
                   key={idx}
                   className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700"
                 >
-                  <span className="font-semibold">{s.ingredient}</span> — needs {s.required}
-                  {s.unit}, only {s.available}
-                  {s.unit} available
+                  <span className="font-semibold">{s.ingredient}</span> {t("cashier.needs", "— needs")} {s.required}
+                  {s.unit}{t("cashier.only", ", only")} {s.available}
+                  {s.unit} {t("cashier.available", "available")}
                 </li>
               ))}
             </ul>
@@ -1572,7 +1574,7 @@ const CashierPos = () => {
               onClick={() => setStockErrorModal(null)}
               className="w-full rounded-xl bg-[#0A5BAE] px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
             >
-              OK
+              {t("cashier.ok", "OK")}
             </button>
           </div>
         </div>
@@ -1582,7 +1584,7 @@ const CashierPos = () => {
       {showNewProductToast && (
         <div style={toastStyle}>
           <FaBell size={18} />
-          <span>New product "{newProductName}" is now available!</span>
+          <span>{t("cashier.new_product", "New product \"")}{newProductName}{t("cashier.is_now_available", "\" is now available!")}</span>
         </div>
       )}
 
