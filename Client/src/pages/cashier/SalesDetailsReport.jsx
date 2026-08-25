@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
 import CashierHeader from "../../components/cashier/Header";
@@ -7,18 +8,18 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-
-const availableColumns = [
-  { key: "invoice_no", label: "Invoice No" },
-  { key: "order_date", label: "Date" },
-  { key: "order_time", label: "Time" },
-  { key: "order_type", label: "Order Type" },
-  { key: "payment_method", label: "Payment Method" },
-  { key: "subtotal", label: "Sales Amount" },
-];
-
 export default function SalesDetailsReport() {
-  const { user } = useAuth();
+  const { t, i18n } = useTranslation();
+
+  const availableColumns = [
+    { key: "invoice_no", label: t("reports.invoice_no", "Invoice No") },
+    { key: "order_date", label: t("reports.date", "Date") },
+    { key: "order_time", label: t("reports.time", "Time") },
+    { key: "order_type", label: t("reports.order_type", "Order Type") },
+    { key: "payment_method", label: t("reports.payment_method", "Payment Method") },
+    { key: "subtotal", label: t("reports.sales_amount", "Sales Amount") },
+  ];
+const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [grandTotal, setGrandTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -179,7 +180,77 @@ export default function SalesDetailsReport() {
     XLSX.writeFile(workbook, `Sales_Details_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
   };
 
+    const exportPDFJsPdf = () => {
+    const doc = new jsPDF();
+    const reportDate = new Date();
+    const generatedDate = reportDate.toLocaleDateString();
+    const generatedTime = reportDate.toLocaleTimeString();
+    
+    doc.setFontSize(22);
+    doc.setTextColor(0, 82, 168);
+    doc.text('Sales Details Report', 14, 20);
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text('Generated: ' + generatedDate + ' ' + generatedTime, 14, 28);
+    
+    const head = selectedColumns.map(col => availableColumns.find(c => c.key === col)?.label || col);
+    const body = rows.map(row => {
+      return selectedColumns.map(colKey => {
+        let val = row[colKey];
+        if (colKey === 'unit_price' || colKey === 'total_sale' || colKey === 'total_amount' || colKey === 'amount' || colKey === 'total_cost' || colKey === 'tax' || colKey === 'totalCostWtax') {
+          return 'Rs. ' + Number(val || 0).toFixed(2);
+        }
+        if (colKey === 'pay_date' && val) return val.split('T')[0];
+        if (colKey === 'pay_time' && val) {
+          const d = new Date(val);
+          return isNaN(d.getTime()) ? val : d.toLocaleTimeString();
+        }
+        if (colKey === 'date' && val) return val.split('T')[0];
+        return val || '';
+      });
+    });
+
+    if (body.length > 0 && typeof grandTotal !== 'undefined') {
+       const totalRow = Array(selectedColumns.length).fill('');
+       totalRow[0] = 'TOTAL';
+       const totalIndex = selectedColumns.findIndex(c => c === 'total_sale' || c === 'total_amount' || c === 'amount');
+       if (totalIndex !== -1) totalRow[totalIndex] = 'Rs. ' + Number(grandTotal).toFixed(2);
+       body.push(totalRow);
+    }
+
+    doc.line(14, 35, 196, 35);
+    
+    autoTable(doc, {
+      startY: 42,
+      head: [head],
+      body: body,
+      theme: 'striped',
+      headStyles: {
+        fillColor: [0, 82, 168],
+        fontSize: 10,
+        align: 'center'
+      },
+      bodyStyles: {
+        fontSize: 9
+      },
+      alternateRowStyles: {
+        fillColor: [245, 247, 250]
+      }
+    });
+    
+    doc.save('Sales_Details_Report_' + generatedDate + '.pdf');
+  };
+
   const exportPDF = () => {
+    if (i18n.language === 'en') {
+      exportPDFJsPdf();
+    } else {
+      exportPDFHtml();
+    }
+  };
+
+  const exportPDFHtml = () => {
     const doc = new jsPDF();
     const reportDate = new Date();
 
@@ -230,14 +301,14 @@ export default function SalesDetailsReport() {
       <CashierHeader />
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-5 py-4 gap-4">
         <h1 className="text-2xl font-bold tracking-tight text-gray-600">
-          Sales Details Report
+          {t("cashier.sales_details_report", "Sales Details Report")}
         </h1>
         <div className="flex gap-2.5">
           <button onClick={exportExcel} className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150 cursor-pointer">
-            <FaFileExcel className="text-base" /> Export Excel
+            <FaFileExcel className="text-base" /> {t("cashier.export_excel", "Export Excel")}
           </button>
           <button onClick={exportPDF} className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150 cursor-pointer">
-            <FaFilePdf className="text-base" /> Export PDF
+            <FaFilePdf className="text-base" /> {t("cashier.export_pdf", "Export PDF")}
           </button>
         </div>
       </div>
@@ -245,7 +316,7 @@ export default function SalesDetailsReport() {
       <div className="px-5">
         {/* Filters Configuration */}
         <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <h3 className="font-bold text-gray-800 text-base mb-3">Interval Configuration</h3>
+          <h3 className="font-bold text-gray-800 text-base mb-3">{t("cashier.interval_configuration", "Interval Configuration")}</h3>
           <div className="flex flex-wrap gap-6 items-center border-b border-gray-100 pb-4 mb-4">
             {["daily", "weekly", "monthly", "custom"].map((type) => (
               <label key={type} className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer capitalize">
@@ -263,13 +334,13 @@ export default function SalesDetailsReport() {
           {filters.filterType === "weekly" && (
             <div className="flex gap-4 items-end mt-2 animate-fadeIn">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Month</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("cashier.month", "Month")}</label>
                 <input type="month" value={filters.selectedMonth} onChange={(e) => setFilters({ ...filters, selectedMonth: e.target.value })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm" />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Week</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("cashier.week", "Week")}</label>
                 <select value={filters.selectedWeek} onChange={(e) => setFilters({ ...filters, selectedWeek: e.target.value })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm">
-                  {["1", "2", "3", "4", "5"].map(w => <option key={w} value={w}>Week {w}</option>)}
+                  {["1", "2", "3", "4", "5"].map(w => <option key={w} value={w}>{t("cashier.week", "Week")} {w}</option>)}
                 </select>
               </div>
             </div>
@@ -277,7 +348,7 @@ export default function SalesDetailsReport() {
 
           {filters.filterType === "monthly" && (
             <div className="flex flex-col gap-1.5 max-w-xs animate-fadeIn">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Select Operational Month</label>
+              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("cashier.select_operational_month", "Select Operational Month")}</label>
               <input type="month" value={filters.selectedMonth} onChange={(e) => setFilters({ ...filters, selectedMonth: e.target.value })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
             </div>
           )}
@@ -285,11 +356,11 @@ export default function SalesDetailsReport() {
           {filters.filterType === "custom" && (
             <div className="flex gap-4 items-center mt-2 animate-fadeIn">
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">From Date</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("cashier.from_date", "From Date")}</label>
                 <input type="date" value={filters.fromDate} onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
               <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">To Date</label>
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("cashier.to_date", "To Date")}</label>
                 <input type="date" value={filters.toDate} onChange={(e) => setFilters({ ...filters, toDate: e.target.value })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
               </div>
             </div>
@@ -302,7 +373,7 @@ export default function SalesDetailsReport() {
 
         {/* Columns Visibility Selector */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-          <h3 className="font-bold text-gray-800 text-base mb-3">Visible Data Fields</h3>
+          <h3 className="font-bold text-gray-800 text-base mb-3">{t("cashier.visible_data_fields", "Visible Data Fields")}</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             {availableColumns.map((col) => (
               <label key={col.key} className="flex items-center gap-2.5 p-2 rounded-lg border border-gray-50 hover:bg-gray-50 transition-colors text-sm text-gray-600 font-medium cursor-pointer">
@@ -326,7 +397,7 @@ export default function SalesDetailsReport() {
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-3 animate-pulse">
             <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin shadow-sm" />
-            <p className="text-sm font-semibold text-slate-600 tracking-wide">Please wait...</p>
+            <p className="text-sm font-semibold text-slate-600 tracking-wide">{t("cashier.please_wait", "Please wait...")}</p>
           </div>
         ) : (
           <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
@@ -344,7 +415,7 @@ export default function SalesDetailsReport() {
                 {rows.length === 0 ? (
                   <tr>
                     <td colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length} className="text-center py-12 text-gray-400 font-medium">
-                      No matching sales data captured. Adjust your filters and reload.
+                      {t("cashier.no_matching_sales_data_captured_adjust_your_filters_and_reload", "No matching sales data captured. Adjust your filters and reload.")}
                     </td>
                   </tr>
                 ) : (
@@ -354,7 +425,7 @@ export default function SalesDetailsReport() {
                         .filter((col) => selectedColumns.includes(col.key))
                         .map((col) => {
                           if (col.key === "subtotal") {
-                            return <td key={col.key} className="p-4 text-sm font-medium text-gray-700">Rs. {Number(row[col.key] || 0).toFixed(2)}</td>;
+                            return <td key={col.key} className="p-4 text-sm font-medium text-gray-700">{t("cashier.rs", "Rs.")} {Number(row[col.key] || 0).toFixed(2)}</td>;
                           }
                           if (col.key === "order_date" && row[col.key]) {
                             return <td key={col.key} className="p-4 text-sm text-gray-600">{new Date(row[col.key]).toLocaleDateString("en-CA")}</td>;
@@ -370,8 +441,8 @@ export default function SalesDetailsReport() {
               </tbody>
               <tfoot>
                 <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                  <td colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} className="p-4 text-right">Grand Total</td>
-                  <td className="p-4 text-green-600 text-base">Rs. {Number(grandTotal).toFixed(2)}</td>
+                  <td colSpan={availableColumns.filter((col) => selectedColumns.includes(col.key)).length - 1} className="p-4 text-right">{t("cashier.grand_total", "Grand Total")}</td>
+                  <td className="p-4 text-green-600 text-base">{t("cashier.rs", "Rs.")} {Number(grandTotal).toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>
@@ -380,7 +451,7 @@ export default function SalesDetailsReport() {
       </div>
 
       <button onClick={() => window.history.back()} className="fixed bottom-6 right-6 inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-lg hover:shadow-xl active:scale-95 transition-all duration-150 z-50 group border border-slate-700 cursor-pointer">
-        <FaArrowLeft className="text-xs group-hover:-translate-x-1 transition-transform" /> Back
+        <FaArrowLeft className="text-xs group-hover:-translate-x-1 transition-transform" /> {t("cashier.back", "Back")}
       </button>
     </div>
   );

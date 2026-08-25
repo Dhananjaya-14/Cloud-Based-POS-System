@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import CashierHeader from "../../components/cashier/Header";
@@ -41,7 +42,8 @@ const statCards = [
 ];
 
 const CashierDashboard = () => {
-  const { user } = useAuth();
+  const { t } = useTranslation();
+const { user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     revenue: 0,
@@ -188,28 +190,28 @@ const CashierDashboard = () => {
           <div className="text-center mb-8">
             <div className="inline-flex items-center px-4 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-medium mb-4 border border-sky-100">
               <span className="w-2 h-2 rounded-full bg-emerald-400 mr-2" />
-              Welcome back!
+              {t("cashier.welcome_back", "Welcome back!")}
             </div>
 
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight text-slate-900">
-              Hello,<span className="ml-1">{user?.u_fname || "Cashier"} {user?.u_lname || ""}</span>
+              {t("cashier.hello", "Hello,")}<span className="ml-1">{user?.u_fname || "Cashier"} {user?.u_lname || ""}</span>
             </h1>
             <p className="mt-3 text-sm sm:text-base text-slate-500 max-w-xl mx-auto">
-              Ready to start your day? Let&apos;s make it productive.
+              {t("cashier.ready_to_start_your_day_let_s_make_it_productive", "Ready to start your day? Let's make it productive.")}
             </p>
             <div className="mt-6 flex flex-wrap justify-center items-center gap-4">
               <button
                 onClick={() => navigate("/cashier/pos")}
                 className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
               >
-                <span>Open POS System</span>
+                <span>{t("cashier.open_pos_system", "Open POS System")}</span>
               </button>
 
               <button
                 onClick={() => navigate("/cashier/sales-summary")}
                 className="mt-6 inline-flex items-center gap-2 px-6 sm:px-8 py-3 rounded-full bg-linear-to-r from-[#0052A8] to-[#00B4EB] text-white text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transition-shadow"
               >
-                <span>View Sales Report</span>
+                <span>{t("cashier.view_sales_report", "View Sales Report")}</span>
               </button>
             </div>
           </div>
@@ -265,14 +267,14 @@ const CashierDashboard = () => {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-slate-900">
-                  Recent Activity
+                  {t("cashier.recent_activity", "Recent Activity")}
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  Your latest transactions and updates
+                  {t("cashier.your_latest_transactions_and_updates", "Your latest transactions and updates")}
                 </p>
               </div>
               <button className="self-start px-3 py-1.5 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50">
-                Last 24 hours
+                {t("cashier.last_24_hours", "Last 24 hours")}
               </button>
             </div>
 
@@ -292,7 +294,7 @@ const CashierDashboard = () => {
                           {item.time}
                         </span>
                         <span className="inline-flex items-center text-emerald-500 text-[10px]">
-                          <span className="mr-1">●</span>Completed
+                          <span className="mr-1">●</span>{t("cashier.completed", "Completed")}
                         </span>
                       </div>
                       <div className="text-sm font-medium text-slate-900">

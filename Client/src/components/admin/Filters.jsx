@@ -1,13 +1,22 @@
+import { useTranslation } from "react-i18next";
 import React from "react";
 import { Calendar, MapPin, ChevronDown } from "lucide-react";
-
-export default function Filters({ branches = [], value = {}, onChange }) {
-  const daysOptions = [
-    { label: "Last 7 Days", value: 7 },
-    { label: "Last 30 Days", value: 30 },
-    { label: "Last 90 Days", value: 90 },
-  ];
-
+export default function Filters({
+  branches = [],
+  value = {},
+  onChange
+}) {
+  const { t } = useTranslation();
+const daysOptions = [{
+    label: "Last 7 Days",
+    value: 7
+  }, {
+    label: "Last 30 Days",
+    value: 30
+  }, {
+    label: "Last 90 Days",
+    value: 90
+  }];
   const selectStyle = {
     appearance: "none",
     background: "#fff",
@@ -20,46 +29,40 @@ export default function Filters({ branches = [], value = {}, onChange }) {
     cursor: "pointer",
     outline: "none",
     transition: "all 0.2s ease",
-    boxShadow: "0 2px 4px rgba(0,0,0,0.02)",
+    boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
   };
-
   const containerStyle = {
     position: "relative",
     display: "flex",
-    alignItems: "center",
+    alignItems: "center"
   };
-
   const iconStyle = {
     position: "absolute",
     left: "12px",
     color: "#94a3b8",
-    pointerEvents: "none",
+    pointerEvents: "none"
   };
-
   const chevronStyle = {
     position: "absolute",
     right: "12px",
     color: "#94a3b8",
-    pointerEvents: "none",
+    pointerEvents: "none"
   };
-
-  return (
-    <div style={{ display: "flex", gap: "12px", alignItems: "center" }}>
+  return <div style={{
+    display: "flex",
+    gap: "12px",
+    alignItems: "center"
+  }}>
       {/* Date Range Filter */}
       <div style={containerStyle}>
         <Calendar size={18} style={iconStyle} />
-        <select
-          value={value.days}
-          onChange={(e) => onChange({ ...value, days: Number(e.target.value) })}
-          style={selectStyle}
-          onFocus={(e) => (e.target.style.borderColor = "#0b76ef")}
-          onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-        >
-          {daysOptions.map((d) => (
-            <option key={d.value} value={d.value}>
+        <select value={value.days} onChange={e => onChange({
+        ...value,
+        days: Number(e.target.value)
+      })} style={selectStyle} onFocus={e => e.target.style.borderColor = "#0b76ef"} onBlur={e => e.target.style.borderColor = "#e2e8f0"}>
+          {daysOptions.map(d => <option key={d.value} value={d.value}>
               {d.label}
-            </option>
-          ))}
+            </option>)}
         </select>
         <ChevronDown size={16} style={chevronStyle} />
       </div>
@@ -67,32 +70,16 @@ export default function Filters({ branches = [], value = {}, onChange }) {
       {/* Branch Filter */}
       <div style={containerStyle}>
         <MapPin size={18} style={iconStyle} />
-        <select
-          value={value.b_id}
-          onChange={(e) => onChange({ ...value, b_id: e.target.value })}
-          style={selectStyle}
-          onFocus={(e) => (e.target.style.borderColor = "#0b76ef")}
-          onBlur={(e) => (e.target.style.borderColor = "#e2e8f0")}
-        >
-          <option value="all">All Branches</option>
-          {branches.map((b) => (
-            <option key={b.B_id} value={b.B_id}>
+        <select value={value.b_id} onChange={e => onChange({
+        ...value,
+        b_id: e.target.value
+      })} style={selectStyle} onFocus={e => e.target.style.borderColor = "#0b76ef"} onBlur={e => e.target.style.borderColor = "#e2e8f0"}>
+          <option value="all">{t("company_admin.all_branches", "All Branches")}</option>
+          {branches.map(b => <option key={b.B_id} value={b.B_id}>
               {b.B_name}
-            </option>
-          ))}
+            </option>)}
         </select>
         <ChevronDown size={16} style={chevronStyle} />
       </div>
-    </div>
-  );
+    </div>;
 }
-
-
-
-
-
-
-
-
-
-

@@ -1,92 +1,72 @@
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../components/branch-admin/Header";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import TransactionFilters from "../../components/branch-admin/TransactionFilters";
 import TransactionTable from "../../components/admin/TransactionTable";
 import TransactionDetailsModal from "../../components/admin/TransactionDetailsModal";
-import {
-  getOrders,
-  getSupplierPayments,
-  getPayments,
-  getPurchaseOrders,
-  getBranches,
-} from "../../services/api";
+import { getOrders, getSupplierPayments, getPayments, getPurchaseOrders, getBranches } from "../../services/api";
 import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import { useAuth } from "../../context/AuthContext";
-
 export default function Transactions() {
-  const [filters, setFilters] = useState({
+  const { t } = useTranslation();
+const [filters, setFilters] = useState({
     search: "",
     method: "all",
     dateFrom: null,
     dateTo: null,
-    tab: "all",
+    tab: "all"
   });
-
-  const { user } = useAuth();
-
+  const {
+    user
+  } = useAuth();
   const [loading, setLoading] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(null);
   const [pageSize] = useState(10);
-
   useEffect(() => {
     const socket = connectSocket();
     socket.emit('join_branch_updates');
     const load = async () => {
       setLoading(true);
       try {
-        const orderParams = { status: "completed" };
+        const orderParams = {
+          status: "completed"
+        };
 
         // Branch filter: branch-admin must only see their branch.
         const branchFromUser = user?.b_id ?? user?.B_id ?? user?.branchId ?? null;
         const isBranchAdmin = user?.role_id === 1;
         const branchFilter = isBranchAdmin ? branchFromUser : null;
-
         if (branchFilter) orderParams.b_id = branchFilter;
-
-        const [sales, paymentsList, supplierPayments, purchaseOrders, branches] =
-          await Promise.all([
-            getOrders(orderParams).catch(() => []),
-            getPayments().catch(() => []),
-            getSupplierPayments().catch(() => []),
-            getPurchaseOrders().catch(() => []),
-            getBranches().catch(() => []),
-          ]);
-
+        const [sales, paymentsList, supplierPayments, purchaseOrders, branches] = await Promise.all([getOrders(orderParams).catch(() => []), getPayments().catch(() => []), getSupplierPayments().catch(() => []), getPurchaseOrders().catch(() => []), getBranches().catch(() => [])]);
         const paymentsByOrder = {};
-        (paymentsList || []).forEach((p) => {
+        (paymentsList || []).forEach(p => {
           const oid = p.or_id;
           if (!oid) return;
           const existing = paymentsByOrder[oid];
           const curDate = p.pay_date ? new Date(p.pay_date) : new Date();
-          const existingDate =
-            existing && existing.pay_date ? new Date(existing.pay_date) : null;
-          if (!existing || (existingDate && curDate > existingDate) || !existingDate) {
+          const existingDate = existing && existing.pay_date ? new Date(existing.pay_date) : null;
+          if (!existing || existingDate && curDate > existingDate || !existingDate) {
             paymentsByOrder[oid] = p;
           }
         });
-
         const purchaseOrdersById = {};
-        (purchaseOrders || []).forEach((po) => {
+        (purchaseOrders || []).forEach(po => {
           if (po && po.po_id !== undefined && po.po_id !== null) {
             purchaseOrdersById[po.po_id] = po;
           }
         });
-
         const branchById = {};
-        (branches || []).forEach((b) => {
-          if (b && (b.B_id !== undefined && b.B_id !== null)) {
+        (branches || []).forEach(b => {
+          if (b && b.B_id !== undefined && b.B_id !== null) {
             branchById[b.B_id] = b;
           }
         });
-
-        const normalizedSales = (sales || []).map((o) => {
+        const normalizedSales = (sales || []).map(o => {
           const pay = paymentsByOrder[o.or_id];
           const payMethod = pay?.pay_method ?? pay?.method ?? null;
-          const branchName =
-            branchById[o.b_id]?.B_name ?? o.B_name ?? o.b_name ?? null;
-
+          const branchName = branchById[o.b_id]?.B_name ?? o.B_name ?? o.b_name ?? null;
           return {
             id: `sale-${o.or_id}`,
             type: "sale",
@@ -97,26 +77,17 @@ export default function Transactions() {
             cashierId: o.u_id,
             cashierLabel: o.u_name ?? null,
             date: o.or_date ?? o.or_time ?? o.created_at,
-            paymentMethod:
-              payMethod ? String(payMethod) : (o.or_paymentmethod ?? null) ?? "Cash",
+            paymentMethod: payMethod ? String(payMethod) : o.or_paymentmethod ?? null ?? "Cash",
             amount: Number(o.or_totalCostWtax ?? o.or_totalcost ?? 0),
-            raw: o,
+            raw: o
           };
         });
-
-        let normalizedPayments = (supplierPayments || []).map((p) => {
+        let normalizedPayments = (supplierPayments || []).map(p => {
           const po = purchaseOrdersById[p.po_id];
 
           // branchId may be stored as b_id or B_id in different endpoints
           const branchId = po?.b_id ?? po?.B_id ?? p.b_id ?? p.B_id ?? null;
-          const branchName =
-            po?.B_name ??
-            po?.b_name ??
-            branchById[branchId]?.B_name ??
-            p.B_name ??
-            p.b_name ??
-            null;
-
+          const branchName = po?.B_name ?? po?.b_name ?? branchById[branchId]?.B_name ?? p.B_name ?? p.b_name ?? null;
           return {
             id: `pay-${p.pay_id}`,
             type: "purchase",
@@ -129,22 +100,15 @@ export default function Transactions() {
             date: p.payment_date,
             paymentMethod: p.method,
             amount: Number(p.amount ?? 0),
-            raw: p,
+            raw: p
           };
         });
 
         // If branch-admin, apply branch filter to purchases too
         if (branchFilter) {
-          normalizedPayments = normalizedPayments.filter(
-            (p) => p.branchId !== null && Number(p.branchId) === Number(branchFilter),
-          );
+          normalizedPayments = normalizedPayments.filter(p => p.branchId !== null && Number(p.branchId) === Number(branchFilter));
         }
-
-        setTransactions(
-          [...normalizedSales, ...normalizedPayments].sort(
-            (a, b) => new Date(b.date) - new Date(a.date),
-          ),
-        );
+        setTransactions([...normalizedSales, ...normalizedPayments].sort((a, b) => new Date(b.date) - new Date(a.date)));
       } catch (err) {
         console.error("Ledger engine compilation error:", err);
       } finally {
@@ -167,25 +131,18 @@ export default function Transactions() {
   }, [filters, user]); // re-run when filters or user changes
 
   const filtered = useMemo(() => {
-    return transactions.filter((t) => {
+    return transactions.filter(t => {
       if (filters.tab === "income" && t.type !== "sale") return false;
       if (filters.tab === "expense" && t.type !== "purchase") return false;
-
       if (filters.method !== "all" && filters.method !== "") {
         const targetMethod = String(t.paymentMethod || "").toLowerCase();
         if (targetMethod !== String(filters.method).toLowerCase()) return false;
       }
-
       if (filters.search.trim()) {
         const s = filters.search.toLowerCase();
-        const matches =
-          String(t.txId || "").toLowerCase().includes(s) ||
-          String(t.invoiceNo || "").toLowerCase().includes(s) ||
-          String(t.branchLabel || "").toLowerCase().includes(s) ||
-          String(t.cashierLabel || "").toLowerCase().includes(s);
+        const matches = String(t.txId || "").toLowerCase().includes(s) || String(t.invoiceNo || "").toLowerCase().includes(s) || String(t.branchLabel || "").toLowerCase().includes(s) || String(t.cashierLabel || "").toLowerCase().includes(s);
         if (!matches) return false;
       }
-
       if (filters.dateFrom && t.date) {
         if (new Date(t.date) < new Date(filters.dateFrom)) return false;
       }
@@ -194,70 +151,38 @@ export default function Transactions() {
         boundaryDate.setHours(23, 59, 59, 999);
         if (new Date(t.date) > boundaryDate) return false;
       }
-
       return true;
     });
   }, [transactions, filters]);
-
-  return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased">
+  return <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased">
       <Sidebar />
 
-      <div className="flex flex-1 flex-col overflow-hidden" style={{ marginLeft: 240 }}>
-        <Header title="Transaction Details" />
+      <div className="flex flex-1 flex-col overflow-hidden" style={{
+      marginLeft: 240
+    }}>
+        <Header title={t("branch_admin.transaction_details", "Transaction Details")} />
 
         <main className="flex-1 overflow-y-auto p-6 lg:p-8">
           <div className="mx-auto max-w-7xl space-y-6">
             <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
               <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">Financial Ledger</h1>
-                <p className="text-sm text-slate-500">Audit, inspect, and trace branch transactions.</p>
+                <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("branch_admin.financial_ledger", "Financial Ledger")}</h1>
+                <p className="text-sm text-slate-500">{t("branch_admin.audit_inspect_and_trace_branch_transacti", "Audit, inspect, and trace branch transactions.")}</p>
               </div>
             </div>
 
             <TransactionFilters filters={filters} setFilters={setFilters} />
 
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              {!loading && filtered.length === 0 ? (
-                <div className="p-20 text-center">
-                  <p className="text-base font-medium text-slate-600">No transaction history for this branch.</p>
-                  <p className="text-xs text-slate-400 mt-1">Try a different date range or clearing filters.</p>
-                </div>
-              ) : (
-                <TransactionTable
-                  data={filtered}
-                  loading={loading}
-                  pageSize={pageSize}
-                  onView={(item) => setSelected(item)}
-                />
-              )}
+              {!loading && filtered.length === 0 ? <div className="p-20 text-center">
+                  <p className="text-base font-medium text-slate-600">{t("branch_admin.no_transaction_history_for_this_branch", "No transaction history for this branch.")}</p>
+                  <p className="text-xs text-slate-400 mt-1">{t("branch_admin.try_a_different_date_range_or_clearing_f", "Try a different date range or clearing filters.")}</p>
+                </div> : <TransactionTable data={filtered} loading={loading} pageSize={pageSize} onView={item => setSelected(item)} />}
             </div>
           </div>
         </main>
       </div>
 
       {selected && <TransactionDetailsModal item={selected} onClose={() => setSelected(null)} />}
-    </div>
-  );
+    </div>;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

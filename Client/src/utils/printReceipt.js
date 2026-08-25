@@ -1,4 +1,9 @@
+import i18n from '../i18n';
+
 export const printReceipt = (invoice, companySettings = {}) => {
+  const lang = companySettings.language_code || 'en';
+  const t = i18n.getFixedT(lang);
+
   const printWindow = window.open("", "_blank");
 
   const subtotal = Number(invoice.subtotal || 0).toFixed(2);
@@ -8,12 +13,16 @@ export const printReceipt = (invoice, companySettings = {}) => {
   
   const hotelName = companySettings.com_name || "HOTEL POS";
   const logoUrl = companySettings.bill_logo || "";
-  const greeting = companySettings.bill_greeting || "Thank You For Your Visit!\nPlease Come Again";
+  
+  let greeting = companySettings.bill_greeting || "";
+  if (!greeting || greeting.replace(/\r/g, "") === "Thank You For Your Visit!\nPlease Come Again" || greeting === "Thank You For Your Visit! Please Come Again") {
+    greeting = t("cashier.greeting", "Thank You For Your Visit!\nPlease Come Again");
+  }
 
   printWindow.document.write(`
     <html>
       <head>
-        <title>Receipt</title>
+        <title>${t("cashier.receipt", "Receipt")}</title>
 
         <style>
           * {
@@ -114,7 +123,7 @@ export const printReceipt = (invoice, companySettings = {}) => {
       <body>
 
         <div class="header">
-          ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-width: 80px; max-height: 80px; margin-bottom: 10px;" />` : ''}
+          ${logoUrl ? `<img src="${logoUrl}" alt="Logo" style="max-width: 120px; max-height: 80px; margin-bottom: 10px;" />` : ''}
           <div class="hotel-name">${hotelName}</div>
           ${companySettings.location ? `<div class="subtitle" style="font-size: 14px; margin-top: 4px;">${companySettings.location}</div>` : ''}
           ${companySettings.phone ? `<div class="subtitle" style="font-size: 14px; margin-top: 2px;">${companySettings.phone}</div>` : ''}
@@ -123,17 +132,17 @@ export const printReceipt = (invoice, companySettings = {}) => {
         <div class="divider"></div>
 
         <div class="row">
-          <span class="label">Invoice</span>
+          <span class="label">${t("cashier.invoice_no", "Invoice No.")}</span>
           <span class="value">${invoice.orderId}</span>
         </div>
 
         <div class="row">
-          <span class="label">Cashier</span>
+          <span class="label">${t("cashier.cashier", "Cashier")}</span>
           <span class="value">${invoice.cashierName}</span>
         </div>
 
         <div class="row">
-          <span class="label">Date</span>
+          <span class="label">${t("reports.date", "Date")}</span>
           <span class="value">${new Date().toLocaleString()}</span>
         </div>
 
@@ -157,29 +166,29 @@ export const printReceipt = (invoice, companySettings = {}) => {
         <div class="summary">
 
           <div class="row">
-            <span>Subtotal</span>
+            <span>${t("cashier.subtotal", "Subtotal")}</span>
             <span>$${subtotal}</span>
           </div>
 
           <div class="row">
-            <span>Discount</span>
+            <span>${t("reports.discount", "Discount")}</span>
             <span>${discount}%</span>
           </div>
 
           <div class="row">
-            <span>Tax</span>
+            <span>${t("cashier.tax", "Tax")}</span>
             <span>$${tax}</span>
           </div>
 
           <div class="row grand-total">
-            <span>Total</span>
+            <span>${t("cashier.total", "Total")}</span>
             <span>$${total}</span>
           </div>
 
         </div>
 
         <div class="payment">
-          ${invoice.paymentMethod}
+          ${t("cashier.payment", "Payment")}: ${invoice.paymentMethod}
         </div>
 
         <div class="footer">

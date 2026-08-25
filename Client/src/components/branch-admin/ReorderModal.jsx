@@ -1,8 +1,8 @@
+import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getSuppliers } from '../../services/api';
-
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
 
 // Converts an entered quantity from the unit the admin picked in the form
@@ -19,34 +19,39 @@ function convertToBaseUnit(qty, fromUnit, toUnit) {
   if (from === "l" && to === "ml") return qty * 1000;
   return qty; // incompatible unit types — no safe conversion, use as-is
 }
-
-const ReorderModal = ({ material, onClose, onSuccess }) => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
+const ReorderModal = ({
+  material,
+  onClose,
+  onSuccess
+}) => {
+  const { t } = useTranslation();
+const navigate = useNavigate();
+  const {
+    user
+  } = useAuth();
   const [suppliers, setSuppliers] = useState([]);
   const [formData, setFormData] = useState({
     sup_id: '',
     quantity: '',
-    unit: material?.unit || 'pcs',
+    unit: material?.unit || 'pcs'
   });
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     fetchSuppliers();
-    return () => { document.body.style.overflow = 'unset'; };
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const extractArray = (data) => {
+  const extractArray = data => {
     if (!data) return [];
     if (Array.isArray(data)) return data;
     if (Array.isArray(data?.data)) return data.data;
     if (Array.isArray(data?.suppliers)) return data.suppliers;
     return [];
   };
-
   const fetchSuppliers = async () => {
     try {
       // getSuppliers with no params — backend uses JWT b_id for branch admins
@@ -57,11 +62,9 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
       setSuppliers([]);
     }
   };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = async e => {
     e.preventDefault();
     setLoading(true);
-
     try {
       // ensure we have branch id from logged-in user
       const branchId = user?.b_id ?? user?.B_id ?? null;
@@ -70,14 +73,14 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         setLoading(false);
         return;
       }
-
       const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
-
       const orderRes = await fetch('/api/purchase-orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          ...(token ? {
+            Authorization: `Bearer ${token}`
+          } : {})
         },
         credentials: 'include',
         body: JSON.stringify({
@@ -86,16 +89,16 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
           status: 'pending'
         })
       });
-
       if (orderRes.status === 401) {
         navigate('/login');
         return;
       }
-
       if (!orderRes.ok) {
         // try to read response body for better debugging
         let text = '';
-        try { text = await orderRes.text(); } catch { }
+        try {
+          text = await orderRes.text();
+        } catch {}
         console.error('Order creation failed', orderRes.status, text);
         // if server returned JSON { message }, try to parse it
         try {
@@ -105,9 +108,7 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
           throw new Error('Order creation failed');
         }
       }
-
       const order = await orderRes.json();
-
       const enteredQty = parseFloat(formData.quantity);
 
       // Convert the entered qty into the material's base unit
@@ -124,16 +125,21 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          ...(token ? {
+            Authorization: `Bearer ${token}`
+          } : {})
         },
         credentials: 'include',
         body: JSON.stringify({
           po_id: order.po_id,
-          ...(material.rm_id ? { rm_id: material.rm_id } : { pro_id: material._original?.pro_id || material.pro_id }),
-          qty: qtyToSend,
+          ...(material.rm_id ? {
+            rm_id: material.rm_id
+          } : {
+            pro_id: material._original?.pro_id || material.pro_id
+          }),
+          qty: qtyToSend
         })
       });
-
       if (itemRes.status === 401) {
         navigate('/login');
         return;
@@ -142,7 +148,6 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
         const errData = await itemRes.json().catch(() => ({}));
         throw new Error(errData.message || 'Item creation failed');
       }
-
       setIsSuccess(true);
       setTimeout(() => {
         onSuccess();
@@ -155,106 +160,59 @@ const ReorderModal = ({ material, onClose, onSuccess }) => {
       setLoading(false);
     }
   };
-
-  return (
-    <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
+  return <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-sm flex items-center justify-center z-[1000] p-4">
       <div className="bg-white rounded-2xl p-8 w-full max-w-md shadow-2xl relative animate-in fade-in zoom-in duration-200">
-        {isSuccess ? (
-          <div className="text-center py-10">
+        {isSuccess ? <div className="text-center py-10">
             <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">✓</div>
-            <h2 className="text-2xl font-bold text-gray-800">Order Placed!</h2>
-          </div>
-        ) : (
-          <>
+            <h2 className="text-2xl font-bold text-gray-800">{t("branch_admin.order_placed", "Order Placed!")}</h2>
+          </div> : <>
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-800">Reorder: {material?.rm_name || material?.name || material?.pro_name}</h2>
+              <h2 className="text-xl font-bold text-gray-800">{t("branch_admin.reorder", "Reorder:")}{material?.rm_name || material?.name || material?.pro_name}</h2>
               <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Select Supplier</label>
-                <select
-                  className="w-full border-gray-200 border rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                  value={formData.sup_id}
-                  onChange={(e) => setFormData({ ...formData, sup_id: e.target.value })}
-                >
-                  <option value="">Choose a supplier...</option>
-                  {Array.isArray(suppliers) && suppliers.length > 0 ? (
-                    suppliers.map(s => (
-                      <option key={s.sup_id ?? s.id ?? s._id} value={s.sup_id ?? s.id ?? s._id}>
+                <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">{t("branch_admin.select_supplier", "Select Supplier")}</label>
+                <select className="w-full border-gray-200 border rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500" required value={formData.sup_id} onChange={e => setFormData({
+              ...formData,
+              sup_id: e.target.value
+            })}>
+                  <option value="">{t("branch_admin.choose_a_supplier", "Choose a supplier...")}</option>
+                  {Array.isArray(suppliers) && suppliers.length > 0 ? suppliers.map(s => <option key={s.sup_id ?? s.id ?? s._id} value={s.sup_id ?? s.id ?? s._id}>
                         {s.sup_name ?? s.name}
-                      </option>
-                    ))
-                  ) : (
-                    <option disabled>No suppliers available</option>
-                  )}
+                      </option>) : <option disabled>{t("branch_admin.no_suppliers_available", "No suppliers available")}</option>}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Quantity</label>
-                  <input
-                    type="number"
-                    className="w-full border-gray-200 border rounded-xl p-3"
-                    required
-                    onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                  />
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">{t("branch_admin.quantity", "Quantity")}</label>
+                  <input type="number" className="w-full border-gray-200 border rounded-xl p-3" required onChange={e => setFormData({
+                ...formData,
+                quantity: e.target.value
+              })} />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Unit</label>
-                  <select
-                    className="w-full border-gray-200 border rounded-xl p-3"
-                    value={formData.unit}
-                    onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                  >
-                    {VALID_UNITS.map(u => (
-                      <option key={u} value={u}>{u}</option>
-                    ))}
+                  <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">{t("branch_admin.unit", "Unit")}</label>
+                  <select className="w-full border-gray-200 border rounded-xl p-3" value={formData.unit} onChange={e => setFormData({
+                ...formData,
+                unit: e.target.value
+              })}>
+                    {VALID_UNITS.map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
               </div>
 
               <div className="pt-6 flex gap-3">
-                <button type="button" onClick={onClose} className="flex-1 py-3 text-gray-500 font-semibold">Cancel</button>
-                <button
-                  type="submit"
-                  disabled={loading || !formData.sup_id}
-                  className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl disabled:bg-blue-300"
-                >
-                  {loading ? 'Ordering...' : 'Confirm Order'}
+                <button type="button" onClick={onClose} className="flex-1 py-3 text-gray-500 font-semibold">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+                <button type="submit" disabled={loading || !formData.sup_id} className="flex-1 bg-blue-600 text-white font-bold py-3 rounded-xl disabled:bg-blue-300">
+                  {loading ? 'Ordering...' : t("buttons.confirm_order", "Confirm Order")}
                 </button>
               </div>
             </form>
-          </>
-        )}
+          </>}
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default ReorderModal;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
