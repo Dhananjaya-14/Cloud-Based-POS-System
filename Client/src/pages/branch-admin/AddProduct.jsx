@@ -1,73 +1,52 @@
+import { useTranslation } from "react-i18next";
 // Client/src/pages/branch-admin/AddProduct.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  FaCheck,
-  FaChevronDown,
-  FaMinus,
-  FaPlus,
-  FaSearch,
-  FaShoppingCart,
-  FaTrashAlt,
-  FaBell,
-} from "react-icons/fa";
+import { FaCheck, FaChevronDown, FaMinus, FaPlus, FaSearch, FaShoppingCart, FaTrashAlt, FaBell } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
-import {
-  createBranchProduct,
-  getBranchProducts,
-  getCategories,
-  getProducts,
-} from "../../services/api";
+import { createBranchProduct, getBranchProducts, getCategories, getProducts } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { getSocket, connectSocket, SOCKET_EVENTS, joinCompanyRoom } from "../../services/socket";
-
 const pageStyle = {
   display: "flex",
   background: "#F2F4F7",
-  minHeight: "100vh",
+  minHeight: "100vh"
 };
-
 const contentStyle = {
   flex: 1,
-  marginLeft: "240px",
+  marginLeft: "240px"
 };
-
 const shellStyle = {
-  padding: "20px 22px 28px",
+  padding: "20px 22px 28px"
 };
-
 const heroStyle = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "flex-start",
   gap: "18px",
-  marginBottom: "18px",
+  marginBottom: "18px"
 };
-
 const titleStyle = {
   margin: 0,
   fontSize: "34px",
   fontWeight: "800",
   color: "#0B1220",
-  lineHeight: 1.05,
+  lineHeight: 1.05
 };
-
 const subtitleStyle = {
   margin: "8px 0 0",
   fontSize: "14px",
   color: "#64748B",
   maxWidth: "760px",
-  lineHeight: 1.6,
+  lineHeight: 1.6
 };
-
 const panelStyle = {
   background: "#FFFFFF",
   border: "1px solid #E5E7EB",
   borderRadius: "18px",
-  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)",
+  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.06)"
 };
-
 const searchShellStyle = {
   display: "flex",
   alignItems: "center",
@@ -76,18 +55,16 @@ const searchShellStyle = {
   borderRadius: "14px",
   border: "1px solid #D8E1EA",
   padding: "10px 14px",
-  minWidth: "320px",
+  minWidth: "320px"
 };
-
 const inputStyle = {
   border: "none",
   outline: "none",
   background: "transparent",
   width: "100%",
   fontSize: "14px",
-  color: "#0F172A",
+  color: "#0F172A"
 };
-
 const selectStyle = {
   width: "100%",
   height: "42px",
@@ -100,9 +77,8 @@ const selectStyle = {
   outline: "none",
   appearance: "none",
   WebkitAppearance: "none",
-  MozAppearance: "none",
+  MozAppearance: "none"
 };
-
 const actionButtonStyle = {
   border: "none",
   borderRadius: "12px",
@@ -111,9 +87,8 @@ const actionButtonStyle = {
   alignItems: "center",
   justifyContent: "center",
   gap: "8px",
-  fontWeight: "700",
+  fontWeight: "700"
 };
-
 const badgeStyle = {
   display: "inline-flex",
   alignItems: "center",
@@ -121,9 +96,8 @@ const badgeStyle = {
   borderRadius: "999px",
   padding: "6px 10px",
   fontSize: "12px",
-  fontWeight: "700",
+  fontWeight: "700"
 };
-
 const cardButtonStyle = {
   width: "100%",
   border: "1px solid #D8E1EA",
@@ -133,9 +107,8 @@ const cardButtonStyle = {
   textAlign: "left",
   cursor: "pointer",
   transition: "transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease",
-  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
+  boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)"
 };
-
 const toastStyle = {
   position: "fixed",
   top: "20px",
@@ -149,41 +122,43 @@ const toastStyle = {
   gap: "12px",
   boxShadow: "0 10px 24px rgba(0,0,0,0.15)",
   zIndex: 10000,
-  animation: "slideIn 0.3s ease-out",
+  animation: "slideIn 0.3s ease-out"
 };
-
-const toShortName = (name) => {
+const toShortName = name => {
   if (!name) return "";
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1, 4).toLowerCase())
-    .join(" ");
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part.slice(0, 1).toUpperCase() + part.slice(1, 4).toLowerCase()).join(" ");
 };
-
-const ProductChip = ({ label, value }) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: "12px",
-      padding: "10px 12px",
-      borderRadius: "12px",
-      background: "#F8FAFC",
-      border: "1px solid #E2E8F0",
-      marginBottom: "10px",
-    }}
-  >
-    <span style={{ fontSize: "13px", color: "#475569", fontWeight: "600" }}>{label}</span>
-    <span style={{ fontSize: "13px", color: "#0F172A", fontWeight: "700" }}>{value}</span>
-  </div>
-);
-
+const ProductChip = ({
+  label,
+  value
+}) => <div style={{
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "12px",
+  padding: "10px 12px",
+  borderRadius: "12px",
+  background: "#F8FAFC",
+  border: "1px solid #E2E8F0",
+  marginBottom: "10px"
+}}>
+    <span style={{
+    fontSize: "13px",
+    color: "#475569",
+    fontWeight: "600"
+  }}>{label}</span>
+    <span style={{
+    fontSize: "13px",
+    color: "#0F172A",
+    fontWeight: "700"
+  }}>{value}</span>
+  </div>;
 const AddProduct = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
+  const { t } = useTranslation();
+const navigate = useNavigate();
+  const {
+    user
+  } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -204,20 +179,12 @@ const AddProduct = () => {
     try {
       setLoading(true);
       setError("");
-
       const myBranchId = user?.b_id ?? null;
       setBranchId(myBranchId);
-
-      const [allProducts, currentBranchProducts, categoryList] = await Promise.all([
-        getProducts(),
-        myBranchId ? getBranchProducts(myBranchId) : [],
-        getCategories().catch(() => []),
-      ]);
-
+      const [allProducts, currentBranchProducts, categoryList] = await Promise.all([getProducts(), myBranchId ? getBranchProducts(myBranchId) : [], getCategories().catch(() => [])]);
       setProducts(Array.isArray(allProducts) ? allProducts : []);
       setBranchProducts(Array.isArray(currentBranchProducts) ? currentBranchProducts : []);
       setCategories(Array.isArray(categoryList) ? categoryList : []);
-
       const firstCategory = Array.isArray(categoryList) && categoryList.length > 0 ? categoryList[0] : null;
       setSelectedCategoryId(String(firstCategory?.cat_id ?? 1));
     } catch (err) {
@@ -242,11 +209,11 @@ const AddProduct = () => {
     }
 
     // Listen for new products added to the main catalog
-    const handleNewProduct = (data) => {
+    const handleNewProduct = data => {
       console.log("New product received:", data);
 
       // Add the new product to the products list
-      setProducts((prevProducts) => {
+      setProducts(prevProducts => {
         // Check if product already exists
         const exists = prevProducts.some(p => p.pro_id === data.product?.pro_id);
         if (!exists && data.product) {
@@ -258,136 +225,116 @@ const AddProduct = () => {
         return prevProducts;
       });
     };
-
     socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
-
     return () => {
       socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
     };
   }, [companyId]);
-
   useEffect(() => {
     loadData();
   }, [user?.b_id]);
-
   const branchProductIds = useMemo(() => {
-    return new Set(branchProducts.map((item) => Number(item.pro_id)));
+    return new Set(branchProducts.map(item => Number(item.pro_id)));
   }, [branchProducts]);
-
   const availableProducts = useMemo(() => {
-    return products.filter((product) => !branchProductIds.has(Number(product.pro_id)));
+    return products.filter(product => !branchProductIds.has(Number(product.pro_id)));
   }, [products, branchProductIds]);
-
   const filteredProducts = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
     if (!term) return availableProducts;
-
-    return availableProducts.filter((product) => {
+    return availableProducts.filter(product => {
       const name = String(product.pro_name ?? "").toLowerCase();
       const image = String(product.pro_image ?? "").toLowerCase();
       return name.includes(term) || image.includes(term) || String(product.pro_id ?? "").includes(term);
     });
   }, [availableProducts, searchTerm]);
-
   const selectedList = useMemo(() => {
-    return Object.entries(selectedItems)
-      .map(([productId, value]) => {
-        const product = products.find((item) => String(item.pro_id) === String(productId));
-        if (!product) return null;
-        return {
-          ...product,
-          quantity: value.quantity,
-          lowStockLimit: value.lowStockLimit,
-        };
-      })
-      .filter(Boolean);
+    return Object.entries(selectedItems).map(([productId, value]) => {
+      const product = products.find(item => String(item.pro_id) === String(productId));
+      if (!product) return null;
+      return {
+        ...product,
+        quantity: value.quantity,
+        lowStockLimit: value.lowStockLimit
+      };
+    }).filter(Boolean);
   }, [selectedItems, products]);
-
   const selectedCount = selectedList.length;
   const totalUnits = selectedList.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
-  const estimatedValue = selectedList.reduce(
-    (sum, item) => sum + Number(item.pro_price ?? 0) * Number(item.quantity || 0),
-    0,
-  );
-
-  const addToSelection = (product) => {
-    setSelectedItems((prev) => {
+  const estimatedValue = selectedList.reduce((sum, item) => sum + Number(item.pro_price ?? 0) * Number(item.quantity || 0), 0);
+  const addToSelection = product => {
+    setSelectedItems(prev => {
       const key = String(product.pro_id);
       if (prev[key]) return prev;
       return {
         ...prev,
         [key]: {
           quantity: 0,
-          lowStockLimit: 10,
-        },
+          lowStockLimit: 10
+        }
       };
     });
   };
-
   const updateLowStockLimit = (productId, value) => {
-    setSelectedItems((prev) => {
+setSelectedItems(prev => {
       const key = String(productId);
       if (!prev[key]) return prev;
       return {
         ...prev,
         [key]: {
           ...prev[key],
-          lowStockLimit: value,
-        },
+          lowStockLimit: value
+        }
       };
     });
   };
-
   const updateSelectedQuantity = (productId, nextQuantity) => {
-    setSelectedItems((prev) => {
+setSelectedItems(prev => {
       const key = String(productId);
       if (nextQuantity <= 0) {
-        const next = { ...prev };
+        const next = {
+          ...prev
+        };
         delete next[key];
         return next;
       }
-
       return {
         ...prev,
         [key]: {
           ...prev[key],
-          quantity: nextQuantity,
-        },
+          quantity: nextQuantity
+        }
       };
     });
   };
-
-  const removeFromSelection = (productId) => {
-    setSelectedItems((prev) => {
-      const next = { ...prev };
+  const removeFromSelection = productId => {
+    setSelectedItems(prev => {
+      const next = {
+        ...prev
+      };
       delete next[String(productId)];
       return next;
     });
   };
-
   const handleSaveSelection = async () => {
     if (!selectedList.length) {
       setError("Select at least one product to add to the branch.");
       return;
     }
-
     const resolvedCategoryId = Number(selectedCategoryId || categories?.[0]?.cat_id || 1);
     if (!Number.isFinite(resolvedCategoryId) || resolvedCategoryId <= 0) {
       setError("Please choose a valid category before saving.");
       return;
     }
-
     try {
       setSaving(true);
       setError("");
       setSuccess("");
-
       if (!branchId) {
         setError("Branch ID could not be determined.");
         setSaving(false);
         return;
       }
-
       for (const item of selectedList) {
         const itemState = selectedItems[String(item.pro_id)] || {};
         await createBranchProduct({
@@ -400,14 +347,12 @@ const AddProduct = () => {
           cat_id: resolvedCategoryId,
           pro_id: Number(item.pro_id),
           B_id: branchId,
-          low_stock_limit: Number(itemState.lowStockLimit ?? 10),
+          low_stock_limit: Number(itemState.lowStockLimit ?? 10)
         });
       }
-
-      setBranchProducts((prev) => [
-        ...prev,
-        ...selectedList.map((item) => ({ pro_id: item.pro_id })),
-      ]);
+      setBranchProducts(prev => [...prev, ...selectedList.map(item => ({
+        pro_id: item.pro_id
+      }))]);
       setSelectedItems({});
       setSuccess(`${selectedCount} product${selectedCount === 1 ? "" : "s"} added to the branch successfully.`);
       setTimeout(() => setSuccess(""), 2500);
@@ -417,18 +362,11 @@ const AddProduct = () => {
       setSaving(false);
     }
   };
-
-  return (
-    <div style={pageStyle}>
+  return <div style={pageStyle}>
       <Sidebar />
 
       <div style={contentStyle}>
-        <Header
-          title="Branch Product Management"
-          role="Branch Admin"
-          email="branchadmin@gmail.com"
-          showAddUserIcon
-        />
+        <Header title={t("branch_admin.branch_product_management", "Branch Product Management")} role="Branch Admin" email="branchadmin@gmail.com" showAddUserIcon />
 
         <div style={shellStyle}>
           <div style={heroStyle}>
@@ -436,405 +374,400 @@ const AddProduct = () => {
               {/* Title removed as requested */}
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate("/branch-admin/products")}
-              style={{
-                ...actionButtonStyle,
-                background: "#FFFFFF",
-                border: "1px solid #D8E1EA",
-                color: "#0F172A",
-                padding: "12px 16px",
-                boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)",
-              }}
-            >
-              Back to products
-            </button>
+            <button type="button" onClick={() => navigate("/branch-admin/products")} style={{
+            ...actionButtonStyle,
+            background: "#FFFFFF",
+            border: "1px solid #D8E1EA",
+            color: "#0F172A",
+            padding: "12px 16px",
+            boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)"
+          }}>{t("branch_admin.back_to_products", "Back to products")}</button>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1.45fr 0.85fr", gap: "18px" }}>
-            <div style={{ ...panelStyle, padding: "18px" }}>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "12px", justifyContent: "space-between", marginBottom: "16px" }}>
+          <div style={{
+          display: "grid",
+          gridTemplateColumns: "1.45fr 0.85fr",
+          gap: "18px"
+        }}>
+            <div style={{
+            ...panelStyle,
+            padding: "18px"
+          }}>
+              <div style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "12px",
+              justifyContent: "space-between",
+              marginBottom: "16px"
+            }}>
                 <div style={searchShellStyle}>
                   <FaSearch color="#94A3B8" />
-                  <input
-                    type="text"
-                    placeholder="Search remaining products"
-                    value={searchTerm}
-                    onChange={(event) => setSearchTerm(event.target.value)}
-                    style={inputStyle}
-                  />
+                  <input type="text" placeholder={t("branch_admin.search_remaining_products", "Search remaining products")} value={searchTerm} onChange={event => setSearchTerm(event.target.value)} style={inputStyle} />
                 </div>
 
-                <div style={{ position: "relative", minWidth: "250px" }}>
-                  <select
-                    value={selectedCategoryId}
-                    onChange={(event) => setSelectedCategoryId(event.target.value)}
-                    style={selectStyle}
-                  >
-                    {categories.length === 0 ? (
-                      <option value="1">General</option>
-                    ) : (
-                      categories.map((category) => (
-                        <option key={category.cat_id} value={category.cat_id}>
+                <div style={{
+                position: "relative",
+                minWidth: "250px"
+              }}>
+                  <select value={selectedCategoryId} onChange={event => setSelectedCategoryId(event.target.value)} style={selectStyle}>
+                    {categories.length === 0 ? <option value="1">{t("branch_admin.general", "General")}</option> : categories.map(category => <option key={category.cat_id} value={category.cat_id}>
                           {category.cat_name}
-                        </option>
-                      ))
-                    )}
+                        </option>)}
                   </select>
-                  <FaChevronDown
-                    size={11}
-                    color="#334155"
-                    style={{
-                      position: "absolute",
-                      right: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      pointerEvents: "none",
-                    }}
-                  />
+                  <FaChevronDown size={11} color="#334155" style={{
+                  position: "absolute",
+                  right: "14px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  pointerEvents: "none"
+                }} />
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
-                <div style={{ fontSize: "14px", color: "#64748B", fontWeight: "600" }}>
-                  {filteredProducts.length} available item{filteredProducts.length === 1 ? "" : "s"}
+              <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "12px"
+            }}>
+                <div style={{
+                fontSize: "14px",
+                color: "#64748B",
+                fontWeight: "600"
+              }}>
+                  {filteredProducts.length}{t("branch_admin.available_item", "available item")}{filteredProducts.length === 1 ? "" : "s"}
                 </div>
-                <div style={{ fontSize: "14px", color: "#64748B", fontWeight: "600" }}>
-                  {branchProducts.length} already in Branch_Product
-                </div>
+                <div style={{
+                fontSize: "14px",
+                color: "#64748B",
+                fontWeight: "600"
+              }}>
+                  {branchProducts.length}{t("branch_admin.already_in_branch_product", "already in Branch_Product")}</div>
               </div>
 
-              {loading ? (
-                <div style={{ color: "#475569", fontSize: "14px", padding: "10px 0" }}>Loading catalog...</div>
-              ) : error ? (
-                <div style={{ color: "#B91C1C", fontSize: "14px", padding: "10px 0" }}>{error}</div>
-              ) : filteredProducts.length === 0 ? (
-                <div
-                  style={{
-                    border: "1px dashed #CBD5E1",
-                    borderRadius: "16px",
-                    padding: "24px",
-                    color: "#64748B",
-                    background: "#F8FAFC",
-                    fontSize: "14px",
-                  }}
-                >
-                  No remaining products found. Everything currently in the Product table is already added to the branch,
-                  or your search filtered the list to nothing.
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
-                    gap: "14px",
-                    maxHeight: "calc(100vh - 300px)",
-                    overflowY: "auto",
-                    paddingRight: "4px",
-                  }}
-                >
-                  {filteredProducts.map((product) => {
-                    const selected = Boolean(selectedItems[String(product.pro_id)]);
-                    const price = Number(product.pro_price ?? 0);
-                    const stock = Number(product.pro_qty ?? 0);
-
-                    return (
-                      <button
-                        key={product.pro_id}
-                        type="button"
-                        onClick={() => addToSelection(product)}
-                        style={{
-                          ...cardButtonStyle,
-                          borderColor: selected ? "#0E6DCF" : "#D8E1EA",
-                          boxShadow: selected ? "0 10px 26px rgba(14, 109, 207, 0.14)" : cardButtonStyle.boxShadow,
-                          transform: selected ? "translateY(-1px)" : "translateY(0)",
-                        }}
-                      >
-                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+              {loading ? <div style={{
+              color: "#475569",
+              fontSize: "14px",
+              padding: "10px 0"
+            }}>{t("branch_admin.loading_catalog", "Loading catalog...")}</div> : error ? <div style={{
+              color: "#B91C1C",
+              fontSize: "14px",
+              padding: "10px 0"
+            }}>{error}</div> : filteredProducts.length === 0 ? <div style={{
+              border: "1px dashed #CBD5E1",
+              borderRadius: "16px",
+              padding: "24px",
+              color: "#64748B",
+              background: "#F8FAFC",
+              fontSize: "14px"
+            }}>{t("branch_admin.no_remaining_products_found_everything_c", "No remaining products found. Everything currently in the Product table is already added to the branch,\n                  or your search filtered the list to nothing.")}</div> : <div style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
+              gap: "14px",
+              maxHeight: "calc(100vh - 300px)",
+              overflowY: "auto",
+              paddingRight: "4px"
+            }}>
+                  {filteredProducts.map(product => {
+                const selected = Boolean(selectedItems[String(product.pro_id)]);
+                const price = Number(product.pro_price ?? 0);
+                const stock = Number(product.pro_qty ?? 0);
+                return <button key={product.pro_id} type="button" onClick={() => addToSelection(product)} style={{
+                  ...cardButtonStyle,
+                  borderColor: selected ? "#0E6DCF" : "#D8E1EA",
+                  boxShadow: selected ? "0 10px 26px rgba(14, 109, 207, 0.14)" : cardButtonStyle.boxShadow,
+                  transform: selected ? "translateY(-1px)" : "translateY(0)"
+                }}>
+                        <div style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    justifyContent: "space-between",
+                    gap: "12px"
+                  }}>
                           <div>
-                            <div
-                              style={{
-                                width: "46px",
-                                height: "46px",
-                                borderRadius: "14px",
-                                display: "grid",
-                                placeItems: "center",
-                                background: "#F1F5F9",
-                                fontSize: "22px",
-                                marginBottom: "10px",
-                              }}
-                            >
+                            <div style={{
+                        width: "46px",
+                        height: "46px",
+                        borderRadius: "14px",
+                        display: "grid",
+                        placeItems: "center",
+                        background: "#F1F5F9",
+                        fontSize: "22px",
+                        marginBottom: "10px"
+                      }}>
                               {product.pro_image ? "📦" : "🧾"}
                             </div>
-                            <div style={{ fontSize: "15px", fontWeight: "600", color: "#0F172A", lineHeight: 1.2 }}>
+                            <div style={{
+                        fontSize: "15px",
+                        fontWeight: "600",
+                        color: "#0F172A",
+                        lineHeight: 1.2
+                      }}>
                               {product.pro_name}
                             </div>
-                            <div style={{ marginTop: "4px", fontSize: "12px", color: "#64748B" }}>
-                              Product ID #{product.pro_id}
+                            <div style={{
+                        marginTop: "4px",
+                        fontSize: "12px",
+                        color: "#64748B"
+                      }}>{t("branch_admin.product_id", "Product ID #")}{product.pro_id}
                             </div>
                           </div>
 
-                          <div
-                            style={{
-                              ...badgeStyle,
-                              background: selected ? "#E0F2FE" : "#F8FAFC",
-                              color: selected ? "#0369A1" : "#475569",
-                            }}
-                          >
+                          <div style={{
+                      ...badgeStyle,
+                      background: selected ? "#E0F2FE" : "#F8FAFC",
+                      color: selected ? "#0369A1" : "#475569"
+                    }}>
                             {selected ? <FaCheck size={10} /> : <FaPlus size={10} />}
-                            {selected ? "Selected" : "Add"}
+                            {selected ? "Selected" : t("buttons.add", "Add")}
                           </div>
                         </div>
 
-                        <div style={{ marginTop: "14px" }}>
-                          <ProductChip label="Catalog price" value={`$${price.toFixed(2)}`} />
+                        <div style={{
+                    marginTop: "14px"
+                  }}>
+                          <ProductChip label={t("fields.catalog_price", "Catalog price")} value={`$${price.toFixed(2)}`} />
                         </div>
-                      </button>
-                    );
-                  })}
+                      </button>;
+              })}
 
-                </div>
-              )}
+                </div>}
             </div>
 
-            <div style={{ ...panelStyle, padding: "18px", position: "sticky", top: "88px", alignSelf: "start" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "12px" }}>
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    borderRadius: "12px",
-                    background: "#0E6DCF",
-                    display: "grid",
-                    placeItems: "center",
-                    color: "#FFFFFF",
-                  }}
-                >
+            <div style={{
+            ...panelStyle,
+            padding: "18px",
+            position: "sticky",
+            top: "88px",
+            alignSelf: "start"
+          }}>
+              <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              marginBottom: "12px"
+            }}>
+                <div style={{
+                width: "40px",
+                height: "40px",
+                borderRadius: "12px",
+                background: "#0E6DCF",
+                display: "grid",
+                placeItems: "center",
+                color: "#FFFFFF"
+              }}>
                   <FaShoppingCart />
                 </div>
                 <div>
-                  <div style={{ fontSize: "16px", fontWeight: "600", color: "#0F172A" }}>Order summary</div>
-                  <div style={{ fontSize: "13px", color: "#64748B" }}>{selectedCount} item{selectedCount === 1 ? "" : "s"} selected</div>
+                  <div style={{
+                  fontSize: "16px",
+                  fontWeight: "600",
+                  color: "#0F172A"
+                }}>{t("branch_admin.order_summary", "Order summary")}</div>
+                  <div style={{
+                  fontSize: "13px",
+                  color: "#64748B"
+                }}>{selectedCount}{t("branch_admin.item", "item")}{selectedCount === 1 ? "" : "s"}{t("branch_admin.selected", "selected")}</div>
                 </div>
               </div>
 
-              <div style={{ marginBottom: "14px" }}>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: "700", color: "#334155", marginBottom: "6px" }}>
-                  Category for branch entry
-                </label>
-                <div style={{ position: "relative" }}>
-                  <select
-                    value={selectedCategoryId}
-                    onChange={(event) => setSelectedCategoryId(event.target.value)}
-                    style={selectStyle}
-                  >
-                    {categories.length === 0 ? (
-                      <option value="1">General</option>
-                    ) : (
-                      categories.map((category) => (
-                        <option key={category.cat_id} value={category.cat_id}>
+              <div style={{
+              marginBottom: "14px"
+            }}>
+                <label style={{
+                display: "block",
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#334155",
+                marginBottom: "6px"
+              }}>{t("branch_admin.category_for_branch_entry", "Category for branch entry")}</label>
+                <div style={{
+                position: "relative"
+              }}>
+                  <select value={selectedCategoryId} onChange={event => setSelectedCategoryId(event.target.value)} style={selectStyle}>
+                    {categories.length === 0 ? <option value="1">{t("branch_admin.general", "General")}</option> : categories.map(category => <option key={category.cat_id} value={category.cat_id}>
                           {category.cat_name}
-                        </option>
-                      ))
-                    )}
+                        </option>)}
                   </select>
-                  <FaChevronDown
-                    size={11}
-                    color="#334155"
-                    style={{
-                      position: "absolute",
-                      right: "14px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      pointerEvents: "none",
-                    }}
-                  />
+                  <FaChevronDown size={11} color="#334155" style={{
+                  position: "absolute",
+                  right: "14px",
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  pointerEvents: "none"
+                }} />
                 </div>
               </div>
 
-              <div style={{ marginBottom: "14px" }}>
-                <div style={{ fontSize: "13px", fontWeight: "700", color: "#334155", marginBottom: "10px" }}>
-                  Selected items
-                </div>
+              <div style={{
+              marginBottom: "14px"
+            }}>
+                <div style={{
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#334155",
+                marginBottom: "10px"
+              }}>{t("branch_admin.selected_items", "Selected items")}</div>
 
-                {selectedList.length === 0 ? (
-                  <div
-                    style={{
-                      border: "1px dashed #CBD5E1",
-                      borderRadius: "14px",
-                      padding: "18px",
-                      background: "#F8FAFC",
-                      color: "#64748B",
-                      fontSize: "13px",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Click any remaining product on the left to add it to your branch. Stock quantity will be 0 by default. You can update it later from the product page.
-                  </div>
-                ) : (
-                  <div style={{ maxHeight: "310px", overflowY: "auto", paddingRight: "2px" }}>
-                    {selectedList.map((item) => {
-                      const itemState = selectedItems[String(item.pro_id)] || { quantity: 1 };
-                      const quantity = Number(itemState.quantity || 1);
-                      const itemTotal = Number(item.pro_price ?? 0) * quantity;
-
-                      return (
-                        <div
-                          key={item.pro_id}
-                          style={{
-                            border: "1px solid #E2E8F0",
-                            borderRadius: "14px",
-                            padding: "12px",
-                            marginBottom: "10px",
-                            background: "#FFFFFF",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: "10px" }}>
+                {selectedList.length === 0 ? <div style={{
+                border: "1px dashed #CBD5E1",
+                borderRadius: "14px",
+                padding: "18px",
+                background: "#F8FAFC",
+                color: "#64748B",
+                fontSize: "13px",
+                lineHeight: 1.6
+              }}>{t("branch_admin.click_any_remaining_product_on_the_left_", "Click any remaining product on the left to add it to your branch. Stock quantity will be 0 by default. You can update it later from the product page.")}</div> : <div style={{
+                maxHeight: "310px",
+                overflowY: "auto",
+                paddingRight: "2px"
+              }}>
+                    {selectedList.map(item => {
+                  const itemState = selectedItems[String(item.pro_id)] || {
+                    quantity: 1
+                  };
+                  const quantity = Number(itemState.quantity || 1);
+                  const itemTotal = Number(item.pro_price ?? 0) * quantity;
+                  return <div key={item.pro_id} style={{
+                    border: "1px solid #E2E8F0",
+                    borderRadius: "14px",
+                    padding: "12px",
+                    marginBottom: "10px",
+                    background: "#FFFFFF"
+                  }}>
+                          <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "10px"
+                    }}>
                             <div>
-                              <div style={{ fontSize: "14px", fontWeight: "800", color: "#0F172A" }}>{item.pro_name}</div>
-                              <div style={{ fontSize: "12px", color: "#64748B", marginTop: "2px" }}>
-                                $ {Number(item.pro_price ?? 0).toFixed(2)} each
-                              </div>
+                              <div style={{
+                          fontSize: "14px",
+                          fontWeight: "800",
+                          color: "#0F172A"
+                        }}>{item.pro_name}</div>
+                              <div style={{
+                          fontSize: "12px",
+                          color: "#64748B",
+                          marginTop: "2px"
+                        }}>
+                                $ {Number(item.pro_price ?? 0).toFixed(2)}{t("branch_admin.each", "each")}</div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => removeFromSelection(item.pro_id)}
-                              style={{
-                                ...actionButtonStyle,
-                                width: "30px",
-                                height: "30px",
-                                background: "#FEF2F2",
-                                color: "#DC2626",
-                              }}
-                            >
+                            <button type="button" onClick={() => removeFromSelection(item.pro_id)} style={{
+                        ...actionButtonStyle,
+                        width: "30px",
+                        height: "30px",
+                        background: "#FEF2F2",
+                        color: "#DC2626"
+                      }}>
                               <FaTrashAlt size={11} />
                             </button>
                           </div>
 
-                          {item.product_type !== 'made_to_order' && (
-                            <div style={{ marginTop: "10px" }}>
-                              <label style={{ display: "block", fontSize: "11px", fontWeight: "700", color: "#64748B", marginBottom: "4px" }}>
-                                Low stock limit
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={itemState.lowStockLimit ?? 10}
-                                onChange={(e) => updateLowStockLimit(item.pro_id, e.target.value)}
-                                style={{
-                                  width: "100%",
-                                  height: "32px",
-                                  borderRadius: "8px",
-                                  border: "1px solid #E2E8F0",
-                                  padding: "0 10px",
-                                  fontSize: "13px",
-                                  outline: "none",
-                                }}
-                              />
-                            </div>
-                          )}
+                          {item.product_type !== 'made_to_order' && <div style={{
+                      marginTop: "10px"
+                    }}>
+                              <label style={{
+                        display: "block",
+                        fontSize: "11px",
+                        fontWeight: "700",
+                        color: "#64748B",
+                        marginBottom: "4px"
+                      }}>{t("branch_admin.low_stock_limit", "Low stock limit")}</label>
+                              <input type="number" min="0" value={itemState.lowStockLimit ?? 10} onChange={e => updateLowStockLimit(item.pro_id, e.target.value)} style={{
+                        width: "100%",
+                        height: "32px",
+                        borderRadius: "8px",
+                        border: "1px solid #E2E8F0",
+                        padding: "0 10px",
+                        fontSize: "13px",
+                        outline: "none"
+                      }} />
+                            </div>}
 
-                          <div style={{ marginTop: "10px", fontSize: "12px", color: "#64748B", background: "#F8FAFC", borderRadius: "8px", padding: "8px 10px" }}>
-                            ℹ️ Stock quantity will be set to 0.
-                            Update it later from the product page.
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                          <div style={{
+                      marginTop: "10px",
+                      fontSize: "12px",
+                      color: "#64748B",
+                      background: "#F8FAFC",
+                      borderRadius: "8px",
+                      padding: "8px 10px"
+                    }}>{t("branch_admin.stock_quantity_will_be_set_to_0_update_i", "ℹ️ Stock quantity will be set to 0.\n                            Update it later from the product page.")}</div>
+                        </div>;
+                })}
+                  </div>}
               </div>
 
-              <div
-                style={{
-                  borderTop: "1px solid #E2E8F0",
-                  paddingTop: "14px",
-                  marginTop: "12px",
-                }}
-              >
-                <ProductChip label="Total selected" value={selectedCount} />
+              <div style={{
+              borderTop: "1px solid #E2E8F0",
+              paddingTop: "14px",
+              marginTop: "12px"
+            }}>
+                <ProductChip label={t("fields.total_selected", "Total selected")} value={selectedCount} />
 
               </div>
 
-              <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
-                <button
-                  type="button"
-                  onClick={() => navigate("/branch-admin/products")}
-                  style={{
-                    ...actionButtonStyle,
-                    flex: 1,
-                    height: "44px",
-                    background: "#FFFFFF",
-                    border: "1px solid #D8E1EA",
-                    color: "#0F172A",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={handleSaveSelection}
-                  style={{
-                    ...actionButtonStyle,
-                    flex: 1,
-                    height: "44px",
-                    background: saving ? "#93C5FD" : "#0E6DCF",
-                    color: "#FFFFFF",
-                    boxShadow: "0 10px 22px rgba(14, 109, 207, 0.22)",
-                    cursor: saving ? "not-allowed" : "pointer",
-                  }}
-                >
-                  {saving ? "Saving..." : "Add to branch"}
+              <div style={{
+              display: "flex",
+              gap: "10px",
+              marginTop: "16px"
+            }}>
+                <button type="button" onClick={() => navigate("/branch-admin/products")} style={{
+                ...actionButtonStyle,
+                flex: 1,
+                height: "44px",
+                background: "#FFFFFF",
+                border: "1px solid #D8E1EA",
+                color: "#0F172A"
+              }}>{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+                <button type="button" disabled={saving} onClick={handleSaveSelection} style={{
+                ...actionButtonStyle,
+                flex: 1,
+                height: "44px",
+                background: saving ? "#93C5FD" : "#0E6DCF",
+                color: "#FFFFFF",
+                boxShadow: "0 10px 22px rgba(14, 109, 207, 0.22)",
+                cursor: saving ? "not-allowed" : "pointer"
+              }}>
+                  {saving ? t("buttons.saving", "Saving...") : "Add to branch"}
                 </button>
               </div>
 
-              {success && (
-                <div
-                  style={{
-                    marginTop: "14px",
-                    borderRadius: "14px",
-                    padding: "12px 14px",
-                    background: "#ECFDF3",
-                    color: "#166534",
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    lineHeight: 1.5,
-                  }}
-                >
+              {success && <div style={{
+              marginTop: "14px",
+              borderRadius: "14px",
+              padding: "12px 14px",
+              background: "#ECFDF3",
+              color: "#166534",
+              fontSize: "13px",
+              fontWeight: "600",
+              lineHeight: 1.5
+            }}>
                   {success}
-                </div>
-              )}
+                </div>}
 
-              {error && !loading && (
-                <div
-                  style={{
-                    marginTop: "14px",
-                    borderRadius: "14px",
-                    padding: "12px 14px",
-                    background: "#FEF2F2",
-                    color: "#B91C1C",
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    lineHeight: 1.5,
-                  }}
-                >
+              {error && !loading && <div style={{
+              marginTop: "14px",
+              borderRadius: "14px",
+              padding: "12px 14px",
+              background: "#FEF2F2",
+              color: "#B91C1C",
+              fontSize: "13px",
+              fontWeight: "600",
+              lineHeight: 1.5
+            }}>
                   {error}
-                </div>
-              )}
+                </div>}
             </div>
           </div>
         </div>
       </div>
 
       {/* Toast notification for new products */}
-      {showNewProductToast && (
-        <div style={toastStyle}>
+      {showNewProductToast && <div style={toastStyle}>
           <FaBell size={18} />
-          <span>New product "{newProductName}" is now available!</span>
-        </div>
-      )}
+          <span>{t("branch_admin.new_product", "New product \"")}{newProductName}{t("branch_admin.is_now_available", "\" is now available!")}</span>
+        </div>}
 
       <style>
         {`
@@ -850,8 +783,6 @@ const AddProduct = () => {
           }
         `}
       </style>
-    </div>
-  );
+    </div>;
 };
-
 export default AddProduct;

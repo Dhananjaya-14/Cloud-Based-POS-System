@@ -11,7 +11,7 @@ function sanitizeName(value) {
 export async function getCompanies(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo" FROM "Company" ORDER BY "com_id"',
+      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo", "language_code" FROM "Company" ORDER BY "com_id"',
     );
     res.json(result.rows);
   } catch (err) {
@@ -29,7 +29,7 @@ export async function getCompanyById(req, res, next) {
     }
 
     const result = await pool.query(
-      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "bill_greeting", "bill_logo" FROM "Company" WHERE "com_id" = $1',
+      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "bill_greeting", "bill_logo", "language_code", "package_id" FROM "Company" WHERE "com_id" = $1',
       [id],
     );
 
@@ -46,19 +46,19 @@ export async function getCompanyById(req, res, next) {
 
 export async function createCompany(req, res, next) {
   try {
-    const { com_name, c_status, c_email, reg_date, location, phone, package_id } = req.body;
+    const { com_name, c_status, c_email, reg_date, location, phone, package_id, language_code } = req.body;
     const sanitizedName = sanitizeName(com_name);
 
     if (!sanitizedName) {
       res.status(400);
-      throw new Error("com_name is required and must be 1–255 characters");
+      throw new Error("com_name is required and must be 1â€“255 characters");
     }
 
     const result = await pool.query(
-      `INSERT INTO "Company" ("com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id")
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id"`,
-      [sanitizedName, c_status ?? true, c_email ?? null, reg_date ?? new Date(), location ?? null, phone ?? null, package_id ?? null],
+      `INSERT INTO "Company" ("com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "language_code")
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "language_code"`,
+      [sanitizedName, c_status ?? true, c_email ?? null, reg_date ?? new Date(), location ?? null, phone ?? null, package_id ?? null, language_code ?? 'en'],
     );
 
     const newCompany = result.rows[0];
@@ -92,7 +92,7 @@ export async function createCompany(req, res, next) {
 export async function updateCompany(req, res, next) {
   try {
     const { id } = req.params;
-    const { com_name, c_status, c_email, reg_date, location, phone, package_id, bill_greeting, bill_logo } = req.body;
+    const { com_name, c_status, c_email, reg_date, location, phone, package_id, bill_greeting, bill_logo, language_code } = req.body;
     const sanitizedName = com_name ? sanitizeName(com_name) : null;
 
     if (!sanitizedName && c_status === undefined && !c_email && !reg_date && !location && !phone && package_id === undefined && bill_greeting === undefined && bill_logo === undefined) {
@@ -119,10 +119,11 @@ export async function updateCompany(req, res, next) {
            "phone"    = COALESCE($6, "phone"),
            "package_id" = COALESCE($8, "package_id"),
            "bill_greeting" = COALESCE($9, "bill_greeting"),
-           "bill_logo" = COALESCE($10, "bill_logo")
+           "bill_logo" = COALESCE($10, "bill_logo"),
+           "language_code" = COALESCE($11, "language_code")
        WHERE "com_id" = $7
-       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo"`,
-      [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null, bill_greeting ?? null, bill_logo ?? null],
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo", "language_code"`,
+      [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null, bill_greeting ?? null, bill_logo ?? null, language_code ?? null],
     );
 
     const updatedCompany = result.rows[0];

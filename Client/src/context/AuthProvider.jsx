@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { login as apiLogin, setAuthToken, getCurrentUser } from "../services/api";
 import { AuthContext } from "./AuthContext";
+import i18n from "../i18n";
 
 export function AuthProvider({ children }) {
   const navigate = useNavigate();
@@ -18,6 +19,9 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     setAuthToken(data.token);
     setUser(data.user);
+    if (data.user?.language_code) {
+      i18n.changeLanguage(data.user.language_code);
+    }
     localStorage.setItem("user", JSON.stringify(data.user));
     localStorage.setItem("token", data.token);
     return data;

@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import React, { useMemo, useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { FaPrint, FaTimes } from "react-icons/fa";
@@ -27,7 +28,8 @@ const defaultState = {
 };
 
 const InvoicePreview = () => {
-  const navigate = useNavigate();
+  const { t } = useTranslation();
+const navigate = useNavigate();
   const location = useLocation();
   const { token, user } = useAuth();
   const [companySettings, setCompanySettings] = useState({});
@@ -111,8 +113,8 @@ const InvoicePreview = () => {
       {isPaid && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30 z-20">
           <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-            <p className="text-xl font-semibold text-green-600">Payment successful!</p>
-            <p className="text-sm text-gray-600 mt-2">Redirecting to POS...</p>
+            <p className="text-xl font-semibold text-green-600">{t("cashier.payment_successful", "Payment successful!")}</p>
+            <p className="text-sm text-gray-600 mt-2">{t("cashier.redirecting_to_pos", "Redirecting to POS...")}</p>
           </div>
         </div>
       )}
@@ -124,7 +126,7 @@ const InvoicePreview = () => {
 
         <div className="relative z-10 mx-auto w-full max-w-xl rounded-3xl bg-white shadow-[0_14px_40px_rgba(15,23,42,0.16)] ring-1 ring-slate-200/70">
           <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-3 py-3 sm:px-4">
-            <h1 className="text-lg font-semibold text-slate-900 sm:text-xl">Invoice Preview</h1>
+            <h1 className="text-lg font-semibold text-slate-900 sm:text-xl">{t("cashier.invoice_preview", "Invoice Preview")}</h1>
 
             <div className="flex items-center gap-2">
               <button
@@ -132,7 +134,7 @@ const InvoicePreview = () => {
                 className="inline-flex items-center gap-2 rounded-xl bg-linear-to-r from-[#0A5BAE] to-[#19A4E5] px-3 py-2 text-xs font-semibold text-white shadow-md shadow-sky-200 transition hover:-translate-y-px sm:text-sm"
               >
                 <FaPrint className="h-3.5 w-3.5" />
-                Print Bill
+                {t("cashier.print_bill", "Print Bill")}
               </button>
 
               <button
@@ -158,11 +160,11 @@ const InvoicePreview = () => {
 
                 <div className="grid gap-2 sm:grid-cols-2 md:min-w-52">
                   <div className="rounded-2xl bg-white/15 px-3 py-2.5 text-right backdrop-blur-sm">
-                    <div className="text-[9px] uppercase tracking-[0.18em] text-white/80">Invoice No.</div>
+                    <div className="text-[9px] uppercase tracking-[0.18em] text-white/80">{t("cashier.invoice_no", "Invoice No.")}</div>
                     <div className="mt-1 text-base font-semibold sm:text-lg">{invoice.orderId}</div>
                   </div>
                   <div className="rounded-2xl bg-white/15 px-3 py-2.5 text-right backdrop-blur-sm">
-                    <div className="text-[9px] uppercase tracking-[0.18em] text-white/80">Cashier</div>
+                    <div className="text-[9px] uppercase tracking-[0.18em] text-white/80">{t("cashier.cashier", "Cashier")}</div>
                     <div className="mt-1 text-sm font-semibold sm:text-base">{invoice.cashierName}</div>
                   </div>
                 </div>
@@ -171,15 +173,15 @@ const InvoicePreview = () => {
 
             <div className="grid gap-2.5 md:grid-cols-2">
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Cashier Details</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("cashier.cashier_details", "Cashier Details")}</div>
                 <div className="mt-2 text-sm font-semibold text-slate-900 sm:text-base">{invoice.cashierName}</div>
-                <div className="mt-0.5 text-[11px] text-slate-500">Cashier</div>
+                <div className="mt-0.5 text-[11px] text-slate-500">{t("cashier.cashier", "Cashier")}</div>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5 shadow-sm">
-                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Customer</div>
-                <div className="mt-2 text-sm font-semibold text-slate-900 sm:text-base">Walk-in Customer</div>
-                <div className="mt-0.5 text-[11px] text-slate-500">Counter Sale</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("cashier.customer", "Customer")}</div>
+                <div className="mt-2 text-sm font-semibold text-slate-900 sm:text-base">{t("cashier.walk_in_customer", "Walk-in Customer")}</div>
+                <div className="mt-0.5 text-[11px] text-slate-500">{t("cashier.counter_sale", "Counter Sale")}</div>
               </div>
             </div>
 
@@ -188,11 +190,11 @@ const InvoicePreview = () => {
                 <table className="min-w-full border-collapse text-left text-[11px] sm:text-sm">
                   <thead>
                     <tr className="bg-linear-to-r from-[#0A5BAE] to-[#19A4E5] text-white">
-                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">Item</th>
-                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">Code</th>
-                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">Price</th>
-                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">Qty</th>
-                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest text-right">Total</th>
+                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">{t("cashier.item", "Item")}</th>
+                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">{t("cashier.code", "Code")}</th>
+                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">{t("cashier.price", "Price")}</th>
+                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest">{t("cashier.qty", "Qty")}</th>
+                      <th className="px-3 py-2.5 font-semibold uppercase tracking-widest text-right">{t("cashier.total", "Total")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 bg-white">
@@ -212,8 +214,8 @@ const InvoicePreview = () => {
 
             <section className="flex flex-col gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">Payment Method</div>
-                <div className="mt-1 text-sm font-semibold text-emerald-600 sm:text-base">{invoice.paymentMethod} Payment</div>
+                <div className="text-[9px] font-semibold uppercase tracking-[0.18em] text-slate-500">{t("cashier.payment_method", "Payment Method")}</div>
+                <div className="mt-1 text-sm font-semibold text-emerald-600 sm:text-base">{invoice.paymentMethod} {t("cashier.payment", "Payment")}</div>
               </div>
               <button
                 type="button"
@@ -221,7 +223,7 @@ const InvoicePreview = () => {
                 disabled={isPaid || isSubmitting}
                 className="inline-flex items-center justify-center rounded-xl bg-[#55C24A] px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-[#49b03f] disabled:cursor-default disabled:opacity-70 sm:text-sm"
               >
-                {isPaid ? "PAID" : isSubmitting ? "PROCESSING..." : "PAY NOW"}
+                {isPaid ? (t("cashier.paid", "PAID")) : isSubmitting ? t("cashier.processing", "PROCESSING...") : t("cashier.pay_now", "PAY NOW")}
               </button>
             </section>
 
