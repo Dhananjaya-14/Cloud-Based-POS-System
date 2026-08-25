@@ -94,8 +94,8 @@ const mapApiProductToTableItem = product => {
 };
 
 const ProductManagement = () => {
-const { t } = useTranslation();
-const navigate = useNavigate();
+  const { t } = useTranslation();
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -160,7 +160,7 @@ const navigate = useNavigate();
     return () => clearTimeout(timer);
   }, [toasts]);
   const showToastMessage = (message, type = "success") => {
-setToasts(prev => [...prev, {
+    setToasts(prev => [...prev, {
       id: Date.now() + Math.random(),
       message,
       type
@@ -187,7 +187,7 @@ setToasts(prev => [...prev, {
       token
     };
     const handleConnect = () => {
-     console.log("Socket connected for admin product management");
+      console.log("Socket connected for admin product management");
       if (userCompanyId) {
         joinCompanyRoom(userCompanyId);
         console.log(`Joined company room: ${userCompanyId}`);
@@ -210,7 +210,7 @@ setToasts(prev => [...prev, {
     if (!socket) return;
 
     // Handler for new product added
-    const handleNewProduct = data => {
+    const handleNewProduct = (data) => {
       console.log("New product added via socket (admin):", data);
       if (data.product && String(data.company_id) === String(userCompanyId)) {
         setProducts(prev => {
@@ -218,10 +218,16 @@ setToasts(prev => [...prev, {
           if (exists) return prev;
           return [...prev, data.product];
         });
+
         setNotifications(prev => {
           const productName = data.product.pro_name || 'Product';
-          const existingNotif = prev.find(n => n.type === 'add' && n.productName === productName && new Date() - new Date(n.timestamp) < 5000);
+          const existingNotif = prev.find(n =>
+            n.type === 'add' &&
+            n.productName === productName &&
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
           if (existingNotif) return prev;
+
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'add',
@@ -234,7 +240,7 @@ setToasts(prev => [...prev, {
     };
 
     // Handler for product updated
-    const handleProductUpdated = data => {
+    const handleProductUpdated = (data) => {
       console.log("Product updated via socket (admin):", data);
       if (data.product && String(data.company_id) === String(userCompanyId)) {
         setProducts(prev =>
@@ -245,15 +251,15 @@ setToasts(prev => [...prev, {
           )
         );
 
-      if (data.product && data.company_id === userCompanyId) {
-        setProducts(prev => prev.map(p => p.pro_id === data.product.pro_id ? {
-          ...p,
-          ...data.product
-        } : p));
         setNotifications(prev => {
           const productName = data.product.pro_name || 'Product';
-          const existingNotif = prev.find(n => n.type === 'update' && n.productName === productName && new Date() - new Date(n.timestamp) < 5000);
+          const existingNotif = prev.find(n =>
+            n.type === 'update' &&
+            n.productName === productName &&
+            (new Date() - new Date(n.timestamp)) < 5000
+          );
           if (existingNotif) return prev;
+
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'update',
@@ -266,7 +272,7 @@ setToasts(prev => [...prev, {
     };
 
     // Handler for product deleted
-    const handleProductDeleted = data => {
+    const handleProductDeleted = (data) => {
       console.log("Product deleted via socket (admin):", data);
       if (data.pro_id && String(data.company_id) === String(userCompanyId)) {
         const productName = data.pro_name || 'Product';
@@ -276,15 +282,13 @@ setToasts(prev => [...prev, {
         );
 
         showToastMessage(`Product "${productName}" was deleted in real time.`, "info");
-      if (data.pro_id && data.company_id === userCompanyId) {
-        const deletedProduct = products.find(p => p.pro_id === data.pro_id);
-        const productName = deletedProduct?.pro_name || data.pro_name || 'Product';
-        setProducts(prev => prev.filter(p => p.pro_id !== data.pro_id));
       }
     };
+
     socket.on(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
     socket.on(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
     socket.on(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
+
     return () => {
       isSubscribedRef.current = false;
       socket.off(SOCKET_EVENTS.NEW_PRODUCT_ADDED, handleNewProduct);
@@ -426,7 +430,7 @@ setToasts(prev => [...prev, {
     }
   };
   const closeDeletePopup = () => {
-if (isDeleting) return;
+    if (isDeleting) return;
     setShowDeletePopup(false);
     setDeleteTargetId(null);
     setDeleteTargetName("");
@@ -442,21 +446,21 @@ if (isDeleting) return;
     background: "#F2F4F7",
     minHeight: "100vh"
   }}>
-      <Sidebar />
+    <Sidebar />
 
-      <div style={{
+    <div style={{
       flex: 1,
       marginLeft: "240px"
     }}>
-        <Header title={t("company_admin.product_management", "Product Management")} />
+      <Header title={t("company_admin.product_management", "Product Management")} />
 
-        <div style={{
+      <div style={{
         padding: "22px 20px",
         marginTop: "20px",
         minHeight: "calc(100vh - 70px)"
       }}>
-          {/* Toast Notifications */}
-          {toasts.length > 0 && <div style={{
+        {/* Toast Notifications */}
+        {toasts.length > 0 && <div style={{
           position: 'fixed',
           top: '82px',
           right: '20px',
@@ -466,7 +470,7 @@ if (isDeleting) return;
           gap: '10px',
           width: 'min(380px, calc(100vw - 32px))'
         }}>
-              {toasts.map(toast => <div key={toast.id} style={{
+          {toasts.map(toast => <div key={toast.id} style={{
             background: toast.type === 'error' ? '#FEF2F2' : '#F0FDF4',
             borderLeft: `4px solid ${toast.type === 'error' ? '#EF4444' : '#22C55E'}`,
             borderRadius: '8px',
@@ -478,12 +482,12 @@ if (isDeleting) return;
             justifyContent: 'space-between',
             gap: '12px'
           }}>
-                  <span style={{
+            <span style={{
               fontSize: '14px',
               fontWeight: 600,
               lineHeight: 1.4
             }}>{toast.message}</span>
-                  <button type="button" onClick={() => removeToast(toast.id)} style={{
+            <button type="button" onClick={() => removeToast(toast.id)} style={{
               border: 'none',
               background: 'transparent',
               color: 'inherit',
@@ -492,34 +496,34 @@ if (isDeleting) return;
               padding: '4px',
               display: 'inline-flex'
             }} aria-label="Dismiss notification">
-                    <FaTimes />
-                  </button>
-                </div>)}
-            </div>}
+              <FaTimes />
+            </button>
+          </div>)}
+        </div>}
 
 
 
 
 
-          <div style={{
+        <div style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           marginBottom: "28px"
         }}>
-            <h1 style={{
+          <h1 style={{
             margin: 0,
             fontSize: "22px",
             fontWeight: "700",
             color: "#0F172A"
           }}>{t("company_admin.product_management", "Product Management")}</h1>
 
-            <div style={{
+          <div style={{
             display: "flex",
             alignItems: "center",
             gap: "12px"
           }}>
-              <div style={{
+            <div style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
@@ -528,8 +532,8 @@ if (isDeleting) return;
               padding: "8px 12px",
               width: "340px"
             }}>
-                <FaSearch color="#9CA3AF" />
-                <input type="text" placeholder={t("company_admin.search_products_skus_or_categories", "Search Products , SKUs, or Categories")} style={{
+              <FaSearch color="#9CA3AF" />
+              <input type="text" placeholder={t("company_admin.search_products_skus_or_categories", "Search Products , SKUs, or Categories")} style={{
                 border: "none",
                 outline: "none",
                 background: "transparent",
@@ -537,91 +541,91 @@ if (isDeleting) return;
                 fontSize: "14px",
                 color: "#6B7280"
               }} onChange={event => setSearchTerm(event.target.value)} />
-              </div>
-              <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/admin/products/add")} style={{
+            </div>
+            <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/admin/products/add")} style={{
               background: "#0E6DCF",
               borderRadius: "3px",
               padding: "10px 18px",
               fontWeight: "600"
             }} />
-            </div>
           </div>
+        </div>
 
-          <div style={{
+        <div style={{
           display: "flex",
           gap: "15px",
           marginBottom: "30px"
         }}>
-            <div style={{
+          <div style={{
             ...cardBaseStyle,
             background: "#BEE8C4"
           }}>
-              <div style={{
+            <div style={{
               ...statIconWrapStyle,
               background: "#22C55E"
             }}>
-                <FaBoxOpen color="#0B3F1D" size={12} />
-              </div>
-              <div style={statTextWrapStyle}>
-                <div style={statTitleStyle}>{t("company_admin.total_items", "Total Items")}</div>
-                <div style={statValueStyle}>{totalItems}</div>
-              </div>
-              <div style={statRightSpacerStyle} />
+              <FaBoxOpen color="#0B3F1D" size={12} />
             </div>
+            <div style={statTextWrapStyle}>
+              <div style={statTitleStyle}>{t("company_admin.total_items", "Total Items")}</div>
+              <div style={statValueStyle}>{totalItems}</div>
+            </div>
+            <div style={statRightSpacerStyle} />
+          </div>
 
-            <div style={{
+          <div style={{
             ...cardBaseStyle,
             background: "#F3C8DA"
           }}>
-              <div style={{
+            <div style={{
               ...statIconWrapStyle,
               background: "#F87171"
             }}>
-                <FaBell color="#7F1D1D" size={12} />
-              </div>
-              <div style={statTextWrapStyle}>
-                <div style={statTitleStyle}>{t("company_admin.low_stock", "Low Stock")}</div>
-                <div style={statValueStyle}>{lowStockCount}</div>
-              </div>
-              <div style={statRightSpacerStyle} />
+              <FaBell color="#7F1D1D" size={12} />
             </div>
+            <div style={statTextWrapStyle}>
+              <div style={statTitleStyle}>{t("company_admin.low_stock", "Low Stock")}</div>
+              <div style={statValueStyle}>{lowStockCount}</div>
+            </div>
+            <div style={statRightSpacerStyle} />
+          </div>
 
-            <div style={{
+          <div style={{
             ...cardBaseStyle,
             background: "#C8E0EC"
           }}>
-              <div style={{
+            <div style={{
               ...statIconWrapStyle,
               background: "#38BDF8"
             }}>
-                <FaExclamationTriangle color="#0C4A6E" size={12} />
-              </div>
-              <div style={statTextWrapStyle}>
-                <div style={statTitleStyle}>{t("company_admin.out_of_stock", "Out Of Stock")}</div>
-                <div style={statValueStyle}>{outOfStockCount}</div>
-              </div>
-              <div style={statRightSpacerStyle} />
+              <FaExclamationTriangle color="#0C4A6E" size={12} />
             </div>
+            <div style={statTextWrapStyle}>
+              <div style={statTitleStyle}>{t("company_admin.out_of_stock", "Out Of Stock")}</div>
+              <div style={statValueStyle}>{outOfStockCount}</div>
+            </div>
+            <div style={statRightSpacerStyle} />
           </div>
+        </div>
 
-          {loading && <div style={{
+        {loading && <div style={{
           marginBottom: "14px",
           color: "#475569",
           fontSize: "14px"
         }}>{t("company_admin.loading_products", "Loading products...")}</div>}
 
-          {error && <div style={{
+        {error && <div style={{
           marginBottom: "14px",
           color: "#B91C1C",
           fontSize: "14px"
         }}>{error}</div>}
 
-          <div style={{
+        <div style={{
           display: "flex",
           gap: "14px",
           marginBottom: "24px"
         }}>
-            <div style={{
+          <div style={{
             display: "flex",
             alignItems: "center",
             gap: "8px",
@@ -631,20 +635,20 @@ if (isDeleting) return;
             padding: "8px 12px",
             flex: 1
           }}>
-              <FaSearch color="#9CA3AF" size={14} />
-              <input type="text" placeholder={t("company_admin.search_by_name_or_code", "Search by Name or Code")} style={{
+            <FaSearch color="#9CA3AF" size={14} />
+            <input type="text" placeholder={t("company_admin.search_by_name_or_code", "Search by Name or Code")} style={{
               border: "none",
               outline: "none",
               width: "100%",
               fontSize: "14px"
             }} />
-            </div>
+          </div>
 
-            {["Category : All", "Status : All", "Stock Level : All"].map(option => <div key={option} style={{
+          {["Category : All", "Status : All", "Stock Level : All"].map(option => <div key={option} style={{
             position: "relative",
             width: "182px"
           }}>
-                <select style={{
+            <select style={{
               width: "100%",
               height: "36px",
               background: "#fff",
@@ -660,24 +664,24 @@ if (isDeleting) return;
               WebkitAppearance: "none",
               MozAppearance: "none"
             }}>
-                  <option>{option}</option>
-                </select>
-                <FaChevronDown size={11} color="#111827" style={{
+              <option>{option}</option>
+            </select>
+            <FaChevronDown size={11} color="#111827" style={{
               position: "absolute",
               right: "17px",
               top: "50%",
               transform: "translateY(-50%)",
               pointerEvents: "none"
             }} />
-              </div>)}
-          </div>
-
-          <ProductItemsTable products={paginatedProducts} hideStockColumn={true} hideStatusColumn={true} showTypeColumn={true} onViewProduct={handleViewProduct} onEditProduct={handleEditProduct} onDeleteProduct={handleDeleteProduct} currentPage={currentPage} totalPages={totalPages} totalItems={tableProducts.length} pageStart={pageStart} pageEnd={pageEnd} onPageChange={setCurrentPage} />
+          </div>)}
         </div>
-      </div>
 
-      {/* Delete Confirmation Modal */}
-      {showDeletePopup && <div style={{
+        <ProductItemsTable products={paginatedProducts} hideStockColumn={true} hideStatusColumn={true} showTypeColumn={true} onViewProduct={handleViewProduct} onEditProduct={handleEditProduct} onDeleteProduct={handleDeleteProduct} currentPage={currentPage} totalPages={totalPages} totalItems={tableProducts.length} pageStart={pageStart} pageEnd={pageEnd} onPageChange={setCurrentPage} />
+      </div>
+    </div>
+
+    {/* Delete Confirmation Modal */}
+    {showDeletePopup && <div style={{
       position: "fixed",
       top: 0,
       left: 0,
@@ -689,7 +693,7 @@ if (isDeleting) return;
       justifyContent: "center",
       zIndex: 10000
     }} onClick={closeDeletePopup}>
-          <div style={{
+      <div style={{
         background: "white",
         borderRadius: "16px",
         padding: "32px",
@@ -699,13 +703,13 @@ if (isDeleting) return;
         overflowY: "auto",
         boxShadow: "0 20px 60px rgba(0,0,0,0.3)"
       }} onClick={e => e.stopPropagation()}>
-            <div style={{
+        <div style={{
           display: "flex",
           alignItems: "center",
           gap: "12px",
           marginBottom: "20px"
         }}>
-              <div style={{
+          <div style={{
             background: "#FEE2E2",
             borderRadius: "50%",
             width: "48px",
@@ -714,73 +718,73 @@ if (isDeleting) return;
             alignItems: "center",
             justifyContent: "center"
           }}>
-                <FaTrash color="#DC2626" size={20} />
-              </div>
-              <h2 style={{
+            <FaTrash color="#DC2626" size={20} />
+          </div>
+          <h2 style={{
             margin: 0,
             fontSize: "20px",
             fontWeight: "700",
             color: "#111827"
           }}>{t("company_admin.delete_product", "Delete Product")}</h2>
-            </div>
+        </div>
 
-            <p style={{
+        <p style={{
           margin: "0 0 20px 0",
           color: "#4B5563",
           fontSize: "15px",
           lineHeight: "1.6"
         }}>{t("company_admin.are_you_sure_you_want_to_delete", "Are you sure you want to delete")}<strong>"{deleteTargetName}"</strong>?
-            </p>
+        </p>
 
-            <div style={{
+        <div style={{
           marginBottom: "20px"
         }}>
-              <label style={{
+          <label style={{
             display: "block",
             marginBottom: "8px",
             fontWeight: "600",
             fontSize: "14px",
             color: "#374151"
           }}>{t("company_admin.delete_option", "Delete Option")}</label>
-              <div style={{
+          <div style={{
             display: "flex",
             gap: "12px",
             flexDirection: "column"
           }}>
-                <label style={{
+            <label style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
               fontSize: "14px",
               cursor: "pointer"
             }}>
-                  <input type="radio" value="complete" checked={deleteOption === "complete"} onChange={e => setDeleteOption(e.target.value)} />
-                  <span>{t("company_admin.complete_deletion_from_all_branches", "Complete Deletion (from all branches)")}</span>
-                </label>
-                <label style={{
+              <input type="radio" value="complete" checked={deleteOption === "complete"} onChange={e => setDeleteOption(e.target.value)} />
+              <span>{t("company_admin.complete_deletion_from_all_branches", "Complete Deletion (from all branches)")}</span>
+            </label>
+            <label style={{
               display: "flex",
               alignItems: "center",
               gap: "8px",
               fontSize: "14px",
               cursor: "pointer"
             }}>
-                  <input type="radio" value="branch" checked={deleteOption === "branch"} onChange={e => setDeleteOption(e.target.value)} />
-                  <span>{t("company_admin.delete_from_specific_branch_only", "Delete from specific branch only")}</span>
-                </label>
-              </div>
-            </div>
+              <input type="radio" value="branch" checked={deleteOption === "branch"} onChange={e => setDeleteOption(e.target.value)} />
+              <span>{t("company_admin.delete_from_specific_branch_only", "Delete from specific branch only")}</span>
+            </label>
+          </div>
+        </div>
 
-            {deleteOption === "branch" && <div style={{
+        {deleteOption === "branch" && <div style={{
           marginBottom: "20px"
         }}>
-                <label style={{
+          <label style={{
             display: "block",
             marginBottom: "8px",
             fontWeight: "600",
             fontSize: "14px",
             color: "#374151"
           }}>{t("company_admin.select_branch", "Select Branch")}</label>
-                <select value={selectedBranchId} onChange={e => setSelectedBranchId(e.target.value)} style={{
+          <select value={selectedBranchId} onChange={e => setSelectedBranchId(e.target.value)} style={{
             width: "100%",
             height: "42px",
             borderRadius: "8px",
@@ -790,14 +794,14 @@ if (isDeleting) return;
             outline: "none",
             background: "white"
           }}>
-                  <option value="">{t("company_admin.select_a_branch", "Select a branch...")}</option>
-                  {branches.map(branch => <option key={branch.branch_id} value={branch.branch_id}>
-                      {branch.branch_name}
-                    </option>)}
-                </select>
-              </div>}
+            <option value="">{t("company_admin.select_a_branch", "Select a branch...")}</option>
+            {branches.map(branch => <option key={branch.branch_id} value={branch.branch_id}>
+              {branch.branch_name}
+            </option>)}
+          </select>
+        </div>}
 
-            {error && <div style={{
+        {error && <div style={{
           background: "#FEE2E2",
           color: "#991B1B",
           padding: "10px 12px",
@@ -805,15 +809,15 @@ if (isDeleting) return;
           marginBottom: "16px",
           fontSize: "14px"
         }}>
-                {error}
-              </div>}
+          {error}
+        </div>}
 
-            <div style={{
+        <div style={{
           display: "flex",
           gap: "12px",
           justifyContent: "flex-end"
         }}>
-              <button onClick={closeDeletePopup} disabled={isDeleting} style={{
+          <button onClick={closeDeletePopup} disabled={isDeleting} style={{
             padding: "10px 24px",
             borderRadius: "8px",
             border: "1px solid #D1D5DB",
@@ -824,7 +828,7 @@ if (isDeleting) return;
             cursor: isDeleting ? "not-allowed" : "pointer",
             opacity: isDeleting ? 0.6 : 1
           }}>{t("company_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
-              <button onClick={confirmDelete} disabled={isDeleting || deleteOption === "branch" && !selectedBranchId} style={{
+          <button onClick={confirmDelete} disabled={isDeleting || deleteOption === "branch" && !selectedBranchId} style={{
             padding: "10px 24px",
             borderRadius: "8px",
             border: "none",
@@ -835,13 +839,13 @@ if (isDeleting) return;
             cursor: isDeleting || deleteOption === "branch" && !selectedBranchId ? "not-allowed" : "pointer",
             opacity: isDeleting || deleteOption === "branch" && !selectedBranchId ? 0.6 : 1
           }}>
-                {isDeleting ? t("buttons.deleting", "Deleting...") : t("buttons.delete", "Delete")}
-              </button>
-            </div>
-          </div>
-        </div>}
+            {isDeleting ? t("buttons.deleting", "Deleting...") : t("buttons.delete", "Delete")}
+          </button>
+        </div>
+      </div>
+    </div>}
 
-      <style>{`
+    <style>{`
         @keyframes slideInRight {
           from {
             transform: translateX(100%);
@@ -866,6 +870,6 @@ if (isDeleting) return;
           border-radius: 10px;
         }
       `}</style>
-    </div>;
+  </div>;
 };
 export default ProductManagement;

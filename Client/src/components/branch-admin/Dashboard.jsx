@@ -89,10 +89,10 @@ const Dashboard = () => {
 			const nextUsers = results[1]?.status === "fulfilled" ? results[1].value : [];
 			const nextBranchProducts = results[2]?.status === "fulfilled" ? results[2].value : [];
 			const nextOrderItems = results[3]?.status === "fulfilled" ? results[3].value : [];
-			
+
 			let nextRawMaterials = [];
 			let nextLowStock = [];
-			
+
 			if (inventoryEnabled) {
 				nextRawMaterials = results[4]?.status === "fulfilled" ? results[4].value : [];
 				nextLowStock = results[5]?.status === "fulfilled" ? results[5].value : [];
