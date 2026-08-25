@@ -3,6 +3,8 @@ import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
+import { connectSocket, subscribeToWasteUpdates } from "../../services/socket";
+
 const WasteManagement = () => {
   const { t } = useTranslation();
   const [wasteRecords, setWasteRecords] = useState([]);
@@ -46,6 +48,32 @@ const WasteManagement = () => {
   const [editReason, setEditReason] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  // Set up WebSocket connection and real-time listeners for waste records
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const b_id = user?.B_id || user?.b_id;
+    if (!b_id) return;
+
+    connectSocket();
+
+    const handleWasteRefresh = () => {
+      console.log("WebSocket event: refreshing waste inventory data...");
+      setRefreshTrigger((prev) => prev + 1);
+    };
+
+    const unsubscribe = subscribeToWasteUpdates(b_id, {
+      onWasteCreated: handleWasteRefresh,
+      onWasteUpdated: handleWasteRefresh,
+      onWasteDeleted: handleWasteRefresh,
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   useEffect(() => {
     fetchData();
   }, [refreshTrigger]);
