@@ -10,7 +10,7 @@ async function main() {
     `);
     const tables = tablesRes.rows.map(r => r.table_name);
     console.log("TABLES IN DATABASE:", tables);
-    
+
     for (const table of tables) {
       const colsRes = await pool.query(`
         SELECT column_name, data_type, is_nullable, column_default

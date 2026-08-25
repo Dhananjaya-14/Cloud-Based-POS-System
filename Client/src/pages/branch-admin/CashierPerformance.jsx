@@ -3,10 +3,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, PointElement, LineElement, ArcElement, Tooltip, Legend, Filler } from "chart.js";
 import { FaDownload } from "react-icons/fa";
+import * as XLSX from "xlsx";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import { useAuth } from "../../context/AuthContext";
-import { getOrders, getUsers } from "../../services/api";
+import { getOrders, getUsers, getCashierPerformanceReport } from "../../services/api";
 import topPerformerIcon from "../../assets/images/top performer.png";
 import timeIcon from "../../assets/images/time.png";
 import salesIcon from "../../assets/images/sales.png";
@@ -22,6 +23,255 @@ const getDateKey = date => {
   return new Date(date).toISOString().slice(0, 10);
 };
 const CashierPerformance = () => {
+	const { user } = useAuth();
+	const [orders, setOrders] = useState([]);
+	const [users, setUsers] = useState([]);
+	const [isLoading, setIsLoading] = useState(true);
+	const [error, setError] = useState("");
+	const [timeRange, setTimeRange] = useState("30days");
+
+	useEffect(() => {
+		let isMounted = true;
+
+		const loadData = async () => {
+			setIsLoading(true);
+			setError("");
+
+			const params = { status: "completed" };
+			if (user?.b_id) {
+				params.b_id = user.b_id;
+			}
+
+			const results = await Promise.allSettled([getOrders(params), getUsers()]);
+
+			if (!isMounted) return;
+
+			const [ordersResult, usersResult] = results;
+			const nextOrders = ordersResult.status === "fulfilled" ? ordersResult.value : [];
+			const nextUsers = usersResult.status === "fulfilled" ? usersResult.value : [];
+
+			setOrders(Array.isArray(nextOrders) ? nextOrders : []);
+			setUsers(Array.isArray(nextUsers) ? nextUsers : []);
+
+			if (results.some((result) => result.status === "rejected")) {
+				setError("Some performance data could not be loaded.");
+			}
+
+			setIsLoading(false);
+		};
+
+		loadData();
+
+		return () => {
+			isMounted = false;
+		};
+	}, [user?.b_id]);
+
+	const rangeDays = useMemo(() => {
+		const counts = { today: 1, weekly: 7, monthly: 30, "30days": 30 };
+		const total = counts[timeRange] || 30;
+		const days = [];
+		for (let i = total - 1; i >= 0; i -= 1) {
+			const date = new Date();
+			date.setDate(date.getDate() - i);
+			const key = date.toISOString().slice(0, 10);
+			const label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+			days.push({ key, label });
+		}
+		return days;
+	}, [timeRange]);
+
+	const rangeKeys = useMemo(() => new Set(rangeDays.map((day) => day.key)), [rangeDays]);
+
+	const rangeOrders = useMemo(() => {
+		return orders.filter((order) => rangeKeys.has(getDateKey(order?.or_date)));
+	}, [orders, rangeKeys]);
+
+	const cashierUsers = useMemo(() => {
+		return users.filter((item) => Number(item?.role_id) === 3);
+	}, [users]);
+
+	const cashierStats = useMemo(() => {
+		const totals = new Map();
+		rangeOrders.forEach((order) => {
+			const cashierId = order?.u_id;
+			if (!cashierId) return;
+			const total = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
+			const entry = totals.get(cashierId) || { revenue: 0, orders: 0 };
+			entry.revenue += Number.isNaN(total) ? 0 : total;
+			entry.orders += 1;
+			totals.set(cashierId, entry);
+		});
+
+		return cashierUsers.map((cashier) => {
+			const metrics = totals.get(cashier.u_id) || { revenue: 0, orders: 0 };
+			const avgOrder = metrics.orders ? metrics.revenue / metrics.orders : 0;
+			return {
+				id: cashier.u_id,
+				name:
+					`${cashier.u_fname || ""} ${cashier.u_lname || ""}`.trim() || "Staff",
+				revenue: metrics.revenue,
+				orders: metrics.orders,
+				avgOrder,
+			};
+		});
+	}, [cashierUsers, rangeOrders]);
+
+	const sortedCashiers = useMemo(() => {
+		return [...cashierStats].sort((a, b) => b.revenue - a.revenue);
+	}, [cashierStats]);
+
+	const totalRevenue = useMemo(() => {
+		return sortedCashiers.reduce((sum, cashier) => sum + cashier.revenue, 0);
+	}, [sortedCashiers]);
+
+	const totalOrders = useMemo(() => {
+		return sortedCashiers.reduce((sum, cashier) => sum + cashier.orders, 0);
+	}, [sortedCashiers]);
+
+	const avgOrderValue = useMemo(() => {
+		if (!totalOrders) return 0;
+		return totalRevenue / totalOrders;
+	}, [totalRevenue, totalOrders]);
+
+	const topCashier = sortedCashiers[0];
+
+	const avgProcessingTime = useMemo(() => {
+		if (!rangeOrders.length) return "--";
+		return "2m 14s";
+	}, [rangeOrders.length]);
+
+	const revenueChartData = useMemo(() => {
+		const topEntries = sortedCashiers.slice(0, 6);
+		return {
+			labels: topEntries.map((entry) => {
+				const parts = entry.name.split(" ");
+				const first = parts[0] || "Staff";
+				const last = parts[1] ? `${parts[1][0]}.` : "";
+				return `${first} ${last}`.trim();
+			}),
+			datasets: [
+				{
+					label: "Primary Revenue",
+					data: topEntries.map((entry) => entry.revenue),
+					backgroundColor: "#0D5EA8",
+					borderRadius: 12,
+					barThickness: 26,
+				},
+			],
+		};
+	}, [sortedCashiers]);
+
+	const barOptions = {
+		responsive: true,
+		maintainAspectRatio: false,
+		plugins: { legend: { display: false }, tooltip: { enabled: true } },
+		scales: {
+			x: { grid: { display: false }, ticks: { color: "#94A3B8", font: { size: 10 } } },
+			y: { display: false, grid: { display: false } },
+		},
+	};
+
+	const statusForCashier = (cashier, index) => {
+		if (index === 0) return { label: "Top Performer", color: "bg-green-100 text-green-700" };
+		if (cashier.revenue >= avgOrderValue * cashier.orders) {
+			return { label: "High Efficiency", color: "bg-emerald-100 text-emerald-700" };
+		}
+		if (cashier.revenue >= totalRevenue * 0.2) {
+			return { label: "Steady", color: "bg-sky-100 text-sky-700" };
+		}
+		return { label: "Needs Attention", color: "bg-rose-100 text-rose-700" };
+	};
+
+	const [isExporting, setIsExporting] = useState(false);
+
+	const exportReport = async () => {
+		if (!user?.b_id) return;
+		setIsExporting(true);
+		try {
+			const today = new Date().toISOString().split("T")[0];
+			let fromDate = "";
+			let toDate = today;
+
+			const counts = { today: 1, weekly: 7, monthly: 30, "30days": 30 };
+			const totalDays = counts[timeRange] || 30;
+			const start = new Date();
+			start.setDate(start.getDate() - (totalDays - 1));
+			fromDate = start.toISOString().split("T")[0];
+
+			const response = await getCashierPerformanceReport({
+				b_id: user.b_id,
+				filterType: timeRange,
+				fromDate,
+				toDate,
+			});
+
+			const reportData = response.data || [];
+
+			// Format rows for Excel
+			const formattedRows = reportData.map((row, index) => {
+				let statusLabel = "Needs Attention";
+				const revenue = Number(row.revenue || 0);
+				const orders = Number(row.orders || 0);
+
+				if (index === 0 && revenue > 0) {
+					statusLabel = "Top Performer";
+				} else {
+					if (revenue >= avgOrderValue * orders && orders > 0) {
+						statusLabel = "High Efficiency";
+					} else if (revenue >= totalRevenue * 0.2 && revenue > 0) {
+						statusLabel = "Steady";
+					}
+				}
+
+				return {
+					"Cashier Name": row.name || "Staff",
+					"Total Revenue (Rs.)": revenue,
+					"Total Orders": orders,
+					"Average Order Value (Rs.)": Number(row.avgOrder || 0),
+					"Status": statusLabel,
+				};
+			});
+
+			// Add TOTAL summary row
+			if (formattedRows.length > 0) {
+				formattedRows.push({
+					"Cashier Name": "TOTAL",
+					"Total Revenue (Rs.)": Number(totalRevenue),
+					"Total Orders": Number(totalOrders),
+					"Average Order Value (Rs.)": Number(avgOrderValue),
+					"Status": "",
+				});
+			}
+
+			const worksheet = XLSX.utils.json_to_sheet(formattedRows);
+
+			// Auto-adjust column widths
+			const maxColumnWidths = [];
+			formattedRows.forEach((row) => {
+				Object.keys(row).forEach((key, colIndex) => {
+					const cellValue = row[key] ? row[key].toString() : "";
+					const currentLength = Math.max(key.length, cellValue.length);
+					maxColumnWidths[colIndex] = Math.max(maxColumnWidths[colIndex] || 10, currentLength + 3);
+				});
+			});
+			worksheet["!cols"] = maxColumnWidths.map((w) => ({ wch: w }));
+
+			const workbook = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(workbook, worksheet, "Cashier Performance");
+
+			const timestamp = new Date().toISOString().split("T")[0];
+			XLSX.writeFile(workbook, `Cashier_Performance_Report_${timestamp}.xlsx`);
+		} catch (err) {
+			console.error("Export failed:", err);
+			alert("Failed to export report.");
+		} finally {
+			setIsExporting(false);
+		}
+	};
+
+	return (
+		<>
   const { t } = useTranslation();
 const {
     user
@@ -221,6 +471,23 @@ if (index === 0) return {
 					<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
 						<h2 className="text-[22px] font-bold text-slate-900">{t("branch_admin.cashier_performance", "Cashier Performance")}</h2>
 						<div className="flex items-center gap-3">
+							<button
+								type="button"
+								onClick={() => setTimeRange("30days")}
+								className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm"
+							>
+								<span className="text-slate-400">📅</span>
+								Last 30 Days
+							</button>
+							<button
+								type="button"
+								onClick={exportReport}
+								disabled={isExporting}
+								className="flex items-center gap-2 rounded-full bg-[#0D5EA8] px-4 py-2 text-xs font-semibold text-white shadow disabled:opacity-50"
+							>
+								<FaDownload />
+								{isExporting ? "Exporting..." : "Export Report"}
+							</button>
 							<button type="button" onClick={() => setTimeRange("30days")} className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm">
 								<span className="text-slate-400">📅</span>{t("branch_admin.last_30_days", "Last 30 Days")}</button>
 							<button type="button" className="flex items-center gap-2 rounded-full bg-[#0D5EA8] px-4 py-2 text-xs font-semibold text-white shadow">

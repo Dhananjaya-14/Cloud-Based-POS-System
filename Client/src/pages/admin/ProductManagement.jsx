@@ -212,9 +212,9 @@ setToasts(prev => [...prev, {
     // Handler for new product added
     const handleNewProduct = data => {
       console.log("New product added via socket (admin):", data);
-      if (data.product && data.company_id === userCompanyId) {
+      if (data.product && String(data.company_id) === String(userCompanyId)) {
         setProducts(prev => {
-          const exists = prev.some(p => p.pro_id === data.product.pro_id);
+          const exists = prev.some(p => Number(p.pro_id) === Number(data.product.pro_id));
           if (exists) return prev;
           return [...prev, data.product];
         });
@@ -236,6 +236,15 @@ setToasts(prev => [...prev, {
     // Handler for product updated
     const handleProductUpdated = data => {
       console.log("Product updated via socket (admin):", data);
+      if (data.product && String(data.company_id) === String(userCompanyId)) {
+        setProducts(prev =>
+          prev.map(p =>
+            Number(p.pro_id) === Number(data.product.pro_id)
+              ? { ...p, ...data.product }
+              : p
+          )
+        );
+
       if (data.product && data.company_id === userCompanyId) {
         setProducts(prev => prev.map(p => p.pro_id === data.product.pro_id ? {
           ...p,
@@ -259,6 +268,14 @@ setToasts(prev => [...prev, {
     // Handler for product deleted
     const handleProductDeleted = data => {
       console.log("Product deleted via socket (admin):", data);
+      if (data.pro_id && String(data.company_id) === String(userCompanyId)) {
+        const productName = data.pro_name || 'Product';
+
+        setProducts(prev =>
+          prev.filter(p => Number(p.pro_id) !== Number(data.pro_id))
+        );
+
+        showToastMessage(`Product "${productName}" was deleted in real time.`, "info");
       if (data.pro_id && data.company_id === userCompanyId) {
         const deletedProduct = products.find(p => p.pro_id === data.pro_id);
         const productName = deletedProduct?.pro_name || data.pro_name || 'Product';
@@ -274,7 +291,7 @@ setToasts(prev => [...prev, {
       socket.off(SOCKET_EVENTS.PRODUCT_UPDATED, handleProductUpdated);
       socket.off(SOCKET_EVENTS.PRODUCT_DELETED, handleProductDeleted);
     };
-  }, [userCompanyId, products]);
+  }, [userCompanyId]);
 
   // Load initial products
   useEffect(() => {

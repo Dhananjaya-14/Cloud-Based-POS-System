@@ -175,6 +175,26 @@ export async function createBranch(req, res, next) {
       });
     }
 
+    // Verify that the company is active
+    const companyCheck = await pool.query(
+      'SELECT "c_status" FROM "Company" WHERE "com_id" = $1',
+      [com_id]
+    );
+
+    if (companyCheck.rows.length === 0) {
+      return res.status(404).json({
+        message: "Please fix the following issues before creating the branch.",
+        errors: ["The selected company does not exist."],
+      });
+    }
+
+    if (!companyCheck.rows[0].c_status) {
+      return res.status(400).json({
+        message: "Please fix the following issues before creating the branch.",
+        errors: ["Cannot create or assign a branch to an inactive company."],
+      });
+    }
+
     const result = await pool.query(
       `
       INSERT INTO "Branch"
@@ -311,6 +331,27 @@ export async function updateBranch(req, res, next) {
           "Please fix the following issues before updating the branch.",
         errors: fieldErrors,
       });
+    }
+
+    if (com_id !== undefined && com_id !== null) {
+      const companyCheck = await pool.query(
+        'SELECT "c_status" FROM "Company" WHERE "com_id" = $1',
+        [com_id]
+      );
+
+      if (companyCheck.rows.length === 0) {
+        return res.status(404).json({
+          message: "Please fix the following issues before updating the branch.",
+          errors: ["The selected company does not exist."],
+        });
+      }
+
+      if (!companyCheck.rows[0].c_status) {
+        return res.status(400).json({
+          message: "Please fix the following issues before updating the branch.",
+          errors: ["Cannot create or assign a branch to an inactive company."],
+        });
+      }
     }
 
     const existing = await pool.query(

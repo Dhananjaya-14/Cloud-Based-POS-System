@@ -5,7 +5,8 @@ import {
     getRawMaterialStockReport,
     getRawMaterialConsumptionReport,
     getSalesDetailsReport,
-    getBranchWiseSalesReport
+    getBranchWiseSalesReport,
+    getCashierPerformanceReport
 } from "./reportController.js";
 
 import { requireAuth } from "../../middleware/authMiddleware.js"
@@ -23,5 +24,6 @@ router.post("/rawmaterialstock", getRawMaterialStockReport);
 router.post("/rawmaterialconsumption", getRawMaterialConsumptionReport);
 router.post("/salesdetails",getSalesDetailsReport);
 router.post("/branchsales",getBranchWiseSalesReport);
+router.post("/cashierperformance", getCashierPerformanceReport);
 
 export default router;

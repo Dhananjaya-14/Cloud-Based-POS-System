@@ -1,6 +1,6 @@
 import pool from "../../../config/database.js";
 import { ROLES } from "../../../middleware/authMiddleware.js";
-import { emitBranchProductEvent, SOCKET_EVENTS } from "../../../utils/socket.js";
+import { emitBranchProductEvent, emitSocketEvent, SOCKET_EVENTS } from "../../../utils/socket.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -624,6 +624,7 @@ export async function updatePurchaseOrderStatus(req, res, next) {
       );
 
       await client.query("COMMIT");
+      emitSocketEvent("purchase_order:updated", result.rows[0]);
       res.json(result.rows[0]);
     } catch (txErr) {
       await client.query("ROLLBACK");
@@ -677,6 +678,7 @@ export async function receiveWithWastage(req, res, next) {
     const client = await pool.connect();
     try {
       await client.query("BEGIN");
+      let hasReturns = false;
 
       const items = await client.query(
         `SELECT rm_id, pro_id, qty FROM purchase_item WHERE po_id = $1`,
@@ -796,6 +798,7 @@ export async function receiveWithWastage(req, res, next) {
         // Insert return record — supplier-caused, applies to both rm_id and pro_id
         // Stock is NOT added for returned qty until fulfilled via /api/returns/:id/fulfill
         if (returnQty > 0) {
+          hasReturns = true;
           await client.query(
             `INSERT INTO "public"."Returns" ("rm_id", "pro_id", "po_id", "qty_returned", "reason", "status", "b_id", "recorded_at")
              VALUES ($1, $2, $3, $4, $5, 'pending', $6, CURRENT_TIMESTAMP)`,
@@ -823,6 +826,13 @@ export async function receiveWithWastage(req, res, next) {
       );
 
       await client.query("COMMIT");
+      emitSocketEvent("purchase_order:updated", result.rows[0]);
+      if (hasReturns) {
+        emitBranchProductEvent(poBranchId, "return:created", {
+          po_id: id,
+          actor_id: req.user?.u_id
+        });
+      }
       res.json(result.rows[0]);
     } catch (txErr) {
       await client.query("ROLLBACK");

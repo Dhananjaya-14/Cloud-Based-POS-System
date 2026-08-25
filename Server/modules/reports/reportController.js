@@ -868,3 +868,66 @@ export const getBranchWiseSalesReport =
       });
     }
   };
+
+export const getCashierPerformanceReport = async (req, res) => {
+  try {
+    const { b_id, fromDate, toDate, filterType } = req.body;
+
+    if (!b_id) {
+      return res.status(400).json({
+        message: "Branch ID is required",
+      });
+    }
+
+    let query = `
+      SELECT 
+        u."u_id" AS id,
+        TRIM(CONCAT(u."u_fname", ' ', u."u_lname")) AS name,
+        COALESCE(SUM(o."or_totalCostWtax"), 0)::numeric(12,2) AS revenue,
+        COUNT(o."or_id")::int AS orders,
+        CASE 
+          WHEN COUNT(o."or_id") > 0 
+          THEN COALESCE(SUM(o."or_totalCostWtax"), 0) / COUNT(o."or_id")
+          ELSE 0 
+        END::numeric(12,2) AS "avgOrder"
+      FROM "User" u
+      LEFT JOIN "ORDER" o ON o."u_id" = u."u_id" AND o."or_status" = 'completed'
+    `;
+
+    const params = [b_id];
+    let dateCondition = "";
+
+    if (filterType === "daily" && fromDate) {
+      dateCondition = ` AND o."or_date" = $2`;
+      params.push(fromDate);
+    } else if (["weekly", "monthly", "custom", "30days"].includes(filterType) && fromDate && toDate) {
+      dateCondition = ` AND o."or_date" BETWEEN $2 AND $3`;
+      params.push(fromDate);
+      params.push(toDate);
+    } else if (fromDate && toDate) {
+      dateCondition = ` AND o."or_date" BETWEEN $2 AND $3`;
+      params.push(fromDate);
+      params.push(toDate);
+    }
+
+    query = query.replace("AND o.\"or_status\" = 'completed'", `AND o."or_status" = 'completed'${dateCondition}`);
+
+    query += `
+      WHERE u."B_id" = $1 AND u."role_id" = 3
+      GROUP BY u."u_id"
+      ORDER BY revenue DESC
+    `;
+
+    const result = await pool.query(query, params);
+
+    res.status(200).json({
+      data: result.rows
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      message: "Failed to generate Cashier Performance report",
+      error: error.message,
+    });
+  }
+};

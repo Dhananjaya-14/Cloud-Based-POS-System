@@ -752,6 +752,11 @@ export const getBranchWiseSalesReport = async (payload) => {
   return response.data;
 };
 
+export const getCashierPerformanceReport = async (payload) => {
+  const response = await api.post("/reports/cashierperformance", payload);
+  return response.data;
+};
+
 // ── Supplier API -----------------
 export const getSuppliers = async (params = {}) => {
   const response = await api.get("/suppliers", { params });
