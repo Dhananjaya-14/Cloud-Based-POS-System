@@ -48,31 +48,77 @@ function getActorMeta(req) {
 export async function getUsers(req, res, next) {
   try {
     ensureBranchAdminHasBranch(req, res);
-    const { role_id, com_id, b_id } = req.user;
+    const { role_id: actorRoleId, com_id: actorComId, b_id: actorBranchId } = req.user;
+    const { limit, offset, search, companyId, roleId, countOnly } = req.query;
 
-    let query = `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber, u.role_id, r.role_name, u.u_status, u."B_id" as b_id,
-                        b."B_name" as branch_name,
-                        COALESCE(c2.com_name, c1.com_name) as company_name,
-                        COALESCE(u.com_id, b.com_id) as com_id
-                 FROM "User" u
-                 LEFT JOIN "Role" r ON u.role_id = r.role_id
-                 LEFT JOIN "Branch" b ON b."B_id" = u."B_id"
-                 LEFT JOIN "Company" c1 ON b.com_id = c1.com_id
-                 LEFT JOIN "Company" c2 ON u.com_id = c2.com_id`;
+    let baseQuery = `FROM "User" u
+                     LEFT JOIN "Role" r ON u.role_id = r.role_id
+                     LEFT JOIN "Branch" b ON b."B_id" = u."B_id"
+                     LEFT JOIN "Company" c1 ON b.com_id = c1.com_id
+                     LEFT JOIN "Company" c2 ON u.com_id = c2.com_id`;
 
+    let conditions = [];
     let params = [];
 
-    if (role_id === ROLES.ADMIN && com_id != null) {
-      query += ` WHERE COALESCE(u.com_id, b.com_id) = $1`;
-      params.push(com_id);
-    } else if (role_id === ROLES.BRANCH_ADMIN && b_id != null) {
-      query += ` WHERE b."B_id" = $1`;
-      params.push(b_id);
+    // Actor role scopes
+    if (actorRoleId === ROLES.ADMIN && actorComId != null) {
+      conditions.push(`COALESCE(u.com_id, b.com_id) = $${params.length + 1}`);
+      params.push(actorComId);
+    } else if (actorRoleId === ROLES.BRANCH_ADMIN && actorBranchId != null) {
+      conditions.push(`b."B_id" = $${params.length + 1}`);
+      params.push(actorBranchId);
     }
 
-    query += ` ORDER BY u.u_id`;
+    // Filter by Company (for Super Admins)
+    if (companyId) {
+      conditions.push(`COALESCE(u.com_id, b.com_id) = $${params.length + 1}`);
+      params.push(Number(companyId));
+    }
 
-    const result = await pool.query(query, params);
+    // Filter by Role
+    if (roleId) {
+      conditions.push(`u.role_id = $${params.length + 1}`);
+      params.push(Number(roleId));
+    }
+
+    // Search query (names, emails, role names)
+    if (search) {
+      const searchPattern = `%${search.trim().toLowerCase()}%`;
+      conditions.push(
+        `(LOWER(u.u_fname) LIKE $${params.length + 1} OR LOWER(u.u_lname) LIKE $${params.length + 1} OR LOWER(u.u_email) LIKE $${params.length + 1} OR LOWER(r.role_name) LIKE $${params.length + 1})`
+      );
+      params.push(searchPattern);
+    }
+
+    const whereClause = conditions.length > 0 ? ` WHERE ${conditions.join(" AND ")}` : "";
+
+    if (countOnly === "true") {
+      const countRes = await pool.query(`SELECT COUNT(*)::int AS count ${baseQuery} ${whereClause}`, params);
+      return res.json({ count: countRes.rows[0]?.count ?? 0 });
+    }
+
+    let selectQuery = `SELECT u.u_id, u.u_fname, u.u_lname, u.u_email, u.u_connumber, u.role_id, r.role_name, u.u_status, u."B_id" as b_id,
+                              b."B_name" as branch_name,
+                              COALESCE(c2.com_name, c1.com_name) as company_name,
+                              COALESCE(u.com_id, b.com_id) as com_id
+                       ${baseQuery} ${whereClause} ORDER BY u.u_id`;
+
+    if (limit) {
+      selectQuery += ` LIMIT $${params.length + 1}`;
+      params.push(Number(limit));
+    }
+    if (offset) {
+      selectQuery += ` OFFSET $${params.length + 1}`;
+      params.push(Number(offset));
+    }
+
+    const result = await pool.query(selectQuery, params);
+    
+    if (limit || offset) {
+      const countRes = await pool.query(`SELECT COUNT(*)::int AS count ${baseQuery} ${whereClause}`, params.slice(0, conditions.length));
+      res.setHeader("X-Total-Count", countRes.rows[0]?.count ?? 0);
+    }
+
     res.json(result.rows);
   } catch (err) {
     next(err);

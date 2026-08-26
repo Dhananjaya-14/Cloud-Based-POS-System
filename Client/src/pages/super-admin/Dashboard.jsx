@@ -144,9 +144,8 @@ const StatusBadge = ({ status }) => {
 
 /* ═══ MAIN DASHBOARD ═══════════════════════════════════════════ */
 const Dashboard = () => {
-  const [branches, setBranches] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [users, setUsers] = useState([]);
+  const [totalUsers, setTotalUsers] = useState(0);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -159,9 +158,11 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [bd, ud, cd] = await Promise.all([getBranches(), getUsers(), getCompanies()]);
-      setBranches(Array.isArray(bd) ? bd : []);
-      setUsers(Array.isArray(ud) ? ud : []);
+      const [ud, cd] = await Promise.all([
+        getUsers({ countOnly: "true" }),
+        getCompanies()
+      ]);
+      setTotalUsers(ud?.count ?? 0);
       setCompanies(Array.isArray(cd) ? cd : []);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
@@ -170,7 +171,6 @@ const Dashboard = () => {
   };
 
   const totalCompanies = companies.length;
-  const totalUsers = users.length;
   const activeCompanies = companies.filter(c => {
     const s = String(c.c_status || "").toLowerCase();
     return s === "active" || s === "true" || c.c_status === true;
