@@ -63,6 +63,12 @@ const UserManagement = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalUsersCount, setTotalUsersCount] = useState(0);
+  const itemsPerPage = 6;
+  const totalPages = Math.max(1, Math.ceil(totalUsersCount / itemsPerPage));
+
   // Connect to socket and subscribe to user updates
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -105,8 +111,6 @@ const UserManagement = () => {
       }
     });
 
-    fetchData();
-
     if (location.state?.successMessage) {
       toast.success("Success", location.state.successMessage);
       window.history.replaceState({}, document.title);
@@ -118,20 +122,32 @@ const UserManagement = () => {
     };
   }, [navigate, location.state]);
 
-  const openDeleteModal = (user) => {
-    setUserToDelete(user);
-    setErrorMessage("");
-    setIsDeleteModalOpen(true);
-  };
-
   const fetchData = async () => {
     try {
-      const [usersData, rolesData, companiesData] = await Promise.all([
-        getUsers(),
+      setLoading(true);
+      const params = {
+        limit: itemsPerPage,
+        offset: (currentPage - 1) * itemsPerPage,
+        search: searchQuery,
+        companyId: selectedCompany,
+        roleId: selectedRole
+      };
+      const countParams = {
+        countOnly: "true",
+        search: searchQuery,
+        companyId: selectedCompany,
+        roleId: selectedRole
+      };
+
+      const [usersData, countData, rolesData, companiesData] = await Promise.all([
+        getUsers(params),
+        getUsers(countParams),
         getRoles(),
         getCompanies().catch(() => [])
       ]);
+
       setUsers(Array.isArray(usersData) ? usersData : []);
+      setTotalUsersCount(countData?.count ?? 0);
       setRoles(Array.isArray(rolesData) ? rolesData : []);
       setCompanies(Array.isArray(companiesData) ? companiesData : []);
     } catch (err) {
@@ -143,6 +159,20 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [currentPage, searchQuery, selectedCompany, selectedRole]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, selectedCompany, selectedRole]);
+
+  const openDeleteModal = (user) => {
+    setUserToDelete(user);
+    setErrorMessage("");
+    setIsDeleteModalOpen(true);
   };
 
   const handleToggleStatus = async (userId, currentStatus) => {
@@ -180,7 +210,6 @@ const UserManagement = () => {
       await deleteUserById(userToDelete.u_id);
       setIsDeleteModalOpen(false);
       toast.success("User Deleted", "The user was permanently removed.");
-      // Socket event will handle the removal, but we also fetch to be safe
       fetchData();
     } catch (err) {
       console.error("Error deleting user:", err);
@@ -191,18 +220,7 @@ const UserManagement = () => {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    const search = searchQuery.toLowerCase();
-    const fullName = `${u.u_fname} ${u.u_lname}`.toLowerCase();
-    const email = (u.u_email || "").toLowerCase();
-    const role = (u.role_name || "").toLowerCase();
-    
-    const matchesSearch = fullName.includes(search) || email.includes(search) || role.includes(search);
-    const matchesCompany = !selectedCompany || String(u.com_id) === String(selectedCompany);
-    const matchesRole = !selectedRole || String(u.role_id) === String(selectedRole);
-    
-    return matchesSearch && matchesCompany && matchesRole;
-  });
+  const filteredUsers = users;
 
   if (loading) {
     return (
@@ -460,7 +478,7 @@ const UserManagement = () => {
               </tbody>
             </table>
 
-            {/* Pagination Placeholder */}
+            {/* Pagination */}
             <div
               style={{
                 display: "flex",
@@ -471,11 +489,23 @@ const UserManagement = () => {
               }}
             >
               <div style={{ color: "#6B7280", fontSize: 14 }}>
-                Showing <b>{filteredUsers.length}</b> of <b>{filteredUsers.length}</b> users
+                Showing <b>{totalUsersCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</b> to <b>{Math.min(currentPage * itemsPerPage, totalUsersCount)}</b> of <b>{totalUsersCount}</b> users
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button style={pageBtnStyle}>Previous</button>
-                <button style={pageBtnStyle}>Next</button>
+                <button 
+                  style={{ ...pageBtnStyle, opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                >
+                  Previous
+                </button>
+                <button 
+                  style={{ ...pageBtnStyle, opacity: currentPage >= totalPages ? 0.5 : 1, cursor: currentPage >= totalPages ? "not-allowed" : "pointer" }}
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                >
+                  Next
+                </button>
               </div>
             </div>
           </div>
