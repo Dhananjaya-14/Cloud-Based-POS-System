@@ -83,6 +83,9 @@ export async function createCompany(req, res, next) {
   } catch (err) {
     if (err?.code === "23505") {
       res.status(409);
+      if (err.constraint?.includes("c_email") || err.detail?.includes("c_email")) {
+        return next(new Error("A company with that email address already exists"));
+      }
       return next(new Error("A company with that name already exists"));
     }
     next(err);
@@ -148,6 +151,9 @@ export async function updateCompany(req, res, next) {
   } catch (err) {
     if (err?.code === "23505") {
       res.status(409);
+      if (err.constraint?.includes("c_email") || err.detail?.includes("c_email")) {
+        return next(new Error("A company with that email address already exists"));
+      }
       return next(new Error("A company with that name already exists"));
     }
     next(err);
