@@ -313,7 +313,7 @@ const UserManagement = () => {
                   }}
                 >
                   <option value="">All Companies</option>
-                  {companies.map((c) => (
+                  {companies.filter(c => c.c_status !== false).map((c) => (
                     <option key={c.com_id} value={String(c.com_id)}>
                       {c.com_name}
                     </option>

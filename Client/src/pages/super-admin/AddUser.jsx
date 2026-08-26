@@ -348,7 +348,7 @@ const AddUser = () => {
                       <label style={labelStyle}>Assigned Company / Hotel</label>
                       <select name="assignedCompany" value={formData.assignedCompany} onChange={handleChange} style={selectStyle}>
                         <option value="">Select Company</option>
-                        {companies.map(c => (
+                        {companies.filter(c => c.c_status !== false).map(c => (
                           <option key={c.com_id} value={c.com_id}>
                             {c.com_name}
                           </option>
