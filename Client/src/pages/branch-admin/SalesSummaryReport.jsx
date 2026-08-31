@@ -261,84 +261,65 @@ const formattedRows = rows.map(row => {
   };
 
   const exportPDFHtml = () => {
-    const doc = new jsPDF();
+    const printWindow = window.open('', '_blank');
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
     const generatedTime = reportDate.toLocaleTimeString();
 
-    // HEADER
-    doc.setFontSize(22);
-    doc.setTextColor(0, 82, 168);
-    doc.text("Sales Summary Report", 14, 20);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Generated: ${generatedDate} ${generatedTime}`, 14, 28);
-    doc.text(`Branch: ${branchName || "Current Branch"}`, 14, 34);
-    doc.line(14, 38, 196, 38);
+    const headers = availableColumns
+      .filter(col => selectedColumns.includes(col.key))
+      .map(col => col.label);
 
-    // FILTER INFO 
-    let filterLabel = "Daily";
-    if (filters.filterType === "weekly") {
-      filterLabel = `Week: ${activeRange.from} to ${activeRange.to}`;
-    }
-    if (filters.filterType === "monthly") {
-      filterLabel = `Month: ${filters.selectedMonth}`;
-    }
-    if (filters.filterType === "custom") {
-      filterLabel = `${filters.fromDate} to ${filters.toDate}`;
-    }
-    doc.setFontSize(11);
-    doc.text(`Filter: ${filterLabel}`, 14, 46);
-    doc.text(`Records: ${rows.length}`, 175, 46);
-
-    // TABLE
-    autoTable(doc, {
-      startY: 55,
-      head: [availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => col.label)],
-      body: rows.map(row => selectedColumns.map(col => {
-        if (col === "total_cost" || col === "tax" || col === "totalCostWtax") {
-          return `Rs. ${Number(row[col] || 0).toFixed(2)}`;
+    const bodyHtml = rows.map(row => {
+      return '<tr>' + selectedColumns.map(colKey => {
+        let val = row[colKey];
+        if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax'].includes(colKey)) {
+          val = 'Rs. ' + Number(val || 0).toFixed(2);
+        } else if (colKey === 'pay_date' && val) {
+          val = val.split('T')[0];
+        } else if (colKey === 'pay_time' && val) {
+          const d = new Date(val);
+          val = isNaN(d.getTime()) ? val : d.toLocaleTimeString();
+        } else if (colKey === 'date' && val) {
+          val = val.split('T')[0];
+        } else if (colKey === 'stock_qty' && val !== undefined) {
+          val = Number(val || 0).toFixed(2);
         }
-        if (col === "pay_date") {
-          return row[col].includes("T") ? row[col].split("T")[0] : row[col];
-        }
-        if (col === "pay_time") {
-          return row[col]?.slice(0, 8);
-        }
-        return row[col] ?? "";
-      })),
-      theme: "striped",
-      headStyles: {
-        fillColor: [0, 82, 168],
-        fontSize: 10,
-        align: "center"
-      },
-      bodyStyles: {
-        fontSize: 9
-      },
-      alternateRowStyles: {
-        fillColor: [245, 247, 250]
-      }
-    });
-    const finalY = doc.lastAutoTable.finalY + 12;
+        return '<td>' + (val !== null && val !== undefined ? val : '') + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
 
-    // GRAND TOTAL BOX
-    doc.setFillColor(240, 248, 255);
-    doc.rect(135, finalY - 6, 70, 12, "F");
-    doc.setFontSize(11);
-    doc.setTextColor(0, 128, 0);
-    doc.text(`Total: Rs. ${Number(grandTotal).toFixed(2)}`, 155, finalY + 2);
+    const headerHtml = headers.map(h => '<th>' + h + '</th>').join('');
 
-    // FOOTER
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(9);
-      doc.setTextColor(120);
-      doc.text(`Page ${i} of ${pageCount}`, 170, 290);
-    }
-    doc.save(`Sales_Report_${generatedDate}.pdf`);
-  };
+    printWindow.document.write('<!DOCTYPE html>' +
+      '<html>' +
+      '<head>' +
+      '<meta charset="UTF-8" />' +
+      '<title>' + t('branch_admin.sales_summary_report', 'Sales Summary Report') + '<\/title>' +
+      '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala&family=Noto+Sans+Tamil&display=swap" rel="stylesheet" />' +
+      '<style>' +
+      'body { font-family: \'Noto Sans Sinhala\', \'Noto Sans Tamil\', Arial, sans-serif; padding: 24px; }' +
+      'h2 { color: #0052A8; }' +
+      'p { margin: 4px 0; font-size: 13px; }' +
+      'table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }' +
+      'th { background-color: #0052A8; color: #fff; padding: 8px; text-align: left; }' +
+      'td { border: 1px solid #ddd; padding: 8px; }' +
+      'tr:nth-child(even) { background-color: #f5f7fa; }' +
+      '</style>' +
+      '</head>' +
+      '<body>' +
+      '<h2>' + t('branch_admin.sales_summary_report', 'Sales Summary Report') + '</h2>' +
+      '<p><strong>' + t('reports.generated', 'Generated') + ':</strong> ' + generatedDate + ' ' + generatedTime + '</p>' +
+      '<p><strong>' + t('reports.branch', 'Branch') + ':</strong> ' + (branchName || t('reports.current_branch', 'Current Branch')) + '</p>' +
+      '<table>' +
+      '<thead><tr>' + headerHtml + '</tr></thead>' +
+      '<tbody>' + bodyHtml + '</tbody>' +
+      '</table>' +
+      '<script>document.fonts.ready.then(function(){ window.print(); });<\/script>' +
+      '</body>' +
+      '</html>');
+    printWindow.document.close();
+  };;
   return <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
       <Sidebar />
       <div className="flex flex-1 flex-col" style={{
