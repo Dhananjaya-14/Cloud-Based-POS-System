@@ -191,7 +191,7 @@ const formattedRows = rows.map(row => {
     
     doc.setFontSize(22);
     doc.setTextColor(0, 82, 168);
-    doc.text('roduct ales eport', 14, 20);
+    doc.text('Product Sales Report', 14, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(100);
@@ -206,9 +206,14 @@ const formattedRows = rows.map(row => {
         }
         if (colKey === 'pay_date' && val) return val.split('T')[0];
         if (colKey === 'pay_time' && val) {
-          const d = new Date(val);
-          return isNaN(d.getTime()) ? val : d.toLocaleTimeString();
-        }
+            if (String(val).includes('T')) {
+              const d = new Date(val);
+              if (!isNaN(d.getTime())) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              else return String(val).split('T')[1].split('.')[0];
+            } else {
+              return String(val).split('.')[0];
+            }
+          }
         if (colKey === 'date' && val) return val.split('T')[0];
         return val || '';
       });
@@ -242,11 +247,11 @@ const formattedRows = rows.map(row => {
       }
     });
     
-    doc.save('roduct_ales_eport_' + generatedDate + '.pdf');
+    doc.save('Product_Sales_Report_' + generatedDate + '.pdf');
   };
 
   const exportPDF = () => {
-    if (i18n.lng === 'en') {
+    if (i18n.language === 'en') {
       exportPDFJsPdf();
     } else {
       exportPDFHtml();
@@ -271,9 +276,14 @@ const formattedRows = rows.map(row => {
         } else if (colKey === 'pay_date' && val) {
           val = val.split('T')[0];
         } else if (colKey === 'pay_time' && val) {
-          const d = new Date(val);
-          val = isNaN(d.getTime()) ? val : d.toLocaleTimeString();
-        } else if (colKey === 'date' && val) {
+            if (String(val).includes('T')) {
+              const d = new Date(val);
+              if (!isNaN(d.getTime())) val = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              else val = String(val).split('T')[1].split('.')[0];
+            } else {
+              val = String(val).split('.')[0];
+            }
+          } else if (colKey === 'date' && val) {
           val = val.split('T')[0];
         } else if (colKey === 'stock_qty' && val !== undefined) {
           val = Number(val || 0).toFixed(2);

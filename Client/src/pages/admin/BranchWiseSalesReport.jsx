@@ -232,16 +232,22 @@ const doc = new jsPDF();
     const bodyHtml = rows.map(row => {
       return '<tr>' + selectedColumns.map(colKey => {
         let val = row[colKey];
-        if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax'].includes(colKey)) {
+        if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax','subtotal','total_sales'].includes(colKey)) {
           val = 'Rs. ' + Number(val || 0).toFixed(2);
-        } else if (colKey === 'pay_date' && val) {
-          val = val.split('T')[0];
-        } else if (colKey === 'pay_time' && val) {
-          const d = new Date(val);
-          val = isNaN(d.getTime()) ? val : d.toLocaleTimeString();
-        } else if (colKey === 'date' && val) {
-          val = val.split('T')[0];
-        } else if (colKey === 'stock_qty' && val !== undefined) {
+        } else if (['pay_date', 'date', 'order_date', 'report_date'].includes(colKey) && val) {
+          val = String(val).split('T')[0];
+        } else if (['pay_time', 'order_time'].includes(colKey) && val) {
+          if (String(val).includes('T')) {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) {
+              val = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+              val = String(val).split('T')[1].split('.')[0];
+            }
+          } else {
+            val = String(val).split('.')[0];
+          }
+        } else if (['stock_qty', 'quantity'].includes(colKey) && val !== undefined) {
           val = Number(val || 0).toFixed(2);
         }
         return '<td>' + (val !== null && val !== undefined ? val : '') + '</td>';
@@ -272,7 +278,37 @@ const doc = new jsPDF();
       '<p><strong>' + t('reports.branch', 'Branch') + ':</strong> ' + (branchName || t('reports.current_branch', 'Current Branch')) + '</p>' +
       '<table>' +
       '<thead><tr>' + headerHtml + '</tr></thead>' +
+      
       '<tbody>' + bodyHtml + '</tbody>' +
+      (function() {
+          if (rows.length === 0 || typeof grandTotal === 'undefined') return '';
+          
+          let tIdx = -1;
+          for (let i = selectedColumns.length - 1; i >= 0; i--) {
+            if (['total_sale', 'total_amount', 'amount', 'total_cost', 'totalCostWtax', 'subtotal', 'total_sales'].includes(selectedColumns[i])) {
+              tIdx = i;
+              break;
+            }
+          }
+          
+          if (tIdx === -1) tIdx = selectedColumns.length - 1;
+          
+          let rowHtml = '<tfoot><tr>';
+          for (let i = 0; i < selectedColumns.length; i++) {
+            if (i === tIdx - 1) {
+               rowHtml += '<td style="text-align:right; font-weight:bold;">TOTAL</td>';
+            } else if (i === tIdx) {
+               rowHtml += '<td style="font-weight:bold;">Rs. ' + Number(grandTotal).toFixed(2) + '</td>';
+            } else if (i < tIdx - 1) {
+               rowHtml += '<td></td>';
+            } else if (i > tIdx) {
+               rowHtml += '<td></td>';
+            }
+          }
+          rowHtml += '</tr></tfoot>';
+          return rowHtml;
+        })() +
+  
       '</table>' +
       '<script>document.fonts.ready.then(function(){ window.print(); });<\/script>' +
       '</body>' +

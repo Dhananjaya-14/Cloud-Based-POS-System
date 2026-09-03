@@ -191,16 +191,22 @@ const doc = new jsPDF();
     const bodyHtml = rows.map(row => {
       return '<tr>' + selectedColumns.map(colKey => {
         let val = row[colKey];
-        if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax'].includes(colKey)) {
+        if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax','subtotal','total_sales'].includes(colKey)) {
           val = 'Rs. ' + Number(val || 0).toFixed(2);
-        } else if (colKey === 'pay_date' && val) {
-          val = val.split('T')[0];
-        } else if (colKey === 'pay_time' && val) {
-          const d = new Date(val);
-          val = isNaN(d.getTime()) ? val : d.toLocaleTimeString();
-        } else if (colKey === 'date' && val) {
-          val = val.split('T')[0];
-        } else if (colKey === 'stock_qty' && val !== undefined) {
+        } else if (['pay_date', 'date', 'order_date', 'report_date'].includes(colKey) && val) {
+          val = String(val).split('T')[0];
+        } else if (['pay_time', 'order_time'].includes(colKey) && val) {
+          if (String(val).includes('T')) {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) {
+              val = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+              val = String(val).split('T')[1].split('.')[0];
+            }
+          } else {
+            val = String(val).split('.')[0];
+          }
+        } else if (['stock_qty', 'quantity'].includes(colKey) && val !== undefined) {
           val = Number(val || 0).toFixed(2);
         }
         return '<td>' + (val !== null && val !== undefined ? val : '') + '</td>';
