@@ -316,13 +316,14 @@ const { user } = useAuth();
       '<title>' + t('reports.sales_details_report', 'Sales Details Report') + '<\/title>' +
       '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala&family=Noto+Sans+Tamil&display=swap" rel="stylesheet" />' +
       '<style>' +
-      'body { font-family: \'Noto Sans Sinhala\', \'Noto Sans Tamil\', Arial, sans-serif; padding: 24px; }' +
-      'h2 { color: #0052A8; }' +
+      '@media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } @page { size: auto; margin: 5mm; } }' +
+      'body { font-family: \'Noto Sans Sinhala\', \'Noto Sans Tamil\', Arial, sans-serif; padding: 0; margin: 0; box-sizing: border-box; width: 100%; max-width: 100%; }' +
+      'h2 { color: #0052A8; margin-top: 0; }' +
       'p { margin: 4px 0; font-size: 13px; }' +
-      'table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 12px; }' +
-      'th { background-color: #0052A8; color: #fff; padding: 8px; text-align: left; }' +
+      'table { width: 100% !important; border-collapse: collapse; margin-top: 20px; font-size: 12px; table-layout: auto; }' +
+      'th { background-color: #0052A8 !important; color: #fff !important; padding: 10px 8px; text-align: left; border: 1px solid #0052A8; font-weight: bold; }' +
       'td { border: 1px solid #ddd; padding: 8px; }' +
-      'tr:nth-child(even) { background-color: #f5f7fa; }' +
+      'tr:nth-child(even) td { background-color: #f9fafb !important; }' +
       '</style>' +
       '</head>' +
       '<body>' +
