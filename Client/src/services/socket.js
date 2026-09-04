@@ -606,6 +606,196 @@ export const subscribeToTableUpdates = (branchId, callbacks) => {
   };
 };
 
+// Helper function to listen for admin statistics updates
+export const subscribeToAdminStatsUpdates = (callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const {
+    onOrderCreated,
+    onOrderUpdated,
+    onPaymentCompleted,
+    onBranchChanged,
+    onPurchaseOrderReceived
+  } = callbacks;
+
+  if (onOrderCreated) {
+    socket.on("order:created", onOrderCreated);
+  }
+  if (onOrderUpdated) {
+    socket.on("order:updated", onOrderUpdated);
+  }
+  if (onPaymentCompleted) {
+    socket.on("payment:completed", onPaymentCompleted);
+  }
+  if (onBranchChanged) {
+    socket.on("branch:created", onBranchChanged);
+    socket.on("branch:updated", onBranchChanged);
+    socket.on("branch:deleted", onBranchChanged);
+  }
+  if (onPurchaseOrderReceived) {
+    socket.on("purchase_order:updated", onPurchaseOrderReceived);
+  }
+
+  // Return unsubscribe function
+  return () => {
+    if (onOrderCreated) {
+      socket.off("order:created", onOrderCreated);
+    }
+    if (onOrderUpdated) {
+      socket.off("order:updated", onOrderUpdated);
+    }
+    if (onPaymentCompleted) {
+      socket.off("payment:completed", onPaymentCompleted);
+    }
+    if (onBranchChanged) {
+      socket.off("branch:created", onBranchChanged);
+      socket.off("branch:updated", onBranchChanged);
+      socket.off("branch:deleted", onBranchChanged);
+    }
+    if (onPurchaseOrderReceived) {
+      socket.off("purchase_order:updated", onPurchaseOrderReceived);
+    }
+  };
+};
+
+// Helper function to listen for branch admin dashboard updates
+export const subscribeToBranchAdminDashboardUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const { onRefresh } = callbacks;
+
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+    joinBranchUserRoom(branchId);
+  }
+
+  // Register listeners
+  socket.on(SOCKET_EVENTS.ORDER_SENT, onRefresh);
+  socket.on(SOCKET_EVENTS.ORDER_ACCEPTED, onRefresh);
+  socket.on(SOCKET_EVENTS.ORDER_READY, onRefresh);
+  socket.on(SOCKET_EVENTS.ORDER_UPDATED, onRefresh);
+  socket.on("order:created", onRefresh);
+  socket.on("order:updated", onRefresh);
+  socket.on("payment:completed", onRefresh);
+
+  socket.on(SOCKET_EVENTS.USER_CREATED, onRefresh);
+  socket.on(SOCKET_EVENTS.USER_UPDATED, onRefresh);
+  socket.on(SOCKET_EVENTS.USER_DELETED, onRefresh);
+
+  socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, onRefresh);
+  socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, onRefresh);
+  socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, onRefresh);
+
+  socket.on(SOCKET_EVENTS.INVENTORY_CREATED, onRefresh);
+  socket.on(SOCKET_EVENTS.INVENTORY_UPDATED, onRefresh);
+  socket.on(SOCKET_EVENTS.INVENTORY_DELETED, onRefresh);
+  socket.on("purchase_order:updated", onRefresh);
+
+  return () => {
+    socket.off(SOCKET_EVENTS.ORDER_SENT, onRefresh);
+    socket.off(SOCKET_EVENTS.ORDER_ACCEPTED, onRefresh);
+    socket.off(SOCKET_EVENTS.ORDER_READY, onRefresh);
+    socket.off(SOCKET_EVENTS.ORDER_UPDATED, onRefresh);
+    socket.off("order:created", onRefresh);
+    socket.off("order:updated", onRefresh);
+    socket.off("payment:completed", onRefresh);
+
+    socket.off(SOCKET_EVENTS.USER_CREATED, onRefresh);
+    socket.off(SOCKET_EVENTS.USER_UPDATED, onRefresh);
+    socket.off(SOCKET_EVENTS.USER_DELETED, onRefresh);
+
+    socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, onRefresh);
+    socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, onRefresh);
+    socket.off(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, onRefresh);
+
+    socket.off(SOCKET_EVENTS.INVENTORY_CREATED, onRefresh);
+    socket.off(SOCKET_EVENTS.INVENTORY_UPDATED, onRefresh);
+    socket.off(SOCKET_EVENTS.INVENTORY_DELETED, onRefresh);
+    socket.off("purchase_order:updated", onRefresh);
+
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+      leaveBranchUserRoom(branchId);
+    }
+  };
+};
+
+// Helper function to listen for waste updates
+export const subscribeToWasteUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const { onWasteCreated, onWasteUpdated, onWasteDeleted } = callbacks;
+
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+  }
+
+  if (onWasteCreated) {
+    socket.on("waste:created", onWasteCreated);
+  }
+  if (onWasteUpdated) {
+    socket.on("waste:updated", onWasteUpdated);
+  }
+  if (onWasteDeleted) {
+    socket.on("waste:deleted", onWasteDeleted);
+  }
+
+  return () => {
+    if (onWasteCreated) {
+      socket.off("waste:created", onWasteCreated);
+    }
+    if (onWasteUpdated) {
+      socket.off("waste:updated", onWasteUpdated);
+    }
+    if (onWasteDeleted) {
+      socket.off("waste:deleted", onWasteDeleted);
+    }
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+    }
+  };
+};
+
+// Helper function to listen for return updates
+export const subscribeToReturnUpdates = (branchId, callbacks) => {
+  const socket = getSocket();
+  if (!socket) return () => {};
+
+  const { onReturnCreated, onReturnUpdated, onReturnDeleted } = callbacks;
+
+  if (branchId) {
+    joinBranchInventoryRoom(branchId);
+  }
+
+  if (onReturnCreated) {
+    socket.on("return:created", onReturnCreated);
+  }
+  if (onReturnUpdated) {
+    socket.on("return:updated", onReturnUpdated);
+  }
+  if (onReturnDeleted) {
+    socket.on("return:deleted", onReturnDeleted);
+  }
+
+  return () => {
+    if (onReturnCreated) {
+      socket.off("return:created", onReturnCreated);
+    }
+    if (onReturnUpdated) {
+      socket.off("return:updated", onReturnUpdated);
+    }
+    if (onReturnDeleted) {
+      socket.off("return:deleted", onReturnDeleted);
+    }
+    if (branchId) {
+      leaveBranchInventoryRoom(branchId);
+    }
+  };
+};
+
 export default {
   getSocket,
   connectSocket,
@@ -630,4 +820,8 @@ export default {
   subscribeToOrderUpdates,
   subscribeToActivityLogUpdates,
   subscribeToTableUpdates,
+  subscribeToAdminStatsUpdates,
+  subscribeToBranchAdminDashboardUpdates,
+  subscribeToWasteUpdates,
+  subscribeToReturnUpdates,
 };

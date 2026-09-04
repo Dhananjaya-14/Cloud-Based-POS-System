@@ -77,7 +77,17 @@ const AddUser = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "assignedCompany") {
+        next.assignedBranch = "";
+      }
+      if (name === "userRole") {
+        next.assignedCompany = "";
+        next.assignedBranch = "";
+      }
+      return next;
+    });
   };
 
   const handleImageClick = () => {
@@ -141,11 +151,19 @@ const AddUser = () => {
       setErrorMessage(msg);
       toast.error("Error", msg);
       return;
-    } else if (roleId !== 2 && !formData.assignedBranch) {
-      const msg = "Please select an Assigned Branch.";
-      setErrorMessage(msg);
-      toast.error("Error", msg);
-      return;
+    } else {
+      if (!formData.assignedCompany) {
+        const msg = "Please select an Assigned Company/Hotel.";
+        setErrorMessage(msg);
+        toast.error("Error", msg);
+        return;
+      }
+      if (!formData.assignedBranch) {
+        const msg = "Please select an Assigned Branch.";
+        setErrorMessage(msg);
+        toast.error("Error", msg);
+        return;
+      }
     }
 
     setIsSaving(true);
@@ -158,7 +176,7 @@ const AddUser = () => {
         role_id: roleId,
         u_pw: formData.password,
         u_status: formData.activeStatus,
-        com_id: roleId === 2 && formData.assignedCompany ? parseInt(formData.assignedCompany) : null,
+        com_id: roleId !== 6 && formData.assignedCompany ? parseInt(formData.assignedCompany) : null,
         b_id: roleId !== 2 && roleId !== 6 && formData.assignedBranch ? parseInt(formData.assignedBranch) : null,
       };
 
@@ -322,8 +340,8 @@ const AddUser = () => {
                 </div>
               </div>
 
-              {/* User Role, Assigned Branch / Company, Active Status */}
-              <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
+              {/* User Role & Company */}
+              <div style={{ display: "flex", gap: 20 }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>User Role</label>
                   <select name="userRole" value={formData.userRole} onChange={handleChange} style={selectStyle}>
@@ -333,6 +351,7 @@ const AddUser = () => {
                     ))}
                   </select>
                 </div>
+
                 <div style={{ flex: 1 }}>
                   {formData.userRole === "6" ? (
                     <>
@@ -343,36 +362,68 @@ const AddUser = () => {
                         style={{ ...inputStyle, background: "#E5E7EB", color: "#6B7280", cursor: "not-allowed" }}
                       />
                     </>
-                  ) : formData.userRole === "2" ? (
+                  ) : (
                     <>
                       <label style={labelStyle}>Assigned Company / Hotel</label>
-                      <select name="assignedCompany" value={formData.assignedCompany} onChange={handleChange} style={selectStyle}>
+                      <select 
+                        name="assignedCompany" 
+                        value={formData.assignedCompany} 
+                        onChange={handleChange} 
+                        style={selectStyle}
+                        disabled={!formData.userRole}
+                      >
                         <option value="">Select Company</option>
-                        {companies.map(c => (
+                        {companies.filter(c => c.c_status !== false).map(c => (
                           <option key={c.com_id} value={c.com_id}>
                             {c.com_name}
                           </option>
                         ))}
                       </select>
                     </>
+                  )}
+                </div>
+              </div>
+
+              {/* Branch & Active Status */}
+              <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
+                <div style={{ flex: 1 }}>
+                  {formData.userRole === "6" || formData.userRole === "2" ? (
+                    <>
+                      <label style={labelStyle}>Assigned Branch</label>
+                      <input
+                        disabled
+                        value="Not Applicable"
+                        style={{ ...inputStyle, background: "#E5E7EB", color: "#6B7280", cursor: "not-allowed" }}
+                      />
+                    </>
                   ) : (
                     <>
                       <label style={labelStyle}>Assigned Branch</label>
-                      <select name="assignedBranch" value={formData.assignedBranch} onChange={handleChange} style={selectStyle}>
-                        <option value="">Select Branch</option>
-                        {branches.map(b => (
-                          <option key={b.B_id} value={b.B_id}>
-                            {b.B_name} {b.com_name ? `(${b.com_name})` : ""}
-                          </option>
-                        ))}
+                      <select 
+                        name="assignedBranch" 
+                        value={formData.assignedBranch} 
+                        onChange={handleChange} 
+                        style={selectStyle}
+                        disabled={!formData.assignedCompany}
+                      >
+                        <option value="">{formData.assignedCompany ? "Select Branch" : "Select a company first"}</option>
+                        {branches
+                          .filter(b => String(b.com_id) === String(formData.assignedCompany))
+                          .map(b => (
+                            <option key={b.B_id} value={b.B_id}>
+                              {b.B_name}
+                            </option>
+                          ))}
                       </select>
                     </>
                   )}
                 </div>
+
                 <div style={{ flex: 1 }}>
                   <div style={{
                     display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "10px 16px", border: "1px solid #D1D5DB", borderRadius: 8
+                    padding: "10px 16px", border: "1px solid #D1D5DB", borderRadius: 8,
+                    height: 42, background: "#fff"
                   }}>
                     <span style={{ fontSize: 14, color: "#374151" }}>Active Status</span>
                     <div

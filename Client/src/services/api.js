@@ -106,8 +106,8 @@ export const deleteBranch = async (id) => {
 
 // ---------------- USERS ----------------
 
-export const getUsers = async () => {
-  const response = await api.get("/users");
+export const getUsers = async (params = {}) => {
+  const response = await api.get("/users", { params });
   return response.data;
 };
 
@@ -749,6 +749,11 @@ export const getSalesDetailsReport = async (payload) => {
 
 export const getBranchWiseSalesReport = async (payload) => {
   const response = await api.post("/reports/branchsales", payload);
+  return response.data;
+};
+
+export const getCashierPerformanceReport = async (payload) => {
+  const response = await api.post("/reports/cashierperformance", payload);
   return response.data;
 };
 

@@ -13,6 +13,7 @@ import {
 	getRawMaterials,
 	getLowStockMaterials,
 } from "../../services/api";
+import { connectSocket, subscribeToBranchAdminDashboardUpdates } from "../../services/socket";
 import { useTranslation } from "react-i18next";
 
 const formatCurrency = (value) => {
@@ -33,6 +34,27 @@ const Dashboard = () => {
 	const [users, setUsers] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
+	const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+	// Socket connection and real-time dashboard listeners
+	useEffect(() => {
+		if (!user?.b_id) return;
+
+		connectSocket();
+
+		const handleRefresh = () => {
+			console.log("WebSocket event: refreshing branch admin dashboard...");
+			setRefreshTrigger((prev) => prev + 1);
+		};
+
+		const unsubscribe = subscribeToBranchAdminDashboardUpdates(user.b_id, {
+			onRefresh: handleRefresh,
+		});
+
+		return () => {
+			unsubscribe();
+		};
+	}, [user?.b_id]);
 	const { t } = useTranslation();
 
 	useEffect(() => {
@@ -67,10 +89,10 @@ const Dashboard = () => {
 			const nextUsers = results[1]?.status === "fulfilled" ? results[1].value : [];
 			const nextBranchProducts = results[2]?.status === "fulfilled" ? results[2].value : [];
 			const nextOrderItems = results[3]?.status === "fulfilled" ? results[3].value : [];
-			
+
 			let nextRawMaterials = [];
 			let nextLowStock = [];
-			
+
 			if (inventoryEnabled) {
 				nextRawMaterials = results[4]?.status === "fulfilled" ? results[4].value : [];
 				nextLowStock = results[5]?.status === "fulfilled" ? results[5].value : [];
@@ -91,7 +113,7 @@ const Dashboard = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, [user?.b_id, inventoryEnabled]);
+	}, [user?.b_id, inventoryEnabled, refreshTrigger]);
 
 	const cashierUsers = useMemo(
 		() => users.filter((item) => Number(item?.role_id) === 3),

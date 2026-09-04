@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
+import { emitBranchProductEvent } from "../utils/socket.js";
 
 function parsePositiveInt(value, fieldName) {
   const parsed = Number(value);
@@ -142,6 +143,14 @@ export async function updateReturn(req, res, next) {
     );
 
     await client.query("COMMIT");
+
+    if (existing.b_id) {
+      emitBranchProductEvent(existing.b_id, "return:updated", {
+        return_id: id,
+        actor_id: req.user?.u_id
+      });
+    }
+
     res.json(result.rows[0]);
   } catch (err) {
     await client.query("ROLLBACK");
@@ -187,6 +196,14 @@ export async function deleteReturn(req, res, next) {
 
     await client.query(`DELETE FROM "Returns" WHERE return_id = $1`, [id]);
     await client.query("COMMIT");
+
+    if (existing.b_id) {
+      emitBranchProductEvent(existing.b_id, "return:deleted", {
+        return_id: id,
+        actor_id: req.user?.u_id
+      });
+    }
+
     res.status(204).send();
   } catch (err) {
     await client.query("ROLLBACK");
@@ -279,6 +296,13 @@ export async function createReturn(req, res, next) {
     }
 
     await client.query("COMMIT");
+
+    if (bId) {
+      emitBranchProductEvent(bId, "return:created", {
+        actor_id: req.user?.u_id
+      });
+    }
+
     res.status(201).json({ message: "Return recorded and stock updated." });
   } catch (err) {
     await client.query("ROLLBACK");

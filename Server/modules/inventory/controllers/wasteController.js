@@ -1,4 +1,5 @@
 import pool from "../../../config/database.js";
+import { emitBranchProductEvent } from "../../../utils/socket.js";
 
 // ─────────────────────────────────────────────
 // HELPERS
@@ -180,6 +181,18 @@ export const createWaste = async (req, res, next) => {
     }
 
     await client.query("COMMIT");
+
+    if (userBranchId) {
+      emitBranchProductEvent(userBranchId, "waste:created", {
+        waste: {
+          ...wasteResult.rows[0],
+          rm_name: rm_id ? itemName : null,
+          pro_name: pro_id ? itemName : null,
+          unit: finalUnit
+        },
+        actor_id: req.user?.u_id
+      });
+    }
 
     const newStock = currentStock - safeQty;
     const percentage = currentStock > 0 ? ((safeQty / currentStock) * 100).toFixed(2) : "0.00";
@@ -404,6 +417,18 @@ export const updateWaste = async (req, res, next) => {
 
     await client.query("COMMIT");
 
+    const targetBranchId = old.B_id || req.user?.b_id || req.user?.B_id || null;
+    if (targetBranchId) {
+      emitBranchProductEvent(targetBranchId, "waste:updated", {
+        waste: {
+          ...result.rows[0],
+          rm_name: old.rm_name,
+          pro_name: old.pro_name,
+        },
+        actor_id: req.user?.u_id
+      });
+    }
+
     res.json({
       message: "Waste record updated and stock adjusted.",
       data: {
@@ -497,6 +522,14 @@ export const deleteWaste = async (req, res, next) => {
 
     await client.query('DELETE FROM "public"."Waste" WHERE "waste_id" = $1', [id]);
     await client.query("COMMIT");
+
+    const userBranchId = req.user?.b_id || req.user?.B_id || null;
+    if (userBranchId) {
+      emitBranchProductEvent(userBranchId, "waste:deleted", {
+        waste_id: Number(id),
+        actor_id: req.user?.u_id
+      });
+    }
 
     res.json({
       message: "Waste record deleted and stock restored.",
