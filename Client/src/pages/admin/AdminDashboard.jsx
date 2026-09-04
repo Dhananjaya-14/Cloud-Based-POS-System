@@ -12,7 +12,7 @@ import { FiPlus, FiBarChart2 } from "react-icons/fi";
 ChartJS.register(ArcElement, Tooltip, Legend);
 function OrderSummaryChart() {
   const { t } = useTranslation();
-const [counts, setCounts] = React.useState({
+  const [counts, setCounts] = React.useState({
     completed: 0,
     pending: 0,
     other: 0
@@ -80,12 +80,12 @@ const [counts, setCounts] = React.useState({
 }
 function QuickActionsCompact() {
   const { t } = useTranslation();
-const navigate = useNavigate();
+  const navigate = useNavigate();
   const handleAddBranch = () => {
-navigate("/branches");
+    navigate("/branches");
   };
   const handleBranchStats = () => {
-navigate("/admin/statistics");
+    navigate("/admin/statistics");
   };
   const cardStyle = {
     display: "flex",
@@ -159,7 +159,7 @@ navigate("/admin/statistics");
 }
 export default function AdminDashboardPage() {
   const { t } = useTranslation();
-const [overview, setOverview] = useState(null);
+  const [overview, setOverview] = useState(null);
   const [branchStats, setBranchStats] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -218,8 +218,7 @@ const [overview, setOverview] = useState(null);
         }
         setError(null);
       } catch (err) {
-        console.error("Dashboard load error:", err);
-        setError(`Failed to load dashboard data. Please try again later.`);
+        setError("Failed to load dashboard data.");
       } finally {
         if (mounted) setLoading(false);
       }
