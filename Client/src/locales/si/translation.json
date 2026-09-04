@@ -759,7 +759,9 @@
     "confirm_waste": "නාස්තිය තහවුරු කරන්න",
     "add_new_ingredient": "+ නව අමුද්‍රව්‍ය එක් කරන්න",
     "save_ingredients_mapping": "අමුද්‍රව්‍ය සිතියම්කරණය සුරකින්න",
-    "imported_from_product": "නිෂ්පාදනයෙන් ආනයනය කර ඇත"
+    "imported_from_product": "නිෂ්පාදනයෙන් ආනයනය කර ඇත",
+    "branch_wise_sales_report": "ශාඛා අනුව විකුණුම් වාර්තාව",
+    "product_sales_report":"නිෂ්පාදන විකුණුම් වාර්තාව,"
   },
   "Branches listing is not permitted for this account": {
     "": "දෝෂය"
@@ -1126,6 +1128,11 @@
     "invoice_no": "බිල්පත් අංකය",
     "order_type": "ඇණවුම් වර්ගය",
     "sales_amount": "විකුණුම් මුදල",
-    "discount": "වට්ටම්"
+    "discount": "වට්ටම්",
+    "quantity": "ප්‍රමාණය",
+    "generated": "ජනනය කරන ලදී",
+    "branch": "ශාඛාව",
+    "current_branch": "වත්මන් ශාඛාව",
+    "sales_details_report": "විකුණුම් විස්තර වාර්තාව"
   }
 }

@@ -220,62 +220,102 @@ const doc = new jsPDF();
     doc.save(`Branch_Wise_Sales_Report_${generatedDate}.pdf`);
   };
     const exportPDFHtml = () => {
-    const printWindow = window.open("", "_blank");
+    const printWindow = window.open('', '_blank');
     const reportDate = new Date();
     const generatedDate = reportDate.toLocaleDateString();
     const generatedTime = reportDate.toLocaleTimeString();
-    const title = "ranch ise ales eport";
-    
-    const headers = selectedColumns.map(col => availableColumns.find(c => c.key === col)?.label || col);
-    
+
+    const headers = availableColumns
+      .filter(col => selectedColumns.includes(col.key))
+      .map(col => col.label);
+
     const bodyHtml = rows.map(row => {
-      return "<tr>" + selectedColumns.map(colKey => {
+      return '<tr>' + selectedColumns.map(colKey => {
         let val = row[colKey];
-        if (colKey === "unit_price" || colKey === "total_sale" || colKey === "total_amount" || colKey === "amount" || colKey === "total_cost" || colKey === "tax" || colKey === "totalCostWtax") {
-          val = "Rs. " + Number(val || 0).toFixed(2);
-        } else if (colKey === "pay_date" && val) {
-          val = val.split("T")[0];
-        } else if (colKey === "pay_time" && val) {
-          const d = new Date(val);
-          val = isNaN(d.getTime()) ? val : d.toLocaleTimeString();
-        } else if (colKey === "date" && val) {
-          val = val.split("T")[0];
+        if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax','subtotal','total_sales'].includes(colKey)) {
+          val = 'Rs. ' + Number(val || 0).toFixed(2);
+        } else if (['pay_date', 'date', 'order_date', 'report_date'].includes(colKey) && val) {
+          val = String(val).split('T')[0];
+        } else if (['pay_time', 'order_time'].includes(colKey) && val) {
+          if (String(val).includes('T')) {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) {
+              val = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+              val = String(val).split('T')[1].split('.')[0];
+            }
+          } else {
+            val = String(val).split('.')[0];
+          }
+        } else if (['stock_qty', 'quantity'].includes(colKey) && val !== undefined) {
+          val = Number(val || 0).toFixed(2);
         }
-        return "<td>" + (val || "") + "</td>";
-      }).join("") + "</tr>";
-    }).join("");
-    
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title></title>
-          <style>
-            body { font-family: sans-serif; padding: 20px; }
-            h2 { color: #0056A2; text-align: center; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f2f2f2; }
-          </style>
-        </head>
-        <body>
-          <h2></h2>
-          <p><strong>Generated:</strong>  </p>
-          <table>
-            <thead>
-              <tr></tr>
-            </thead>
-            <tbody>
-              
-            </tbody>
-          </table>
-          <script>
-            window.onload = function() { window.print(); window.close(); }
-          </script>
-        </body>
-      </html>
-    `);
+        return '<td>' + (val !== null && val !== undefined ? val : '') + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
+
+    const headerHtml = headers.map(h => '<th>' + h + '</th>').join('');
+
+    printWindow.document.write('<!DOCTYPE html>' +
+      '<html>' +
+      '<head>' +
+      '<meta charset="UTF-8" />' +
+      '<title>' + t('branch_admin.branch_wise_sales_report', 'Branch Wise Sales Report') + '<\/title>' +
+      '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala&family=Noto+Sans+Tamil&display=swap" rel="stylesheet" />' +
+      '<style>' +
+      '@media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } @page { size: auto; margin: 5mm; } }' +
+      'body { font-family: \'Noto Sans Sinhala\', \'Noto Sans Tamil\', Arial, sans-serif; padding: 0; margin: 0; box-sizing: border-box; width: 100%; max-width: 100%; }' +
+      'h2 { color: #0052A8; margin-top: 0; }' +
+      'p { margin: 4px 0; font-size: 13px; }' +
+      'table { width: 100% !important; border-collapse: collapse; margin-top: 20px; font-size: 12px; table-layout: auto; }' +
+      'th { background-color: #0052A8 !important; color: #fff !important; padding: 10px 8px; text-align: left; border: 1px solid #0052A8; font-weight: bold; }' +
+      'td { border: 1px solid #ddd; padding: 8px; }' +
+      'tr:nth-child(even) td { background-color: #f9fafb !important; }' +
+      '</style>' +
+      '</head>' +
+      '<body>' +
+      '<h2>' + t('branch_admin.branch_wise_sales_report', 'Branch Wise Sales Report') + '</h2>' +
+      '<p><strong>' + t('reports.generated', 'Generated') + ':</strong> ' + generatedDate + ' ' + generatedTime + '</p>' +
+      '<p><strong>' + t('reports.branch', 'Branch') + ':</strong> ' + (branchName || t('reports.current_branch', 'Current Branch')) + '</p>' +
+      '<table>' +
+      '<thead><tr>' + headerHtml + '</tr></thead>' +
+      
+      '<tbody>' + bodyHtml + '</tbody>' +
+      (function() {
+          if (rows.length === 0 || typeof grandTotal === 'undefined') return '';
+          
+          let tIdx = -1;
+          for (let i = selectedColumns.length - 1; i >= 0; i--) {
+            if (['total_sale', 'total_amount', 'amount', 'total_cost', 'totalCostWtax', 'subtotal', 'total_sales'].includes(selectedColumns[i])) {
+              tIdx = i;
+              break;
+            }
+          }
+          
+          if (tIdx === -1) tIdx = selectedColumns.length - 1;
+          
+          let rowHtml = '<tfoot><tr>';
+          for (let i = 0; i < selectedColumns.length; i++) {
+            if (i === tIdx - 1) {
+               rowHtml += '<td style="text-align:right; font-weight:bold;">TOTAL</td>';
+            } else if (i === tIdx) {
+               rowHtml += '<td style="font-weight:bold;">Rs. ' + Number(grandTotal).toFixed(2) + '</td>';
+            } else if (i < tIdx - 1) {
+               rowHtml += '<td></td>';
+            } else if (i > tIdx) {
+               rowHtml += '<td></td>';
+            }
+          }
+          rowHtml += '</tr></tfoot>';
+          return rowHtml;
+        })() +
+  
+      '</table>' +
+      '<script>document.fonts.ready.then(function(){ window.print(); });<\/script>' +
+      '</body>' +
+      '</html>');
     printWindow.document.close();
-  };
+  };;
 
   const exportPDF = () => {
     if (i18n.language === "en") {

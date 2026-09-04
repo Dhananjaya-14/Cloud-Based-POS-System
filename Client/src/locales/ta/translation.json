@@ -755,7 +755,8 @@
     "add_new_ingredient": "+ புதிய மூலப்பொருளைச் சேர்க்கவும்",
     "save_ingredients_mapping": "மூலப்பொருள் மேப்பிங்கைச் சேமிக்கவும்",
     "imported_from_product": "தயாரிப்பில் இருந்து இறக்குமதி செய்யப்பட்டது",
-    "confirm_return": "திரும்பியதை உறுதிப்படுத்தவும்"
+    "confirm_return": "திரும்பியதை உறுதிப்படுத்தவும்",
+    "branch_wise_sales_report": "Branch Wise Sales Report"
   },
   "Branches listing is not permitted for this account": {
     "": "பிழை"
@@ -1122,6 +1123,11 @@
     "invoice_no": "விலைப்பட்டியல் எண்",
     "order_type": "ஆர்டர் வகை",
     "sales_amount": "விற்பனை தொகை",
-    "discount": "தள்ளுபடி"
+    "discount": "தள்ளுபடி",
+    "quantity": "அளவு",
+    "generated": "Generated",
+    "branch": "Branch",
+    "current_branch": "Current Branch",
+    "sales_details_report": "Sales Details Report"
   }
 }

@@ -196,28 +196,50 @@ const { user } = useAuth();
     
     const head = selectedColumns.map(col => availableColumns.find(c => c.key === col)?.label || col);
     const body = rows.map(row => {
-      return selectedColumns.map(colKey => {
-        let val = row[colKey];
-        if (colKey === 'unit_price' || colKey === 'total_sale' || colKey === 'total_amount' || colKey === 'amount' || colKey === 'total_cost' || colKey === 'tax' || colKey === 'totalCostWtax') {
-          return 'Rs. ' + Number(val || 0).toFixed(2);
-        }
-        if (colKey === 'pay_date' && val) return val.split('T')[0];
-        if (colKey === 'pay_time' && val) {
-          const d = new Date(val);
-          return isNaN(d.getTime()) ? val : d.toLocaleTimeString();
-        }
-        if (colKey === 'date' && val) return val.split('T')[0];
-        return val || '';
+        return selectedColumns.map(colKey => {
+          let val = row[colKey];
+          if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax','subtotal','total_sales'].includes(colKey)) {
+            val = 'Rs. ' + Number(val || 0).toFixed(2);
+          } else if (['pay_date', 'date', 'order_date', 'report_date'].includes(colKey) && val) {
+            val = String(val).split('T')[0];
+          } else if (['pay_time', 'order_time'].includes(colKey) && val) {
+            if (String(val).includes('T')) {
+              const d = new Date(val);
+              if (!isNaN(d.getTime())) {
+                val = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              } else {
+                val = String(val).split('T')[1].split('.')[0];
+              }
+            } else {
+              val = String(val).split('.')[0];
+            }
+          } else if (['stock_qty', 'quantity'].includes(colKey) && val !== undefined && val !== null) {
+            val = Number(val || 0).toFixed(2);
+          }
+          return val !== null && val !== undefined ? val : '';
+        });
       });
-    });
 
     if (body.length > 0 && typeof grandTotal !== 'undefined') {
-       const totalRow = Array(selectedColumns.length).fill('');
-       totalRow[0] = 'TOTAL';
-       const totalIndex = selectedColumns.findIndex(c => c === 'total_sale' || c === 'total_amount' || c === 'amount');
-       if (totalIndex !== -1) totalRow[totalIndex] = 'Rs. ' + Number(grandTotal).toFixed(2);
-       body.push(totalRow);
-    }
+         const totalRow = Array(selectedColumns.length).fill('');
+         
+         let totalIndex = -1;
+         for (let i = selectedColumns.length - 1; i >= 0; i--) {
+           if (['total_sale', 'total_amount', 'amount', 'total_cost', 'totalCostWtax', 'subtotal', 'total_sales'].includes(selectedColumns[i])) {
+             totalIndex = i;
+             break;
+           }
+         }
+         
+         if (totalIndex !== -1) {
+           totalRow[totalIndex - 1 >= 0 ? totalIndex - 1 : 0] = 'TOTAL';
+           totalRow[totalIndex] = 'Rs. ' + Number(grandTotal).toFixed(2);
+         } else {
+           totalRow[0] = 'TOTAL';
+           totalRow[selectedColumns.length - 1] = 'Rs. ' + Number(grandTotal).toFixed(2);
+         }
+         body.push(totalRow);
+      }
 
     doc.line(14, 35, 196, 35);
     
@@ -251,50 +273,102 @@ const { user } = useAuth();
   };
 
   const exportPDFHtml = () => {
-    const doc = new jsPDF();
+    const printWindow = window.open('', '_blank');
     const reportDate = new Date();
+    const generatedDate = reportDate.toLocaleDateString();
+    const generatedTime = reportDate.toLocaleTimeString();
 
-    doc.setFontSize(22);
-    doc.setTextColor(0, 82, 168);
-    doc.text("Sales Details Report", 14, 20);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text(`Generated: ${reportDate.toLocaleDateString()} ${reportDate.toLocaleTimeString()}`, 14, 28);
-    doc.text(`Branch: ${branchName || "Current Branch"}`, 14, 34);
-    const cashierFullName = user ? `${user.u_fname || "Cashier"} ${user.u_lname || ""}`.trim() : "System Operator";
-    doc.text(`Cashier: ${cashierFullName}`, 196, 34, { align: "right" });
-    doc.line(14, 38, 196, 38);
+    const headers = availableColumns
+      .filter(col => selectedColumns.includes(col.key))
+      .map(col => col.label);
 
-    let filterLabel = filters.filterType === "weekly" ? `Week: ${activeRange.from} to ${activeRange.to}` : filters.filterType === "monthly" ? `Month: ${filters.selectedMonth}` : `${filters.fromDate} to ${filters.toDate}`;
-    doc.setFontSize(11);
-    doc.text(`Filter: ${filterLabel}`, 14, 46);
-    doc.text(`Records: ${rows.length}`, 175, 46);
+    const bodyHtml = rows.map(row => {
+      return '<tr>' + selectedColumns.map(colKey => {
+        let val = row[colKey];
+        if (['unit_price','total_sale','total_amount','amount','total_cost','tax','totalCostWtax','subtotal','total_sales'].includes(colKey)) {
+          val = 'Rs. ' + Number(val || 0).toFixed(2);
+        } else if (['pay_date', 'date', 'order_date', 'report_date'].includes(colKey) && val) {
+          val = String(val).split('T')[0];
+        } else if (['pay_time', 'order_time'].includes(colKey) && val) {
+          if (String(val).includes('T')) {
+            const d = new Date(val);
+            if (!isNaN(d.getTime())) {
+              val = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+              val = String(val).split('T')[1].split('.')[0];
+            }
+          } else {
+            val = String(val).split('.')[0];
+          }
+        } else if (['stock_qty', 'quantity'].includes(colKey) && val !== undefined) {
+          val = Number(val || 0).toFixed(2);
+        }
+        return '<td>' + (val !== null && val !== undefined ? val : '') + '</td>';
+      }).join('') + '</tr>';
+    }).join('');
 
-    const visibleColumns = availableColumns.filter((col) => selectedColumns.includes(col.key));
+    const headerHtml = headers.map(h => '<th>' + h + '</th>').join('');
 
-    autoTable(doc, {
-      startY: 55,
-      head: [visibleColumns.map((col) => col.label)],
-      body: rows.map((row) =>
-        visibleColumns.map((col) => {
-          if (col.key === "subtotal") return `Rs. ${Number(row[col.key] || 0).toFixed(2)}`;
-          if (col.key === "order_date") return row.order_date ? row.order_date.split("T")[0] : "";
-          return row[col.key] ?? "";
-        })
-      ),
-      theme: "striped",
-      headStyles: { fillColor: [0, 82, 168], fontSize: 10, align: "center" },
-    });
-
-    const finalY = doc.lastAutoTable.finalY + 12;
-    doc.setFillColor(240, 248, 255);
-    doc.rect(135, finalY - 6, 70, 12, "F");
-    doc.setFontSize(11);
-    doc.setTextColor(0, 128, 0);
-    doc.text(`Total: Rs. ${Number(grandTotal).toFixed(2)}`, 155, finalY + 2);
-
-    doc.save(`Sales_Details_Report_${reportDate.toLocaleDateString()}.pdf`);
-  };
+    printWindow.document.write('<!DOCTYPE html>' +
+      '<html>' +
+      '<head>' +
+      '<meta charset="UTF-8" />' +
+      '<title>' + t('reports.sales_details_report', 'Sales Details Report') + '<\/title>' +
+      '<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala&family=Noto+Sans+Tamil&display=swap" rel="stylesheet" />' +
+      '<style>' +
+      '@media print { * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; } @page { size: auto; margin: 5mm; } }' +
+      'body { font-family: \'Noto Sans Sinhala\', \'Noto Sans Tamil\', Arial, sans-serif; padding: 0; margin: 0; box-sizing: border-box; width: 100%; max-width: 100%; }' +
+      'h2 { color: #0052A8; margin-top: 0; }' +
+      'p { margin: 4px 0; font-size: 13px; }' +
+      'table { width: 100% !important; border-collapse: collapse; margin-top: 20px; font-size: 12px; table-layout: auto; }' +
+      'th { background-color: #0052A8 !important; color: #fff !important; padding: 10px 8px; text-align: left; border: 1px solid #0052A8; font-weight: bold; }' +
+      'td { border: 1px solid #ddd; padding: 8px; }' +
+      'tr:nth-child(even) td { background-color: #f9fafb !important; }' +
+      '</style>' +
+      '</head>' +
+      '<body>' +
+      '<h2>' + t('reports.sales_details_report', 'Sales Details Report') + '</h2>' +
+      '<p><strong>' + t('reports.generated', 'Generated') + ':</strong> ' + generatedDate + ' ' + generatedTime + '</p>' +
+      '<p><strong>' + t('reports.branch', 'Branch') + ':</strong> ' + (branchName || t('reports.current_branch', 'Current Branch')) + '</p>' +
+      '<table>' +
+      '<thead><tr>' + headerHtml + '</tr></thead>' +
+      
+      '<tbody>' + bodyHtml + '</tbody>' +
+      (function() {
+          if (rows.length === 0 || typeof grandTotal === 'undefined') return '';
+          
+          let tIdx = -1;
+          for (let i = selectedColumns.length - 1; i >= 0; i--) {
+            if (['total_sale', 'total_amount', 'amount', 'total_cost', 'totalCostWtax', 'subtotal', 'total_sales'].includes(selectedColumns[i])) {
+              tIdx = i;
+              break;
+            }
+          }
+          
+          if (tIdx === -1) tIdx = selectedColumns.length - 1;
+          
+          let rowHtml = '<tfoot><tr>';
+          for (let i = 0; i < selectedColumns.length; i++) {
+            if (i === tIdx - 1) {
+               rowHtml += '<td style="text-align:right; font-weight:bold;">TOTAL</td>';
+            } else if (i === tIdx) {
+               rowHtml += '<td style="font-weight:bold;">Rs. ' + Number(grandTotal).toFixed(2) + '</td>';
+            } else if (i < tIdx - 1) {
+               rowHtml += '<td></td>';
+            } else if (i > tIdx) {
+               rowHtml += '<td></td>';
+            }
+          }
+          rowHtml += '</tr></tfoot>';
+          return rowHtml;
+        })() +
+  
+      '</table>' +
+      '<script>document.fonts.ready.then(function(){ window.print(); });<\/script>' +
+      '</body>' +
+      '</html>');
+    printWindow.document.close();
+  };;
 
   return (
     <div className="min-h-screen bg-[#F4F7FB] flex flex-col overflow-visible">

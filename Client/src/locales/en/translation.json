@@ -700,7 +700,8 @@
     "reports": "Reports",
     "sales_details": "Sales Details",
     "product_sales": "Product Sales",
-    "confirm_return": "Confirm Return"
+    "confirm_return": "Confirm Return",
+    "branch_wise_sales_report": "Branch Wise Sales Report"
   },
   "Session expired — please login": "error",
   "Please login to access branches": "error",
@@ -1031,6 +1032,11 @@
     "grand_total": "Grand Total",
     "invoice_no": "Invoice No",
     "order_type": "Order Type",
-    "sales_amount": "Sales Amount"
+    "sales_amount": "Sales Amount",
+    "quantity": "Quantity",
+    "generated": "Generated",
+    "branch": "Branch",
+    "current_branch": "Current Branch",
+    "sales_details_report": "Sales Details Report"
   }
 }
