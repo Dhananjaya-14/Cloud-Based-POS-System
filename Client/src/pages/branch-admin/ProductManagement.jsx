@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 // Client/src/pages/branch-admin/ProductManagement.jsx
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
@@ -102,6 +102,8 @@ const navigate = useNavigate();
     user
   } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockLevelFilter, setStockLevelFilter] = useState("all");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -346,15 +348,30 @@ setNotifications(prev => {
       mapped = mapped.filter(item => item.product_type === "finished");
     }
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return mapped;
-    return mapped.filter(item => {
-      return item.name.toLowerCase().includes(query) || item.sku.toLowerCase().includes(query) || item.category.toLowerCase().includes(query);
-    });
-  }, [products, searchTerm, activeTab]);
+    if (query) {
+      mapped = mapped.filter(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.sku.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
+      );
+    }
+    if (categoryFilter !== "all") {
+      mapped = mapped.filter(item => item.category === categoryFilter);
+    }
+    if (stockLevelFilter !== "all") {
+      mapped = mapped.filter(item => item.status === stockLevelFilter);
+    }
+    return mapped;
+  }, [products, searchTerm, activeTab, categoryFilter,stockLevelFilter]);
   const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, activeTab]);
+    setCategoryFilter("all");
+    setStockLevelFilter("all");
+  }, [activeTab]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter,stockLevelFilter]);
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -529,7 +546,7 @@ setNotifications(prev => {
           }}>
               <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/branch-admin/products/add")} style={{
               background: "#0E6DCF",
-              borderRadius: "3px",
+              borderRadius: "10px",
               padding: "10px 18px",
               fontWeight: "600"
             }} />
@@ -667,37 +684,68 @@ setNotifications(prev => {
             }} />
             </div>
 
-            {["Category : All", "Status : All", "Stock Level : All"].map(option => <div key={option} style={{
-            position: "relative",
-            width: "182px"
-          }}>
-                <select style={{
-              width: "100%",
-              height: "36px",
-              background: "#fff",
-              borderRadius: "13px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-              border: "1px solid #D9DCE1",
-              padding: "0 34px 0 14px",
-              fontSize: "13px",
-              fontWeight: "500",
-              color: "#4B5563",
-              outline: "none",
-              appearance: "none",
-              WebkitAppearance: "none",
-              MozAppearance: "none"
-            }}>
-                  <option>{option}</option>
-                </select>
-                <FaChevronDown size={11} color="#111827" style={{
-              position: "absolute",
-              right: "17px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              pointerEvents: "none"
-            }} />
-              </div>)}
+            {/* Category Filter */}
+            <div style={{ position: "relative", width: "182px" }}>
+              <select
+                value={categoryFilter}
+                onChange={e => setCategoryFilter(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: "36px",
+                  background: "#fff",
+                  borderRadius: "13px",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
+                  border: "1px solid #D9DCE1",
+                  padding: "0 34px 0 14px",
+                  fontSize: "13px",
+                  fontWeight: "500",
+                  color: "#4B5563",
+                  outline: "none",
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                  MozAppearance: "none"
+                }}
+              >
+                <option value="all">Category : All</option>
+                {[...new Set(products.map(p => p.cat_name).filter(Boolean))].sort().map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            </div>
+
+            
+            {/* Stock Level Filter */}
+            <div style={{ position: "relative", width: "182px" }}>
+              <select
+                value={stockLevelFilter}
+                onChange={e => setStockLevelFilter(e.target.value)}
+                style={{
+                  width: "100%",
+                  height: "36px",
+                  background: "#fff",
+                  borderRadius: "13px",
+                  boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
+                  border: "1px solid #D9DCE1",
+                  padding: "0 34px 0 14px",
+                  fontSize: "13px",
+                  fontWeight: "500",
+                  color: "#4B5563",
+                  outline: "none",
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                  MozAppearance: "none"
+                }}
+              >
+                <option value="all">Stock Level : All</option>
+                <option value="In stock">In Stock</option>
+                <option value="Low stock">Low Stock</option>
+                <option value="Out of stock">Out of Stock</option>
+              </select>
+              <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            </div>
           </div>
+
 
           <ProductItemsTable products={paginatedProducts} onDecreaseStock={id => handleAdjustStock(id, -1)} onIncreaseStock={id => handleAdjustStock(id, 1)} onAddStock={activeTab !== "made_to_order" ? item => setStockModalItem(item) : null} hideStockColumn={activeTab === "made_to_order"} updatingStockId={updatingStockId} showActions={true} onDeleteProduct={handleDeleteClick} onFetchIngredients={getBranchProductIngredientStatus} onEditProduct={null} currentPage={currentPage} totalPages={totalPages} totalItems={tableProducts.length} pageStart={pageStart} pageEnd={pageEnd} onPageChange={setCurrentPage} />
         </div>

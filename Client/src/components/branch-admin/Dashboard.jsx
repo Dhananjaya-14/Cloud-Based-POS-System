@@ -65,7 +65,7 @@ const Dashboard = () => {
 			setError("");
 
 			const today = new Date().toISOString().split("T")[0];
-			const orderParams = { status: "completed", date: today };
+			const orderParams = { date: today };
 			if (user?.b_id) {
 				orderParams.b_id = user.b_id;
 			}
@@ -85,7 +85,10 @@ const Dashboard = () => {
 
 			if (!isMounted) return;
 
-			const nextOrders = results[0]?.status === "fulfilled" ? results[0].value : [];
+			const nextOrdersRaw = results[0]?.status === "fulfilled" ? results[0].value : [];
+			const nextOrders = Array.isArray(nextOrdersRaw) ? nextOrdersRaw.filter(
+				(o) => o.or_status === "completed" || o.pay_status === "paid"
+			) : [];
 			const nextUsers = results[1]?.status === "fulfilled" ? results[1].value : [];
 			const nextBranchProducts = results[2]?.status === "fulfilled" ? results[2].value : [];
 			const nextOrderItems = results[3]?.status === "fulfilled" ? results[3].value : [];
@@ -378,8 +381,8 @@ const Dashboard = () => {
 														<div className="h-full bg-sky-500" style={{ width: `${percent}%` }} />
 													</div>
 												</div>
-												<div className="text-xs text-slate-500">
-													{stockQty}{recordLevel ? ` / ${recordLevel}` : ""}
+												<div className="text-xs text-slate-500 font-medium">
+													{stockQty} {item.unit || ""}
 												</div>
 											</div>
 										);

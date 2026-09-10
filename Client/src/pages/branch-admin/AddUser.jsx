@@ -122,6 +122,23 @@ setToasts(prev => [...prev, {
       showToastMessage("First name, last name, email and password are required", "error");
       return;
     }
+    
+    // Email Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      showToastMessage("Please enter a valid email address", "error");
+      return;
+    }
+
+    // Phone Validation
+    if (formData.contactNumber) {
+      const phoneRegex = /^[0-9+\-\s()]+$/;
+      if (!phoneRegex.test(formData.contactNumber)) {
+        showToastMessage("Please enter a valid numeric contact number", "error");
+        return;
+      }
+    }
+
     if (formData.password !== formData.confirmPassword) {
       showToastMessage("Password and confirm password do not match", "error");
       return;

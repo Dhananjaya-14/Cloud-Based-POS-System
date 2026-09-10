@@ -56,15 +56,16 @@ const { user } = useAuth();
   const loadTodayOrders = useCallback(async () => {
     try {
       const today = new Date().toISOString().split("T")[0];
-      const params = { status: "completed", date: today };
+      const params = { date: today };
 
       if (user?.u_id) {
         params.u_id = user.u_id;
       }
 
-      const orders = await getOrders(params);
-
-
+      const allOrders = await getOrders(params);
+      const orders = allOrders.filter(
+        (o) => o.or_status === "completed" || o.pay_status === "paid"
+      );
 
       const recent = orders.slice(0, 5).map((order) => ({
         orderId: order.or_id,

@@ -957,10 +957,10 @@
     "saving": "Saving...",
     "creating": "creating",
     "create_user_account": "create_user_account",
-    "new_branch": "new_branch",
+    "new_branch": "+ New Branch",
     "edit_user_details": "edit_user_details",
-    "add_product": "add_product",
-    "add_promotion": "add_promotion",
+    "add_product": "+  Add Product",
+    "add_promotion": "+  Add Promotion",
     "create_promotion": "create_promotion",
     "update_promotion": "update_promotion",
     "edit_promotion": "edit_promotion"
