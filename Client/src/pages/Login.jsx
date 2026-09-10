@@ -22,6 +22,7 @@ const navigate = useNavigate();
     try {
       const data = await login({ u_email, u_pw }); // { token, user }
       const roleId = Number(data.user?.role_id);
+      sessionStorage.setItem("loginSuccessMessage", "Logged in successfully.");
       // map role ids to routes
       if (roleId === 6) navigate("/dashboard"); // super admin -> Dashboard overview
       else if (roleId === 2) navigate("/admin/dashboard"); // admin -> BranchManagement
