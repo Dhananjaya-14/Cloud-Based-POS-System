@@ -25,7 +25,8 @@ const RegisterStep1 = () => {
           </div>
           <div style={inputGroup}>
             <label style={labelStyle}>Business Type</label>
-            <select style={inputStyle}><option>Hotel</option></select>
+            <select style={inputStyle}><option>Hotel</option><option>Bar</option><option>Restaurant</option></select>
+            
           </div>
         </div>
         <div style={{ ...inputGroup, textAlign: 'left', marginTop: '20px' }}>
