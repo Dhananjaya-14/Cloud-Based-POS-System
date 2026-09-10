@@ -97,6 +97,8 @@ const ProductManagement = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
+  const [stockLevelFilter, setStockLevelFilter] = useState("all");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -322,17 +324,27 @@ const ProductManagement = () => {
     };
   }, []);
   const tableProducts = useMemo(() => {
-    const mapped = products.map(mapApiProductToTableItem);
+    let mapped = products.map(mapApiProductToTableItem);
     const query = searchTerm.trim().toLowerCase();
-    if (!query) return mapped;
-    return mapped.filter(item => {
-      return item.name.toLowerCase().includes(query) || item.sku.toLowerCase().includes(query) || item.category.toLowerCase().includes(query);
-    });
-  }, [products, searchTerm]);
+    if (query) {
+      mapped = mapped.filter(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.sku.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
+      );
+    }
+    if (categoryFilter !== "all") {
+      mapped = mapped.filter(item => item.category === categoryFilter);
+    }
+    if (stockLevelFilter !== "all") {
+      mapped = mapped.filter(item => item.status === stockLevelFilter);
+    }
+    return mapped;
+  }, [products, searchTerm, categoryFilter,stockLevelFilter]);
   const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm]);
+  }, [searchTerm, categoryFilter,stockLevelFilter]);
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -636,7 +648,7 @@ const ProductManagement = () => {
             flex: 1
           }}>
             <FaSearch color="#9CA3AF" size={14} />
-            <input type="text" placeholder={t("company_admin.search_by_name_or_code", "Search by Name or Code")} style={{
+            <input type="text" placeholder={t("company_admin.search_by_name_or_code", "Search by Name or Code")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
               border: "none",
               outline: "none",
               width: "100%",
@@ -644,37 +656,67 @@ const ProductManagement = () => {
             }} />
           </div>
 
-          {["Category : All", "Status : All", "Stock Level : All"].map(option => <div key={option} style={{
-            position: "relative",
-            width: "182px"
-          }}>
-            <select style={{
-              width: "100%",
-              height: "36px",
-              background: "#fff",
-              borderRadius: "13px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-              border: "1px solid #D9DCE1",
-              padding: "0 34px 0 14px",
-              fontSize: "13px",
-              fontWeight: "500",
-              color: "#4B5563",
-              outline: "none",
-              appearance: "none",
-              WebkitAppearance: "none",
-              MozAppearance: "none"
-            }}>
-              <option>{option}</option>
+          {/* Category Filter */}
+          <div style={{ position: "relative", width: "182px" }}>
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              style={{
+                width: "100%",
+                height: "36px",
+                background: "#fff",
+                borderRadius: "13px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
+                border: "1px solid #D9DCE1",
+                padding: "0 34px 0 14px",
+                fontSize: "13px",
+                fontWeight: "500",
+                color: "#4B5563",
+                outline: "none",
+                appearance: "none",
+                WebkitAppearance: "none",
+                MozAppearance: "none"
+              }}
+            >
+              <option value="all">Category : All</option>
+              {[...new Set(products.map(p => p.cat_name).filter(Boolean))].sort().map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
             </select>
-            <FaChevronDown size={11} color="#111827" style={{
-              position: "absolute",
-              right: "17px",
-              top: "50%",
-              transform: "translateY(-50%)",
-              pointerEvents: "none"
-            }} />
-          </div>)}
+            <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+          </div>
+
+          {/* Stock Level Filter */}
+          <div style={{ position: "relative", width: "182px" }}>
+            <select
+              value={stockLevelFilter}
+              onChange={e => setStockLevelFilter(e.target.value)}
+              style={{
+                width: "100%",
+                height: "36px",
+                background: "#fff",
+                borderRadius: "13px",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
+                border: "1px solid #D9DCE1",
+                padding: "0 34px 0 14px",
+                fontSize: "13px",
+                fontWeight: "500",
+                color: "#4B5563",
+                outline: "none",
+                appearance: "none",
+                WebkitAppearance: "none",
+                MozAppearance: "none"
+              }}
+            >
+              <option value="all">Stock Level : All</option>
+              <option value="In stock">In Stock</option>
+              <option value="Low stock">Low Stock</option>
+              <option value="Out of stock">Out of Stock</option>
+            </select>
+            <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+          </div>
         </div>
+
 
         <ProductItemsTable products={paginatedProducts} hideStockColumn={true} hideStatusColumn={true} showTypeColumn={true} onViewProduct={handleViewProduct} onEditProduct={handleEditProduct} onDeleteProduct={handleDeleteProduct} currentPage={currentPage} totalPages={totalPages} totalItems={tableProducts.length} pageStart={pageStart} pageEnd={pageEnd} onPageChange={setCurrentPage} />
       </div>
