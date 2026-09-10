@@ -148,6 +148,41 @@ const CashierPerformance = () => {
 		return [...cashierStats].sort((a, b) => b.revenue - a.revenue);
 	}, [cashierStats]);
 
+	const itemsPerPage = 4;
+	const [currentPage, setCurrentPage] = useState(1);
+
+	const totalPages = useMemo(() => {
+		return Math.max(1, Math.ceil(sortedCashiers.length / itemsPerPage));
+	}, [sortedCashiers.length, itemsPerPage]);
+
+	useEffect(() => {
+		setCurrentPage(1);
+	}, [timeRange]);
+
+	useEffect(() => {
+		if (currentPage > totalPages) {
+			setCurrentPage(totalPages);
+		}
+	}, [currentPage, totalPages]);
+
+	const paginatedCashiers = useMemo(() => {
+		const startIndex = (currentPage - 1) * itemsPerPage;
+		return sortedCashiers.slice(startIndex, startIndex + itemsPerPage);
+	}, [sortedCashiers, currentPage, itemsPerPage]);
+
+	const getPageNumbers = () => {
+		if (totalPages <= 5) {
+			return Array.from({ length: totalPages }, (_, i) => i + 1);
+		}
+		if (currentPage <= 3) {
+			return [1, 2, 3, 4, "...", totalPages];
+		}
+		if (currentPage >= totalPages - 2) {
+			return [1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+		}
+		return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+	};
+
 	const totalRevenue = useMemo(() => {
 		return sortedCashiers.reduce((sum, cashier) => sum + cashier.revenue, 0);
 	}, [sortedCashiers]);
@@ -200,11 +235,11 @@ const CashierPerformance = () => {
 	};
 
 	const statusForCashier = (cashier, index) => {
-		if (index === 0) return { label: "Top Performer", color: "bg-green-100 text-green-700" };
-		if (cashier.revenue >= avgOrderValue * cashier.orders) {
+		if (index === 0 && cashier.revenue > 0) return { label: "Top Performer", color: "bg-green-100 text-green-700" };
+		if (cashier.revenue >= avgOrderValue * cashier.orders && cashier.orders > 0) {
 			return { label: "High Efficiency", color: "bg-emerald-100 text-emerald-700" };
 		}
-		if (cashier.revenue >= totalRevenue * 0.2) {
+		if (cashier.revenue >= totalRevenue * 0.2 && cashier.revenue > 0) {
 			return { label: "Steady", color: "bg-sky-100 text-sky-700" };
 		}
 		return { label: "Needs Attention", color: "bg-rose-100 text-rose-700" };
@@ -433,8 +468,8 @@ const CashierPerformance = () => {
 										</tr>
 									)}
 									{(isLoading
-										? Array.from({ length: 4 })
-										: sortedCashiers.slice(0, 4)
+										? Array.from({ length: itemsPerPage })
+										: paginatedCashiers
 									).map((cashier, index) => {
 										if (!cashier) {
 											return (
@@ -445,7 +480,8 @@ const CashierPerformance = () => {
 												</tr>
 											);
 										}
-										const status = statusForCashier(cashier, index);
+										const overallIndex = (currentPage - 1) * itemsPerPage + index;
+										const status = statusForCashier(cashier, overallIndex);
 										const initials = cashier.name
 											.split(" ")
 											.map((part) => part[0])
@@ -478,26 +514,57 @@ const CashierPerformance = () => {
 
 						<div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-[11px] text-slate-400">
 							<div>
-								{t("branch_admin.showing_4_of", "Showing 4 of ")}
-								{cashierUsers.length || 0}
-								{t("branch_admin.cashiers_registered", " cashiers registered")}
+								Showing{" "}
+								<span className="font-semibold text-slate-600">
+									{sortedCashiers.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
+								</span>{" "}
+								-{" "}
+								<span className="font-semibold text-slate-600">
+									{Math.min(sortedCashiers.length, currentPage * itemsPerPage)}
+								</span>{" "}
+								of{" "}
+								<span className="font-semibold text-slate-600">
+									{sortedCashiers.length}
+								</span>{" "}
+								{t("branch_admin.cashiers_registered", "cashiers registered")}
 							</div>
 							<div className="flex items-center gap-2">
 								<button
 									type="button"
-									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500"
+									onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+									disabled={currentPage === 1}
+									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 								>
 									{t("branch_admin.previous", "Previous")}
 								</button>
-								<button type="button" className="h-7 w-7 rounded-lg bg-[#0D5EA8] text-white">
-									1
-								</button>
-								<button type="button" className="h-7 w-7 rounded-lg border border-slate-200 text-slate-500">
-									2
-								</button>
+								{getPageNumbers().map((item, idx) => {
+									if (item === "...") {
+										return (
+											<span key={`dots-${idx}`} className="px-1 text-slate-400 text-xs select-none">
+												...
+											</span>
+										);
+									}
+									return (
+										<button
+											key={item}
+											type="button"
+											onClick={() => setCurrentPage(item)}
+											className={`h-7 w-7 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center ${
+												item === currentPage
+													? "bg-[#0D5EA8] text-white"
+													: "border border-slate-200 text-slate-500 hover:bg-slate-50"
+											}`}
+										>
+											{item}
+										</button>
+									);
+								})}
 								<button
 									type="button"
-									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500"
+									onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+									disabled={currentPage === totalPages || totalPages <= 1}
+									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 								>
 									{t("branch_admin.next", "Next")}
 								</button>
