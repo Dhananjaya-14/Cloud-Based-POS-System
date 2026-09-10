@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
@@ -86,6 +87,7 @@ function App() {
     <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/register/step-1" element={<RegisterStep1 />} />
       <Route path="/register/step-2" element={<RegisterStep2 />} />
       <Route path="/register/step-3" element={<RegisterStep3 />} />

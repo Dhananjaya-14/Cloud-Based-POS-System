@@ -119,5 +119,93 @@ export async function login(req, res, next) {
   }
 }
 
+// POST /api/auth/forgot-password
+export async function forgotPassword(req, res, next) {
+  try {
+    const u_email = String(req.body?.u_email || "").trim().toLowerCase();
+    const genericResponse = {
+      message: "If an account exists for that email, a password reset link has been sent.",
+    };
+
+    if (!u_email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const result = await pool.query(
+      'SELECT u_id, u_email FROM "User" WHERE LOWER(u_email) = $1',
+      [u_email]
+    );
+
+    if (result.rows.length === 0) {
+      return res.json(genericResponse);
+    }
+
+    if (!process.env.JWT_SECRET) {
+      res.status(500);
+      throw new Error("JWT_SECRET is not configured");
+    }
+
+    const resetToken = jwt.sign(
+      { purpose: "password-reset", u_id: result.rows[0].u_id, u_email: result.rows[0].u_email },
+      process.env.JWT_SECRET,
+      { expiresIn: "15m" }
+    );
+
+    // A mail provider can consume this token later. Until one is configured,
+    // expose a testable link only outside production.
+    if (process.env.NODE_ENV !== "production") {
+      return res.json({
+        ...genericResponse,
+        resetUrl: `${process.env.CLIENT_URL || "http://localhost:5173"}/forgot-password?token=${encodeURIComponent(resetToken)}`,
+      });
+    }
+
+    return res.json(genericResponse);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// POST /api/auth/reset-password
+export async function resetPassword(req, res, next) {
+  try {
+    const { token, password } = req.body || {};
+    if (!token || typeof password !== "string" || password.length < 8) {
+      res.status(400);
+      throw new Error("A reset token and a password of at least 8 characters are required");
+    }
+
+    if (!process.env.JWT_SECRET) {
+      res.status(500);
+      throw new Error("JWT_SECRET is not configured");
+    }
+
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    if (payload.purpose !== "password-reset" || !payload.u_id) {
+      res.status(400);
+      throw new Error("Invalid password reset token");
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const result = await pool.query(
+      'UPDATE "User" SET u_pw = $1 WHERE u_id = $2 RETURNING u_id',
+      [hashedPassword, payload.u_id]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(400);
+      throw new Error("Invalid password reset token");
+    }
+
+    res.json({ message: "Password reset successfully" });
+  } catch (err) {
+    if (err.name === "TokenExpiredError" || err.name === "JsonWebTokenError") {
+      res.status(400);
+      err = new Error("This password reset link is invalid or has expired");
+    }
+    next(err);
+  }
+}
+
 
 
