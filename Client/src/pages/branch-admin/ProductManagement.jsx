@@ -546,7 +546,7 @@ setNotifications(prev => {
           }}>
               <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/branch-admin/products/add")} style={{
               background: "#0E6DCF",
-              borderRadius: "3px",
+              borderRadius: "10px",
               padding: "10px 18px",
               fontWeight: "600"
             }} />

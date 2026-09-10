@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaCashRegister, FaFilter, FaPen, FaPlus, FaSearch, FaTimes, FaTrash, FaUserCheck, FaUserShield, FaUsers } from "react-icons/fa";
+import { FaCashRegister, FaFilter, FaPen, FaPlus, FaSearch, FaTimes, FaTrash, FaUserCheck, FaUserShield, FaUsers, FaEye, FaEyeSlash } from "react-icons/fa";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import { createUser, deleteUserById, getBranches, getRoles, getUsers } from "../../services/api";
@@ -191,6 +191,23 @@ setToasts(prev => [...prev, {
       showToastMessage("Please select a supported role.", "error");
       return;
     }
+    
+    // Email Validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (newUser.u_email && !emailRegex.test(newUser.u_email)) {
+      showToastMessage("Please enter a valid email address", "error");
+      return;
+    }
+
+    // Phone Validation
+    if (newUser.u_connumber) {
+      const phoneRegex = /^[0-9+\-\s()]+$/;
+      if (!phoneRegex.test(newUser.u_connumber)) {
+        showToastMessage("Please enter a valid numeric contact number", "error");
+        return;
+      }
+    }
+
     try {
       await createUser({
         ...newUser,
@@ -757,21 +774,45 @@ const Field = ({
   type = "text",
   required = false
 }) => {
-return <div>
+  const [showPassword, setShowPassword] = useState(false);
+  const isPassword = type === "password";
+  const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+
+  return <div style={{ position: "relative" }}>
       <label style={{
       display: "block",
       marginBottom: "6px",
       color: "#334466",
       fontWeight: 600
     }}>{label}</label>
-      <input name={name} value={value} onChange={onChange} type={type} required={required} style={{
+      <input name={name} value={value} onChange={onChange} type={inputType} required={required} style={{
       width: "100%",
       height: "40px",
       border: "1px solid #d8e0ed",
       borderRadius: "10px",
       padding: "0 10px",
+      paddingRight: isPassword ? "36px" : "10px",
       color: "#334466"
     }} />
+      {isPassword && (
+        <button
+          type="button"
+          onClick={() => setShowPassword(!showPassword)}
+          style={{
+            position: "absolute",
+            right: "10px",
+            top: "34px",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "#6f7f9e",
+            padding: "4px"
+          }}
+          title={showPassword ? "Hide password" : "Show password"}
+        >
+          {showPassword ? <FaEyeSlash size={16} /> : <FaEye size={16} />}
+        </button>
+      )}
     </div>;
 };
 const DeleteConfirmModal = ({
