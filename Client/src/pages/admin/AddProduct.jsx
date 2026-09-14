@@ -583,57 +583,15 @@ setToasts(prev => [...prev, {
                   </div>
                 </div>
 
-                {/* Track Inventory Section - Added from the HEAD version */}
-                <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                marginBottom: "8px"
-              }}>
-                  <div style={{
-                  fontSize: "16px",
-                  fontWeight: "700",
-                  lineHeight: 1
-                }}>{t("company_admin.track_inventory", "Track Inventory")}</div>
-                  <div style={{
-                  width: "36px",
-                  height: "18px",
-                  borderRadius: "20px",
-                  background: "#0E6DCF",
-                  position: "relative"
-                }}>
-                    <div style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "50%",
-                    background: "#fff",
-                    position: "absolute",
-                    right: "3px",
-                    top: "3px"
-                  }} />
-                  </div>
-                </div>
-
+                
+                    
                 <div style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
                 gap: "12px",
                 marginTop: "4px"
               }}>
-                  <div>
-                    <label style={{
-                    ...labelStyle,
-                    marginBottom: "6px"
-                  }}>{t("company_admin.current_stock", "Current stock")}</label>
-                    <input style={inputStyle} placeholder={t("company_admin.0", "0")} />
-                  </div>
-                  <div>
-                    <label style={{
-                    ...labelStyle,
-                    marginBottom: "6px"
-                  }}>{t("company_admin.low_stock", "Low stock")}</label>
-                    <input style={inputStyle} placeholder={t("company_admin.10", "10")} />
-                  </div>
+                  
                 </div>
               </div>
 
