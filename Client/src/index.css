@@ -21,3 +21,46 @@ html, body, #root {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: #94a3b8; /* slate-400 */
 }
+
+/* Super Admin Responsive Overrides */
+@media (max-width: 1024px) {
+  .sa-main-content {
+    margin-left: 0 !important;
+  }
+  .sa-sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease-in-out;
+  }
+  .sa-sidebar.open {
+    transform: translateX(0);
+  }
+  .sa-hamburger-btn {
+    display: block !important;
+  }
+  .sa-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 30;
+  }
+  .sa-header-title {
+    font-size: 20px !important;
+  }
+  .sa-user-info {
+    display: none !important;
+  }
+  .sa-close-btn {
+    display: block !important;
+  }
+}
+@media (min-width: 1025px) {
+  .sa-sidebar {
+    transform: translateX(0) !important;
+  }
+  .sa-close-btn {
+    display: none !important;
+  }
+}

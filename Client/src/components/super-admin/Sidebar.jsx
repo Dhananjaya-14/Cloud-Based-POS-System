@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   FaTachometerAlt,
@@ -8,16 +8,34 @@ import {
   FaCodeBranch,
   FaClipboardList,
   FaBox,
+  FaTimes,
 } from "react-icons/fa";
 
 const Sidebar = () => {
   const location = useLocation();
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = () => setIsOpen(prev => !prev);
+    const closeSidebar = () => setIsOpen(false);
+    
+    window.addEventListener("toggle-sa-sidebar", handleToggle);
+    window.addEventListener("close-sa-sidebar", closeSidebar);
+    
+    return () => {
+      window.removeEventListener("toggle-sa-sidebar", handleToggle);
+      window.removeEventListener("close-sa-sidebar", closeSidebar);
+    };
+  }, []);
 
   const menuItem = (icon, label, path) => {
     const isActive = location.pathname === path || location.pathname.startsWith(path);
     return (
       <Link
         to={path}
+        onClick={() => {
+          if (window.innerWidth < 1024) setIsOpen(false);
+        }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -39,46 +57,65 @@ const Sidebar = () => {
   };
 
   return (
-    <div
-      style={{
-        width: 240,
-        minHeight: "100vh",
-        height: "100%",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        background: "#2E3E8F",
-        padding: "20px 12px 28px",
-        position: "fixed",
-        left: 0,
-        top: 0,
-        bottom: 0,
-        overflowY: "auto",
-        boxSizing: "border-box",
-        zIndex: 40,
-      }}
-    >
-      <div>
-        <h2 style={{ marginLeft: 10, fontSize: 20, fontWeight: 600 }}>
-          <span style={{ color: "#00FF1A" }}>SLT</span>{" "}
-          <span style={{ color: "#4880FF" }}>POS</span>
-        </h2>
+    <>
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div 
+          className="sa-overlay"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      <div
+        className={`sa-sidebar ${isOpen ? "open" : ""}`}
+        style={{
+          width: 240,
+          minHeight: "100vh",
+          height: "100%",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          background: "#2E3E8F",
+          padding: "20px 12px 28px",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          overflowY: "auto",
+          boxSizing: "border-box",
+          zIndex: 40,
+        }}
+      >
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingRight: 10 }}>
+            <h2 style={{ marginLeft: 10, fontSize: 20, fontWeight: 600 }}>
+              <span style={{ color: "#00FF1A" }}>SLT</span>{" "}
+              <span style={{ color: "#4880FF" }}>POS</span>
+            </h2>
+            <button 
+              className="sa-close-btn"
+              onClick={() => setIsOpen(false)}
+              style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer" }}
+            >
+              <FaTimes size={20} />
+            </button>
+          </div>
 
-        <div style={{ marginTop: 30 }}>
-          {menuItem(<FaTachometerAlt />, "Dashboard", "/dashboard")}
-          {menuItem(<FaStore />, "Company Management", "/super-admin/hotels")}
-          {menuItem(<FaUsers />, "User Management", "/super-admin/users")}
-          {menuItem(<FaCodeBranch />, "Branch Management", "/super-admin/branches")}
-          {menuItem(<FaClipboardList />, "Activity Log", "/super-admin/activity-log")}
-          {menuItem(<FaBox />, "Package Management", "/super-admin/packages")}
+          <div style={{ marginTop: 30 }}>
+            {menuItem(<FaTachometerAlt />, "Dashboard", "/dashboard")}
+            {menuItem(<FaStore />, "Company Management", "/super-admin/hotels")}
+            {menuItem(<FaUsers />, "User Management", "/super-admin/users")}
+            {menuItem(<FaCodeBranch />, "Branch Management", "/super-admin/branches")}
+            {menuItem(<FaClipboardList />, "Activity Log", "/super-admin/activity-log")}
+            {menuItem(<FaBox />, "Package Management", "/super-admin/packages")}
+          </div>
+        </div>
+
+        <div>
+          {menuItem(<FaSignOutAlt />, "Log Out", "/logout")}
         </div>
       </div>
-
-      <div>
-        {menuItem(<FaSignOutAlt />, "Log Out", "/logout")}
-      </div>
-    </div>
+    </>
   );
 };
 

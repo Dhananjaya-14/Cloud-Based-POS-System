@@ -146,7 +146,7 @@ const PackageManagement = () => {
   if (loading) return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
       <Sidebar />
-      <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+      <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
         <Header title="Package Management" />
         <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center" }}>
           <Spinner size={44} />
@@ -158,7 +158,7 @@ const PackageManagement = () => {
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
       <Sidebar />
-      <div style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+      <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
         <Header title="Package Management" />
 
         <div style={{ padding: "30px 40px", flex: 1 }}>
