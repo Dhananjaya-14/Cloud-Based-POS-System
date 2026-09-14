@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { FaBell, FaUserCircle } from "react-icons/fa";
+import { FaBell, FaUserCircle, FaBars } from "react-icons/fa";
 import { getCurrentUser } from "../../services/api";
 
 const Header = ({ title = "System Admin DashBoard" }) => {
@@ -33,7 +33,16 @@ const Header = ({ title = "System Admin DashBoard" }) => {
         background: "linear-gradient(135deg, #2E3E8F 0%, #00B4EB 59%, #55D24B 100%)",
       }}
     >
-      <h2 style={{ fontSize: "26px", margin: 0, fontWeight: "500" }}>{title}</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
+        <button 
+          className="sa-hamburger-btn"
+          onClick={() => window.dispatchEvent(new Event("toggle-sa-sidebar"))}
+          style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", display: "none" }}
+        >
+          <FaBars size={22} />
+        </button>
+        <h2 className="sa-header-title" style={{ fontSize: "26px", margin: 0, fontWeight: "500" }}>{title}</h2>
+      </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
         <FaBell size={20} />
@@ -49,7 +58,7 @@ const Header = ({ title = "System Admin DashBoard" }) => {
           }}
         >
           <FaUserCircle size={30} />
-          <div>
+          <div className="sa-user-info">
             <div style={{ fontSize: "14px" }}>{displayName}</div>
             <div style={{ fontSize: "12px" }}>{email}</div>
           </div>
