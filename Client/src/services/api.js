@@ -80,8 +80,19 @@ export const logout = () => {
 };
 
 export const getCurrentUser = () => {
+  const token = localStorage.getItem("token");
   const raw = localStorage.getItem("user");
-  return raw ? JSON.parse(raw) : null;
+
+  if (!token || !raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    localStorage.removeItem("user");
+    return null;
+  }
 };
 
 // ---------------- BRANCHES ----------------
