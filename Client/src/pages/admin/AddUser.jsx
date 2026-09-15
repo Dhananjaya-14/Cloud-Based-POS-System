@@ -136,7 +136,16 @@ setToasts(prev => [...prev, {
       setSubmitError("First name, last name, email and password are required");
       return;
     }
-    if (formData.contactNumber && !PHONE_RE.test(formData.contactNumber.trim())) {
+
+    // Contact Number is required
+    if (!formData.contactNumber || !formData.contactNumber.trim()) {
+      setPhoneError("Contact number is required.");
+      showToastMessage("Contact number is required.", "error");
+      return;
+    }
+
+    // Contact Number format validation
+    if (!PHONE_RE.test(formData.contactNumber.trim())) {
       setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
       showToastMessage("Phone number must be 10 digits and start with 07.", "error");
       return;
@@ -267,7 +276,7 @@ setToasts(prev => [...prev, {
               }} />
 							</div>
 
-							<form onSubmit={handleSubmit} style={{
+							<form onSubmit={handleSubmit} noValidate style={{
               display: "flex",
               flexDirection: "column",
               gap: "18px"
