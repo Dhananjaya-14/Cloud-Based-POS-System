@@ -40,7 +40,7 @@ const sectionTitleStyle = {
 };
 const AddProduct = () => {
   const { t } = useTranslation();
-const navigate = useNavigate();
+  const navigate = useNavigate();
   const {
     user
   } = useAuth();
@@ -55,7 +55,10 @@ const navigate = useNavigate();
     stations: {
       Kitchen: true,
       Bar: true
-    }
+    },
+    track_inventory: true,
+    current_stock: "",
+    low_stock: ""
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -65,7 +68,7 @@ const navigate = useNavigate();
   const [newAddOn, setNewAddOn] = useState("");
   const [newStation, setNewStation] = useState("");
   const toggleCheckbox = (group, key) => {
-setForm(prev => ({
+    setForm(prev => ({
       ...prev,
       [group]: {
         ...prev[group],
@@ -73,8 +76,14 @@ setForm(prev => ({
       }
     }));
   };
+  const toggleTrackInventory = () => {
+    setForm(prev => ({
+      ...prev,
+      track_inventory: !prev.track_inventory
+    }));
+  };
   const handleAddAddOn = () => {
-if (!newAddOn.trim()) return;
+    if (!newAddOn.trim()) return;
     const key = newAddOn.trim();
     setForm(prev => ({
       ...prev,
@@ -86,7 +95,7 @@ if (!newAddOn.trim()) return;
     setNewAddOn("");
   };
   const handleAddStation = () => {
-if (!newStation.trim()) return;
+    if (!newStation.trim()) return;
     const key = newStation.trim();
     setForm(prev => ({
       ...prev,
@@ -141,7 +150,7 @@ if (!newStation.trim()) return;
     return () => clearTimeout(timer);
   }, [toasts]);
   const showToastMessage = (message, type = "success") => {
-setToasts(prev => [...prev, {
+    setToasts(prev => [...prev, {
       id: Date.now() + Math.random(),
       message,
       type
@@ -173,7 +182,10 @@ setToasts(prev => [...prev, {
         cat_id: Number(form.cat_id) || undefined,
         add_ons: form.add_ons,
         stations: form.stations,
-        product_type: form.product_type
+        product_type: form.product_type,
+        track_inventory: form.track_inventory,
+        pro_qty: form.track_inventory ? Number(form.current_stock) || 0 : 0,
+        low_stock_alert: form.track_inventory ? Number(form.low_stock) || 10 : 0
       };
       const response = await createProduct(payload);
 
@@ -189,7 +201,10 @@ setToasts(prev => [...prev, {
         stations: {
           Kitchen: true,
           Bar: true
-        }
+        },
+        track_inventory: true,
+        current_stock: "",
+        low_stock: ""
       }));
     } catch (err) {
       const message = err?.response?.data?.message || "Failed to save product";
@@ -583,15 +598,70 @@ setToasts(prev => [...prev, {
                   </div>
                 </div>
 
-                
-                    
+                {/* Track Inventory Section */}
+                <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                marginBottom: "8px"
+              }}>
+                  <div style={{
+                  fontSize: "16px",
+                  fontWeight: "700",
+                  lineHeight: 1
+                }}>{t("company_admin.track_inventory", "Track Inventory")}</div>
+                  <button
+                    type="button"
+                    onClick={toggleTrackInventory}
+                    aria-pressed={form.track_inventory}
+                    aria-label="Toggle track inventory"
+                    style={{
+                      width: "36px",
+                      height: "18px",
+                      borderRadius: "20px",
+                      background: form.track_inventory ? "#0E6DCF" : "#CBD5E1",
+                      position: "relative",
+                      border: "none",
+                      padding: 0,
+                      cursor: "pointer",
+                      transition: "background 0.2s ease"
+                    }}
+                  >
+                    <div style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "50%",
+                      background: "#fff",
+                      position: "absolute",
+                      left: form.track_inventory ? "21px" : "3px",
+                      top: "3px",
+                      transition: "left 0.2s ease"
+                    }} />
+                  </button>
+                </div>
+
                 <div style={{
                 display: "grid",
                 gridTemplateColumns: "1fr 1fr",
                 gap: "12px",
-                marginTop: "4px"
+                marginTop: "4px",
+                opacity: form.track_inventory ? 1 : 0.5,
+                pointerEvents: form.track_inventory ? "auto" : "none"
               }}>
-                  
+                  <div>
+                    <label style={{
+                    ...labelStyle,
+                    marginBottom: "6px"
+                  }}>{t("company_admin.current_stock", "Current stock")}</label>
+                    <input style={inputStyle} placeholder={t("company_admin.0", "0")} value={form.current_stock} onChange={handleChange("current_stock")} disabled={!form.track_inventory} />
+                  </div>
+                  <div>
+                    <label style={{
+                    ...labelStyle,
+                    marginBottom: "6px"
+                  }}>{t("company_admin.low_stock", "Low stock")}</label>
+                    <input style={inputStyle} placeholder={t("company_admin.10", "10")} value={form.low_stock} onChange={handleChange("low_stock")} disabled={!form.track_inventory} />
+                  </div>
                 </div>
               </div>
 
