@@ -1,3 +1,7 @@
+## 17.0.13
+
+- fix(types): the selector-form `keyPrefix` overload of `useTranslation()` is now available under `enableSelector: 'strict'`. `useTranslation` was gated on `true | 'optimize'` only, so under `'strict'` it resolved to the legacy signature and the selector overload disappeared entirely (`keyPrefix: ($) => $.ns.foo` failed with `Type '($: any) => any' is not assignable to type 'undefined'`). `Trans` already handled all three modes. Companion to the same fix for `getFixedT` in [i18next#2446](https://github.com/i18next/i18next/pull/2446). Thanks @hovelopin ([#1930](https://github.com/i18next/react-i18next/pull/1930)).
+
 ## 17.0.12
 
 - fix(IcuTrans): key-less `icu.macro` nodes (`<Trans>Welcome, {name}!</Trans>`, `<Select>`, `<Plural>` without `i18nKey`) rendered an empty string since 17.0.0. The macro now emits `<IcuTrans defaultTranslation="…">` without a key and `IcuTrans` passed `undefined` to `t()`, which returns `''`. Like `Trans`, `IcuTrans` now uses `defaultTranslation` as the key when `i18nKey` is not provided.

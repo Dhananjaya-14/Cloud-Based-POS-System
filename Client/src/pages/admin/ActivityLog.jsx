@@ -7,169 +7,172 @@ import AdminHeader from "../../components/admin/Header";
 import Spinner from "../../components/super-admin/Spinner";
 import { connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import { getActivityLogs, getActivityLogSummary, setAuthToken } from "../../services/api";
-import { FaSearch, FaFilter, FaSync, FaInfoCircle, FaCheckCircle, FaTimesCircle } from "react-icons/fa";
-const ACTION_TYPES = ["LOGIN", "LOGIN_FAILED", "CREATE", "READ", "UPDATE", "DELETE"];
-const MODULE_NAMES = ["AUTH", "USER", "ROLE", "COMPANY", "BRANCH", "CUSTOMER", "TABLE", "TABLE_ASSIGNMENT", "RESERVATION", "WAITER", "CATEGORY", "PRODUCT", "BRANCH_PRODUCT", "RECIPE", "RAW_MATERIAL", "WASTE", "SUPPLIER", "PURCHASE_ORDER", "PURCHASE_ITEM", "SUPPLIER_PAYMENT", "ORDER", "ORDER_ITEM", "PAYMENT", "DISCOUNT", "DELIVERY", "TERMINAL", "DASHBOARD", "STATS", "REPORT", "PAYHERE", "ACTIVITY_LOG"];
+import {
+  FaSearch,
+  FaFilter,
+  FaSync,
+  FaInfoCircle,
+  FaCheckCircle,
+  FaTimesCircle,
+} from "react-icons/fa";
+
+const ACTION_TYPES = [
+  "LOGIN",
+  "LOGIN_FAILED",
+  "LOGOUT",
+  "LOGOUT_FAILED",
+  "CREATE",
+  "READ",
+  "UPDATE",
+  "DELETE",
+];
+
+const MODULE_NAMES = [
+  "AUTH", "USER", "ROLE", "COMPANY", "BRANCH", "CUSTOMER", "TABLE",
+  "TABLE_ASSIGNMENT", "RESERVATION", "WAITER", "CATEGORY", "PRODUCT",
+  "BRANCH_PRODUCT", "RECIPE", "RAW_MATERIAL", "WASTE", "SUPPLIER",
+  "PURCHASE_ORDER", "PURCHASE_ITEM", "SUPPLIER_PAYMENT", "ORDER",
+  "ORDER_ITEM", "PAYMENT", "DISCOUNT", "DELIVERY", "TERMINAL",
+  "DASHBOARD", "STATS", "REPORT", "PAYHERE", "ACTIVITY_LOG",
+];
+
 const ACTION_COLORS = {
-  LOGIN: {
-    bg: "#DCFCE7",
-    color: "#16A34A"
-  },
-  LOGIN_FAILED: {
-    bg: "#FEE2E2",
-    color: "#DC2626"
-  },
-  CREATE: {
-    bg: "#DBEAFE",
-    color: "#1D4ED8"
-  },
-  READ: {
-    bg: "#F3F4F6",
-    color: "#6B7280"
-  },
-  UPDATE: {
-    bg: "#FEF9C3",
-    color: "#CA8A04"
-  },
-  DELETE: {
-    bg: "#FEE2E2",
-    color: "#DC2626"
-  }
+  LOGIN: { bg: "#DCFCE7", color: "#16A34A" },
+  LOGIN_FAILED: { bg: "#FEE2E2", color: "#DC2626" },
+  LOGOUT: { bg: "#E0E7FF", color: "#4338CA" },
+  LOGOUT_FAILED: { bg: "#FEE2E2", color: "#DC2626" },
+  CREATE: { bg: "#DBEAFE", color: "#1D4ED8" },
+  READ: { bg: "#F3F4F6", color: "#6B7280" },
+  UPDATE: { bg: "#FEF9C3", color: "#CA8A04" },
+  DELETE: { bg: "#FEE2E2", color: "#DC2626" },
 };
-const getActionStyle = action => ACTION_COLORS[action] ?? {
-  bg: "#F3F4F6",
-  color: "#374151"
-};
-const Badge = ({
-  text,
-  bg,
-  color
-}) => <span style={{
-  display: "inline-block",
-  padding: "3px 10px",
-  borderRadius: 999,
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.03em",
-  background: bg,
-  color,
-  whiteSpace: "nowrap"
-}}>
-		{text}
-	</span>;
-const SummaryCard = ({
-  icon,
-  label,
-  value,
-  bg,
-  iconColor
-}) => <div style={{
-  background: "#fff",
-  borderRadius: 14,
-  padding: "18px 22px",
-  display: "flex",
-  alignItems: "center",
-  gap: 14,
-  boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-  flex: 1,
-  minWidth: 140
-}}>
-		<div style={{
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    background: bg,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: iconColor,
-    fontSize: 18,
-    flexShrink: 0
-  }}>
-			{icon}
-		</div>
-		<div>
-			<div style={{
-      fontSize: 12,
-      color: "#9CA3AF",
-      fontWeight: 600,
-      marginBottom: 2
-    }}>{label}</div>
-			<div style={{
-      fontSize: 22,
+
+const getActionStyle = (action) =>
+  ACTION_COLORS[action] ?? { bg: "#F3F4F6", color: "#374151" };
+
+const Badge = ({ text, bg, color }) => (
+  <span
+    style={{
+      display: "inline-block",
+      padding: "3px 10px",
+      borderRadius: 999,
+      fontSize: 11,
       fontWeight: 700,
-      color: "#111827"
-    }}>{value}</div>
-		</div>
-	</div>;
-const Toast = ({
-  message,
-  type,
-  onClose
-}) => {
-const colors = {
-    success: {
-      bg: "#DCFCE7",
-      color: "#16A34A",
-      border: "#BBF7D0"
-    },
-    error: {
-      bg: "#FEE2E2",
-      color: "#DC2626",
-      border: "#FECACA"
-    },
-    info: {
-      bg: "#DBEAFE",
-      color: "#1D4ED8",
-      border: "#BFDBFE"
-    }
+      letterSpacing: "0.03em",
+      background: bg,
+      color,
+      whiteSpace: "nowrap",
+    }}
+  >
+    {text}
+  </span>
+);
+
+const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
+  <div
+    style={{
+      background: "#fff",
+      borderRadius: 14,
+      padding: "18px 22px",
+      display: "flex",
+      alignItems: "center",
+      gap: 14,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+      flex: 1,
+      minWidth: 140,
+    }}
+  >
+    <div
+      style={{
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        background: bg,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: iconColor,
+        fontSize: 18,
+        flexShrink: 0,
+      }}
+    >
+      {icon}
+    </div>
+    <div>
+      <div
+        style={{
+          fontSize: 12,
+          color: "#9CA3AF",
+          fontWeight: 600,
+          marginBottom: 2,
+        }}
+      >
+        {label}
+      </div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>
+        {value}
+      </div>
+    </div>
+  </div>
+);
+
+const Toast = ({ message, type, onClose }) => {
+  const colors = {
+    success: { bg: "#DCFCE7", color: "#16A34A", border: "#BBF7D0" },
+    error: { bg: "#FEE2E2", color: "#DC2626", border: "#FECACA" },
+    info: { bg: "#DBEAFE", color: "#1D4ED8", border: "#BFDBFE" },
   };
   const c = colors[type] || colors.info;
-  return <div style={{
-    position: "fixed",
-    bottom: 28,
-    right: 28,
-    background: c.bg,
-    color: c.color,
-    border: `1px solid ${c.border}`,
-    borderRadius: 12,
-    padding: "14px 20px",
-    fontWeight: 600,
-    fontSize: 14,
-    boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
-    zIndex: 9999,
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    maxWidth: 360
-  }}>
-			{type === "success" && <FaCheckCircle />}
-			{type === "error" && <FaTimesCircle />}
-			{type === "info" && <FaInfoCircle />}
-			<span style={{
-      flex: 1
-    }}>{message}</span>
-			<button onClick={onClose} style={{
-      background: "none",
-      border: "none",
-      cursor: "pointer",
-      color: c.color,
-      fontSize: 16,
-      lineHeight: 1,
-      padding: 0
-    }}>
-				×
-			</button>
-		</div>;
+  return (
+    <div
+      style={{
+        position: "fixed",
+        bottom: 28,
+        right: 28,
+        background: c.bg,
+        color: c.color,
+        border: `1px solid ${c.border}`,
+        borderRadius: 12,
+        padding: "14px 20px",
+        fontWeight: 600,
+        fontSize: 14,
+        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+        zIndex: 9999,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        maxWidth: 360,
+      }}
+    >
+      {type === "success" && <FaCheckCircle />}
+      {type === "error" && <FaTimesCircle />}
+      {type === "info" && <FaInfoCircle />}
+      <span style={{ flex: 1 }}>{message}</span>
+      <button
+        onClick={onClose}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: c.color,
+          fontSize: 16,
+          lineHeight: 1,
+          padding: 0,
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
 };
+
 const ActivityLog = () => {
   const { t } = useTranslation();
-const navigate = useNavigate();
-  const {
-    user
-  } = useAuth();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   const companyId = Number(user?.com_id ?? storedUser?.com_id);
+
   const [logs, setLogs] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -181,31 +184,75 @@ const navigate = useNavigate();
     action_type: "",
     module_name: "",
     from: "",
-    to: ""
+    to: "",
   });
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
   const LIMIT = 20;
+
+  // State for aggregated summary stats (fallback when API summary is unavailable)
+  const [summaryStats, setSummaryStats] = useState({
+    totalEvents: 0,
+    logins: 0,
+    creates: 0,
+    deletes: 0,
+  });
+
   const showToast = (message, type = "info") => {
-    setToast({
-      message,
-      type
-    });
+    setToast({ message, type });
     setTimeout(() => setToast(null), 4000);
   };
-  const fetchLogs = useCallback(async () => {
-    setLoading(true);
-    try {
-      const params = {
-        page,
-        limit: LIMIT
-      };
+
+  // Build the params object from current filters
+  const buildFilterParams = useCallback(
+    (extra = {}) => {
+      const params = { ...extra };
       if (filters.search) params.search = filters.search;
       if (filters.action_type) params.action_type = filters.action_type;
       if (filters.module_name) params.module_name = filters.module_name;
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
       if (companyId) params.com_id = companyId;
+      return params;
+    },
+    [filters, companyId]
+  );
+
+  // Fallback: compute summary stats by paging through all filtered logs
+  const fetchSummaryFromLogs = useCallback(async () => {
+    const params = buildFilterParams({ page: 1, limit: LIMIT });
+    const firstPage = await getActivityLogs(params);
+    const collectedLogs = [...(firstPage.logs ?? [])];
+    const totalPagesToFetch = Math.max(1, firstPage.totalPages ?? 1);
+
+    for (let nextPage = 2; nextPage <= totalPagesToFetch; nextPage += 1) {
+      const pageData = await getActivityLogs({
+        ...params,
+        page: nextPage,
+        limit: LIMIT,
+      });
+      collectedLogs.push(...(pageData.logs ?? []));
+    }
+
+    const counts = collectedLogs.reduce(
+      (acc, log) => {
+        const actionType = String(log?.action_type || "").toUpperCase();
+        acc.totalEvents += 1;
+        if (actionType === "LOGIN") acc.logins += 1;
+        if (actionType === "CREATE") acc.creates += 1;
+        if (actionType === "DELETE") acc.deletes += 1;
+        return acc;
+      },
+      { totalEvents: 0, logins: 0, creates: 0, deletes: 0 }
+    );
+
+    setSummaryStats(counts);
+  }, [buildFilterParams]);
+
+  const fetchLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = buildFilterParams({ page, limit: LIMIT });
       const data = await getActivityLogs(params);
       setLogs(data.logs ?? []);
       setTotal(data.total ?? 0);
@@ -223,23 +270,49 @@ const navigate = useNavigate();
     } finally {
       setLoading(false);
     }
-  }, [page, filters, companyId]);
+  }, [page, buildFilterParams]);
+
   const fetchSummary = useCallback(async () => {
     try {
-      const params = companyId ? {
-        com_id: companyId
-      } : {};
+      const params = companyId ? { com_id: companyId } : {};
       const data = await getActivityLogSummary(params);
       setSummary(data);
+
+      // If the API returned useful byAction data, use it
+      if (data && Array.isArray(data.byAction) && data.byAction.length > 0) {
+        const totalEvents = data.byAction.reduce(
+          (sum, action) => sum + parseInt(action.count, 10),
+          0
+        );
+        const logins =
+          data.byAction.find((a) => a.action_type === "LOGIN")?.count || 0;
+        const creates =
+          data.byAction.find((a) => a.action_type === "CREATE")?.count || 0;
+        const deletes =
+          data.byAction.find((a) => a.action_type === "DELETE")?.count || 0;
+
+        setSummaryStats({
+          totalEvents,
+          logins: parseInt(logins, 10),
+          creates: parseInt(creates, 10),
+          deletes: parseInt(deletes, 10),
+        });
+      } else {
+        // Otherwise fall back to computing from logs
+        await fetchSummaryFromLogs();
+      }
     } catch (err) {
       console.error("Failed to fetch summary:", err);
-      setSummary({
-        byAction: [],
-        byModule: [],
-        recent: []
-      });
+      setSummary({ byAction: [], byModule: [], recent: [] });
+      try {
+        await fetchSummaryFromLogs();
+      } catch (fallbackErr) {
+        console.error("Fallback summary computation failed:", fallbackErr);
+        setSummaryStats({ totalEvents: 0, logins: 0, creates: 0, deletes: 0 });
+      }
     }
-  }, [companyId]);
+  }, [companyId, fetchSummaryFromLogs]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -250,27 +323,30 @@ const navigate = useNavigate();
     fetchLogs();
     fetchSummary();
   }, [navigate, fetchLogs, fetchSummary]);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return undefined;
+
     const socket = connectSocket();
     const handleActivityLogChanged = () => {
       fetchLogs();
       fetchSummary();
     };
+
     socket.on(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, handleActivityLogChanged);
+
     return () => {
       socket.off(SOCKET_EVENTS.ACTIVITY_LOG_CHANGED, handleActivityLogChanged);
     };
   }, [fetchLogs, fetchSummary]);
+
   const onFilterChange = (key, value) => {
-    setFilters(current => ({
-      ...current,
-      [key]: value
-    }));
+    setFilters((current) => ({ ...current, [key]: value }));
     setPage(1);
   };
-  const formatDate = iso => {
+
+  const formatDate = (iso) => {
     if (!iso) return "—";
     const date = new Date(iso);
     if (Number.isNaN(date.getTime())) return "—";
@@ -279,412 +355,614 @@ const navigate = useNavigate();
       month: "short",
       day: "2-digit",
       hour: "2-digit",
-      minute: "2-digit"
+      minute: "2-digit",
     });
   };
-  const totalActions = summary?.byAction?.reduce((sum, action) => sum + parseInt(action.count), 0) ?? 0;
-  const loginCount = summary?.byAction?.find(action => action.action_type === "LOGIN")?.count ?? 0;
-  const createCount = summary?.byAction?.find(action => action.action_type === "CREATE")?.count ?? 0;
-  const deleteCount = summary?.byAction?.find(action => action.action_type === "DELETE")?.count ?? 0;
-  const tableHeaders = ["#", t("table_headers.user", "User"), t("table_headers.company_branch", "Company / Branch"), t("table_headers.action", "Action"), t("table_headers.module", "Module"), t("table_headers.description", "Description"), t("table_headers.timestamp", "Timestamp")];
-  return <div style={{
-    display: "flex",
-    minHeight: "100vh",
-    background: "#F4F6F9",
-    fontFamily: "'Inter', sans-serif"
-  }}>
-			<AdminSidebar />
 
-			<div style={{
-      flex: 1,
-      marginLeft: 240,
-      display: "flex",
-      flexDirection: "column"
-    }}>
-				<AdminHeader title={t("company_admin.activity_log", "Activity Log")} />
+  const tableHeaders = [
+    "#",
+    t("table_headers.user", "User"),
+    t("table_headers.company_branch", "Company / Branch"),
+    t("table_headers.action", "Action"),
+    t("table_headers.module", "Module"),
+    t("table_headers.description", "Description"),
+    t("table_headers.timestamp", "Timestamp"),
+  ];
 
-				<div style={{
-        padding: "24px 28px",
-        flex: 1
-      }}>
-					<div style={{
+  return (
+    <div
+      style={{
+        display: "flex",
+        minHeight: "100vh",
+        background: "#F4F6F9",
+        fontFamily: "'Inter', sans-serif",
+      }}
+    >
+      <AdminSidebar />
+
+      <div
+        style={{
+          flex: 1,
+          marginLeft: 240,
           display: "flex",
-          gap: 16,
-          marginBottom: 24,
-          flexWrap: "wrap"
-        }}>
-						<SummaryCard icon={<FaFilter />} label={t("company_admin.total_events", "Total Events")} value={totalActions.toLocaleString()} bg="#EFF6FF" iconColor="#3B82F6" />
-						<SummaryCard icon={<FaCheckCircle />} label={t("company_admin.logins", "Logins")} value={parseInt(loginCount).toLocaleString()} bg="#DCFCE7" iconColor="#16A34A" />
-						<SummaryCard icon={<FaInfoCircle />} label={t("company_admin.creates", "Creates")} value={parseInt(createCount).toLocaleString()} bg="#DBEAFE" iconColor="#1D4ED8" />
-						<SummaryCard icon={<FaTimesCircle />} label={t("company_admin.deletes", "Deletes")} value={parseInt(deleteCount).toLocaleString()} bg="#FEE2E2" iconColor="#DC2626" />
-					</div>
+          flexDirection: "column",
+        }}
+      >
+        <AdminHeader title={t("company_admin.activity_log", "Activity Log")} />
 
-					<div style={{
-          background: "#fff",
-          borderRadius: 14,
-          padding: "18px 20px",
-          marginBottom: 20,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
-        }}>
-						<div style={{
-            display: "flex",
-            gap: 12,
-            marginBottom: 14,
-            flexWrap: "wrap",
-            alignItems: "center"
-          }}>
-							<div style={{
-              position: "relative",
-              flex: "1 1 220px",
-              minWidth: 180
-            }}>
-								<FaSearch style={{
-                position: "absolute",
-                left: 12,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#9CA3AF",
-                pointerEvents: "none"
-              }} />
-								<input id="log-search" value={filters.search} onChange={e => onFilterChange("search", e.target.value)} placeholder={t("company_admin.search_description", "Search description…")} style={{
-                width: "100%",
-                padding: "9px 12px 9px 36px",
-                borderRadius: 8,
-                border: "1px solid #E5E7EB",
-                fontSize: 13,
-                outline: "none",
-                boxSizing: "border-box"
-              }} />
-							</div>
-
-							<div style={{
+        <div style={{ padding: "24px 28px", flex: 1 }}>
+          <div
+            style={{
               display: "flex",
-              gap: 10,
-              marginLeft: "auto"
-            }}>
-								<button id="btn-refresh-logs" onClick={() => {
-                fetchLogs();
-                fetchSummary();
-              }} style={{
+              gap: 16,
+              marginBottom: 24,
+              flexWrap: "wrap",
+            }}
+          >
+            <SummaryCard
+              icon={<FaFilter />}
+              label={t("company_admin.total_events", "Total Events")}
+              value={summaryStats.totalEvents.toLocaleString()}
+              bg="#EFF6FF"
+              iconColor="#3B82F6"
+            />
+            <SummaryCard
+              icon={<FaCheckCircle />}
+              label={t("company_admin.logins", "Logins")}
+              value={summaryStats.logins.toLocaleString()}
+              bg="#DCFCE7"
+              iconColor="#16A34A"
+            />
+            <SummaryCard
+              icon={<FaInfoCircle />}
+              label={t("company_admin.creates", "Creates")}
+              value={summaryStats.creates.toLocaleString()}
+              bg="#DBEAFE"
+              iconColor="#1D4ED8"
+            />
+            <SummaryCard
+              icon={<FaTimesCircle />}
+              label={t("company_admin.deletes", "Deletes")}
+              value={summaryStats.deletes.toLocaleString()}
+              bg="#FEE2E2"
+              iconColor="#DC2626"
+            />
+          </div>
+
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 14,
+              padding: "18px 20px",
+              marginBottom: 20,
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                gap: 12,
+                marginBottom: 14,
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
+              <div
+                style={{
+                  position: "relative",
+                  flex: "1 1 220px",
+                  minWidth: 180,
+                }}
+              >
+                <FaSearch
+                  style={{
+                    position: "absolute",
+                    left: 12,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    color: "#9CA3AF",
+                    pointerEvents: "none",
+                  }}
+                />
+                <input
+                  id="log-search"
+                  value={filters.search}
+                  onChange={(e) => onFilterChange("search", e.target.value)}
+                  placeholder={t(
+                    "company_admin.search_description",
+                    "Search description…"
+                  )}
+                  style={{
+                    width: "100%",
+                    padding: "9px 12px 9px 36px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    fontSize: 13,
+                    outline: "none",
+                    boxSizing: "border-box",
+                  }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
+                <button
+                  id="btn-refresh-logs"
+                  onClick={() => {
+                    fetchLogs();
+                    fetchSummary();
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "9px 16px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    background: "#F9FAFB",
+                    color: "#374151",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontSize: 13,
+                  }}
+                >
+                  <FaSync size={12} />
+                  {t("company_admin.refresh", "Refresh")}
+                </button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <select
+                id="filter-action-type"
+                value={filters.action_type}
+                onChange={(e) => onFilterChange("action_type", e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #E5E7EB",
+                  fontSize: 13,
+                  color: "#374151",
+                  background: "#fff",
+                  cursor: "pointer",
+                  outline: "none",
+                  flex: "1 1 150px",
+                }}
+              >
+                <option value="">
+                  {t("company_admin.all_actions", "All Actions")}
+                </option>
+                {ACTION_TYPES.map((action) => (
+                  <option key={action} value={action}>
+                    {action}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                id="filter-module-name"
+                value={filters.module_name}
+                onChange={(e) => onFilterChange("module_name", e.target.value)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #E5E7EB",
+                  fontSize: 13,
+                  color: "#374151",
+                  background: "#fff",
+                  cursor: "pointer",
+                  outline: "none",
+                  flex: "1 1 160px",
+                }}
+              >
+                <option value="">
+                  {t("company_admin.all_modules", "All Modules")}
+                </option>
+                {MODULE_NAMES.map((moduleName) => (
+                  <option key={moduleName} value={moduleName}>
+                    {moduleName}
+                  </option>
+                ))}
+              </select>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flex: "1 1 180px",
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: 12,
+                    color: "#9CA3AF",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {t("company_admin.from", "From:")}
+                </label>
+                <input
+                  id="filter-from-date"
+                  type="date"
+                  value={filters.from}
+                  onChange={(e) => onFilterChange("from", e.target.value)}
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    fontSize: 13,
+                    outline: "none",
+                    flex: 1,
+                  }}
+                />
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  flex: "1 1 180px",
+                }}
+              >
+                <label
+                  style={{
+                    fontSize: 12,
+                    color: "#9CA3AF",
+                    fontWeight: 600,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {t("company_admin.to", "To:")}
+                </label>
+                <input
+                  id="filter-to-date"
+                  type="date"
+                  value={filters.to}
+                  onChange={(e) => onFilterChange("to", e.target.value)}
+                  style={{
+                    padding: "8px 10px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    fontSize: 13,
+                    outline: "none",
+                    flex: 1,
+                  }}
+                />
+              </div>
+
+              {(filters.search ||
+                filters.action_type ||
+                filters.module_name ||
+                filters.from ||
+                filters.to) && (
+                <button
+                  id="btn-clear-filters"
+                  onClick={() => {
+                    setFilters({
+                      search: "",
+                      action_type: "",
+                      module_name: "",
+                      from: "",
+                      to: "",
+                    });
+                    setPage(1);
+                  }}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #E5E7EB",
+                    background: "#fff",
+                    color: "#6B7280",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  {t("company_admin.clear_filters", "Clear Filters")}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {isMockData && (
+            <div
+              style={{
+                background: "#FEF3C7",
+                border: "1px solid #F59E0B",
+                borderRadius: 10,
+                padding: "12px 18px",
+                marginBottom: 16,
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
-                padding: "9px 16px",
-                borderRadius: 8,
-                border: "1px solid #E5E7EB",
-                background: "#F9FAFB",
-                color: "#374151",
-                fontWeight: 600,
-                cursor: "pointer",
-                fontSize: 13
-              }}>
-									<FaSync size={12} />{t("company_admin.refresh", "Refresh")}</button>
-							</div>
-						</div>
-
-						<div style={{
-            display: "flex",
-            gap: 12,
-            flexWrap: "wrap"
-          }}>
-							<select id="filter-action-type" value={filters.action_type} onChange={e => onFilterChange("action_type", e.target.value)} style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #E5E7EB",
-              fontSize: 13,
-              color: "#374151",
-              background: "#fff",
-              cursor: "pointer",
-              outline: "none",
-              flex: "1 1 150px"
-            }}>
-								<option value="">{t("company_admin.all_actions", "All Actions")}</option>
-								{ACTION_TYPES.map(action => <option key={action} value={action}>{action}</option>)}
-							</select>
-
-							<select id="filter-module-name" value={filters.module_name} onChange={e => onFilterChange("module_name", e.target.value)} style={{
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #E5E7EB",
-              fontSize: 13,
-              color: "#374151",
-              background: "#fff",
-              cursor: "pointer",
-              outline: "none",
-              flex: "1 1 160px"
-            }}>
-								<option value="">{t("company_admin.all_modules", "All Modules")}</option>
-								{MODULE_NAMES.map(moduleName => <option key={moduleName} value={moduleName}>{moduleName}</option>)}
-							</select>
-
-							<div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              flex: "1 1 180px"
-            }}>
-								<label style={{
-                fontSize: 12,
-                color: "#9CA3AF",
-                fontWeight: 600,
-                whiteSpace: "nowrap"
-              }}>{t("company_admin.from", "From:")}</label>
-								<input id="filter-from-date" type="date" value={filters.from} onChange={e => onFilterChange("from", e.target.value)} style={{
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #E5E7EB",
+                gap: 10,
+                color: "#92400E",
                 fontSize: 13,
-                outline: "none",
-                flex: 1
-              }} />
-							</div>
+              }}
+            >
+              <FaInfoCircle />
+              <span>
+                {t(
+                  "company_admin.activity_logs_are_not_yet_implemented_on",
+                  "Activity logs are not yet implemented on the backend. Showing mock data."
+                )}
+              </span>
+            </div>
+          )}
 
-							<div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              flex: "1 1 180px"
-            }}>
-								<label style={{
-                fontSize: 12,
-                color: "#9CA3AF",
-                fontWeight: 600,
-                whiteSpace: "nowrap"
-              }}>{t("company_admin.to", "To:")}</label>
-								<input id="filter-to-date" type="date" value={filters.to} onChange={e => onFilterChange("to", e.target.value)} style={{
-                padding: "8px 10px",
-                borderRadius: 8,
-                border: "1px solid #E5E7EB",
-                fontSize: 13,
-                outline: "none",
-                flex: 1
-              }} />
-							</div>
-
-							{(filters.search || filters.action_type || filters.module_name || filters.from || filters.to) && <button id="btn-clear-filters" onClick={() => {
-              setFilters({
-                search: "",
-                action_type: "",
-                module_name: "",
-                from: "",
-                to: ""
-              });
-              setPage(1);
-            }} style={{
-              padding: "8px 14px",
-              borderRadius: 8,
-              border: "1px solid #E5E7EB",
+          <div
+            style={{
               background: "#fff",
-              color: "#6B7280",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: "pointer"
-            }}>{t("company_admin.clear_filters", "Clear Filters")}</button>}
-						</div>
-					</div>
+              borderRadius: 14,
+              overflow: "hidden",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+            }}
+          >
+            <div
+              style={{
+                padding: "14px 20px",
+                borderBottom: "1px solid #F3F4F6",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+              }}
+            >
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
+                {t("company_admin.activity_logs", "Activity Logs")}
+              </span>
+              <span style={{ fontSize: 12, color: "#9CA3AF" }}>
+                {total.toLocaleString()}
+                {t("company_admin.total_record", "total record")}
+                {total !== 1 ? "s" : ""}
+              </span>
+            </div>
 
-					{isMockData && <div style={{
-          background: "#FEF3C7",
-          border: "1px solid #F59E0B",
-          borderRadius: 10,
-          padding: "12px 18px",
-          marginBottom: 16,
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          color: "#92400E",
-          fontSize: 13
-        }}>
-							<FaInfoCircle />
-							<span>{t("company_admin.activity_logs_are_not_yet_implemented_on", "Activity logs are not yet implemented on the backend. Showing mock data.")}</span>
-						</div>}
-
-					<div style={{
-          background: "#fff",
-          borderRadius: 14,
-          overflow: "hidden",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
-        }}>
-						<div style={{
-            padding: "14px 20px",
-            borderBottom: "1px solid #F3F4F6",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between"
-          }}>
-							<span style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#111827"
-            }}>{t("company_admin.activity_logs", "Activity Logs")}</span>
-							<span style={{
-              fontSize: 12,
-              color: "#9CA3AF"
-            }}>
-								{total.toLocaleString()}{t("company_admin.total_record", "total record")}{total !== 1 ? "s" : ""}
-							</span>
-						</div>
-
-						{loading ? <div style={{
-            padding: "60px 0",
-            display: "flex",
-            justifyContent: "center",
-            alignItems: "center",
-            flexDirection: "column",
-            gap: 12
-          }}>
-								<Spinner size={40} />
-								<p style={{
-              margin: 0,
-              color: "#6B7280",
-              fontSize: 14,
-              fontWeight: 600
-            }}>{t("company_admin.loading_logs", "Loading logs…")}</p>
-							</div> : logs.length === 0 ? <div style={{
-            padding: "60px 0",
-            textAlign: "center"
-          }}>
-								<div style={{
-              fontSize: 40,
-              marginBottom: 12
-            }}>📭</div>
-								<p style={{
-              margin: 0,
-              color: "#9CA3AF",
-              fontSize: 14
-            }}>{t("company_admin.no_activity_logs_found", "No activity logs found")}</p>
-							</div> : <div style={{
-            overflowX: "auto"
-          }}>
-								<table style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              minWidth: 860
-            }}>
-									<thead>
-										<tr style={{
-                  background: "#F9FAFB"
-                }}>
-											{tableHeaders.map(header => <th key={header} style={{
-                    padding: "12px 14px",
-                    textAlign: "left",
-                    fontSize: 11,
-                    fontWeight: 700,
+            {loading ? (
+              <div
+                style={{
+                  padding: "60px 0",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  flexDirection: "column",
+                  gap: 12,
+                }}
+              >
+                <Spinner size={40} />
+                <p
+                  style={{
+                    margin: 0,
                     color: "#6B7280",
-                    borderBottom: "1px solid #F3F4F6",
-                    letterSpacing: "0.05em",
-                    textTransform: "uppercase",
-                    whiteSpace: "nowrap"
-                  }}>
-													{header}
-												</th>)}
-										</tr>
-									</thead>
-									<tbody>
-										{logs.map((log, idx) => {
-                  const actionStyle = getActionStyle(log.action_type);
-                  let userName = "—";
-                  if (log.u_fname || log.u_lname) {
-                    userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
-                  } else if (log.u_email) {
-                    userName = log.u_email;
-                  } else if (log.user_name) {
-                    userName = log.user_name;
-                  } else if (log.user_email) {
-                    userName = log.user_email;
-                  } else if (log.u_id) {
-                    userName = `User #${log.u_id}`;
-                  } else if (log.user_id) {
-                    userName = `User #${log.user_id}`;
-                  }
-                  if (userName === "—" || userName === "" || userName === "undefined" || userName === "null") {
-                    userName = log.action_type === "LOGIN" || log.action_type === "LOGIN_FAILED" ? "System" : "Unknown User";
-                  }
-                  const contextLabel = [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
-                  return <tr key={log.log_id || idx} style={{
-                    borderBottom: "1px solid #F3F4F6",
-                    transition: "background 0.15s"
-                  }} onMouseEnter={event => event.currentTarget.style.background = "#F9FAFB"} onMouseLeave={event => event.currentTarget.style.background = "transparent"}>
-													<td style={{
-                      padding: "14px",
-                      fontSize: 13,
-                      color: "#6B7280"
-                    }}>{idx + 1 + (page - 1) * LIMIT}</td>
-													<td style={{
-                      padding: "14px",
-                      fontSize: 13,
-                      color: "#111827",
-                      fontWeight: 500
-                    }}>{userName}</td>
-													<td style={{
-                      padding: "14px",
-                      fontSize: 13,
-                      color: "#6B7280"
-                    }}>{contextLabel}</td>
-													<td style={{
-                      padding: "14px"
-                    }}>
-														<Badge text={log.action_type || "—"} bg={actionStyle.bg} color={actionStyle.color} />
-													</td>
-													<td style={{
-                      padding: "14px"
-                    }}>
-														<Badge text={log.module_name || "—"} bg="#E0E7FF" color="#4338CA" />
-													</td>
-													<td style={{
-                      padding: "14px",
-                      fontSize: 13,
-                      color: "#374151",
-                      maxWidth: 320
-                    }}>
-														<div style={{
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }} title={log.description}>
-															{log.description || "—"}
-														</div>
-													</td>
-													<td style={{
-                      padding: "14px",
-                      fontSize: 13,
-                      color: "#6B7280",
-                      whiteSpace: "nowrap"
-                    }}>{formatDate(log.created_at)}</td>
-												</tr>;
-                })}
-									</tbody>
-								</table>
-							</div>}
-					</div>
+                    fontSize: 14,
+                    fontWeight: 600,
+                  }}
+                >
+                  {t("company_admin.loading_logs", "Loading logs…")}
+                </p>
+              </div>
+            ) : logs.length === 0 ? (
+              <div style={{ padding: "60px 0", textAlign: "center" }}>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+                <p style={{ margin: 0, color: "#9CA3AF", fontSize: 14 }}>
+                  {t("company_admin.no_activity_logs_found", "No activity logs found")}
+                </p>
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table
+                  style={{
+                    width: "100%",
+                    borderCollapse: "collapse",
+                    minWidth: 860,
+                  }}
+                >
+                  <thead>
+                    <tr style={{ background: "#F9FAFB" }}>
+                      {tableHeaders.map((header) => (
+                        <th
+                          key={header}
+                          style={{
+                            padding: "12px 14px",
+                            textAlign: "left",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: "#6B7280",
+                            borderBottom: "1px solid #F3F4F6",
+                            letterSpacing: "0.05em",
+                            textTransform: "uppercase",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {header}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log, idx) => {
+                      const actionStyle = getActionStyle(log.action_type);
+                      let userName = "—";
+                      if (log.u_fname || log.u_lname) {
+                        userName = [log.u_fname, log.u_lname]
+                          .filter(Boolean)
+                          .join(" ");
+                      } else if (log.u_email) {
+                        userName = log.u_email;
+                      } else if (log.user_name) {
+                        userName = log.user_name;
+                      } else if (log.user_email) {
+                        userName = log.user_email;
+                      } else if (log.u_id) {
+                        userName = `User #${log.u_id}`;
+                      } else if (log.user_id) {
+                        userName = `User #${log.user_id}`;
+                      }
+                      if (
+                        userName === "—" ||
+                        userName === "" ||
+                        userName === "undefined" ||
+                        userName === "null"
+                      ) {
+                        userName =
+                          log.action_type === "LOGIN" ||
+                          log.action_type === "LOGIN_FAILED"
+                            ? "System"
+                            : "Unknown User";
+                      }
 
-					{totalPages > 1 && <div style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: 8,
-          marginTop: 16
-        }}>
-							<button onClick={() => setPage(current => Math.max(1, current - 1))} disabled={page === 1} style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #E5E7EB",
-            background: page === 1 ? "#F9FAFB" : "#fff",
-            color: page === 1 ? "#9CA3AF" : "#374151",
-            cursor: page === 1 ? "not-allowed" : "pointer"
-          }}>{t("company_admin.previous", "Previous")}</button>
-							<button onClick={() => setPage(current => Math.min(totalPages, current + 1))} disabled={page >= totalPages} style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #E5E7EB",
-            background: page >= totalPages ? "#F9FAFB" : "#fff",
-            color: page >= totalPages ? "#9CA3AF" : "#374151",
-            cursor: page >= totalPages ? "not-allowed" : "pointer"
-          }}>{t("company_admin.next", "Next")}</button>
-						</div>}
-				</div>
-			</div>
+                      const contextLabel =
+                        [log.com_name, log.branch_name]
+                          .filter(Boolean)
+                          .join(" / ") || "—";
 
-			{toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
-		</div>;
+                      return (
+                        <tr
+                          key={log.log_id || idx}
+                          style={{
+                            borderBottom: "1px solid #F3F4F6",
+                            transition: "background 0.15s",
+                          }}
+                          onMouseEnter={(event) =>
+                            (event.currentTarget.style.background = "#F9FAFB")
+                          }
+                          onMouseLeave={(event) =>
+                            (event.currentTarget.style.background = "transparent")
+                          }
+                        >
+                          <td
+                            style={{
+                              padding: "14px",
+                              fontSize: 13,
+                              color: "#6B7280",
+                            }}
+                          >
+                            {idx + 1 + (page - 1) * LIMIT}
+                          </td>
+                          <td
+                            style={{
+                              padding: "14px",
+                              fontSize: 13,
+                              color: "#111827",
+                              fontWeight: 500,
+                            }}
+                          >
+                            {userName}
+                          </td>
+                          <td
+                            style={{
+                              padding: "14px",
+                              fontSize: 13,
+                              color: "#6B7280",
+                            }}
+                          >
+                            {contextLabel}
+                          </td>
+                          <td style={{ padding: "14px" }}>
+                            <Badge
+                              text={log.action_type || "—"}
+                              bg={actionStyle.bg}
+                              color={actionStyle.color}
+                            />
+                          </td>
+                          <td style={{ padding: "14px" }}>
+                            <Badge
+                              text={log.module_name || "—"}
+                              bg="#E0E7FF"
+                              color="#4338CA"
+                            />
+                          </td>
+                          <td
+                            style={{
+                              padding: "14px",
+                              fontSize: 13,
+                              color: "#374151",
+                              maxWidth: 320,
+                            }}
+                          >
+                            <div
+                              style={{
+                                whiteSpace: "nowrap",
+                                overflow: "hidden",
+                                textOverflow: "ellipsis",
+                              }}
+                              title={log.description}
+                            >
+                              {log.description || "—"}
+                            </div>
+                          </td>
+                          <td
+                            style={{
+                              padding: "14px",
+                              fontSize: 13,
+                              color: "#6B7280",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {formatDate(log.created_at)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {totalPages > 1 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: 8,
+                marginTop: 16,
+              }}
+            >
+              <button
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                disabled={page === 1}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #E5E7EB",
+                  background: page === 1 ? "#F9FAFB" : "#fff",
+                  color: page === 1 ? "#9CA3AF" : "#374151",
+                  cursor: page === 1 ? "not-allowed" : "pointer",
+                }}
+              >
+                {t("company_admin.previous", "Previous")}
+              </button>
+              <button
+                onClick={() =>
+                  setPage((current) => Math.min(totalPages, current + 1))
+                }
+                disabled={page >= totalPages}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #E5E7EB",
+                  background: page >= totalPages ? "#F9FAFB" : "#fff",
+                  color: page >= totalPages ? "#9CA3AF" : "#374151",
+                  cursor: page >= totalPages ? "not-allowed" : "pointer",
+                }}
+              >
+                {t("company_admin.next", "Next")}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+    </div>
+  );
 };
+
 export default ActivityLog;

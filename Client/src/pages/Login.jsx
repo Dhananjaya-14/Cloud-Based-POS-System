@@ -22,6 +22,7 @@ const navigate = useNavigate();
     try {
       const data = await login({ u_email, u_pw }); // { token, user }
       const roleId = Number(data.user?.role_id);
+      sessionStorage.setItem("loginSuccessMessage", "Logged in successfully.");
       // map role ids to routes
       if (roleId === 6) navigate("/dashboard"); // super admin -> Dashboard overview
       else if (roleId === 2) navigate("/admin/dashboard"); // admin -> BranchManagement
@@ -94,9 +95,9 @@ const navigate = useNavigate();
             <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", color: "#555" }}>
               <input type="checkbox" /> {t("auth.remember_me", "Remember Me")}
             </label>
-            <span style={{ color: "#0056A2", fontSize: "13px", cursor: "pointer", fontWeight: "600" }}>
+            <button type="button" onClick={() => navigate("/forgot-password")} style={{ color: "#0056A2", fontSize: "13px", cursor: "pointer", fontWeight: "600", border: "none", background: "none", padding: 0 }}>
               {t("auth.forgot_password", "Forgot Password?")}
-            </span>
+            </button>
           </div>
 
           {error && <div style={{ color: "red", marginTop: 12 }}>{error}</div>}

@@ -1,6 +1,7 @@
-import React from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import RegisterStep1 from './pages/RegisterStep1';
 import RegisterStep2 from './pages/RegisterStep2';
 import RegisterStep3 from './pages/RegisterStep3';
@@ -70,6 +71,30 @@ import AdminSupplierManagement from './pages/admin/SupplierManagement';
 import WasteManagement from './pages/branch-admin/WasteManagement';
 import ReturnManagement from './pages/branch-admin/ReturnManagement';
 import BillSettings from './pages/admin/InvoiceSettings';
+import ToastMessage from './components/branch-admin/ToastMessage';
+
+const LoginSuccessToast = () => {
+  const location = useLocation();
+  const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    const loginSuccessMessage = sessionStorage.getItem('loginSuccessMessage');
+    if (loginSuccessMessage) {
+      sessionStorage.removeItem('loginSuccessMessage');
+      setMessage(loginSuccessMessage);
+    }
+  }, [location.pathname]);
+
+  if (!message) return null;
+
+  return (
+    <ToastMessage
+      message={message}
+      type="success"
+      onClose={() => setMessage(null)}
+    />
+  );
+};
 
 const BranchProfileRouter = () => {
   const { user } = useAuth();
@@ -83,9 +108,12 @@ const BranchProfileRouter = () => {
 
 function App() {
   return (
-    <Routes>
+    <>
+      <LoginSuccessToast />
+      <Routes>
       <Route path="/" element={<Login />} />
       <Route path="/login" element={<Login />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/register/step-1" element={<RegisterStep1 />} />
       <Route path="/register/step-2" element={<RegisterStep2 />} />
       <Route path="/register/step-3" element={<RegisterStep3 />} />
@@ -629,7 +657,8 @@ function App() {
       />
 
 
-    </Routes>
+      </Routes>
+    </>
   );
 }
 
