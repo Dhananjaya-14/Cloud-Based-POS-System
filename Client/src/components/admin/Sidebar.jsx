@@ -6,8 +6,10 @@ import { PiInvoiceBold } from "react-icons/pi";
 import { useAuth } from "../../context/AuthContext";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 const Sidebar = () => {
+  const location = useLocation();
+  const { logout } = useAuth();
   const { t } = useTranslation();
-const location = useLocation();
+
   const {
     user,
     features
@@ -110,7 +112,28 @@ const location = useLocation();
 
         <div>
           {menuItem(<FaCog />, t("company_admin.settings", "Settings"), "/settings")}
-          {menuItem(<FaSignOutAlt />, t("company_admin.log_out", "Log Out"), "/logout")}
+          <button
+  onClick={logout}
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "12px 20px",
+    background: "transparent",
+    borderRadius: 10,
+    cursor: "pointer",
+    marginBottom: 8,
+    color: "#fff",
+    textDecoration: "none",
+    border: "none",
+    width: "100%",
+    fontSize: 15,
+    fontWeight: 500,
+  }}
+>
+  <FaSignOutAlt />
+  <span style={{ fontSize: 15, fontWeight: 500 }}>Log Out</span>
+</button>
         </div>
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />

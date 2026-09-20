@@ -8,10 +8,10 @@ const ROLE_DASHBOARDS = {
 };
 
 export default function ProtectedRoute({ children, allowedRoles = [], requiredFeature = null }) {
-  const { user, features } = useAuth();
+  const { user, token, features } = useAuth();
 
   // Not logged in → go to login
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user || !token) return <Navigate to="/login" replace />;
 
   // Wrong role → go to home
   if (allowedRoles.length && !allowedRoles.map(Number).includes(Number(user.role_id))) {
@@ -28,4 +28,4 @@ export default function ProtectedRoute({ children, allowedRoles = [], requiredFe
 
   return children;
 }
-
+
