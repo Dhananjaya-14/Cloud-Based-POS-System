@@ -295,14 +295,22 @@ const [form, setForm] = useState({
     imageUrl: initialData?.imageUrl || '',
     selectedItems: initialData?.selectedItems || []
   });
+  const [descriptionError, setDescriptionError] = useState('');
   const handleChange = e => {
     setForm({
       ...form,
       [e.target.name]: e.target.value
     });
+    if (e.target.name === 'description') {
+      setDescriptionError('');
+    }
   };
   const handleSubmit = () => {
-if (!form.title || !form.price || !form.validUntil) {
+    if (!form.description.trim()) {
+      setDescriptionError('Description is required');
+      return;
+    }
+    if (!form.title || !form.price || !form.validUntil) {
       alert('Please fill Title, Price and Valid Until fields');
       return;
     }
@@ -391,8 +399,14 @@ if (!form.title || !form.price || !form.validUntil) {
           <label style={labelStyle}>{t("company_admin.description", "Description *")}</label>
           <textarea name="description" value={form.description} onChange={handleChange} placeholder={t("company_admin.describe_your_promotion_package", "Describe your promotion package...")} rows={3} style={{
           ...inputStyle,
+          border: descriptionError ? '1px solid #dc2626' : inputStyle.border,
           resize: 'vertical'
         }} />
+          {descriptionError && <p style={{
+          color: '#dc2626',
+          fontSize: '12px',
+          margin: '6px 0 0'
+        }}>{descriptionError}</p>}
         </div>
 
         
