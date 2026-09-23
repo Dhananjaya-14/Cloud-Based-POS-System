@@ -74,6 +74,7 @@ const Promotions = () => {
   const { t } = useTranslation();
 const [view, setView] = useState('list');
   const [promotions, setPromotions] = useState([]);
+  const [successMessage, setSuccessMessage] = useState('');
   const [editingPromo, setEditingPromo] = useState(null);
   const handleDelete = id => {
     setPromotions(promotions.filter(p => p.id !== id));
@@ -103,6 +104,31 @@ const [view, setView] = useState('list');
         <div style={{
         padding: '30px'
       }}>
+          {successMessage && <div role="status" aria-live="polite" style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '16px',
+          backgroundColor: '#dcfce7',
+          color: '#166534',
+          border: '1px solid #86efac',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '20px',
+          fontSize: '14px',
+          fontWeight: '600'
+        }}>
+            <span>{successMessage}</span>
+            <button type="button" onClick={() => setSuccessMessage('')} aria-label="Dismiss success message" style={{
+            background: 'none',
+            border: 'none',
+            color: '#166534',
+            cursor: 'pointer',
+            fontSize: '18px',
+            lineHeight: 1,
+            padding: 0
+          }}>×</button>
+          </div>}
           {view === 'list' ? <PromotionsList promotions={promotions} onAddClick={() => setView('create')} onDelete={handleDelete} onEdit={handleEdit} onView={handleView} /> : view === 'view' ? <ViewPromotion promo={viewingPromo} menuCategories={menuCategories} onBack={() => {
           setViewingPromo(null);
           setView('list');
@@ -124,6 +150,7 @@ const [view, setView] = useState('list');
               ...data,
               id: Date.now()
             }]);
+            setSuccessMessage(t("company_admin.promotion_created_successfully", "Promotion created successfully."));
           }
           setEditingPromo(null);
           setView('list');
