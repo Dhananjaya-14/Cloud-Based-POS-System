@@ -96,11 +96,6 @@ const navigate = useNavigate();
       setLoading(false);
     }
   };
-  useEffect(() => {
-    if (user?.com_id) {
-      generateReport();
-    }
-  }, [user?.com_id]);
   const exportExcel = () => {
 const formattedRows = rows.map(row => {
       const dataRow = {};

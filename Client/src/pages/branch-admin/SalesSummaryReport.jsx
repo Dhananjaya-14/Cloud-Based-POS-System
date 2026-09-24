@@ -106,11 +106,6 @@ const {
     }
   };
   useEffect(() => {
-    if (user?.b_id) {
-      generateReport();
-    }
-  }, [user?.b_id]);
-  useEffect(() => {
     let mounted = true;
     const loadBranch = async () => {
       const fromUser = user?.B_name ?? user?.b_name ?? user?.branchName ?? null;
