@@ -119,6 +119,11 @@ export async function login(req, res, next) {
   }
 }
 
+// POST /api/auth/logout
+export function logout(req, res) {
+  res.json({ message: "Logged out successfully" });
+}
+
 // POST /api/auth/forgot-password
 export async function forgotPassword(req, res, next) {
   try {

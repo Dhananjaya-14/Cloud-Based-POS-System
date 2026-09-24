@@ -10,14 +10,15 @@ const Sidebar = () => {
 const location = useLocation();
   const {
     user,
-    features
+    features,
+    logout,
   } = useAuth();
   const {
     toasts,
     removeToast,
     toast
   } = useToast();
-  const menuItem = (icon, label, path, isLocked = false) => {
+  const menuItem = (icon, label, path, isLocked = false, onClick) => {
     const isActive = location.pathname === path || location.pathname.startsWith(path);
     const content = <>
         {icon}
@@ -50,7 +51,7 @@ const location = useLocation();
           {content}
         </div>;
     }
-    return <Link key={label} to={path} style={style}>
+    return <Link key={label} to={path} style={style} onClick={onClick}>
         {content}
       </Link>;
   };
@@ -110,7 +111,16 @@ const location = useLocation();
 
         <div>
           {menuItem(<FaCog />, t("company_admin.settings", "Settings"), "/settings")}
-          {menuItem(<FaSignOutAlt />, t("company_admin.log_out", "Log Out"), "/logout")}
+          {menuItem(
+            <FaSignOutAlt />,
+            t("company_admin.log_out", "Log Out"),
+            "/logout",
+            false,
+            (event) => {
+              event.preventDefault();
+              logout();
+            },
+          )}
         </div>
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />

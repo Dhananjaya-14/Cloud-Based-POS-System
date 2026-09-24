@@ -10,9 +10,11 @@ import {
   FaBox,
   FaTimes,
 } from "react-icons/fa";
+import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = () => {
   const location = useLocation();
+  const { logout } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   useEffect(() => {
@@ -28,13 +30,14 @@ const Sidebar = () => {
     };
   }, []);
 
-  const menuItem = (icon, label, path) => {
+  const menuItem = (icon, label, path, onClick) => {
     const isActive = location.pathname === path || location.pathname.startsWith(path);
     return (
       <Link
         to={path}
-        onClick={() => {
+        onClick={(event) => {
           if (window.innerWidth < 1024) setIsOpen(false);
+          onClick?.(event);
         }}
         style={{
           display: "flex",
@@ -112,7 +115,15 @@ const Sidebar = () => {
         </div>
 
         <div>
-          {menuItem(<FaSignOutAlt />, "Log Out", "/logout")}
+          {menuItem(
+            <FaSignOutAlt />,
+            "Log Out",
+            "/logout",
+            (event) => {
+              event.preventDefault();
+              logout();
+            },
+          )}
         </div>
       </div>
     </>

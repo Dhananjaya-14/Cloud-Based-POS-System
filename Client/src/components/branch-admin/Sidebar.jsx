@@ -8,7 +8,8 @@ const Sidebar = () => {
   const { t } = useTranslation();
 const location = useLocation();
   const {
-    features
+    features,
+    logout,
   } = useAuth();
   const {
     toasts,
@@ -199,7 +200,16 @@ const location = useLocation();
 
         <div>
           {menuItem(<FaCog />, t("branch_admin.settings", "Settings"), "/branch-admin/settings", isExactActive("/branch-admin/settings"))}
-          {menuItem(<FaSignOutAlt />, t("branch_admin.log_out", "Log Out"), "/logout", isExactActive("/logout"))}
+          {menuItem(
+            <FaSignOutAlt />,
+            t("branch_admin.log_out", "Log Out"),
+            "/logout",
+            isExactActive("/logout"),
+            (event) => {
+              event.preventDefault();
+              logout();
+            },
+          )}
         </div>
       </div>
       <ToastContainer toasts={toasts} removeToast={removeToast} />

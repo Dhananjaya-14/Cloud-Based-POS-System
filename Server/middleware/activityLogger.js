@@ -174,6 +174,10 @@ function getActionType(req, moduleName, statusCode) {
     return statusCode >= 400 ? "LOGIN_FAILED" : "LOGIN";
   }
 
+  if (moduleName === "AUTH" && path === "/api/auth/logout") {
+    return statusCode >= 400 ? "LOGOUT_FAILED" : "LOGOUT";
+  }
+
   switch (method) {
     case "GET":    return "READ";
     case "POST":   return "CREATE";
@@ -307,6 +311,11 @@ function buildDescription({ actionType, moduleName, affectedName, req, responseB
       responseBody && typeof responseBody === "object" ? responseBody.user : null;
     const email = loggedInUser?.u_email || req.body?.u_email || "unknown user";
     return `Successful login for ${email}`;
+  }
+
+  if (moduleName === "AUTH" && String(req.originalUrl || "").startsWith("/api/auth/logout")) {
+    const email = req.user?.u_email || "unknown user";
+    return statusCode >= 400 ? `Failed logout for ${email}` : `Successful logout for ${email}`;
   }
 
   const actionLabel = actionType.toLowerCase();

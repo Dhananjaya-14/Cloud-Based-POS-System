@@ -31,7 +31,7 @@ import {
 } from "react-icons/fa";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const ACTION_TYPES = ["LOGIN", "LOGIN_FAILED", "CREATE", "READ", "UPDATE", "DELETE"];
+const ACTION_TYPES = ["LOGIN", "LOGIN_FAILED", "LOGOUT", "LOGOUT_FAILED", "CREATE", "READ", "UPDATE", "DELETE"];
 const MODULE_NAMES = [
   "AUTH", "USER", "ROLE", "COMPANY", "BRANCH", "CUSTOMER", "TABLE",
   "TABLE_ASSIGNMENT", "RESERVATION", "WAITER", "CATEGORY", "PRODUCT",
@@ -45,6 +45,8 @@ const MODULE_NAMES = [
 const ACTION_COLORS = {
   LOGIN:        { bg: "#DCFCE7", color: "#16A34A" },
   LOGIN_FAILED: { bg: "#FEE2E2", color: "#DC2626" },
+  LOGOUT:       { bg: "#E0E7FF", color: "#4338CA" },
+  LOGOUT_FAILED:{ bg: "#FEE2E2", color: "#DC2626" },
   CREATE:       { bg: "#DBEAFE", color: "#1D4ED8" },
   READ:         { bg: "#F3F4F6", color: "#6B7280" },
   UPDATE:       { bg: "#FEF9C3", color: "#CA8A04" },

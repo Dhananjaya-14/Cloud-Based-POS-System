@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { login as apiLogin, setAuthToken, getCurrentUser } from "../services/api";
+import { login as apiLogin, logout as apiLogout, setAuthToken, getCurrentUser } from "../services/api";
 import { connectSocket, disconnectSocket } from "../services/socket";
 
 export const AuthContext = createContext();
@@ -54,14 +54,20 @@ export function AuthProvider({ children }) {
   };
 
   // Logout function
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    setAuthToken(null);
-    disconnectSocket();
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
+  const logout = async () => {
+    try {
+      await apiLogout();
+    } catch (error) {
+      console.warn("Logout request failed; clearing the local session anyway:", error);
+    } finally {
+      setToken(null);
+      setUser(null);
+      setAuthToken(null);
+      disconnectSocket();
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/login");
+    }
   };
 
   return (

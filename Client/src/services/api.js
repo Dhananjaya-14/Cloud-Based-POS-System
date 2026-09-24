@@ -84,9 +84,13 @@ export const resetPassword = async ({ token, password }) => {
   return res.data;
 };
 
-export const logout = () => {
-  setAuthToken(null);
-  localStorage.removeItem("user");
+export const logout = async () => {
+  try {
+    await api.post("/auth/logout");
+  } finally {
+    setAuthToken(null);
+    localStorage.removeItem("user");
+  }
 };
 
 export const getCurrentUser = () => {
