@@ -276,7 +276,7 @@ const {
     padding: "0 20px",
     margin: 0,
     color: "#fff",
-    background: "linear-gradient(135deg, #2E3E8F 0%, #00B4EB 59%, #55D24B 100%)",
+    background: "linear-gradient(135deg, #112A3C 20%, #00B4EB 50%, #39ac30 100%)",
     position: "relative"
   }}>
       <h2 style={{
