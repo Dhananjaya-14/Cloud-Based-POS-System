@@ -4,6 +4,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
 import { connectSocket, subscribeToWasteUpdates } from "../../services/socket";
+import { api } from "../../services/api";
 
 const WasteManagement = () => {
   const { t } = useTranslation();
@@ -94,45 +95,34 @@ const WasteManagement = () => {
     setIsLoading(true);
     setError("");
     try {
-      const token = localStorage.getItem("token");
-
       // Fetch waste records
-      const wasteRes = await fetch("/api/waste", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!wasteRes.ok) throw new Error("Failed to load waste records");
-      const wasteData = await wasteRes.json();
+      const wasteRes = await api.get("/waste");
+      const wasteData = wasteRes.data;
       setWasteRecords(Array.isArray(wasteData) ? wasteData : wasteData.data || []);
 
       // Fetch raw materials
-      const rmRes = await fetch("/api/raw-materials", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (rmRes.ok) {
-        const rmData = await rmRes.json();
+      try {
+        const rmRes = await api.get("/raw-materials");
+        const rmData = rmRes.data;
         setRawMaterials(Array.isArray(rmData) ? rmData : rmData.data || []);
+      } catch (rmErr) {
+        console.warn("Failed to load raw materials", rmErr);
       }
 
       // Fetch branch products
       const user = JSON.parse(localStorage.getItem("user"));
       const b_id = user?.B_id;
-      const bpRes = await fetch(`/api/branch_products${b_id ? `?B_id=${b_id}` : ''}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (bpRes.ok) {
-        const bpData = await bpRes.json();
+      try {
+        const bpRes = await api.get(`/branch_products${b_id ? `?B_id=${b_id}` : ''}`);
+        const bpData = bpRes.data;
         const items = Array.isArray(bpData) ? bpData : bpData.data || [];
         // Only include external/finished products that can be wasted (not made-to-order which are made on the spot)
         setBranchProducts(items.filter(p => p.product_type === 'finished'));
+      } catch (bpErr) {
+        console.warn("Failed to load branch products", bpErr);
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setIsLoading(false);
     }
@@ -178,7 +168,6 @@ const WasteManagement = () => {
     }
     const finalQty = calculateFinalQty(wasteQty, selectedUnit, baseUnit);
     try {
-      const token = localStorage.getItem("token");
       const payload = {
         waste_qty: finalQty,
         reason,
@@ -189,16 +178,7 @@ const WasteManagement = () => {
       } else {
         payload.pro_id = actualId;
       }
-      const res = await fetch("/api/waste", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to add waste");
+      await api.post("/waste", payload);
       setShowAddModal(false);
       setSelectedItem("");
       setWasteQty("");
@@ -207,7 +187,7 @@ const WasteManagement = () => {
       showToast("Waste recorded successfully");
       fetchData();
     } catch (err) {
-      setFormError(err.message);
+      setFormError(err.response?.data?.message || err.message);
     } finally {
       setIsSubmitting(false);
     }
@@ -218,22 +198,12 @@ const WasteManagement = () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/waste/${deleteTarget.waste_id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Failed to delete waste record");
-      }
+      await api.delete(`/waste/${deleteTarget.waste_id}`);
       setDeleteTarget(null);
       showToast("Waste record deleted, stock restored");
       fetchData();
     } catch (err) {
-      alert(err.message);
+      alert(err.response?.data?.message || err.message);
     } finally {
       setIsDeleting(false);
     }
@@ -254,25 +224,15 @@ const WasteManagement = () => {
     }
     setIsEditing(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/waste/${editTarget.waste_id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          waste_qty: qty,
-          reason: editReason
-        })
+      await api.put(`/waste/${editTarget.waste_id}`, {
+        waste_qty: qty,
+        reason: editReason
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to update waste record");
       setEditTarget(null);
       showToast("Waste record updated successfully");
       fetchData();
     } catch (err) {
-      setEditError(err.message);
+      setEditError(err.response?.data?.message || err.message);
     } finally {
       setIsEditing(false);
     }
