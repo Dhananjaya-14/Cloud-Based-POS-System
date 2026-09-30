@@ -376,10 +376,10 @@ setSelectedItems(prev => {
 
             <button type="button" onClick={() => navigate("/branch-admin/products")} style={{
             ...actionButtonStyle,
-            background: "#FFFFFF",
+            background: "#0E6DCF",
             border: "1px solid #D8E1EA",
-            color: "#0F172A",
-            padding: "12px 16px",
+            color: "#FFFFFF",
+            padding: "10px 14px",
             boxShadow: "0 1px 2px rgba(15, 23, 42, 0.04)"
           }}>{t("branch_admin.back_to_products", "Back to products")}</button>
           </div>
