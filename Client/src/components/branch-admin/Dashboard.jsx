@@ -35,6 +35,7 @@ const Dashboard = () => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
+	const [activeCashierTab, setActiveCashierTab] = useState("All");
 
 	// Socket connection and real-time dashboard listeners
 	useEffect(() => {
@@ -394,18 +395,23 @@ const Dashboard = () => {
 
 					<div className="mt-8 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
 						<div className="mb-4">
-							<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.todays_cashiers", "Today&apos;s Cashiers")}</h4>
+							<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.todays_cashiers", "Today's cashiers")}</h4>
 							<p className="text-xs text-slate-500">{t("branch_admin.work_distribution", "Work distribution")}</p>
 						</div>
 
 						<div className="flex flex-wrap gap-3 mb-5">
-							{["Bar", "Restaurant", "Spa", "Reception"].map((area) => (
-								<div
+							{["All", "Bar", "Restaurant", "Spa", "Reception"].map((area) => (
+								<button
 									key={area}
-									className="px-3 py-1 rounded-full border border-slate-200 text-xs font-semibold text-slate-500"
+									onClick={() => setActiveCashierTab(area)}
+									className={`px-3 py-1 rounded-full border text-xs font-semibold cursor-pointer transition-colors ${
+										activeCashierTab === area 
+											? "bg-slate-800 text-white border-slate-800" 
+											: "border-slate-200 text-slate-500 hover:bg-slate-50"
+									}`}
 								>
 									{area}
-								</div>
+								</button>
 							))}
 						</div>
 
@@ -420,44 +426,67 @@ const Dashboard = () => {
 									</tr>
 								</thead>
 								<tbody>
-									{cashierStats.length === 0 && !isLoading && (
-										<tr>
-											<td colSpan="4" className="py-4 text-slate-500">
-												No cashier data available.
-											</td>
-										</tr>
-									)}
-									{(isLoading ? Array.from({ length: 4 }) : cashierStats).map((cashier, index) => {
-										if (!cashier) {
+									{(() => {
+										if (cashierStats.length === 0 && !isLoading) {
 											return (
-												<tr key={`cashier-skeleton-${index}`} className="border-b">
-													<td colSpan="4" className="py-4">
-														<div className="h-4 bg-slate-100 rounded animate-pulse" />
+												<tr>
+													<td colSpan="4" className="py-4 text-slate-500">
+														No cashier data available.
 													</td>
 												</tr>
 											);
 										}
 
-										const percent = totalRevenue > 0
-											? Math.round((cashier.revenue / totalRevenue) * 100)
-											: 0;
-										const percentClass = percent >= 70
-											? "text-emerald-500"
-											: percent >= 40
-												? "text-amber-500"
-												: "text-red-500";
-										const areas = ["Bar", "Restaurant", "Spa", "Reception"];
-										const area = areas[index % areas.length];
+										const processed = (isLoading ? Array.from({ length: 4 }) : cashierStats)
+											.map((cashier, index) => {
+												if (!cashier) return { cashier: null, area: "", percent: 0, index };
+												
+												const percent = totalRevenue > 0
+													? Math.round((cashier.revenue / totalRevenue) * 100)
+													: 0;
+												const areas = ["Bar", "Restaurant", "Spa", "Reception"];
+												const area = areas[index % areas.length];
+												return { cashier, area, percent, index };
+											})
+											.filter(({ area, cashier }) => !cashier || activeCashierTab === "All" || activeCashierTab === area);
 
-										return (
-											<tr key={cashier.id} className="border-b last:border-b-0">
-												<td className="py-3 text-slate-600">#{String(cashier.id).padStart(2, "0")}</td>
-												<td className="py-3 text-slate-700 font-semibold">{cashier.name}</td>
-												<td className="py-3 text-slate-500">{area}</td>
-												<td className={`py-3 font-semibold ${percentClass}`}>{percent}%</td>
-											</tr>
-										);
-									})}
+										if (processed.length === 0 && !isLoading) {
+											return (
+												<tr>
+													<td colSpan="4" className="py-4 text-slate-500">
+														No cashiers found for this area.
+													</td>
+												</tr>
+											);
+										}
+
+										return processed.map(({ cashier, area, percent, index }) => {
+											if (!cashier) {
+												return (
+													<tr key={`cashier-skeleton-${index}`} className="border-b">
+														<td colSpan="4" className="py-4">
+															<div className="h-4 bg-slate-100 rounded animate-pulse" />
+														</td>
+													</tr>
+												);
+											}
+
+											const percentClass = percent >= 70
+												? "text-emerald-500"
+												: percent >= 40
+													? "text-amber-500"
+													: "text-red-500";
+
+											return (
+												<tr key={cashier.id} className="border-b last:border-b-0">
+													<td className="py-3 text-slate-600">#{String(cashier.id).padStart(2, "0")}</td>
+													<td className="py-3 text-slate-700 font-semibold">{cashier.name}</td>
+													<td className="py-3 text-slate-500">{area}</td>
+													<td className={`py-3 font-semibold ${percentClass}`}>{percent}%</td>
+												</tr>
+											);
+										});
+									})()}
 								</tbody>
 							</table>
 						</div>
