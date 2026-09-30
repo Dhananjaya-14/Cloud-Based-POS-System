@@ -97,8 +97,6 @@ const ProductManagement = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [stockLevelFilter, setStockLevelFilter] = useState("all");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -107,6 +105,11 @@ const ProductManagement = () => {
   const itemsPerPage = 4;
   const [userCompanyId, setUserCompanyId] = useState(null);
   const isSubscribedRef = useRef(false);
+
+  // Filter dropdown states
+  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [selectedStatus, setSelectedStatus] = useState("All");
+  const [selectedStockLevel, setSelectedStockLevel] = useState("All");
 
   // Delete modal states
   const [showDeletePopup, setShowDeletePopup] = useState(false);
@@ -323,28 +326,55 @@ const ProductManagement = () => {
       isMounted = false;
     };
   }, []);
+
+  // Get unique categories from products
+  const categoryOptions = useMemo(() => {
+    const categories = new Set();
+    products.forEach(p => {
+      if (p.cat_name) categories.add(p.cat_name);
+    });
+    return ["All", ...Array.from(categories).sort()];
+  }, [products]);
+
   const tableProducts = useMemo(() => {
-    let mapped = products.map(mapApiProductToTableItem);
+    const mapped = products.map(mapApiProductToTableItem);
     const query = searchTerm.trim().toLowerCase();
-    if (query) {
-      mapped = mapped.filter(item =>
+
+    return mapped.filter(item => {
+      // Search filter (name, SKU, category)
+      const matchesSearch = !query ||
         item.name.toLowerCase().includes(query) ||
         item.sku.toLowerCase().includes(query) ||
-        item.category.toLowerCase().includes(query)
-      );
-    }
-    if (categoryFilter !== "all") {
-      mapped = mapped.filter(item => item.category === categoryFilter);
-    }
-    if (stockLevelFilter !== "all") {
-      mapped = mapped.filter(item => item.status === stockLevelFilter);
-    }
-    return mapped;
-  }, [products, searchTerm, categoryFilter,stockLevelFilter]);
+        item.category.toLowerCase().includes(query);
+
+      // Category filter
+      const matchesCategory = selectedCategory === "All" ||
+        item.category.toLowerCase() === selectedCategory.toLowerCase();
+
+      // Status filter
+      const matchesStatus = selectedStatus === "All" ||
+        (selectedStatus === "In Stock" && item.status === "In stock") ||
+        (selectedStatus === "Low Stock" && item.status === "Low stock") ||
+        (selectedStatus === "Out of Stock" && item.status === "Out of stock");
+
+      // Stock level filter
+      let matchesStockLevel = true;
+      if (selectedStockLevel === "Low (1-10)") {
+        matchesStockLevel = item.stock > 0 && item.stock <= 10;
+      } else if (selectedStockLevel === "Out (0)") {
+        matchesStockLevel = item.stock <= 0;
+      } else if (selectedStockLevel === "High (>10)") {
+        matchesStockLevel = item.stock > 10;
+      }
+
+      return matchesSearch && matchesCategory && matchesStatus && matchesStockLevel;
+    });
+  }, [products, searchTerm, selectedCategory, selectedStatus, selectedStockLevel]);
+
   const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, categoryFilter,stockLevelFilter]);
+  }, [searchTerm, selectedCategory, selectedStatus, selectedStockLevel]);
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -453,6 +483,41 @@ const ProductManagement = () => {
   const dismissNotification = notificationId => {
     setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
   };
+
+  // Shared filter select style
+  const filterSelectStyle = {
+    width: "100%",
+    height: "40px",
+    background: "#fff",
+    borderRadius: "10px",
+    boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+    border: "1px solid #D9DCE1",
+    padding: "0 34px 0 14px",
+    fontSize: "13px",
+    fontWeight: "500",
+    color: "#4B5563",
+    outline: "none",
+    appearance: "none",
+    WebkitAppearance: "none",
+    MozAppearance: "none",
+    cursor: "pointer"
+  };
+
+  const filterWrapperStyle = {
+    position: "relative",
+    flex: "1 1 0",
+    minWidth: "150px"
+  };
+
+  const filterChevronStyle = {
+    position: "absolute",
+    right: "12px",
+    top: "50%",
+    transform: "translateY(-50%)",
+    pointerEvents: "none",
+    color: "#111827"
+  };
+
   return <div style={{
     display: "flex",
     background: "#F2F4F7",
@@ -513,10 +578,6 @@ const ProductManagement = () => {
           </div>)}
         </div>}
 
-
-
-
-
         <div style={{
           display: "flex",
           justifyContent: "space-between",
@@ -530,37 +591,12 @@ const ProductManagement = () => {
             color: "#0F172A"
           }}>{t("company_admin.product_management", "Product Management")}</h1>
 
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px"
-          }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              background: "#E5E7EB",
-              borderRadius: "8px",
-              padding: "8px 12px",
-              width: "340px"
-            }}>
-              <FaSearch color="#9CA3AF" />
-              <input type="text" placeholder={t("company_admin.search_products_skus_or_categories", "Search Products , SKUs, or Categories")} style={{
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                width: "100%",
-                fontSize: "14px",
-                color: "#6B7280"
-              }} onChange={event => setSearchTerm(event.target.value)} />
-            </div>
-            <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/admin/products/add")} style={{
-              background: "#0E6DCF",
-              borderRadius: "3px",
-              padding: "10px 18px",
-              fontWeight: "600"
-            }} />
-          </div>
+          <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/admin/products/add")} style={{
+            background: "#0E6DCF",
+            borderRadius: "3px",
+            padding: "10px 18px",
+            fontWeight: "600"
+          }} />
         </div>
 
         <div style={{
@@ -632,91 +668,108 @@ const ProductManagement = () => {
           fontSize: "14px"
         }}>{error}</div>}
 
+        {/* Combined Search Bar + Filters Row */}
         <div style={{
           display: "flex",
-          gap: "14px",
-          marginBottom: "24px"
+          alignItems: "center",
+          gap: "12px",
+          marginBottom: "24px",
+          flexWrap: "wrap"
         }}>
+          {/* Search Bar */}
           <div style={{
             display: "flex",
             alignItems: "center",
             gap: "8px",
             background: "#fff",
-            borderRadius: "12px",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.18)",
-            padding: "8px 12px",
-            flex: 1
+            borderRadius: "10px",
+            padding: "0 12px",
+            height: "40px",
+            flex: "2 1 260px",
+            minWidth: "220px",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+            border: "1px solid #D9DCE1"
           }}>
             <FaSearch color="#9CA3AF" size={14} />
-            <input type="text" placeholder={t("company_admin.search_by_name_or_code", "Search by Name or Code")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
-              border: "none",
-              outline: "none",
-              width: "100%",
-              fontSize: "14px"
-            }} />
+            <input
+              type="text"
+              value={searchTerm}
+              placeholder={t("company_admin.search_products_skus_or_categories", "Search Products, SKUs, or Categories")}
+              style={{
+                border: "none",
+                outline: "none",
+                background: "transparent",
+                width: "100%",
+                fontSize: "13px",
+                color: "#374151"
+              }}
+              onChange={event => setSearchTerm(event.target.value)}
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm("")}
+                style={{
+                  border: "none",
+                  background: "transparent",
+                  cursor: "pointer",
+                  color: "#9CA3AF",
+                  display: "inline-flex",
+                  padding: 0
+                }}
+                aria-label="Clear search"
+              >
+                <FaTimes size={12} />
+              </button>
+            )}
           </div>
 
-          {/* Category Filter */}
-          <div style={{ position: "relative", width: "182px" }}>
+          {/* Category Dropdown */}
+          <div style={filterWrapperStyle}>
             <select
-              value={categoryFilter}
-              onChange={e => setCategoryFilter(e.target.value)}
-              style={{
-                width: "100%",
-                height: "36px",
-                background: "#fff",
-                borderRadius: "13px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-                border: "1px solid #D9DCE1",
-                padding: "0 34px 0 14px",
-                fontSize: "13px",
-                fontWeight: "500",
-                color: "#4B5563",
-                outline: "none",
-                appearance: "none",
-                WebkitAppearance: "none",
-                MozAppearance: "none"
-              }}
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+              style={filterSelectStyle}
             >
-              <option value="all">Category : All</option>
-              {[...new Set(products.map(p => p.cat_name).filter(Boolean))].sort().map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
+              {categoryOptions.map(cat => (
+                <option key={cat} value={cat}>
+                  {cat === "All" ? `${t("company_admin.category", "Category")} : All` : cat}
+                </option>
               ))}
             </select>
-            <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            <FaChevronDown size={11} style={filterChevronStyle} />
           </div>
 
-          {/* Stock Level Filter */}
-          <div style={{ position: "relative", width: "182px" }}>
+          {/* Status Dropdown */}
+          <div style={filterWrapperStyle}>
             <select
-              value={stockLevelFilter}
-              onChange={e => setStockLevelFilter(e.target.value)}
-              style={{
-                width: "100%",
-                height: "36px",
-                background: "#fff",
-                borderRadius: "13px",
-                boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-                border: "1px solid #D9DCE1",
-                padding: "0 34px 0 14px",
-                fontSize: "13px",
-                fontWeight: "500",
-                color: "#4B5563",
-                outline: "none",
-                appearance: "none",
-                WebkitAppearance: "none",
-                MozAppearance: "none"
-              }}
+              value={selectedStatus}
+              onChange={e => setSelectedStatus(e.target.value)}
+              style={filterSelectStyle}
             >
-              <option value="all">Stock Level : All</option>
-              <option value="In stock">In Stock</option>
-              <option value="Low stock">Low Stock</option>
-              <option value="Out of stock">Out of Stock</option>
+              <option value="All">{t("company_admin.status", "Status")} : All</option>
+              <option value="In Stock">In Stock</option>
+              <option value="Low Stock">Low Stock</option>
+              <option value="Out of Stock">Out of Stock</option>
             </select>
-            <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+            <FaChevronDown size={11} style={filterChevronStyle} />
+          </div>
+
+          {/* Stock Level Dropdown */}
+          <div style={filterWrapperStyle}>
+            <select
+              value={selectedStockLevel}
+              onChange={e => setSelectedStockLevel(e.target.value)}
+              style={filterSelectStyle}
+            >
+              <option value="All">{t("company_admin.stock_level", "Stock Level")} : All</option>
+              <option value="Low (1-10)">Low (1-10)</option>
+              <option value="Out (0)">Out (0)</option>
+              <option value="High (>10)">High (&gt;10)</option>
+            </select>
+            <FaChevronDown size={11} style={filterChevronStyle} />
           </div>
         </div>
-
 
         <ProductItemsTable products={paginatedProducts} hideStockColumn={true} hideStatusColumn={true} showTypeColumn={true} onViewProduct={handleViewProduct} onEditProduct={handleEditProduct} onDeleteProduct={handleDeleteProduct} currentPage={currentPage} totalPages={totalPages} totalItems={tableProducts.length} pageStart={pageStart} pageEnd={pageEnd} onPageChange={setCurrentPage} />
       </div>

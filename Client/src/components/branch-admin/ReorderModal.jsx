@@ -25,7 +25,7 @@ const ReorderModal = ({
   onSuccess
 }) => {
   const { t } = useTranslation();
-const navigate = useNavigate();
+  const navigate = useNavigate();
   const {
     user
   } = useAuth();

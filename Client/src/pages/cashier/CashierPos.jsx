@@ -155,7 +155,6 @@ const navigate = useNavigate();
         (o) =>
           o.or_type === "dine-in" &&
           o.or_status !== "cancelled" &&
-          o.pay_status !== "paid" &&
           (!branchId || String(o.b_id) === String(branchId))
       );
       setWaiterOrders(activeDineIn);
@@ -362,12 +361,6 @@ const navigate = useNavigate();
   }, [user?.b_id, user?.B_id]);
 
   useEffect(() => {
-    if (waiterEnabled) {
-      fetchWaiterOrders();
-    }
-  }, [waiterEnabled, branchId]);
-
-  useEffect(() => {
     if (!user?.u_id) {
       setOrderReadyAlerts([]);
       return;
@@ -561,7 +554,7 @@ const navigate = useNavigate();
       setError("No branch is assigned to this user.");
       return;
     }
-    if (orderType === "dine-in" && features?.has_waiter && !editingOrderId) {
+    if (orderType === "dine-in" && features?.has_waiter) {
       setError("Dine-in orders require table selection. Please use takeaway for now.");
       return;
     }
@@ -591,8 +584,10 @@ const navigate = useNavigate();
           or_totalCostWtax: Number(total.toFixed(2)),
           or_status: paymentMethod === "PayHere" ? "pending" : "completed",
           or_type: orderType,
+          cust_id: null,
           u_id: user.u_id,
           b_id: branchId,
+          table_id: null,
           or_notes: notes,
           or_addons: addons,
           or_addons_price: Number(addonsPrice || 0),
@@ -623,6 +618,7 @@ const navigate = useNavigate();
           or_totalCostWtax: Number(total.toFixed(2)),
           or_status: "pending",
           or_type: orderType,
+          cust_id: null,
           u_id: user.u_id,
           b_id: branchId,
           table_id: null,

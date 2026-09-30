@@ -74,14 +74,35 @@ export const login = async ({ u_email, u_pw }) => {
   return res.data;
 };
 
+export const requestPasswordReset = async (u_email) => {
+  const res = await api.post("/auth/forgot-password", { u_email });
+  return res.data;
+};
+
+export const resetPassword = async ({ token, password }) => {
+  const res = await api.post("/auth/reset-password", { token, password });
+  return res.data;
+};
+
 export const logout = () => {
   setAuthToken(null);
   localStorage.removeItem("user");
 };
 
 export const getCurrentUser = () => {
+  const token = localStorage.getItem("token");
   const raw = localStorage.getItem("user");
-  return raw ? JSON.parse(raw) : null;
+
+  if (!token || !raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    localStorage.removeItem("user");
+    return null;
+  }
 };
 
 // ---------------- BRANCHES ----------------

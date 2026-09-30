@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import {
   FaTachometerAlt,
   FaStore,
@@ -27,6 +28,36 @@ const Sidebar = () => {
       window.removeEventListener("close-sa-sidebar", closeSidebar);
     };
   }, []);
+
+  const LogoutButton = () => {
+  const { logout } = useAuth();
+  
+  return (
+    <button
+      onClick={logout}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        padding: "12px 20px",
+        background: "transparent",
+        borderRadius: 10,
+        cursor: "pointer",
+        marginBottom: 8,
+        color: "#fff",
+        textDecoration: "none",
+        border: "none",
+        width: "100%",
+        fontSize: 15,
+        fontWeight: 500,
+      }}
+    >
+      <FaSignOutAlt />
+      <span>Log Out</span>
+    </button>
+  );
+};
+
 
   const menuItem = (icon, label, path) => {
     const isActive = location.pathname === path || location.pathname.startsWith(path);
@@ -112,8 +143,8 @@ const Sidebar = () => {
         </div>
 
         <div>
-          {menuItem(<FaSignOutAlt />, "Log Out", "/logout")}
-        </div>
+  <LogoutButton />
+</div>
       </div>
     </>
   );

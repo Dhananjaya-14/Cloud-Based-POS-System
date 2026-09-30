@@ -11,8 +11,15 @@ export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
   // State
-  const [user, setUser] = useState(() => getCurrentUser());
-  const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const storedToken = localStorage.getItem("token");
+const storedUser = getCurrentUser();
+
+const [token, setToken] = useState(() => localStorage.getItem("token"));
+const [user, setUser] = useState(() => {
+  const storedToken = localStorage.getItem("token");
+  const storedUser = getCurrentUser();
+  return storedToken && storedUser ? storedUser : null;
+});
 
   // Sync auth token with API helper
   useEffect(() => {
@@ -53,16 +60,14 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Logout function
   const logout = () => {
-    setToken(null);
-    setUser(null);
-    setAuthToken(null);
-    disconnectSocket();
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
-  };
+  localStorage.clear();
+  setToken(null);
+  setUser(null);
+  setAuthToken(null);
+  disconnectSocket();
+  navigate("/login");
+};
 
   return (
     <AuthContext.Provider
