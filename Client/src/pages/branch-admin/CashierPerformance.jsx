@@ -19,6 +19,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders, getUsers, getCashierPerformanceReport } from "../../services/api";
+import { connectSocket, subscribeToBranchAdminDashboardUpdates } from "../../services/socket";
 import topPerformerIcon from "../../assets/images/top performer.png";
 import timeIcon from "../../assets/images/time.png";
 import salesIcon from "../../assets/images/sales.png";
@@ -43,8 +44,27 @@ const formatCurrency = (value) => {
 
 const getDateKey = (date) => {
 	if (!date) return "";
-	if (typeof date === "string") return date.slice(0, 10);
-	return new Date(date).toISOString().slice(0, 10);
+	if (typeof date === "string") {
+		const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+		if (match) return match[1];
+	}
+	const d = new Date(date);
+	if (isNaN(d.getTime())) return "";
+	const year = d.getFullYear();
+	const month = String(d.getMonth() + 1).padStart(2, "0");
+	const day = String(d.getDate()).padStart(2, "0");
+	return `${year}-${month}-${day}`;
+};
+
+const getOrderRevenue = (order) => {
+	const cost =
+		order?.or_totalCostWtax ??
+		order?.or_totalcostwtax ??
+		order?.or_totalcost ??
+		order?.or_totalCost ??
+		0;
+	const num = Number(cost);
+	return Number.isNaN(num) ? 0 : num;
 };
 
 const CashierPerformance = () => {
@@ -56,6 +76,21 @@ const CashierPerformance = () => {
 	const [error, setError] = useState("");
 	const [timeRange, setTimeRange] = useState("30days");
 	const [isExporting, setIsExporting] = useState(false);
+	const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+	useEffect(() => {
+		if (!user?.b_id) return;
+		connectSocket();
+		const handleRefresh = () => {
+			setRefreshTrigger((prev) => prev + 1);
+		};
+		const unsubscribe = subscribeToBranchAdminDashboardUpdates(user.b_id, {
+			onRefresh: handleRefresh,
+		});
+		return () => {
+			unsubscribe();
+		};
+	}, [user?.b_id]);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -64,7 +99,7 @@ const CashierPerformance = () => {
 			setIsLoading(true);
 			setError("");
 
-			const params = { status: "completed" };
+			const params = {};
 			if (user?.b_id) {
 				params.b_id = user.b_id;
 			}
@@ -74,10 +109,23 @@ const CashierPerformance = () => {
 			if (!isMounted) return;
 
 			const [ordersResult, usersResult] = results;
-			const nextOrders = ordersResult.status === "fulfilled" ? ordersResult.value : [];
+			const nextOrdersRaw = ordersResult.status === "fulfilled" ? ordersResult.value : [];
+			const orderList = Array.isArray(nextOrdersRaw) ? nextOrdersRaw : (nextOrdersRaw?.data || []);
+
+			// Deduplicate orders by or_id and filter completed or paid orders
+			const uniqueMap = new Map();
+			orderList.forEach((order) => {
+				if (!order?.or_id) return;
+				const isCompleted = order.or_status === "completed" || order.pay_status === "paid" || order.or_status === "delivered";
+				if (isCompleted && !uniqueMap.has(order.or_id)) {
+					uniqueMap.set(order.or_id, order);
+				}
+			});
+			const validOrders = Array.from(uniqueMap.values());
+
 			const nextUsers = usersResult.status === "fulfilled" ? usersResult.value : [];
 
-			setOrders(Array.isArray(nextOrders) ? nextOrders : []);
+			setOrders(validOrders);
 			setUsers(Array.isArray(nextUsers) ? nextUsers : []);
 
 			if (results.some((result) => result.status === "rejected")) {
@@ -92,16 +140,19 @@ const CashierPerformance = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, [user?.b_id]);
+	}, [user?.b_id, refreshTrigger]);
 
 	const rangeDays = useMemo(() => {
 		const counts = { today: 1, weekly: 7, monthly: 30, "30days": 30 };
 		const total = counts[timeRange] || 30;
 		const days = [];
+		const now = new Date();
 		for (let i = total - 1; i >= 0; i -= 1) {
-			const date = new Date();
-			date.setDate(date.getDate() - i);
-			const key = date.toISOString().slice(0, 10);
+			const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, "0");
+			const day = String(date.getDate()).padStart(2, "0");
+			const key = `${year}-${month}-${day}`;
 			const label = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 			days.push({ key, label });
 		}
@@ -123,9 +174,9 @@ const CashierPerformance = () => {
 		rangeOrders.forEach((order) => {
 			const cashierId = order?.u_id;
 			if (!cashierId) return;
-			const total = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
+			const total = getOrderRevenue(order);
 			const entry = totals.get(cashierId) || { revenue: 0, orders: 0 };
-			entry.revenue += Number.isNaN(total) ? 0 : total;
+			entry.revenue += total;
 			entry.orders += 1;
 			totals.set(cashierId, entry);
 		});
@@ -184,8 +235,8 @@ const CashierPerformance = () => {
 	};
 
 	const totalRevenue = useMemo(() => {
-		return sortedCashiers.reduce((sum, cashier) => sum + cashier.revenue, 0);
-	}, [sortedCashiers]);
+		return rangeOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
+	}, [rangeOrders]);
 
 	const totalOrders = useMemo(() => {
 		return sortedCashiers.reduce((sum, cashier) => sum + cashier.orders, 0);
