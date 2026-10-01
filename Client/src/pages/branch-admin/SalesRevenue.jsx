@@ -43,6 +43,37 @@ const getOrderRevenue = order => {
   const num = Number(cost);
   return Number.isNaN(num) ? 0 : num;
 };
+const getOrderNetProfit = order => {
+  const revenue = getOrderRevenue(order);
+  if (revenue <= 0) return 0;
+
+  const cost =
+    order?.or_totalcost ??
+    order?.or_totalCost ??
+    order?.total_cost ??
+    order?.subtotal ??
+    null;
+
+  if (cost !== null && cost !== undefined) {
+    const num = Number(cost);
+    if (!Number.isNaN(num) && num > 0) {
+      if (num <= revenue) return num;
+      return revenue;
+    }
+  }
+
+  const tax = Number(order?.or_tax ?? order?.tax ?? 0);
+  if (tax > 0 && !Number.isNaN(tax)) {
+    if (tax <= 100) {
+      return Number((revenue / (1 + tax / 100)).toFixed(2));
+    }
+    if (tax < revenue) {
+      return Number((revenue - tax).toFixed(2));
+    }
+  }
+
+  return revenue;
+};
 const SalesRevenue = () => {
   const { t } = useTranslation();
 const {
@@ -202,8 +233,8 @@ const {
   }, [rangeDays, revenueByDay]);
 
   const netProfit = useMemo(() => {
-    return totalRevenue * 0.72;
-  }, [totalRevenue]);
+    return rangeOrders.reduce((sum, order) => sum + getOrderNetProfit(order), 0);
+  }, [rangeOrders]);
 
   const orderTypeBreakdown = useMemo(() => {
     const counts = {
