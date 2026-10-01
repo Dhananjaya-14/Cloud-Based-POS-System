@@ -195,7 +195,7 @@ const CashierPerformance = () => {
 				params.b_id = branchId;
 			}
 
-			const results = await Promise.allSettled([getOrders(params), getUsers()]);
+			const results = await Promise.allSettled([getOrders(params), getUsers(params)]);
 
 			if (!isMounted) return;
 
@@ -235,9 +235,10 @@ const CashierPerformance = () => {
 			const validOrders = Array.from(uniqueMap.values());
 
 			const nextUsers = usersResult.status === "fulfilled" ? usersResult.value : [];
+			const userList = Array.isArray(nextUsers) ? nextUsers : (nextUsers?.data || nextUsers?.users || []);
 
 			setOrders(validOrders);
-			setUsers(Array.isArray(nextUsers) ? nextUsers : []);
+			setUsers(userList);
 
 			if (results.some((result) => result.status === "rejected")) {
 				setError("Some performance data could not be loaded.");
@@ -283,36 +284,81 @@ const CashierPerformance = () => {
 		return rangeOrders.length > 0 ? rangeOrders : (orders.length > 0 ? orders : []);
 	}, [rangeOrders, orders]);
 
-	const cashierUsers = useMemo(() => {
-		return users.filter((item) => Number(item?.role_id) === 3);
-	}, [users]);
-
 	const cashierStats = useMemo(() => {
 		const totals = new Map();
-		targetOrders.forEach((order) => {
-			const cashierId = order?.u_id ? Number(order.u_id) : null;
-			if (!cashierId) return;
-			const total = getOrderRevenue(order);
-			const entry = totals.get(cashierId) || { revenue: 0, orders: 0 };
-			entry.revenue += total;
-			entry.orders += 1;
-			totals.set(cashierId, entry);
+		const orderCounts = new Map();
+		const cashierDetails = new Map();
+
+		// Index users by ID for quick profile lookup
+		const userMap = new Map();
+		(users || []).forEach((u) => {
+			const uid = Number(u.u_id ?? u.id ?? u.userId);
+			if (uid) userMap.set(uid, u);
 		});
 
-		return cashierUsers.map((cashier) => {
-			const cashierId = Number(cashier.u_id);
-			const metrics = totals.get(cashierId) || { revenue: 0, orders: 0 };
-			const avgOrder = metrics.orders ? metrics.revenue / metrics.orders : 0;
+		// 1. Include any user explicitly assigned as Cashier (role_id === 3 or role_name contains cashier)
+		(users || []).forEach((u) => {
+			const roleId = Number(u?.role_id);
+			const roleName = String(u?.role_name || u?.role || u?.u_role || "").toLowerCase();
+			if (roleId === 3 || roleName.includes("cashier")) {
+				const id = Number(u.u_id ?? u.id ?? u.userId);
+				if (id) {
+					const fname = u.u_fname ?? u.fname ?? "";
+					const lname = u.u_lname ?? u.lname ?? "";
+					const name = `${fname} ${lname}`.trim() || u.u_name || u.name || `Cashier #${id}`;
+					cashierDetails.set(id, { id, name });
+				}
+			}
+		});
+
+		// 2. Tally all sales from targetOrders and ensure every staff member who processed sales is included
+		targetOrders.forEach((order) => {
+			const rawId = order?.u_id ?? order?.cashier_id ?? order?.cashierId ?? order?.user_id ?? order?.created_by;
+			const cashierId = rawId ? Number(rawId) : null;
+			if (!cashierId) return;
+
+			const total = getOrderRevenue(order);
+			totals.set(cashierId, (totals.get(cashierId) || 0) + total);
+			orderCounts.set(cashierId, (orderCounts.get(cashierId) || 0) + 1);
+
+			if (!cashierDetails.has(cashierId)) {
+				const u = userMap.get(cashierId);
+				const fname = u?.u_fname ?? u?.fname ?? "";
+				const lname = u?.u_lname ?? u?.lname ?? "";
+				const userName = `${fname} ${lname}`.trim() || u?.u_name || u?.name;
+				const orderName = order?.cashier_name || order?.u_name || order?.user_name;
+				const name = userName || orderName || `Cashier #${cashierId}`;
+				cashierDetails.set(cashierId, { id: cashierId, name });
+			}
+		});
+
+		// 3. Fallback: If no cashiers or orders found yet, include branch staff from users list
+		if (cashierDetails.size === 0 && (users || []).length > 0) {
+			users.forEach((u) => {
+				const id = Number(u.u_id ?? u.id ?? u.userId);
+				if (id) {
+					const fname = u.u_fname ?? u.fname ?? "";
+					const lname = u.u_lname ?? u.lname ?? "";
+					const name = `${fname} ${lname}`.trim() || u.u_name || u.name || `Staff #${id}`;
+					cashierDetails.set(id, { id, name });
+				}
+			});
+		}
+
+		// Calculate performance metrics for all cashiers
+		return Array.from(cashierDetails.values()).map((cashier) => {
+			const revenue = totals.get(cashier.id) || 0;
+			const orders = orderCounts.get(cashier.id) || 0;
+			const avgOrder = orders > 0 ? revenue / orders : 0;
 			return {
-				id: cashier.u_id,
-				name:
-					`${cashier.u_fname || ""} ${cashier.u_lname || ""}`.trim() || "Staff",
-				revenue: metrics.revenue,
-				orders: metrics.orders,
+				id: cashier.id,
+				name: cashier.name,
+				revenue,
+				orders,
 				avgOrder,
 			};
 		});
-	}, [cashierUsers, targetOrders]);
+	}, [users, targetOrders]);
 
 	const sortedCashiers = useMemo(() => {
 		return [...cashierStats].sort((a, b) => b.revenue - a.revenue);
@@ -330,8 +376,10 @@ const CashierPerformance = () => {
 	}, [timeRange]);
 
 	useEffect(() => {
-		if (currentPage > totalPages) {
+		if (currentPage > totalPages && totalPages > 0) {
 			setCurrentPage(totalPages);
+		} else if (currentPage < 1) {
+			setCurrentPage(1);
 		}
 	}, [currentPage, totalPages]);
 
@@ -648,7 +696,7 @@ const CashierPerformance = () => {
 									).map((cashier, index) => {
 										if (!cashier) {
 											return (
-												<tr key={`cashier-row-${index}`} className="border-b">
+												<tr key={`cashier-skeleton-${index}`} className="border-b">
 													<td colSpan="4" className="py-4">
 														<div className="h-4 bg-slate-100 rounded animate-pulse" />
 													</td>
@@ -657,14 +705,15 @@ const CashierPerformance = () => {
 										}
 										const overallIndex = (currentPage - 1) * itemsPerPage + index;
 										const status = statusForCashier(cashier, overallIndex);
-										const initials = cashier.name
-											.split(" ")
-											.map((part) => part[0])
+										const initials = (cashier.name || "Staff")
+											.trim()
+											.split(/\s+/)
+											.map((part) => part[0] || "")
 											.join("")
 											.slice(0, 2)
-											.toUpperCase();
+											.toUpperCase() || "CP";
 										return (
-											<tr key={cashier.id} className="border-b last:border-b-0">
+											<tr key={`cashier-row-${cashier.id ?? index}-${overallIndex}`} className="border-b last:border-b-0 hover:bg-slate-50/50 transition-colors">
 												<td className="py-3">
 													<div className="flex items-center gap-3">
 														<div className="w-9 h-9 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-[11px] font-semibold">
@@ -689,7 +738,7 @@ const CashierPerformance = () => {
 
 						<div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-[11px] text-slate-400">
 							<div>
-								Showing{" "}
+								{t("branch_admin.showing", "Showing")}{" "}
 								<span className="font-semibold text-slate-600">
 									{sortedCashiers.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
 								</span>{" "}
@@ -707,7 +756,7 @@ const CashierPerformance = () => {
 								<button
 									type="button"
 									onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-									disabled={currentPage === 1}
+									disabled={currentPage <= 1 || isLoading}
 									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 								>
 									{t("branch_admin.previous", "Previous")}
@@ -722,7 +771,7 @@ const CashierPerformance = () => {
 									}
 									return (
 										<button
-											key={item}
+											key={`page-btn-${item}`}
 											type="button"
 											onClick={() => setCurrentPage(item)}
 											className={`h-7 w-7 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center ${
@@ -738,7 +787,7 @@ const CashierPerformance = () => {
 								<button
 									type="button"
 									onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
-									disabled={currentPage === totalPages || totalPages <= 1}
+									disabled={currentPage >= totalPages || totalPages <= 1 || isLoading}
 									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 								>
 									{t("branch_admin.next", "Next")}
