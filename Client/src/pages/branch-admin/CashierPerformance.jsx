@@ -44,12 +44,17 @@ const formatCurrency = (value) => {
 
 const getDateKey = (date) => {
 	if (!date) return "";
-	if (typeof date === "string") {
-		const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
-		if (match) return match[0];
+	if (typeof date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(date.trim())) {
+		return date.trim();
 	}
 	const d = new Date(date);
-	if (isNaN(d.getTime())) return "";
+	if (isNaN(d.getTime())) {
+		if (typeof date === "string") {
+			const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+			if (match) return match[0];
+		}
+		return "";
+	}
 	const year = d.getFullYear();
 	const month = String(d.getMonth() + 1).padStart(2, "0");
 	const day = String(d.getDate()).padStart(2, "0");
@@ -57,17 +62,30 @@ const getDateKey = (date) => {
 };
 
 const getOrderRevenue = (order) => {
-	const cost =
-		order?.or_totalCostWtax ??
-		order?.or_totalcostwtax ??
-		order?.or_totalcost ??
-		order?.or_totalCost ??
-		order?.totalCostWtax ??
-		order?.total_cost ??
-		order?.amount ??
-		0;
-	const num = Number(cost);
-	return Number.isNaN(num) ? 0 : num;
+	if (!order) return 0;
+	const candidates = [
+		order.or_totalCostWtax,
+		order.or_totalcostwtax,
+		order.or_totalcost,
+		order.or_totalCost,
+		order.totalCostWtax,
+		order.total_cost,
+		order.pay_amount,
+		order.payment_amount,
+		order.amount,
+		order.total,
+		order.subtotal,
+		order.price,
+	];
+	for (const candidate of candidates) {
+		if (candidate !== undefined && candidate !== null && candidate !== "") {
+			const num = Number(candidate);
+			if (!Number.isNaN(num) && num > 0) {
+				return num;
+			}
+		}
+	}
+	return 0;
 };
 
 const formatDuration = (totalSeconds) => {
@@ -142,6 +160,7 @@ const getOrderProcessingSeconds = (order) => {
 const CashierPerformance = () => {
 	const { t } = useTranslation();
 	const { user } = useAuth();
+	const branchId = user?.b_id ?? user?.B_id ?? user?.branchId ?? null;
 	const [orders, setOrders] = useState([]);
 	const [users, setUsers] = useState([]);
 	const [isLoading, setIsLoading] = useState(true);
@@ -151,18 +170,18 @@ const CashierPerformance = () => {
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
 
 	useEffect(() => {
-		if (!user?.b_id) return;
+		if (!branchId) return;
 		connectSocket();
 		const handleRefresh = () => {
 			setRefreshTrigger((prev) => prev + 1);
 		};
-		const unsubscribe = subscribeToBranchAdminDashboardUpdates(user.b_id, {
+		const unsubscribe = subscribeToBranchAdminDashboardUpdates(branchId, {
 			onRefresh: handleRefresh,
 		});
 		return () => {
 			unsubscribe();
 		};
-	}, [user?.b_id]);
+	}, [branchId]);
 
 	useEffect(() => {
 		let isMounted = true;
@@ -172,8 +191,8 @@ const CashierPerformance = () => {
 			setError("");
 
 			const params = {};
-			if (user?.b_id) {
-				params.b_id = user.b_id;
+			if (branchId) {
+				params.b_id = branchId;
 			}
 
 			const results = await Promise.allSettled([getOrders(params), getUsers()]);
@@ -184,18 +203,32 @@ const CashierPerformance = () => {
 			const nextOrdersRaw = ordersResult.status === "fulfilled" ? ordersResult.value : [];
 			const orderList = Array.isArray(nextOrdersRaw) ? nextOrdersRaw : (nextOrdersRaw?.data || []);
 
-			// Deduplicate orders by or_id and filter completed or paid orders
+			// Deduplicate orders by or_id and filter valid sales transactions
 			const uniqueMap = new Map();
 			orderList.forEach((order) => {
 				if (!order?.or_id) return;
 				const status = String(order.or_status || "").toLowerCase().trim();
 				const payStatus = String(order.pay_status || order.payment_status || "").toLowerCase().trim();
-				const isCompleted = status === "completed" || payStatus === "paid" || status === "delivered";
-				if (!isCompleted) return;
+
+				// Exclude cancelled, refunded, or voided transactions
+				if (status === "cancelled" || status === "voided" || payStatus === "voided" || payStatus === "refunded") {
+					return;
+				}
+
+				// Include completed, paid, delivered, ready, preparing, or any active order with revenue
+				const isSalesTx =
+					status === "completed" ||
+					payStatus === "paid" ||
+					status === "delivered" ||
+					status === "ready" ||
+					status === "preparing" ||
+					getOrderRevenue(order) > 0;
+
+				if (!isSalesTx) return;
 
 				if (!uniqueMap.has(order.or_id)) {
 					uniqueMap.set(order.or_id, order);
-				} else if (payStatus === "paid") {
+				} else if (payStatus === "paid" || status === "completed") {
 					uniqueMap.set(order.or_id, order);
 				}
 			});
@@ -218,7 +251,7 @@ const CashierPerformance = () => {
 		return () => {
 			isMounted = false;
 		};
-	}, [user?.b_id, refreshTrigger]);
+	}, [branchId, refreshTrigger]);
 
 	const rangeDays = useMemo(() => {
 		const counts = { today: 1, weekly: 7, monthly: 30, "30days": 30 };
@@ -240,8 +273,15 @@ const CashierPerformance = () => {
 	const rangeKeys = useMemo(() => new Set(rangeDays.map((day) => day.key)), [rangeDays]);
 
 	const rangeOrders = useMemo(() => {
-		return orders.filter((order) => rangeKeys.has(getDateKey(order?.or_date || order?.created_at || order?.date)));
+		return orders.filter((order) => {
+			const dateVal = order?.or_date || order?.created_at || order?.date || order?.pay_date;
+			return rangeKeys.has(getDateKey(dateVal));
+		});
 	}, [orders, rangeKeys]);
+
+	const targetOrders = useMemo(() => {
+		return rangeOrders.length > 0 ? rangeOrders : (orders.length > 0 ? orders : []);
+	}, [rangeOrders, orders]);
 
 	const cashierUsers = useMemo(() => {
 		return users.filter((item) => Number(item?.role_id) === 3);
@@ -249,8 +289,8 @@ const CashierPerformance = () => {
 
 	const cashierStats = useMemo(() => {
 		const totals = new Map();
-		rangeOrders.forEach((order) => {
-			const cashierId = order?.u_id;
+		targetOrders.forEach((order) => {
+			const cashierId = order?.u_id ? Number(order.u_id) : null;
 			if (!cashierId) return;
 			const total = getOrderRevenue(order);
 			const entry = totals.get(cashierId) || { revenue: 0, orders: 0 };
@@ -260,7 +300,8 @@ const CashierPerformance = () => {
 		});
 
 		return cashierUsers.map((cashier) => {
-			const metrics = totals.get(cashier.u_id) || { revenue: 0, orders: 0 };
+			const cashierId = Number(cashier.u_id);
+			const metrics = totals.get(cashierId) || { revenue: 0, orders: 0 };
 			const avgOrder = metrics.orders ? metrics.revenue / metrics.orders : 0;
 			return {
 				id: cashier.u_id,
@@ -271,7 +312,7 @@ const CashierPerformance = () => {
 				avgOrder,
 			};
 		});
-	}, [cashierUsers, rangeOrders]);
+	}, [cashierUsers, targetOrders]);
 
 	const sortedCashiers = useMemo(() => {
 		return [...cashierStats].sort((a, b) => b.revenue - a.revenue);
@@ -313,12 +354,12 @@ const CashierPerformance = () => {
 	};
 
 	const totalRevenue = useMemo(() => {
-		return rangeOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
-	}, [rangeOrders]);
+		return targetOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
+	}, [targetOrders]);
 
 	const totalOrders = useMemo(() => {
-		return sortedCashiers.reduce((sum, cashier) => sum + cashier.orders, 0);
-	}, [sortedCashiers]);
+		return targetOrders.length;
+	}, [targetOrders]);
 
 	const avgOrderValue = useMemo(() => {
 		if (!totalOrders) return 0;
@@ -328,7 +369,6 @@ const CashierPerformance = () => {
 	const topCashier = sortedCashiers[0];
 
 	const avgProcessingTime = useMemo(() => {
-		const targetOrders = rangeOrders.length > 0 ? rangeOrders : (orders.length > 0 ? orders : []);
 		if (!targetOrders.length) return "0s";
 		const totalSeconds = targetOrders.reduce(
 			(sum, order) => sum + getOrderProcessingSeconds(order),
@@ -336,7 +376,7 @@ const CashierPerformance = () => {
 		);
 		const avgSeconds = totalSeconds / targetOrders.length;
 		return formatDuration(avgSeconds);
-	}, [rangeOrders, orders]);
+	}, [targetOrders]);
 
 	const revenueChartData = useMemo(() => {
 		const topEntries = sortedCashiers.slice(0, 6);
@@ -395,7 +435,7 @@ const CashierPerformance = () => {
 			fromDate = start.toISOString().split("T")[0];
 
 			const response = await getCashierPerformanceReport({
-				b_id: user.b_id,
+				b_id: branchId || user?.b_id,
 				filterType: timeRange,
 				fromDate,
 				toDate,
