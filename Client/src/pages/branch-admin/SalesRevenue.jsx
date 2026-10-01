@@ -21,7 +21,7 @@ const getDateKey = date => {
   if (!date) return "";
   if (typeof date === "string") {
     const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (match) return match[1];
+    if (match) return match[0];
   }
   const d = new Date(date);
   if (isNaN(d.getTime())) return "";
@@ -36,6 +36,9 @@ const getOrderRevenue = order => {
     order?.or_totalcostwtax ??
     order?.or_totalcost ??
     order?.or_totalCost ??
+    order?.totalCostWtax ??
+    order?.total_cost ??
+    order?.amount ??
     0;
   const num = Number(cost);
   return Number.isNaN(num) ? 0 : num;
@@ -86,8 +89,14 @@ const {
       const uniqueMap = new Map();
       orderList.forEach(order => {
         if (!order?.or_id) return;
-        const isCompleted = order.or_status === "completed" || order.pay_status === "paid" || order.or_status === "delivered";
-        if (isCompleted && !uniqueMap.has(order.or_id)) {
+        const status = String(order.or_status || "").toLowerCase().trim();
+        const payStatus = String(order.pay_status || order.payment_status || "").toLowerCase().trim();
+        const isCompleted = status === "completed" || payStatus === "paid" || status === "delivered";
+        if (!isCompleted) return;
+
+        if (!uniqueMap.has(order.or_id)) {
+          uniqueMap.set(order.or_id, order);
+        } else if (payStatus === "paid") {
           uniqueMap.set(order.or_id, order);
         }
       });
@@ -142,13 +151,13 @@ const {
   const rangeKeys = useMemo(() => new Set(rangeDays.map(day => day.key)), [rangeDays]);
 
   const rangeOrders = useMemo(() => {
-    return orders.filter(order => rangeKeys.has(getDateKey(order?.or_date)));
+    return orders.filter(order => rangeKeys.has(getDateKey(order?.or_date || order?.created_at || order?.date)));
   }, [orders, rangeKeys]);
 
   const ordersByDate = useMemo(() => {
     const map = new Map();
     orders.forEach(order => {
-      const key = getDateKey(order?.or_date);
+      const key = getDateKey(order?.or_date || order?.created_at || order?.date);
       if (!key) return;
       map.set(key, [...(map.get(key) || []), order]);
     });
