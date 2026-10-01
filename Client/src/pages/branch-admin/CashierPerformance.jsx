@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Bar } from "react-chartjs-2";
 import {
@@ -13,7 +13,7 @@ import {
 	Legend,
 	Filler,
 } from "chart.js";
-import { FaDownload } from "react-icons/fa";
+import { FaDownload, FaChevronDown, FaCheck } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
@@ -157,6 +157,14 @@ const getOrderProcessingSeconds = (order) => {
 	return 60 + estItems * 12 + orderVariance;
 };
 
+const TIME_RANGE_OPTIONS = [
+	{ key: "today", label: "Today", translationKey: "branch_admin.today" },
+	{ key: "weekly", label: "Last 7 Days", translationKey: "branch_admin.last_7_days" },
+	{ key: "30days", label: "Last 30 Days", translationKey: "branch_admin.last_30_days" },
+	{ key: "monthly", label: "This Month", translationKey: "branch_admin.this_month" },
+	{ key: "90days", label: "Last 90 Days", translationKey: "branch_admin.last_90_days" },
+];
+
 const CashierPerformance = () => {
 	const { t } = useTranslation();
 	const { user } = useAuth();
@@ -166,8 +174,36 @@ const CashierPerformance = () => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [timeRange, setTimeRange] = useState("30days");
+	const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+	const dropdownRef = useRef(null);
 	const [isExporting, setIsExporting] = useState(false);
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+	const currentRangeOption = TIME_RANGE_OPTIONS.find((opt) => opt.key === timeRange);
+	const currentRangeLabel = currentRangeOption
+		? t(currentRangeOption.translationKey, currentRangeOption.label)
+		: t("branch_admin.last_30_days", "Last 30 Days");
+
+	useEffect(() => {
+		const handleClickOutside = (event) => {
+			if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+				setIsDropdownOpen(false);
+			}
+		};
+		const handleKeyDown = (event) => {
+			if (event.key === "Escape") {
+				setIsDropdownOpen(false);
+			}
+		};
+		if (isDropdownOpen) {
+			document.addEventListener("mousedown", handleClickOutside);
+			document.addEventListener("keydown", handleKeyDown);
+		}
+		return () => {
+			document.removeEventListener("mousedown", handleClickOutside);
+			document.removeEventListener("keydown", handleKeyDown);
+		};
+	}, [isDropdownOpen]);
 
 	useEffect(() => {
 		if (!branchId) return;
@@ -255,7 +291,7 @@ const CashierPerformance = () => {
 	}, [branchId, refreshTrigger]);
 
 	const rangeDays = useMemo(() => {
-		const counts = { today: 1, weekly: 7, monthly: 30, "30days": 30 };
+		const counts = { today: 1, daily: 1, weekly: 7, "7days": 7, monthly: 30, "30days": 30, "90days": 90 };
 		const total = counts[timeRange] || 30;
 		const days = [];
 		const now = new Date();
@@ -476,7 +512,7 @@ const CashierPerformance = () => {
 			let fromDate = "";
 			let toDate = today;
 
-			const counts = { today: 1, weekly: 7, monthly: 30, "30days": 30 };
+			const counts = { today: 1, daily: 1, weekly: 7, "7days": 7, monthly: 30, "30days": 30, "90days": 90 };
 			const totalDays = counts[timeRange] || 30;
 			const start = new Date();
 			start.setDate(start.getDate() - (totalDays - 1));
@@ -560,14 +596,45 @@ const CashierPerformance = () => {
 					<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
 						<h2 className="text-[22px] font-bold text-slate-900">{t("branch_admin.cashier_performance", "Cashier Performance")}</h2>
 						<div className="flex items-center gap-3">
-							<button
-								type="button"
-								onClick={() => setTimeRange("30days")}
-								className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm"
-							>
-								<span className="text-slate-400">📅</span>
-								{t("branch_admin.last_30_days", "Last 30 Days")}
-							</button>
+							<div className="relative" ref={dropdownRef}>
+								<button
+									type="button"
+									onClick={() => setIsDropdownOpen((prev) => !prev)}
+									aria-expanded={isDropdownOpen}
+									aria-haspopup="true"
+									className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+								>
+									<span className="text-slate-400">📅</span>
+									<span>{currentRangeLabel}</span>
+									<FaChevronDown className={`text-slate-400 text-[10px] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+								</button>
+
+								{isDropdownOpen && (
+									<div className="absolute right-0 mt-2 w-48 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-100 z-50">
+										{TIME_RANGE_OPTIONS.map((opt) => {
+											const isSelected = timeRange === opt.key;
+											return (
+												<button
+													key={opt.key}
+													type="button"
+													onClick={() => {
+														setTimeRange(opt.key);
+														setIsDropdownOpen(false);
+													}}
+													className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
+														isSelected
+															? "bg-sky-50 text-[#0D5EA8] font-semibold"
+															: "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+													}`}
+												>
+													<span>{t(opt.translationKey, opt.label)}</span>
+													{isSelected && <FaCheck className="text-xs text-[#0D5EA8]" />}
+												</button>
+											);
+										})}
+									</div>
+								)}
+							</div>
 							<button
 								type="button"
 								onClick={exportReport}
