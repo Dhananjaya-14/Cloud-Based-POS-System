@@ -11,8 +11,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 
 const Sidebar = () => {
-  const { t } = useTranslation();
   const location = useLocation();
+  const { t } = useTranslation();
   const { user, features, logout } = useAuth();
   const { toasts, removeToast, toast } = useToast();
 

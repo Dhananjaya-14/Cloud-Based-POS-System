@@ -5,6 +5,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
 import { connectSocket, subscribeToReturnUpdates } from "../../services/socket";
+import { api } from "../../services/api";
 
 const ReturnManagement = () => {
   const { t } = useTranslation();
@@ -119,53 +120,38 @@ const ReturnManagement = () => {
     setIsLoading(true);
     setError("");
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch("/api/returns", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!res.ok) throw new Error("Failed to load return records");
-      const data = await res.json();
+      const res = await api.get("/returns");
+      const data = res.data;
       setReturns(Array.isArray(data) ? data : data.data || []);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
     } finally {
       setIsLoading(false);
     }
   };
   const fetchItemsForReturn = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const rmRes = await fetch("/api/raw-materials", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (rmRes.ok) {
-        const rmData = await rmRes.json();
-        setRawMaterials(Array.isArray(rmData) ? rmData : rmData.data || []);
-      }
+      const rmRes = await api.get("/raw-materials");
+      const rmData = rmRes.data;
+      setRawMaterials(Array.isArray(rmData) ? rmData : rmData.data || []);
+
       const user = JSON.parse(localStorage.getItem("user"));
       const b_id = user?.B_id;
-      const bpRes = await fetch(`/api/branch_products${b_id ? `?B_id=${b_id}` : ''}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (bpRes.ok) {
-        const bpData = await bpRes.json();
+      try {
+        const bpRes = await api.get(`/branch_products${b_id ? `?B_id=${b_id}` : ''}`);
+        const bpData = bpRes.data;
         const items = Array.isArray(bpData) ? bpData : bpData.data || [];
         setBranchProducts(items.filter(p => p.product_type === 'finished'));
+      } catch (bpErr) {
+        console.warn("Failed to load branch products", bpErr);
       }
-      const supRes = await fetch("/api/suppliers", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (supRes.ok) {
-        const supData = await supRes.json();
+
+      try {
+        const supRes = await api.get("/suppliers");
+        const supData = supRes.data;
         setSuppliers(Array.isArray(supData) ? supData : supData.data || []);
+      } catch (supErr) {
+        console.warn("Failed to load suppliers", supErr);
       }
     } catch (err) {
       console.error("Failed to load items for return", err);
@@ -197,23 +183,13 @@ const ReturnManagement = () => {
     }
     const finalQty = calculateFinalQty(qty, selectedUnit, baseUnit);
     try {
-      const token = localStorage.getItem("token");
       const payload = {
         qty_returned: finalQty,
         reason: addReason
       };
       if (isRawMaterial) payload.rm_id = actualId; else payload.pro_id = actualId;
       if (selectedSupplier) payload.sup_id = selectedSupplier;
-      const res = await fetch("/api/returns", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || "Failed to record return");
+      await api.post("/returns", payload);
       setShowAddModal(false);
       setSelectedItem("");
       setSelectedSupplier("");
@@ -224,7 +200,7 @@ const ReturnManagement = () => {
       fetchReturns();
       fetchItemsForReturn();
     } catch (err) {
-      setAddError(err.message);
+      setAddError(err.response?.data?.message || err.message);
     } finally {
       setIsAdding(false);
     }
@@ -264,28 +240,16 @@ const ReturnManagement = () => {
     }
     setIsSaving(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/returns/${editTarget.return_id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          qty_returned: qty,
-          reason: editReason,
-          status: editStatus
-        })
+      await api.put(`/returns/${editTarget.return_id}`, {
+        qty_returned: qty,
+        reason: editReason,
+        status: editStatus
       });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || "Failed to update return record");
-      }
       setEditTarget(null);
       showToast("Return record updated successfully");
       fetchReturns();
     } catch (err) {
-      setFormError(err.message);
+      setFormError(err.response?.data?.message || err.message);
     } finally {
       setIsSaving(false);
     }
@@ -294,22 +258,12 @@ const ReturnManagement = () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`/api/returns/${deleteTarget.return_id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.message || "Failed to delete return record");
-      }
+      await api.delete(`/returns/${deleteTarget.return_id}`);
       setDeleteTarget(null);
       showToast("Return record deleted");
       fetchReturns();
     } catch (err) {
-      alert(err.message);
+      alert(err.response?.data?.message || err.message);
     } finally {
       setIsDeleting(false);
     }

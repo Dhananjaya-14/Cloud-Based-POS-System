@@ -10,9 +10,12 @@ export const useAuth = () => useContext(AuthContext);
 export function AuthProvider({ children }) {
   const navigate = useNavigate();
 
-  // State
-  const [user, setUser] = useState(() => getCurrentUser());
   const [token, setToken] = useState(() => localStorage.getItem("token"));
+  const [user, setUser] = useState(() => {
+    const storedToken = localStorage.getItem("token");
+    const storedUser = getCurrentUser();
+    return storedToken && storedUser ? storedUser : null;
+  });
 
   // Sync auth token with API helper
   useEffect(() => {

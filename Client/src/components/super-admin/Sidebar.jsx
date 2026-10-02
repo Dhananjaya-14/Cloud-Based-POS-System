@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import {
   FaTachometerAlt,
   FaStore,
@@ -10,7 +11,6 @@ import {
   FaBox,
   FaTimes,
 } from "react-icons/fa";
-import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = () => {
   const location = useLocation();
