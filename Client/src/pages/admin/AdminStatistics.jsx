@@ -146,10 +146,14 @@ export default function AdminStatistics() {
           const allowed = new Set(allowedBranchIds);
           filteredBranchStats = rawBranchStats.filter((b) => {
             const bid = b?.B_id ?? b?.b_id ?? b?.id ?? null;
-            return bid != null && allowed.has(String(bid));
+            return bid != null && allowed.has(String(bid)) &&
+              (filters.b_id === "all" || String(bid) === String(filters.b_id));
           });
         } else {
-          filteredBranchStats = rawBranchStats;
+          filteredBranchStats = rawBranchStats.filter((b) => {
+            const bid = b?.B_id ?? b?.b_id ?? b?.id ?? null;
+            return filters.b_id === "all" || String(bid) === String(filters.b_id);
+          });
         }
 
         setSales(salesSeries);

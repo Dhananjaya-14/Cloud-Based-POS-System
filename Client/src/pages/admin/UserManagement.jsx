@@ -130,6 +130,13 @@ setToasts(prev => [...prev, {
       return acc;
     }, {});
   }, [branches]);
+  const roleCounts = useMemo(() => {
+    return users.reduce((counts, user) => {
+      const roleId = String(user.role_id);
+      counts[roleId] = (counts[roleId] || 0) + 1;
+      return counts;
+    }, {});
+  }, [users]);
 
   // Evaluates filters seamlessly across the entire user array
   const filteredUsers = useMemo(() => {
@@ -377,9 +384,9 @@ setToasts(prev => [...prev, {
                 boxSizing: "border-box",
                 outline: "none"
               }}>
-                  <option value="all">{t("company_admin.all_roles", "All Roles")}</option>
+                  <option value="all">{t("company_admin.all_roles", "All Roles")} ({totalUsers})</option>
                   {roles.filter(role => Number(role.role_id) !== 6).map(role => <option key={role.role_id} value={String(role.role_id)}>
-                        {role.role_name}
+                    {role.role_name} ({roleCounts[String(role.role_id)] || 0})
                       </option>)}
                 </select>
               </div>

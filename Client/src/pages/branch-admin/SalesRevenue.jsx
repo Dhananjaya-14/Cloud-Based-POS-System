@@ -6,6 +6,7 @@ import Sidebar from "../../components/branch-admin/Sidebar";
 import Header from "../../components/branch-admin/Header";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders, getOrderItems, getBranchProducts } from "../../services/api";
+import { connectSocket, subscribeToBranchAdminDashboardUpdates } from "../../services/socket";
 import totalRevenueIcon from "../../assets/images/total revenue.png";
 import totalOrdersIcon from "../../assets/images/total orders.png";
 import orderValueIcon from "../../assets/images/order value.png";
@@ -18,8 +19,60 @@ const formatCurrency = value => {
 };
 const getDateKey = date => {
   if (!date) return "";
-  if (typeof date === "string") return date.slice(0, 10);
-  return new Date(date).toISOString().slice(0, 10);
+  if (typeof date === "string") {
+    const match = date.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return match[0];
+  }
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+const getOrderRevenue = order => {
+  const cost =
+    order?.or_totalCostWtax ??
+    order?.or_totalcostwtax ??
+    order?.or_totalcost ??
+    order?.or_totalCost ??
+    order?.totalCostWtax ??
+    order?.total_cost ??
+    order?.amount ??
+    0;
+  const num = Number(cost);
+  return Number.isNaN(num) ? 0 : num;
+};
+const getOrderNetProfit = order => {
+  const revenue = getOrderRevenue(order);
+  if (revenue <= 0) return 0;
+
+  const cost =
+    order?.or_totalcost ??
+    order?.or_totalCost ??
+    order?.total_cost ??
+    order?.subtotal ??
+    null;
+
+  if (cost !== null && cost !== undefined) {
+    const num = Number(cost);
+    if (!Number.isNaN(num) && num > 0) {
+      if (num <= revenue) return num;
+      return revenue;
+    }
+  }
+
+  const tax = Number(order?.or_tax ?? order?.tax ?? 0);
+  if (tax > 0 && !Number.isNaN(tax)) {
+    if (tax <= 100) {
+      return Number((revenue / (1 + tax / 100)).toFixed(2));
+    }
+    if (tax < revenue) {
+      return Number((revenue - tax).toFixed(2));
+    }
+  }
+
+  return revenue;
 };
 const SalesRevenue = () => {
   const { t } = useTranslation();
@@ -32,24 +85,57 @@ const {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
   const [timeRange, setTimeRange] = useState("weekly");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    if (!user?.b_id) return;
+    connectSocket();
+    const handleRefresh = () => {
+      setRefreshTrigger(prev => prev + 1);
+    };
+    const unsubscribe = subscribeToBranchAdminDashboardUpdates(user.b_id, {
+      onRefresh: handleRefresh
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [user?.b_id]);
+
   useEffect(() => {
     let isMounted = true;
     const loadAnalytics = async () => {
       setIsLoading(true);
       setError("");
-      const params = {
-        status: "completed"
-      };
+      const params = {};
       if (user?.b_id) {
         params.b_id = user.b_id;
       }
       const results = await Promise.allSettled([getOrders(params), getOrderItems(), getBranchProducts()]);
       if (!isMounted) return;
       const [ordersResult, itemsResult, productsResult] = results;
-      const nextOrders = ordersResult.status === "fulfilled" ? ordersResult.value : [];
+      const nextOrdersRaw = ordersResult.status === "fulfilled" ? ordersResult.value : [];
+      const orderList = Array.isArray(nextOrdersRaw) ? nextOrdersRaw : (nextOrdersRaw?.data || []);
+
+      // Deduplicate orders by or_id and filter completed or paid orders
+      const uniqueMap = new Map();
+      orderList.forEach(order => {
+        if (!order?.or_id) return;
+        const status = String(order.or_status || "").toLowerCase().trim();
+        const payStatus = String(order.pay_status || order.payment_status || "").toLowerCase().trim();
+        const isCompleted = status === "completed" || payStatus === "paid" || status === "delivered";
+        if (!isCompleted) return;
+
+        if (!uniqueMap.has(order.or_id)) {
+          uniqueMap.set(order.or_id, order);
+        } else if (payStatus === "paid") {
+          uniqueMap.set(order.or_id, order);
+        }
+      });
+      const validOrders = Array.from(uniqueMap.values());
+
       const nextItems = itemsResult.status === "fulfilled" ? itemsResult.value : [];
       const nextProducts = productsResult.status === "fulfilled" ? productsResult.value : [];
-      setOrders(Array.isArray(nextOrders) ? nextOrders : []);
+      setOrders(validOrders);
       setOrderItems(Array.isArray(nextItems) ? nextItems : []);
       setBranchProducts(Array.isArray(nextProducts) ? nextProducts : []);
       if (results.some(result => result.status === "rejected")) {
@@ -61,7 +147,8 @@ const {
     return () => {
       isMounted = false;
     };
-  }, [user?.b_id]);
+  }, [user?.b_id, refreshTrigger]);
+
   const rangeDays = useMemo(() => {
     const counts = {
       today: 1,
@@ -71,10 +158,13 @@ const {
     };
     const total = counts[timeRange] || 7;
     const days = [];
+    const now = new Date();
     for (let i = total - 1; i >= 0; i -= 1) {
-      const date = new Date();
-      date.setDate(date.getDate() - i);
-      const key = date.toISOString().slice(0, 10);
+      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const key = `${year}-${month}-${day}`;
       const label = total <= 7 ? date.toLocaleDateString("en-US", {
         weekday: "short"
       }) : date.toLocaleDateString("en-US", {
@@ -88,35 +178,45 @@ const {
     }
     return days;
   }, [timeRange]);
+
+  const rangeKeys = useMemo(() => new Set(rangeDays.map(day => day.key)), [rangeDays]);
+
+  const rangeOrders = useMemo(() => {
+    return orders.filter(order => rangeKeys.has(getDateKey(order?.or_date || order?.created_at || order?.date)));
+  }, [orders, rangeKeys]);
+
   const ordersByDate = useMemo(() => {
     const map = new Map();
     orders.forEach(order => {
-      const key = getDateKey(order?.or_date);
+      const key = getDateKey(order?.or_date || order?.created_at || order?.date);
       if (!key) return;
       map.set(key, [...(map.get(key) || []), order]);
     });
     return map;
   }, [orders]);
+
   const revenueByDay = useMemo(() => {
     return rangeDays.map(({
       key
     }) => {
       const list = ordersByDate.get(key) || [];
       return list.reduce((sum, order) => {
-        const value = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
-        if (Number.isNaN(value)) return sum;
-        return sum + value;
+        return sum + getOrderRevenue(order);
       }, 0);
     });
   }, [rangeDays, ordersByDate]);
+
   const totalRevenue = useMemo(() => {
-    return revenueByDay.reduce((sum, value) => sum + value, 0);
-  }, [revenueByDay]);
-  const totalOrders = useMemo(() => orders.length, [orders]);
+    return rangeOrders.reduce((sum, order) => sum + getOrderRevenue(order), 0);
+  }, [rangeOrders]);
+
+  const totalOrders = useMemo(() => rangeOrders.length, [rangeOrders]);
+
   const avgOrderValue = useMemo(() => {
     if (totalOrders === 0) return 0;
     return totalRevenue / totalOrders;
   }, [totalRevenue, totalOrders]);
+
   const bestDay = useMemo(() => {
     let maxValue = 0;
     let maxIndex = 0;
@@ -131,23 +231,26 @@ const {
       label: rangeDays[maxIndex]?.label || "-"
     };
   }, [rangeDays, revenueByDay]);
+
   const netProfit = useMemo(() => {
-    return totalRevenue * 0.72;
-  }, [totalRevenue]);
+    return rangeOrders.reduce((sum, order) => sum + getOrderNetProfit(order), 0);
+  }, [rangeOrders]);
+
   const orderTypeBreakdown = useMemo(() => {
     const counts = {
       "dine-in": 0,
       takeaway: 0,
       delivery: 0
     };
-    orders.forEach(order => {
-      const type = order?.or_type;
+    rangeOrders.forEach(order => {
+      const type = String(order?.or_type || "").toLowerCase();
       if (type && counts[type] !== undefined) {
         counts[type] += 1;
       }
     });
     return counts;
-  }, [orders]);
+  }, [rangeOrders]);
+
   const productNameById = useMemo(() => {
     const map = new Map();
     branchProducts.forEach(product => {
@@ -157,9 +260,10 @@ const {
     });
     return map;
   }, [branchProducts]);
+
   const topItems = useMemo(() => {
     const tally = new Map();
-    const validOrders = new Set(orders.map(order => order?.or_id));
+    const validOrders = new Set(rangeOrders.map(order => order?.or_id));
     orderItems.forEach(item => {
       if (!validOrders.has(item?.order_id)) return;
       const key = item?.Bpro_id;
@@ -172,18 +276,20 @@ const {
       name: productNameById.get(id) || `Item ${id}`,
       qty
     }));
-  }, [orders, orderItems, productNameById]);
+  }, [rangeOrders, orderItems, productNameById]);
+
   const previousRevenueByDay = useMemo(() => {
     const offset = rangeDays.length;
+    const now = new Date();
     return rangeDays.map((_, index) => {
-      const target = new Date();
-      target.setDate(target.getDate() - (offset + (rangeDays.length - 1 - index)));
-      const key = target.toISOString().slice(0, 10);
+      const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (offset + (rangeDays.length - 1 - index)));
+      const year = target.getFullYear();
+      const month = String(target.getMonth() + 1).padStart(2, "0");
+      const day = String(target.getDate()).padStart(2, "0");
+      const key = `${year}-${month}-${day}`;
       const list = ordersByDate.get(key) || [];
       return list.reduce((sum, order) => {
-        const value = Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0);
-        if (Number.isNaN(value)) return sum;
-        return sum + value;
+        return sum + getOrderRevenue(order);
       }, 0);
     });
   }, [ordersByDate, rangeDays]);

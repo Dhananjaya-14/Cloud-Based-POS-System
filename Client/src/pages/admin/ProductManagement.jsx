@@ -102,7 +102,7 @@ const ProductManagement = () => {
   const [error, setError] = useState("");
   const [updatingStockId, setUpdatingStockId] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4;
+  const [itemsPerPage, setItemsPerPage] = useState(10);
   const [userCompanyId, setUserCompanyId] = useState(null);
   const isSubscribedRef = useRef(false);
 
@@ -374,7 +374,7 @@ const ProductManagement = () => {
   const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory, selectedStatus, selectedStockLevel]);
+  }, [searchTerm, selectedCategory, selectedStatus, selectedStockLevel, itemsPerPage]);
   useEffect(() => {
     if (currentPage > totalPages) {
       setCurrentPage(totalPages);
@@ -383,7 +383,7 @@ const ProductManagement = () => {
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
     return tableProducts.slice(startIndex, startIndex + itemsPerPage);
-  }, [tableProducts, currentPage]);
+  }, [tableProducts, currentPage, itemsPerPage]);
   const pageStart = tableProducts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const pageEnd = Math.min(currentPage * itemsPerPage, tableProducts.length);
   const totalItems = products.length;
@@ -766,6 +766,22 @@ const ProductManagement = () => {
               <option value="Low (1-10)">Low (1-10)</option>
               <option value="Out (0)">Out (0)</option>
               <option value="High (>10)">High (&gt;10)</option>
+            </select>
+            <FaChevronDown size={11} style={filterChevronStyle} />
+          </div>
+
+          {/* Page size Dropdown */}
+          <div style={filterWrapperStyle}>
+            <select
+              value={itemsPerPage}
+              onChange={e => setItemsPerPage(Number(e.target.value))}
+              style={filterSelectStyle}
+              aria-label="Products per page"
+            >
+              <option value={10}>Products per page: 10</option>
+              <option value={25}>Products per page: 25</option>
+              <option value={50}>Products per page: 50</option>
+              <option value={100}>Products per page: 100</option>
             </select>
             <FaChevronDown size={11} style={filterChevronStyle} />
           </div>

@@ -8,6 +8,18 @@ import TransactionDetailsModal from "../../components/admin/TransactionDetailsMo
 import { getOrders, getSupplierPayments, getPayments, getPurchaseOrders, getBranches, getCurrentUser } from "../../services/api";
 import { SOCKET_EVENTS } from "../../services/socket";
 import { getSocket, connectSocket } from "../../services/socket";
+
+const REQUEST_TIMEOUT_MS = 15000;
+
+const withRequestTimeout = (request, label) => {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(`${label} request timed out`)), REQUEST_TIMEOUT_MS);
+  });
+
+  return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
+};
+
 export default function Transactions() {
   const { t } = useTranslation();
 const [filters, setFilters] = useState({
@@ -19,6 +31,8 @@ const [filters, setFilters] = useState({
     tab: "all"
   });
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(null);
   const [pageSize] = useState(10);
@@ -30,6 +44,7 @@ const [filters, setFilters] = useState({
     const socket = connectSocket();
     const load = async () => {
       setLoading(true);
+      setLoadError(null);
       try {
         const orderParams = {
           status: "completed"
@@ -40,9 +55,13 @@ const [filters, setFilters] = useState({
         if (branchFilter) {
           orderParams.b_id = branchFilter;
         }
-        const [salesRaw, paymentsListRaw, supplierPaymentsRaw, purchaseOrdersRaw, branchesRaw] = await Promise.all([getOrders(orderParams).catch(() => []), getPayments().catch(() => []), getSupplierPayments().catch(() => []), getPurchaseOrders().catch(() => []), getBranches().catch(() => [])]);
-        // after initial load, set up socket listener for real-time updates
-        socket.on(SOCKET_EVENTS.PAYMENT_COMPLETED, load);
+        const [salesRaw, paymentsListRaw, supplierPaymentsRaw, purchaseOrdersRaw, branchesRaw] = await Promise.all([
+          withRequestTimeout(getOrders(orderParams), "Orders"),
+          withRequestTimeout(getPayments(), "Payments"),
+          withRequestTimeout(getSupplierPayments(), "Supplier payments"),
+          withRequestTimeout(getPurchaseOrders(), "Purchase orders"),
+          withRequestTimeout(getBranches(), "Branches")
+        ]);
 
         // normalize and scope branches to user's company (if present)
         const allBranches = branchesRaw?.data ?? branchesRaw ?? [];
@@ -158,7 +177,9 @@ const [filters, setFilters] = useState({
           setTransactions([...normalizedSales, ...normalizedPayments].sort((a, b) => new Date(b.date) - new Date(a.date)));
         }
       } catch (err) {
-        console.error("Ledger engine compilation error:", err);
+        console.error("Failed to load transactions:", err);
+        setTransactions([]);
+        setLoadError(t("company_admin.transaction_load_failed", "Transactions could not be loaded. Check your connection and try again."));
       } finally {
         setLoading(false);
       }
@@ -176,7 +197,7 @@ const [filters, setFilters] = useState({
       socket.off(SOCKET_EVENTS.ORDER_UPDATED, load);
       socket.off(SOCKET_EVENTS.ORDER_READY, load);
     };
-  }, [filters.branch, currentComId]); // re-run when branch or company scope changes
+  }, [filters.branch, currentComId, retryCount, t]); // re-run when branch or company scope changes
 
   const filtered = useMemo(() => {
     return transactions.filter(t => {
@@ -222,7 +243,12 @@ const [filters, setFilters] = useState({
             <TransactionFilters filters={filters} setFilters={setFilters} />
 
             <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              {!loading && filtered.length === 0 && filters.branch !== "all" ? <div className="p-20 text-center">
+              {loadError ? <div className="p-20 text-center">
+                  <p className="text-base font-medium text-slate-600">{loadError}</p>
+                  <button type="button" onClick={() => setRetryCount(count => count + 1)} className="mt-4 rounded-md bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-700">
+                    {t("company_admin.retry", "Retry")}
+                  </button>
+                </div> : !loading && filtered.length === 0 && filters.branch !== "all" ? <div className="p-20 text-center">
                   <p className="text-base font-medium text-slate-600">{t("company_admin.no_transaction_history_in_this_branch", "No transaction history in this branch.")}</p>
                   <p className="text-xs text-slate-400 mt-1">{t("company_admin.try_selecting_a_different_date_range_or_", "Try selecting a different date range or clearing the branch filter.")}</p>
                 </div> : <TransactionTable data={filtered} loading={loading} pageSize={pageSize} onView={item => setSelected(item)} />}

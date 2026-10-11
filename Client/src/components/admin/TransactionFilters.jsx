@@ -81,9 +81,9 @@ const [branches, setBranches] = useState([]);
             <option value="all">{t("company_admin.all_settlement_methods", "All Settlement Methods")}</option>
             <option value="cash">{t("company_admin.cash_tender", "Cash Tender")}</option>
             <option value="card">{t("company_admin.card_terminal_pos", "Card Terminal / POS")}</option>
-            <option value="bank_transfer">{t("company_admin.bank_wire_transfer", "Bank Wire Transfer")}</option>
-            <option value="cheque">{t("company_admin.cheque_settlement", "Cheque Settlement")}</option>
-            <option value="online">{t("company_admin.online_payment", "Online Payment")}</option>
+            <option value="mobile_pay">{t("company_admin.mobile_payment", "Mobile Payment")}</option>
+            <option value="voucher">{t("company_admin.voucher_payment", "Voucher")}</option>
+            <option value="split">{t("company_admin.split_payment", "Split Payment")}</option>
           </select>
         </div>
 
