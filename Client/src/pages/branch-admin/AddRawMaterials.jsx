@@ -39,8 +39,17 @@ const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
   });
 
   // --- network helpers ---
+  const BASE_API_URL = import.meta.env.VITE_API_URL || "/api";
+  const resolveUrl = (url) => {
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
+    if (url.startsWith("/api")) {
+      return `${BASE_API_URL.replace(/\/api\/?$/, "")}${url}`;
+    }
+    return `${BASE_API_URL.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
+  };
+
   const fetchWithAuth = (url, opts = {}) => {
-const headers = {
+    const headers = {
       ...(opts.headers || {})
     };
     if (!headers["Content-Type"] && !(opts.body instanceof FormData)) {
@@ -48,7 +57,7 @@ const headers = {
     }
     const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
     if (token) headers["Authorization"] = `Bearer ${token}`;
-    return fetch(url, {
+    return fetch(resolveUrl(url), {
       ...opts,
       headers,
       credentials: "include"
