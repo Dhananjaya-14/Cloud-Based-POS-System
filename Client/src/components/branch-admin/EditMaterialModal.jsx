@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import React, { useState } from 'react';
+import { updateRawMaterial, deleteRawMaterial } from '../../services/api';
 const EditMaterialModal = ({
   material,
   onClose,
@@ -28,20 +29,8 @@ const [formData, setFormData] = useState({
   const handleUpdate = async e => {
     e.preventDefault();
     setUpdateError(null);
-    const token = localStorage.getItem('token') || localStorage.getItem('authToken');
     try {
-      const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(formData)
-      });
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message);
-      }
+      await updateRawMaterial(material.rm_id, formData);
 
       // Only update local state and close AFTER the backend confirms success
       setMaterials(prev => prev.map(m => m.rm_id === material.rm_id ? {
@@ -53,28 +42,17 @@ const [formData, setFormData] = useState({
       onClose();
     } catch (err) {
       console.error(err);
-      setUpdateError(err.message);
+      setUpdateError(err?.response?.data?.message || err.message || "Failed to update item details");
     }
   };
   const confirmDelete = async () => {
     try {
-      const token = localStorage.getItem("token") || localStorage.getItem("authToken");
-      const response = await fetch(`/api/raw-materials/${material.rm_id}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (response.ok) {
-        onSuccess();
-        setMaterials(prev => prev.filter(item => item.rm_id !== material.rm_id));
-        onClose();
-        return;
-      }
-      const error = await response.json();
-      setDeleteError(error.message);
+      await deleteRawMaterial(material.rm_id);
+      onSuccess();
+      setMaterials(prev => prev.filter(item => item.rm_id !== material.rm_id));
+      onClose();
     } catch (err) {
-      setDeleteError("Network error");
+      setDeleteError(err?.response?.data?.message || err.message || "Network error");
     }
   };
   return <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm flex items-center justify-center z-[1000] p-4 transition-all">

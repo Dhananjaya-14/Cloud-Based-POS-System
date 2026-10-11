@@ -9,6 +9,7 @@ import EditMaterialModal from '../../components/branch-admin/EditMaterialModal';
 import StatCard from '../../components/branch-admin/StatCard';
 import { connectSocket, getSocket, joinBranchInventoryRoom, leaveBranchInventoryRoom, SOCKET_EVENTS } from '../../services/socket';
 import { useAuth } from '../../context/AuthContext';
+import { getRawMaterials } from '../../services/api';
 const InventoryDashboard = () => {
   const { t } = useTranslation();
 const navigate = useNavigate();
@@ -43,24 +44,15 @@ const saved = localStorage.getItem('cached_materials');
   // Fetch materials function
   const fetchMaterials = useCallback(async () => {
     try {
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
-      const res = await fetch('/api/raw-materials', {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? {
-            Authorization: `Bearer ${token}`
-          } : {})
-        }
-      });
-      if (res.status === 401) {
-        navigate('/login');
-        return;
-      }
-      const data = await res.json().catch(() => ({}));
+      const data = await getRawMaterials();
       const items = extractArray(data);
       setMaterials(items);
       localStorage.setItem('cached_materials', JSON.stringify(items));
     } catch (err) {
+      if (err?.response?.status === 401) {
+        navigate('/login');
+        return;
+      }
       console.error('Failed to load inventory', err);
     } finally {
       setIsLoading(false);
