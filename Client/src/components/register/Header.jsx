@@ -42,7 +42,7 @@ const Header = () => {
         </div>
 
         <div style={right}>
-          <div style={item}><Calendar size={14} /> <span>{formatDate(now)}</span></div>
+          <div className="header-date-item" style={item}><Calendar size={14} /> <span>{formatDate(now)}</span></div>
           <div style={item}><Clock size={14} /> <span>{formatTime(now)}</span></div>
           <div style={item}><span style={{ fontSize: '12px' }}>EN</span></div>
           <div style={item}><span style={{ fontSize: '12px' }}>SIN</span></div>
