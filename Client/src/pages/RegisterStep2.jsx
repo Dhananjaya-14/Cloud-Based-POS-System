@@ -127,17 +127,17 @@ const RegisterStep2 = () => {
   });
 
   return (
-    <RegisterLayout disableScroll={true}>
+    <RegisterLayout>
       <div style={{ textAlign: 'center' }}>
         <div style={badgeStyle}><span style={dotStyle}></span>Hotel POS</div>
-        <h2 style={{ fontSize: '28px', margin: '10px 0' }}>Create Your Account</h2>
+        <h2 className="register-step-title" style={{ fontSize: '28px', margin: '10px 0' }}>Create Your Account</h2>
         <p style={{ color: '#888' }}>Join thousands of users who trust our platform</p>
 
-        <div style={{ margin: '40px 0' }}>
+        <div className="register-stepper-wrapper" style={{ margin: '40px 0' }}>
           <Stepper currentStep={2} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left' }}>
+        <div className="register-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', textAlign: 'left' }}>
           <div style={inputGroup}>
             <label style={labelStyle}>First Name</label>
             <input
@@ -215,7 +215,7 @@ const RegisterStep2 = () => {
 const badgeStyle = { display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'linear-gradient(90deg, #0056A2 0%, #00B4EB 100%)', color: 'white', padding: '6px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: '600' };const dotStyle = { height: '8px', width: '8px', backgroundColor: '#4ade80', borderRadius: '50%' };
 const inputGroup = { display: 'flex', flexDirection: 'column', gap: '8px' };
 const labelStyle = { fontSize: '14px', fontWeight: '600', color: '#444' };
-const inputStyle = { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', transition: 'border-color 0.2s ease' };
+const inputStyle = { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', transition: 'border-color 0.2s ease', width: '100%', boxSizing: 'border-box' };
 const primaryBtn = { padding: '12px 28px', backgroundColor: '#0056A2', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' };
 const backBtn = { padding: '12px 20px', background: 'transparent', border: 'none', color: '#333', cursor: 'pointer' };
 const buttonRow = { display: 'flex', justifyContent: 'space-between', gap: '16px', marginTop: '12px', alignItems: 'center' };

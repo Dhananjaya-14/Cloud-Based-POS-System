@@ -100,15 +100,15 @@ const RegisterStep1 = () => {
     <RegisterLayout>
       <div style={{ textAlign: 'center' }}>
         <div style={badgeStyle}><span style={dotStyle}></span>Hotel POS</div>
-        <h2 style={{ fontSize: '28px', margin: '10px 0' }}>Create Your Account</h2>
+        <h2 className="register-step-title" style={{ fontSize: '28px', margin: '10px 0' }}>Create Your Account</h2>
         <p style={{ color: '#888' }}>Join thousands of users who trust our platform</p>
 
         {/* STEPPER PLACED HERE */}
-        <div style={{ margin: '40px 0' }}>
+        <div className="register-stepper-wrapper" style={{ margin: '40px 0' }}>
           <Stepper currentStep={1} />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', textAlign: 'left' }}>
+        <div className="register-grid-2col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', textAlign: 'left' }}>
           <div style={inputGroup}>
             <label style={labelStyle}>Business Name</label>
             <input
@@ -169,7 +169,7 @@ const badgeStyle = { display: 'inline-flex', alignItems: 'center', gap: '8px', b
 const dotStyle = { height: '8px', width: '8px', backgroundColor: '#4ade80', borderRadius: '50%' };
 const inputGroup = { display: 'flex', flexDirection: 'column', gap: '8px' };
 const labelStyle = { fontSize: '14px', fontWeight: '600', color: '#444' };
-const inputStyle = { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', transition: 'border-color 0.2s ease' };
+const inputStyle = { padding: '12px', borderRadius: '10px', border: '1px solid #ddd', transition: 'border-color 0.2s ease', width: '100%', boxSizing: 'border-box' };
 const primaryBtn = { width: '100%', padding: '15px', backgroundColor: '#0056A2', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', marginTop: '30px', cursor: 'pointer' };
 const errorStyle = { color: '#e53e3e', fontSize: '12px', marginTop: '2px' };
 

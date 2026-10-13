@@ -310,10 +310,10 @@ const RegisterStep3 = () => {
     <RegisterLayout>
       <div style={{ textAlign: 'center' }}>
         <div style={badgeStyle}><span style={dotStyle}></span>Hotel POS</div>
-        <h2 style={{ fontSize: '28px', margin: '10px 0' }}>Create Your Account</h2>
+        <h2 className="register-step-title" style={{ fontSize: '28px', margin: '10px 0' }}>Create Your Account</h2>
         <p style={{ color: '#888' }}>Join thousands of users who trust our platform</p>
 
-        <div style={{ margin: '40px 0' }}>
+        <div className="register-stepper-wrapper" style={{ margin: '40px 0' }}>
           <Stepper currentStep={3} />
         </div>
 
@@ -425,7 +425,7 @@ const RegisterStep3 = () => {
               <strong>{otpSentTo || 'your email'}</strong> to verify your account.
             </p>
 
-            <div style={otpWrapper} onPaste={handleOtpPaste}>
+            <div className="register-otp-wrapper" style={otpWrapper} onPaste={handleOtpPaste}>
               {otp.map((digit, index) => (
                 <input
                   key={index}
@@ -436,6 +436,7 @@ const RegisterStep3 = () => {
                   value={digit}
                   onChange={(e) => handleOtpChange(index, e.target.value)}
                   onKeyDown={(e) => handleOtpKeyDown(index, e)}
+                  className="register-otp-input"
                   style={{
                     ...otpInputStyle,
                     borderColor: otpError ? '#e53e3e' : '#ddd',
@@ -499,7 +500,7 @@ const badgeStyle = { display: 'inline-flex', alignItems: 'center', gap: '8px', b
 const dotStyle = { height: '8px', width: '8px', backgroundColor: '#4ade80', borderRadius: '50%' };
 const inputGroup = { display: 'flex', flexDirection: 'column', gap: '8px' };
 const labelStyle = { fontSize: '14px', fontWeight: '600', color: '#444' };
-const inputStyle = { padding: '12px', paddingRight: '45px', borderRadius: '10px', border: '1px solid #ddd', width: '100%', transition: 'border-color 0.2s ease' };
+const inputStyle = { padding: '12px', paddingRight: '45px', borderRadius: '10px', border: '1px solid #ddd', width: '100%', boxSizing: 'border-box', transition: 'border-color 0.2s ease' };
 const passwordInputWrapper = { position: 'relative', display: 'flex', alignItems: 'center' };
 const eyeButton = { position: 'absolute', right: '12px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '4px' };
 const primaryBtn = { padding: '12px 28px', backgroundColor: '#0056A2', color: 'white', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' };
@@ -512,7 +513,7 @@ const strengthBarBackground = { flex: 1, height: '6px', backgroundColor: '#eee',
 const strengthBarFill = { height: '100%', transition: 'width 0.3s ease, background-color 0.3s ease' };
 const strengthLabel = { fontSize: '12px', fontWeight: '600', minWidth: '50px', textAlign: 'right' };
 const otpWrapper = { display: 'flex', justifyContent: 'center', gap: '10px', marginTop: '24px', marginBottom: '8px' };
-const otpInputStyle = { width: '52px', height: '58px', textAlign: 'center', fontSize: '22px', fontWeight: '600', borderRadius: '10px', border: '1px solid #ddd', outline: 'none', transition: 'border-color 0.2s ease' };
+const otpInputStyle = { width: '52px', height: '58px', textAlign: 'center', fontSize: '22px', fontWeight: '600', borderRadius: '10px', border: '1px solid #ddd', outline: 'none', transition: 'border-color 0.2s ease', boxSizing: 'border-box' };
 const resendRow = { display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '14px' };
 const linkButton = { background: 'none', border: 'none', color: '#0056A2', fontWeight: '600', fontSize: '13px', padding: 0 };
 
