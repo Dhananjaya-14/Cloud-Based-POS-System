@@ -232,10 +232,15 @@ const overlayStyle = {
   alignItems: "center",
   justifyContent: "center",
   zIndex: 9999,
+  padding: 16,
+  boxSizing: "border-box",
 };
 const modalStyle = {
   width: "100%",
   maxWidth: 680,
+  maxHeight: "90vh",
+  display: "flex",
+  flexDirection: "column",
   background: "#fff",
   borderRadius: 14,
   overflow: "hidden",
@@ -259,7 +264,7 @@ const closeBtn = {
   justifyContent: "center",
   cursor: "pointer",
 };
-const body = { padding: 20, display: "flex", flexDirection: "column", gap: 12 };
+const body = { padding: 20, display: "flex", flexDirection: "column", gap: 12, overflowY: "auto", flex: 1 };
 const footer = {
   padding: 16,
   display: "flex",
@@ -278,6 +283,7 @@ const input = {
   outline: "none",
   fontSize: 14,
   background: "#fff",
+  boxSizing: "border-box",
 };
 const label = {
   fontSize: 12,
