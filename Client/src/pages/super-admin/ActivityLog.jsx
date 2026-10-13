@@ -77,6 +77,7 @@ const Badge = ({ text, bg, color }) => (
 
 const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
   <div
+    className="al-summary-card"
     style={{
       background: "#fff",
       borderRadius: 14,
@@ -90,6 +91,7 @@ const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
     }}
   >
     <div
+      className="al-summary-icon"
       style={{
         width: 44,
         height: 44,
@@ -106,8 +108,8 @@ const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
       {icon}
     </div>
     <div>
-      <div style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 600, marginBottom: 2 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>{value}</div>
+      <div className="al-summary-label" style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 600, marginBottom: 2 }}>{label}</div>
+      <div className="al-summary-value" style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>{value}</div>
     </div>
   </div>
 );
@@ -386,6 +388,21 @@ const ActivityLog = () => {
   const [deleteTarget, setDeleteTarget] = useState(null); // log_id to delete
   const [showPurge, setShowPurge]       = useState(false);
   const [deleting, setDeleting]         = useState(false);
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(() => {
+    return localStorage.getItem("sa_sidebar_minimized") === "true";
+  });
+
+  useEffect(() => {
+    const handleMinimizeToggle = (e) => {
+      if (e?.detail?.isMinimized !== undefined) {
+        setIsSidebarMinimized(e.detail.isMinimized);
+      } else {
+        setIsSidebarMinimized(prev => !prev);
+      }
+    };
+    window.addEventListener("toggle-sa-sidebar-minimize", handleMinimizeToggle);
+    return () => window.removeEventListener("toggle-sa-sidebar-minimize", handleMinimizeToggle);
+  }, []);
 
   // ── helpers ──────────────────────────────────────────────────────────────────
   const showToast = (message, type = "info") => {
@@ -539,13 +556,13 @@ const ActivityLog = () => {
     <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9", fontFamily: "'Inter', sans-serif" }}>
       <ShellSidebar />
 
-      <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+      <div className="sa-main-content" style={{ flex: 1, marginLeft: isSidebarMinimized ? 72 : 240, transition: "margin-left 0.25s ease-in-out", display: "flex", flexDirection: "column" }}>
         <ShellHeader title="Activity Log" />
 
-        <div style={{ padding: "24px 28px", flex: 1 }}>
+        <div className="al-content-container" style={{ padding: "24px 28px", flex: 1 }}>
 
           {/* ── Summary Cards ─────────────────────────────────────── */}
-          <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+          <div className="al-summary-grid" style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
             <SummaryCard
               icon={<FaFilter />}
               label="Total Events"
@@ -578,6 +595,7 @@ const ActivityLog = () => {
 
           {/* ── Toolbar ───────────────────────────────────────────── */}
           <div
+            className="al-toolbar-card"
             style={{
               background: "#fff",
               borderRadius: 14,
@@ -587,9 +605,9 @@ const ActivityLog = () => {
             }}
           >
             {/* Row 1: search + action buttons */}
-            <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+            <div className="al-toolbar-row1" style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
               {/* Search */}
-              <div style={{ position: "relative", flex: "1 1 220px", minWidth: 180 }}>
+              <div className="al-search-box" style={{ position: "relative", flex: "1 1 220px", minWidth: 180 }}>
                 <FaSearch
                   style={{
                     position: "absolute",
@@ -617,7 +635,7 @@ const ActivityLog = () => {
                 />
               </div>
 
-              <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
+              <div className="al-toolbar-actions" style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
                 {/* Refresh */}
                 <button
                   id="btn-refresh-logs"
@@ -664,9 +682,10 @@ const ActivityLog = () => {
             </div>
 
             {/* Row 2: filters */}
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="al-toolbar-row2" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               {/* Action Type */}
               <select
+                className="al-filter-select"
                 id="filter-action-type"
                 value={filters.action_type}
                 onChange={(e) => onFilterChange("action_type", e.target.value)}
@@ -690,6 +709,7 @@ const ActivityLog = () => {
 
               {/* Module */}
               <select
+                className="al-filter-select"
                 id="filter-module-name"
                 value={filters.module_name}
                 onChange={(e) => onFilterChange("module_name", e.target.value)}
@@ -712,7 +732,7 @@ const ActivityLog = () => {
               </select>
 
               {/* Date From */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 180px" }}>
+              <div className="al-date-filter" style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 180px" }}>
                 <label style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 600, whiteSpace: "nowrap" }}>
                   From:
                 </label>
@@ -733,7 +753,7 @@ const ActivityLog = () => {
               </div>
 
               {/* Date To */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 180px" }}>
+              <div className="al-date-filter" style={{ display: "flex", alignItems: "center", gap: 6, flex: "1 1 180px" }}>
                 <label style={{ fontSize: 12, color: "#9CA3AF", fontWeight: 600, whiteSpace: "nowrap" }}>
                   To:
                 </label>
@@ -756,6 +776,7 @@ const ActivityLog = () => {
               {/* Clear filters */}
               {(filters.search || filters.action_type || filters.module_name || filters.from || filters.to) && (
                 <button
+                  className="al-clear-btn"
                   id="btn-clear-filters"
                   onClick={() => {
                     setFilters({ search: "", action_type: "", module_name: "", from: "", to: "" });
@@ -799,6 +820,7 @@ const ActivityLog = () => {
 
           {/* ── Table ─────────────────────────────────────────────── */}
           <div
+            className="al-table-card"
             style={{
               background: "#fff",
               borderRadius: 14,
@@ -835,192 +857,279 @@ const ActivityLog = () => {
                 <p style={{ margin: 0, color: "#9CA3AF", fontSize: 14 }}>No activity logs found</p>
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
-                  <thead>
-                    <tr style={{ background: "#F9FAFB" }}>
-                      {[...tableHeaders, ...(canManageLogs ? [""] : [])].map((h) => (
-                        <th
-                          key={h}
-                          style={{
-                            padding: "12px 14px",
-                            textAlign: "left",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: "#6B7280",
-                            borderBottom: "1px solid #F3F4F6",
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log, idx) => {
-                      const actionStyle = getActionStyle(log.action_type);
-                      
-                      // Improved user name handling - check all possible user fields
-                      let userName = "—";
-                      if (log.u_fname || log.u_lname) {
-                        userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
-                      } else if (log.u_email) {
-                        userName = log.u_email;
-                      } else if (log.user_name) {
-                        userName = log.user_name;
-                      } else if (log.user_email) {
-                        userName = log.user_email;
-                      } else if (log.u_id) {
-                        userName = `User #${log.u_id}`;
-                      } else if (log.user_id) {
-                        userName = `User #${log.user_id}`;
-                      }
-                      
-                      // If still empty, show "System" or "Unknown"
-                      if (userName === "—" || userName === "" || userName === "undefined" || userName === "null") {
-                        // Check if this is a system/auto action
-                        if (log.action_type === "LOGIN" || log.action_type === "LOGIN_FAILED") {
-                          userName = "System";
-                        } else {
-                          userName = "Unknown User";
+              <>
+                <div className="al-table-desktop al-table-responsive" style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 860 }}>
+                    <thead>
+                      <tr style={{ background: "#F9FAFB" }}>
+                        {[...tableHeaders, ...(canManageLogs ? [""] : [])].map((h) => (
+                          <th
+                            key={h}
+                            style={{
+                              padding: "12px 14px",
+                              textAlign: "left",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: "#6B7280",
+                              borderBottom: "1px solid #F3F4F6",
+                              letterSpacing: "0.05em",
+                              textTransform: "uppercase",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.map((log, idx) => {
+                        const actionStyle = getActionStyle(log.action_type);
+                        
+                        // Improved user name handling - check all possible user fields
+                        let userName = "—";
+                        if (log.u_fname || log.u_lname) {
+                          userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
+                        } else if (log.u_email) {
+                          userName = log.u_email;
+                        } else if (log.user_name) {
+                          userName = log.user_name;
+                        } else if (log.user_email) {
+                          userName = log.user_email;
+                        } else if (log.u_id) {
+                          userName = `User #${log.u_id}`;
+                        } else if (log.user_id) {
+                          userName = `User #${log.user_id}`;
                         }
-                      }
-                      
-                      const contextLabel = [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
+                        
+                        // If still empty, show "System" or "Unknown"
+                        if (userName === "—" || userName === "" || userName === "undefined" || userName === "null") {
+                          // Check if this is a system/auto action
+                          if (log.action_type === "LOGIN" || log.action_type === "LOGIN_FAILED") {
+                            userName = "System";
+                          } else {
+                            userName = "Unknown User";
+                          }
+                        }
+                        
+                        const contextLabel = [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
 
-                      return (
-                        <tr
-                          key={log.log_id || idx}
-                          style={{
-                            borderBottom: "1px solid #F3F4F6",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(e) => (e.currentTarget.style.background = "#F9FAFB")}
-                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        >
-                          {/* # */}
-                          <td style={cellStyle}>
-                            <span style={{ color: "#9CA3AF", fontSize: 12 }}>
-                              {(page - 1) * LIMIT + idx + 1}
-                            </span>
-                          </td>
+                        return (
+                          <tr
+                            key={log.log_id || idx}
+                            style={{
+                              borderBottom: "1px solid #F3F4F6",
+                              transition: "background 0.15s",
+                            }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "#F9FAFB")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                          >
+                            {/* # */}
+                            <td style={cellStyle}>
+                              <span style={{ color: "#9CA3AF", fontSize: 12 }}>
+                                {(page - 1) * LIMIT + idx + 1}
+                              </span>
+                            </td>
 
-                          {/* User - Improved with fallback */}
-                          <td style={cellStyle}>
-                            <div style={{ 
-                              fontSize: 13, 
-                              fontWeight: 600, 
-                              color: userName === "System" || userName === "Unknown User" ? "#9CA3AF" : "#111827",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "6px"
-                            }}>
-                              {userName === "System" && <FaUser size={10} style={{ color: "#9CA3AF" }} />}
-                              {userName}
-                            </div>
-                            {log.u_email && (
-                              <div style={{ fontSize: 11, color: "#9CA3AF" }}>{log.u_email}</div>
-                            )}
-                          </td>
+                            {/* User - Improved with fallback */}
+                            <td style={cellStyle}>
+                              <div style={{ 
+                                fontSize: 13, 
+                                fontWeight: 600, 
+                                color: userName === "System" || userName === "Unknown User" ? "#9CA3AF" : "#111827",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "6px"
+                              }}>
+                                {userName === "System" && <FaUser size={10} style={{ color: "#9CA3AF" }} />}
+                                {userName}
+                              </div>
+                              {log.u_email && (
+                                <div style={{ fontSize: 11, color: "#9CA3AF" }}>{log.u_email}</div>
+                              )}
+                            </td>
 
-                          {/* Company / Branch */}
-                          <td style={cellStyle}>
-                            <span style={{ fontSize: 12, color: "#374151" }}>{contextLabel}</span>
-                          </td>
+                            {/* Company / Branch */}
+                            <td style={cellStyle}>
+                              <span style={{ fontSize: 12, color: "#374151" }}>{contextLabel}</span>
+                            </td>
 
-                          {/* Action */}
-                          <td style={cellStyle}>
-                            <Badge
-                              text={log.action_type || "UNKNOWN"}
-                              bg={actionStyle.bg}
-                              color={actionStyle.color}
-                            />
-                          </td>
+                            {/* Action */}
+                            <td style={cellStyle}>
+                              <Badge
+                                text={log.action_type || "UNKNOWN"}
+                                bg={actionStyle.bg}
+                                color={actionStyle.color}
+                              />
+                            </td>
 
-                          {/* Module */}
-                          <td style={cellStyle}>
-                            <span
-                              style={{
-                                fontSize: 11,
-                                fontWeight: 600,
-                                color: "#2E3E8F",
-                                background: "#EEF2FF",
-                                padding: "3px 8px",
-                                borderRadius: 6,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              {log.module_name || "—"}
-                            </span>
-                          </td>
-
-                          {/* Description */}
-                          <td style={{ ...cellStyle, maxWidth: 280 }}>
-                            <span
-                              title={log.description}
-                              style={{
-                                fontSize: 12,
-                                color: "#374151",
-                                display: "-webkit-box",
-                                WebkitLineClamp: 2,
-                                WebkitBoxOrient: "vertical",
-                                overflow: "hidden",
-                              }}
-                            >
-                              {log.description || "—"}
-                            </span>
-                          </td>
-
-                          {/* Timestamp */}
-                          <td style={cellStyle}>
-                            <span style={{ fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>
-                              {formatDate(log.created_at)}
-                            </span>
-                          </td>
-
-                          {canManageLogs && (
-                            <td style={{ ...cellStyle, textAlign: "center" }}>
-                              <button
-                                id={`btn-delete-log-${log.log_id || idx}`}
-                                title="Delete this log entry"
-                                onClick={() => setDeleteTarget(log.log_id || idx)}
+                            {/* Module */}
+                            <td style={cellStyle}>
+                              <span
                                 style={{
-                                  background: "none",
-                                  border: "none",
-                                  cursor: "pointer",
-                                  color: "#FCA5A5",
-                                  fontSize: 14,
-                                  padding: "4px 8px",
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  color: "#2E3E8F",
+                                  background: "#EEF2FF",
+                                  padding: "3px 8px",
                                   borderRadius: 6,
-                                  transition: "color 0.2s, background 0.2s",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.color = "#DC2626";
-                                  e.currentTarget.style.background = "#FEE2E2";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.color = "#FCA5A5";
-                                  e.currentTarget.style.background = "none";
+                                  whiteSpace: "nowrap",
                                 }}
                               >
-                                <FaTrash />
-                              </button>
+                                {log.module_name || "—"}
+                              </span>
                             </td>
+
+                            {/* Description */}
+                            <td style={{ ...cellStyle, maxWidth: 280 }}>
+                              <span
+                                title={log.description}
+                                style={{
+                                  fontSize: 12,
+                                  color: "#374151",
+                                  display: "-webkit-box",
+                                  WebkitLineClamp: 2,
+                                  WebkitBoxOrient: "vertical",
+                                  overflow: "hidden",
+                                }}
+                              >
+                                {log.description || "—"}
+                              </span>
+                            </td>
+
+                            {/* Timestamp */}
+                            <td style={cellStyle}>
+                              <span style={{ fontSize: 12, color: "#374151", whiteSpace: "nowrap" }}>
+                                {formatDate(log.created_at)}
+                              </span>
+                            </td>
+
+                            {canManageLogs && (
+                              <td style={{ ...cellStyle, textAlign: "center" }}>
+                                <button
+                                  id={`btn-delete-log-${log.log_id || idx}`}
+                                  title="Delete this log entry"
+                                  onClick={() => setDeleteTarget(log.log_id || idx)}
+                                  style={{
+                                    background: "none",
+                                    border: "none",
+                                    cursor: "pointer",
+                                    color: "#FCA5A5",
+                                    fontSize: 14,
+                                    padding: "4px 8px",
+                                    borderRadius: 6,
+                                    transition: "color 0.2s, background 0.2s",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.color = "#DC2626";
+                                    e.currentTarget.style.background = "#FEE2E2";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.color = "#FCA5A5";
+                                    e.currentTarget.style.background = "none";
+                                  }}
+                                >
+                                  <FaTrash />
+                                </button>
+                              </td>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* ── Stacked Cards for Mobile ──────────────────────── */}
+                <div className="al-cards-mobile">
+                  {logs.map((log, idx) => {
+                    const actionStyle = getActionStyle(log.action_type);
+                    let userName = "—";
+                    if (log.u_fname || log.u_lname) {
+                      userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
+                    } else if (log.u_email) {
+                      userName = log.u_email;
+                    } else if (log.user_name) {
+                      userName = log.user_name;
+                    } else if (log.user_email) {
+                      userName = log.user_email;
+                    } else if (log.u_id) {
+                      userName = `User #${log.u_id}`;
+                    } else if (log.user_id) {
+                      userName = `User #${log.user_id}`;
+                    }
+
+                    if (userName === "—" || userName === "" || userName === "undefined" || userName === "null") {
+                      if (log.action_type === "LOGIN" || log.action_type === "LOGIN_FAILED") {
+                        userName = "System";
+                      } else {
+                        userName = "Unknown User";
+                      }
+                    }
+
+                    const contextLabel = [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
+
+                    return (
+                      <div key={log.log_id || idx} className="al-mobile-card">
+                        <div className="al-mobile-card-header">
+                          <div className="al-mobile-user-row">
+                            <div className="al-mobile-avatar">
+                              {userName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="al-mobile-username">{userName}</div>
+                              {log.u_email && <div className="al-mobile-email">{log.u_email}</div>}
+                            </div>
+                          </div>
+                          <Badge
+                            text={log.action_type || "UNKNOWN"}
+                            bg={actionStyle.bg}
+                            color={actionStyle.color}
+                          />
+                        </div>
+
+                        <div className="al-mobile-desc">
+                          {log.description || "—"}
+                        </div>
+
+                        <div className="al-mobile-meta">
+                          <div className="al-mobile-meta-item">
+                            <span className="al-mobile-meta-label">Module:</span>
+                            <span className="al-mobile-module-tag">{log.module_name || "—"}</span>
+                          </div>
+                          {contextLabel !== "—" && (
+                            <div className="al-mobile-meta-item">
+                              <span className="al-mobile-meta-label">Context:</span>
+                              <span>{contextLabel}</span>
+                            </div>
                           )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          <div className="al-mobile-meta-item">
+                            <span className="al-mobile-meta-label">Timestamp:</span>
+                            <span>{formatDate(log.created_at)}</span>
+                          </div>
+                        </div>
+
+                        {canManageLogs && (
+                          <div className="al-mobile-actions">
+                            <button
+                              className="al-mobile-delete-btn"
+                              onClick={() => setDeleteTarget(log.log_id || idx)}
+                            >
+                              <FaTrash size={12} /> Delete Entry
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
 
             {/* ── Pagination ─────────────────────────────────────── */}
             {totalPages > 1 && (
               <div
+                className="al-pagination"
                 style={{
                   padding: "16px 20px",
                   borderTop: "1px solid #F3F4F6",
@@ -1035,7 +1144,7 @@ const ActivityLog = () => {
                   Page <strong>{page}</strong> of <strong>{totalPages}</strong>
                   &nbsp;·&nbsp;{total.toLocaleString()} records
                 </span>
-                <div style={{ display: "flex", gap: 6 }}>
+                <div className="al-pagination-pills" style={{ display: "flex", gap: 6 }}>
                   <button
                     id="btn-prev-page"
                     disabled={page <= 1}
