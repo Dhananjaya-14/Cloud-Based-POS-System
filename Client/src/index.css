@@ -240,3 +240,292 @@ html, body, #root {
     display: none !important;
   }
 }
+
+/* ==========================================================================
+   Account Registration Responsive Classes
+   ========================================================================== */
+
+/* Registration Base Classes (Desktop >= 1024px) */
+.register-outer-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: #EBF1F7;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  overflow: hidden;
+}
+
+.register-main-wrapper {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.register-content-inner {
+  display: flex;
+  width: 100%;
+  max-width: 1100px;
+  height: 89vh;
+  background-color: white;
+  border-radius: 30px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.register-left-gradient {
+  flex: 0.9;
+  background: linear-gradient(135deg, #00B4EB 0%, #0056A2 50%, #50B748 100%);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: white;
+  padding: 40px;
+  position: relative;
+  text-align: center;
+}
+
+.register-gradient-title {
+  font-size: 3.2rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+  text-align: center;
+  line-height: 1.15;
+}
+
+.register-pills-container {
+  display: flex;
+  gap: 10px;
+  margin-top: 30px;
+  justify-content: center;
+}
+
+.register-pill {
+  padding: 6px 12px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  white-space: nowrap;
+}
+
+.register-social-row {
+  position: absolute;
+  bottom: 40px;
+  display: flex;
+  gap: 15px;
+}
+
+.register-form-card {
+  flex: 1.1;
+  background-color: white;
+  padding: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+}
+
+.register-form-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.register-mobile-signin {
+  display: none;
+}
+
+.register-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 30px;
+  text-align: left;
+}
+
+/* Stepper Base */
+.stepper-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 30px;
+  width: 100%;
+}
+
+.stepper-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.stepper-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.stepper-label {
+  font-size: 12px;
+  margin-top: 5px;
+  color: #666;
+  white-space: nowrap;
+}
+
+.stepper-line {
+  width: 50px;
+  height: 2px;
+  margin: 0 10px;
+  margin-bottom: 20px;
+}
+
+/* Tablet Overrides (768px <= width < 1024px) */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .register-outer-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+
+  .register-main-wrapper {
+    padding: 16px !important;
+    align-items: center !important;
+  }
+
+  .register-content-inner {
+    height: auto !important;
+    min-height: 600px !important;
+    max-width: 96% !important;
+    border-radius: 24px !important;
+    margin: 16px auto !important;
+    overflow: visible !important;
+  }
+
+  .register-left-gradient {
+    padding: 32px 20px 80px 20px !important;
+  }
+
+  .register-gradient-title {
+    font-size: 2.2rem !important;
+  }
+
+  .register-pills-container {
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    margin-top: 20px !important;
+  }
+
+  .register-social-row {
+    bottom: 24px !important;
+  }
+
+  .register-form-card {
+    padding: 36px 24px !important;
+    overflow-y: visible !important;
+  }
+
+  .register-form-inner {
+    max-width: 380px !important;
+  }
+
+  .register-grid-2col {
+    gap: 16px !important;
+  }
+}
+
+/* Mobile Overrides (width < 768px) */
+@media (max-width: 767px) {
+  .register-outer-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+
+  .register-main-wrapper {
+    padding: 14px 12px 24px !important;
+    align-items: center !important;
+  }
+
+  .register-content-inner {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-width: 440px !important;
+    border-radius: 20px !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08) !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+  }
+
+  .register-left-gradient {
+    display: none !important;
+  }
+
+  .register-form-card {
+    padding: 28px 18px !important;
+    width: 100% !important;
+    overflow-y: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  .register-form-inner {
+    max-width: 100% !important;
+  }
+
+  .register-mobile-signin {
+    display: block !important;
+  }
+
+  .register-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+  }
+
+  .register-step-title {
+    font-size: 24px !important;
+  }
+
+  .register-stepper-wrapper {
+    margin: 24px 0 !important;
+  }
+}
+
+/* Small screens Stepper & OTP scaling */
+@media (max-width: 480px) {
+  .stepper-container {
+    margin-bottom: 18px !important;
+  }
+
+  .stepper-circle {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 12px !important;
+  }
+
+  .stepper-label {
+    font-size: 11px !important;
+  }
+
+  .stepper-line {
+    width: clamp(16px, 6vw, 36px) !important;
+    margin: 0 4px !important;
+    margin-bottom: 18px !important;
+  }
+
+  .register-otp-wrapper {
+    gap: 6px !important;
+  }
+
+  .register-otp-input {
+    width: clamp(38px, 12vw, 48px) !important;
+    height: clamp(44px, 13vw, 54px) !important;
+    font-size: 18px !important;
+  }
+}
+
