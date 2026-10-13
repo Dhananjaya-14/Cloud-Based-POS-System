@@ -38,8 +38,18 @@ const Header = ({ title = "System Admin DashBoard" }) => {
           className="sa-hamburger-btn"
           onClick={() => window.dispatchEvent(new Event("toggle-sa-sidebar"))}
           style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", display: "none" }}
+          aria-label="Open sidebar menu"
         >
           <FaBars size={22} />
+        </button>
+        <button
+          className="sa-header-minimize-btn"
+          onClick={() => window.dispatchEvent(new CustomEvent("toggle-sa-sidebar-minimize"))}
+          style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", display: "none", padding: 0 }}
+          title="Toggle Sidebar"
+          aria-label="Toggle Sidebar"
+        >
+          <FaBars size={20} />
         </button>
         <h2 className="sa-header-title" style={{ fontSize: "26px", margin: 0, fontWeight: "500" }}>{title}</h2>
       </div>
