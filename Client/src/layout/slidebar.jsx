@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { FaBox, FaBoxOpen, FaChartBar, FaChartLine, FaClipboardList, FaCodeBranch, FaExchangeAlt, FaFileAlt, FaLock, FaMoneyBill, FaSignOutAlt, FaStore, FaTag, FaTachometerAlt, FaTruck, FaUsers, FaWifi } from "react-icons/fa";
+import { FaBox, FaBoxOpen, FaChartBar, FaChartLine, FaClipboardList, FaCodeBranch, FaExchangeAlt, FaFileAlt, FaLock, FaMoneyBill, FaSignOutAlt, FaStore, FaTable, FaTag, FaTachometerAlt, FaTrashAlt, FaTruck, FaUndo, FaUsers, FaWifi } from "react-icons/fa";
 import { PiInvoiceBold } from "react-icons/pi";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
@@ -33,8 +33,13 @@ const Slidebar = ({ isOpen = true, setIsOpen }) => {
     item(<FaExchangeAlt />, t("branch_admin.transactions", "Transactions"), "/branch-admin/transactions"),
     item(<FaChartLine />, t("branch_admin.sales_revenue", "Sales & Revenue"), "/branch-admin/sales-revenue"),
     item(<FaChartBar />, t("branch_admin.cashier_performance", "Cashier Performance"), "/branch-admin/cashier-performance"),
+    item(<FaTable />, t("branch_admin.table_management", "Table Management"), "/branch-admin/tables"),
+    !locked("has_inventory") && item(<FaTrashAlt />, t("branch_admin.waste_management", "Waste Management"), "/branch-admin/waste-management"),
+    !locked("has_inventory") && item(<FaUndo />, t("branch_admin.return_management", "Return Management"), "/branch-admin/return-management"),
     !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.sales_summary", "Sales Summary"), "/branch-admin/summary-sales"),
     !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.product_sales", "Product Sales"), "/branch-admin/summary-productsales"),
+    !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.raw_material_stock_report", "Raw Material Stock Report"), "/branch-admin/raw-material-stock"),
+    !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.raw_material_consumption_report", "Raw Material Consumption Report"), "/branch-admin/raw-material-consumption"),
   ].filter(Boolean);
   const adminItems = [
     item(<FaTachometerAlt />, t("company_admin.dashboard", "Dashboard"), "/admin/dashboard"),
