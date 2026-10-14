@@ -52,55 +52,62 @@ function validateSupplierName(sup_name) {
 
 export async function getSuppliers(req, res, next) {
   try {
-    const { role_id, com_id, b_id: userBid } = req.user;
-    const filterBid    = req.query.b_id ? Number(req.query.b_id) : null;
+    const roleId = Number(req.user?.role_id);
+    const comId = req.user?.com_id != null ? Number(req.user.com_id) : null;
+    const userBid = req.user?.b_id != null ? Number(req.user.b_id) : null;
+    const rawBid = req.query.b_id ?? req.query.B_id;
+    const filterBid =
+      rawBid !== undefined && rawBid !== null && rawBid !== "" && !isNaN(Number(rawBid)) && Number(rawBid) > 0
+        ? Number(rawBid)
+        : null;
     const showInactive = req.query.status === "inactive";
-
-    const activeFilter = (role_id === ROLES.BRANCH_ADMIN || !showInactive)
-      ? `AND s.is_active = TRUE`
-      : `AND s.is_active = FALSE`;
 
     let query, params;
 
-    if (role_id === ROLES.SUPER_ADMIN) {
+    if (roleId === ROLES.SUPER_ADMIN) {
       if (filterBid) {
-        query = `SELECT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active, s."Com_id"
+        query = `SELECT DISTINCT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active, s."Com_id",
+                        COALESCE((SELECT array_agg(bs2.b_id) FROM "Branch_Supplier" bs2 WHERE bs2.sup_id = s.sup_id), ARRAY[]::integer[]) AS branches
                  FROM "SUPPLIER" s
                  JOIN "Branch_Supplier" bs ON bs.sup_id = s.sup_id
                  WHERE bs.b_id = $1 ${showInactive ? "AND s.is_active = FALSE" : "AND s.is_active = TRUE"}
                  ORDER BY s.sup_name ASC`;
         params = [filterBid];
       } else {
-        query = `SELECT sup_id, sup_name, sup_email, sup_contact, sup_address, is_active, "Com_id"
-                 FROM "SUPPLIER"
-                 WHERE ${showInactive ? "is_active = FALSE" : "is_active = TRUE"}
-                 ORDER BY sup_name ASC`;
+        query = `SELECT DISTINCT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active, s."Com_id",
+                        COALESCE((SELECT array_agg(bs2.b_id) FROM "Branch_Supplier" bs2 WHERE bs2.sup_id = s.sup_id), ARRAY[]::integer[]) AS branches
+                 FROM "SUPPLIER" s
+                 WHERE ${showInactive ? "s.is_active = FALSE" : "s.is_active = TRUE"}
+                 ORDER BY s.sup_name ASC`;
         params = [];
       }
-    } else if (role_id === ROLES.BRANCH_ADMIN) {
+    } else if (roleId === ROLES.BRANCH_ADMIN) {
       // Branch admin: only active suppliers for their branch
-      query = `SELECT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active
+      query = `SELECT DISTINCT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active, s."Com_id",
+                      COALESCE((SELECT array_agg(bs2.b_id) FROM "Branch_Supplier" bs2 WHERE bs2.sup_id = s.sup_id), ARRAY[]::integer[]) AS branches
                FROM "SUPPLIER" s
                JOIN "Branch_Supplier" bs ON bs.sup_id = s.sup_id
-               WHERE bs.b_id = $1 AND s."Com_id" = $2 AND s.is_active = TRUE
+               WHERE bs.b_id = $1 AND (s."Com_id" = $2 OR $2 IS NULL) AND s.is_active = TRUE
                ORDER BY s.sup_name ASC`;
-      params = [userBid, com_id];
+      params = [userBid, comId];
     } else {
       if (filterBid) {
-        query = `SELECT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active
+        query = `SELECT DISTINCT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active, s."Com_id",
+                        COALESCE((SELECT array_agg(bs2.b_id) FROM "Branch_Supplier" bs2 WHERE bs2.sup_id = s.sup_id), ARRAY[]::integer[]) AS branches
                  FROM "SUPPLIER" s
                  JOIN "Branch_Supplier" bs ON bs.sup_id = s.sup_id
-                 WHERE bs.b_id = $1 AND s."Com_id" = $2
+                 WHERE bs.b_id = $1 AND (s."Com_id" = $2 OR $2 IS NULL)
                    ${showInactive ? "AND s.is_active = FALSE" : "AND s.is_active = TRUE"}
                  ORDER BY s.sup_name ASC`;
-        params = [filterBid, com_id];
+        params = [filterBid, comId];
       } else {
-        query = `SELECT sup_id, sup_name, sup_email, sup_contact, sup_address, is_active
-                 FROM "SUPPLIER"
-                 WHERE "Com_id" = $1
-                   AND ${showInactive ? "is_active = FALSE" : "is_active = TRUE"}
-                 ORDER BY sup_name ASC`;
-        params = [com_id];
+        query = `SELECT DISTINCT s.sup_id, s.sup_name, s.sup_email, s.sup_contact, s.sup_address, s.is_active, s."Com_id",
+                        COALESCE((SELECT array_agg(bs2.b_id) FROM "Branch_Supplier" bs2 WHERE bs2.sup_id = s.sup_id), ARRAY[]::integer[]) AS branches
+                 FROM "SUPPLIER" s
+                 WHERE (s."Com_id" = $1 OR $1 IS NULL)
+                   AND ${showInactive ? "s.is_active = FALSE" : "s.is_active = TRUE"}
+                 ORDER BY s.sup_name ASC`;
+        params = [comId];
       }
     }
 
@@ -272,6 +279,7 @@ export async function createSupplier(req, res, next) {
         const payload = {
           ...newSupplier,
           b_id,
+          branches: [b_id],
           actor_id: req.user.u_id || req.user.id,
           actor_name: `${req.user.u_fname || ''} ${req.user.u_lname || ''}`.trim() || req.user.username || 'Unknown User'
         };
@@ -283,7 +291,7 @@ export async function createSupplier(req, res, next) {
       // Don't fail the request if socket emission fails
     }
 
-    res.status(201).json({ ...newSupplier, b_id });
+    res.status(201).json({ ...newSupplier, b_id, branches: [b_id] });
   } catch (err) {
     await client.query("ROLLBACK");
     next(err);
@@ -379,7 +387,7 @@ export async function getSupplierBranches(req, res, next) {
     }
 
     const result = await pool.query(
-      `SELECT b."B_id" AS b_id, b."B_name" AS b_name
+      `SELECT b."B_id" AS b_id, b."B_name" AS b_name, b."B_id", b."B_name"
        FROM "Branch_Supplier" bs
        JOIN "Branch" b ON b."B_id" = bs.b_id
        WHERE bs.sup_id = $1

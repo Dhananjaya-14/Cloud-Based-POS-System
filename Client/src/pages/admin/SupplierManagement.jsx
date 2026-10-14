@@ -53,7 +53,7 @@ const BranchCheckbox = ({
 }) => <label className={`flex items-center gap-3 px-4 py-3 rounded-xl border-2 cursor-pointer transition-all select-none ${checked ? "border-gray-200 bg-gray-50 " : "border-gray-200 bg-gray-50 hover:border-gray-300"}`}>
     <input type="checkbox" checked={checked} onChange={onChange} className="w-4 h-4 accent-indigo-600 cursor-pointer" />
     <span className="text-base">🏬</span>
-    <span className="font-medium text-gray-800 text-sm flex-1">{branch.b_name || branch.B_name}</span>
+    <span className="font-medium text-gray-800 text-sm flex-1">{branch.B_name ?? branch.b_name ?? branch.name}</span>
     {badge && <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${badgeColor}`}>{badge}</span>}
   </label>;
 const inputClass = "w-full px-3.5 py-2.5 rounded-lg border-2 border-gray-300 text-sm text-gray-900 outline-none transition-colors focus:border-[#2E3E8F]";
@@ -122,7 +122,14 @@ setToast({
       // Fetch branches independently so a supplier 403 doesn't break the dropdown
       try {
         const branchList = await getBranches();
-        setBranches(Array.isArray(branchList) ? branchList : []);
+        const normalized = (Array.isArray(branchList) ? branchList : []).map(b => ({
+          ...b,
+          B_id: b.B_id ?? b.b_id ?? b.id,
+          b_id: b.b_id ?? b.B_id ?? b.id,
+          B_name: b.B_name ?? b.b_name ?? b.name,
+          b_name: b.b_name ?? b.B_name ?? b.name,
+        }));
+        setBranches(normalized);
       } catch (err) {
         console.error("Failed to fetch branches", err);
         setBranches([]);
@@ -161,7 +168,10 @@ setToast({
         setSuppliers(prev => {
           // Check if supplier already exists (prevent duplicates)
           if (prev.some(s => s.sup_id === data.sup_id)) return prev;
-          return [data, ...prev];
+          const branches = Array.isArray(data.branches)
+            ? data.branches
+            : (data.b_id != null ? [Number(data.b_id)] : []);
+          return [{ ...data, branches }, ...prev];
         });
       }
     };
@@ -206,7 +216,10 @@ setToast({
         // Add back to active list
         setSuppliers(prev => {
           if (prev.some(s => s.sup_id === data.sup_id)) return prev;
-          return [data, ...prev];
+          const branches = Array.isArray(data.branches)
+            ? data.branches
+            : (data.b_id != null ? [Number(data.b_id)] : []);
+          return [{ ...data, branches }, ...prev];
         });
       }
     };
@@ -237,7 +250,9 @@ setToast({
     setAssignLoading(true);
     try {
       const assigned = await getSupplierBranches(sup.sup_id);
-      const assignedIds = (Array.isArray(assigned) ? assigned : []).map(b => b.b_id);
+      const assignedIds = (Array.isArray(assigned) ? assigned : [])
+        .map(b => Number(b.b_id ?? b.B_id ?? b.id))
+        .filter(id => !isNaN(id) && id > 0);
       setSelectedAssignBids(assignedIds);
       setInitialAssignBids(assignedIds);
     } catch {
@@ -264,6 +279,7 @@ setToast({
         ...supplier,
         branches: selectedAssignBids
       } : supplier));
+      loadData();
     } catch (err) {
       showToast(err?.response?.data?.message || "Failed to update branch assignments", "error");
     } finally {
@@ -349,7 +365,27 @@ setForm({
       setSaving(false);
     }
   };
-  const filtered = suppliers.filter(s => s.sup_name?.toLowerCase().includes(search.toLowerCase()) || s.sup_email?.toLowerCase().includes(search.toLowerCase()) || s.sup_contact?.includes(search));
+  const filtered = suppliers.filter(s => {
+    const searchLower = (search || "").toLowerCase().trim();
+    const matchesSearch =
+      !searchLower ||
+      s.sup_name?.toLowerCase().includes(searchLower) ||
+      s.sup_email?.toLowerCase().includes(searchLower) ||
+      s.sup_contact?.includes(searchLower);
+
+    if (!matchesSearch) return false;
+
+    if (!filterBranch) return true;
+
+    const targetBranchId = Number(filterBranch);
+    if (Array.isArray(s.branches)) {
+      return s.branches.map(Number).includes(targetBranchId);
+    }
+    if (s.b_id != null) {
+      return Number(s.b_id) === targetBranchId;
+    }
+    return true;
+  });
   return <div className="flex bg-gray-50 min-h-screen">
       <Sidebar />
       <div className="flex-1 ml-[240px]">
@@ -382,7 +418,11 @@ setForm({
             <input placeholder={t("company_admin.search_by_name_email_or_contact", "Search by name, email or contact...")} value={search} onChange={e => setSearch(e.target.value)} className={`${inputClass} max-w-[340px]`} />
             {!showDeleted && <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)} className={`${inputClass} max-w-[220px]`}>
                 <option value="">{t("company_admin.all_branches", "All Branches")}</option>
-                {branches.map(b => <option key={b.B_id} value={b.B_id}>{b.B_name}</option>)}
+                {branches.map(b => {
+                  const bId = b.B_id ?? b.b_id ?? b.id;
+                  const bName = b.B_name ?? b.b_name ?? b.name;
+                  return <option key={bId} value={bId}>{bName}</option>;
+                })}
               </select>}
           </div>
 
@@ -437,14 +477,20 @@ setForm({
             </div> : <>
               {/* Select All / Deselect All */}
               <div className="flex justify-between items-center mb-3">
-                <button onClick={() => selectedAssignBids.length === branches.length ? setSelectedAssignBids([]) : setSelectedAssignBids(branches.map(b => b.B_id))} className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 cursor-pointer bg-none border-none p-0 whitespace-nowrap ml-2">
+                <button onClick={() => {
+                  const allIds = branches.map(b => b.B_id ?? b.b_id ?? b.id).filter(Boolean);
+                  selectedAssignBids.length === allIds.length ? setSelectedAssignBids([]) : setSelectedAssignBids(allIds);
+                }} className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 cursor-pointer bg-none border-none p-0 whitespace-nowrap ml-2">
                   {selectedAssignBids.length === branches.length ? t("buttons.deselect_all", "Deselect All") : t("buttons.select_all", "Select All")}
                 </button>
               </div>
 
               {/* Branch list */}
               <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1 mb-5">
-                {branches.map(b => <BranchCheckbox key={b.B_id} branch={b} checked={selectedAssignBids.includes(b.B_id)} onChange={() => toggleAssignBid(b.B_id)} />)}
+                {branches.map(b => {
+                  const bId = b.B_id ?? b.b_id ?? b.id;
+                  return <BranchCheckbox key={bId} branch={b} checked={selectedAssignBids.includes(bId)} onChange={() => toggleAssignBid(bId)} />;
+                })}
               </div>
 
               {/* Selected count pill */}
@@ -496,7 +542,11 @@ setForm({
           b_id: e.target.value
         }))}>
               <option value="">{t("company_admin.select_a_branch", "Select a branch...")}</option>
-              {branches.map(b => <option key={b.B_id} value={b.B_id}>{b.B_name}</option>)}
+              {branches.map(b => {
+                const bId = b.B_id ?? b.b_id ?? b.id;
+                const bName = b.B_name ?? b.b_name ?? b.name;
+                return <option key={bId} value={bId}>{bName}</option>;
+              })}
             </select>
           </Field>
           <div className="flex gap-3 mt-3">
