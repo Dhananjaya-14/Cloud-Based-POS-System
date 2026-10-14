@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { FaSearch, FaFilter, FaPlus, FaCodeBranch } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../../components/super-admin/Sidebar";
-import Header from "../../components/super-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import AddBranchWizard from "../../components/admin/AddBranchModal";
 import { getBranches, getCompanies, setAuthToken, logout } from "../../services/api";
 import { connectSocket, joinBranchUpdatesRoom, SOCKET_EVENTS } from "../../services/socket";

@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaChevronDown, FaCheck, FaMinus, FaPlus, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import Sidebar from "../../components/admin/Sidebar";
-import Header from "../../components/admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { deleteProduct, getCategories, getProductById, updateProduct, getBranches } from "../../services/api";
 const cardStyle = {
   border: "1px solid #D9E4F2",

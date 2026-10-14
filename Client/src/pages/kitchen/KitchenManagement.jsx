@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { FaSearch, FaClock, FaBell } from "react-icons/fa";
-import CashierHeader from "../../components/cashier/Header";
+import CashierHeader from "../../layout/header";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 import {

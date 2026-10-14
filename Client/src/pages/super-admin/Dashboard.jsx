@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Sidebar from "../../components/super-admin/Sidebar";
-import Header from "../../components/super-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { getBranches, getUsers, getCompanies, setAuthToken, logout } from "../../services/api";
 import Spinner from "../../components/super-admin/Spinner";
 import {

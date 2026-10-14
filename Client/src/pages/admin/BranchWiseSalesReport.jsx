@@ -7,8 +7,8 @@ import { getBranchWiseSalesReport } from "../../services/api";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import Header from "../../components/admin/Header";
-import Sidebar from "../../components/admin/Sidebar";
+import Header from "../../layout/header";
+import Sidebar from "../../layout/slidebar";
 
 export default function BranchWiseSalesReport() {
   const { t, i18n } = useTranslation();

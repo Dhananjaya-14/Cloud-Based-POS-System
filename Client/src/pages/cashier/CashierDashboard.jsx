@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import CashierHeader from "../../components/cashier/Header";
+import CashierHeader from "../../layout/header";
 import OrderReadyAlerts from "../../components/cashier/OrderReadyAlerts";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders, getDashboardStats, getSalesDetailsReport } from "../../services/api";

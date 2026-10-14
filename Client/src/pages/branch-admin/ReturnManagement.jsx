@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect, useMemo } from "react";
 import { FaTrashAlt } from "react-icons/fa";
-import Sidebar from "../../components/branch-admin/Sidebar";
-import Header from "../../components/branch-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
 import { connectSocket, subscribeToReturnUpdates } from "../../services/socket";
 import { api } from "../../services/api";

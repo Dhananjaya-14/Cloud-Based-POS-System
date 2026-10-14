@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 
 const SuperAdminLayout = ({ children, title = "System Admin DashBoard" }) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);

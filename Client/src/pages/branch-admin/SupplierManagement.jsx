@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect, useCallback } from "react";
-import Sidebar from "../../components/branch-admin/Sidebar";
-import Header from "../../components/branch-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
 import { connectSocket, getSocket, SOCKET_EVENTS } from '../../services/socket';
 import { useAuth } from "../../context/AuthContext";

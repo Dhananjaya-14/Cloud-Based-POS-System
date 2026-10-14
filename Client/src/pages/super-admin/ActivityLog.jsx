@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import AdminSidebar from "../../components/admin/Sidebar";
-import AdminHeader from "../../components/admin/Header";
-import Sidebar from "../../components/super-admin/Sidebar";
-import Header from "../../components/super-admin/Header";
+import AdminSidebar from "../../layout/slidebar";
+import AdminHeader from "../../layout/header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import Spinner from "../../components/super-admin/Spinner";
 import { connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import {

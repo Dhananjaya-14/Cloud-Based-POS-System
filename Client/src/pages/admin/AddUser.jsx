@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaCheck, FaTimes } from "react-icons/fa";
-import Sidebar from "../../components/admin/Sidebar";
-import Header from "../../components/admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import Button from "../../components/admin/Button";
 import FormField from "../../components/admin/FormField";
 import FormSelect from "../../components/admin/FormSelect";
