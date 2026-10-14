@@ -45,6 +45,7 @@ const Slidebar = ({ isOpen = true, setIsOpen }) => {
     item(<FaMoneyBill />, t("company_admin.transactions", "Transactions"), "/admin/transactions"),
     !locked("has_promotions") && item(<FaTag />, t("company_admin.promotions", "Promotions"), "/admin/promotions"),
     !locked("has_inventory") && item(<FaTruck />, t("company_admin.suppliers", "Suppliers"), "/admin/suppliers"),
+    !locked("has_reports") && item(<FaChartLine />, t("branch_admin.branch_wise_sales_report", "Branch Wise Sales Report"), "/admin/sales-details"),
     item(<FaClipboardList />, t("company_admin.activity_log", "Activity Log"), "/admin/activity-log"),
     item(<PiInvoiceBold />, t("company_admin.invoice_settings", "Invoice Settings"), "/admin/bill-settings"),
   ].filter(Boolean);
