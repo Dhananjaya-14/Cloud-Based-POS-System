@@ -238,13 +238,13 @@ setToasts(prev => [...prev, {
   }}>
             <Sidebar />
 
-            <div style={{
+            <div className="admin-main-content" style={{
       flex: 1,
       marginLeft: "240px"
     }}>
                 <Header title={t("company_admin.user_management", "User Management")} />
 
-                <div style={{
+                <div className="admin-form-page-container" style={{
         padding: "18px 24px 28px"
       }}>
                     <div style={{
@@ -265,7 +265,7 @@ setToasts(prev => [...prev, {
           maxWidth: "980px",
           margin: "0 auto"
         }}>
-                        <h1 style={{
+                        <h1 className="admin-form-header-title" style={{
             margin: "0 0 22px",
             textAlign: "center",
             fontSize: "42px",
@@ -273,13 +273,13 @@ setToasts(prev => [...prev, {
             color: "#111"
           }}>{t("company_admin.user_details", "User Details")}</h1>
 
-                        <div style={{
+                        <div className="admin-user-form-layout" style={{
             display: "grid",
             gridTemplateColumns: "160px 1fr",
             gap: "26px",
             alignItems: "start"
           }}>
-                            <div style={{
+                            <div className="admin-user-avatar-col" style={{
               width: "126px",
               height: "126px",
               borderRadius: "50%",
@@ -315,7 +315,7 @@ setToasts(prev => [...prev, {
                 opacity: isFormLocked ? 0.82 : 1,
                 pointerEvents: isFormLocked ? "none" : "auto"
               }}>
-                                    <div style={{
+                                    <div className="admin-form-grid-2col" style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
                   gap: "20px"
@@ -324,7 +324,7 @@ setToasts(prev => [...prev, {
                                         <FormField label={t("fields.last_name", "Last Name")} value={formData.lastName} onChange={event => updateField("lastName", event.target.value)} />
                                     </div>
 
-                                    <div style={{
+                                    <div className="admin-form-grid-2col" style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
                   gap: "20px"
@@ -333,7 +333,7 @@ setToasts(prev => [...prev, {
                                         <FormField label={t("fields.contact_number", "Contact Number")} value={formData.contactNumber} onChange={event => updateField("contactNumber", event.target.value)} />
                                     </div>
 
-                                    <div style={{
+                                    <div className="admin-form-grid-3col" style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr 190px",
                   gap: "20px",
@@ -344,9 +344,13 @@ setToasts(prev => [...prev, {
                                         <StatusToggle checked={formData.isActive} onChange={event => updateField("isActive", event.target.checked)} />
                                     </div>
 
-                                    <PasswordField label={t("fields.password", "Password")} value={formData.password} width="62%" onChange={event => updateField("password", event.target.value)} />
+                                    <div className="admin-form-password-field">
+                                        <PasswordField label={t("fields.password", "Password")} value={formData.password} width="62%" onChange={event => updateField("password", event.target.value)} />
+                                    </div>
 
-                                    <PasswordField label={t("fields.confirm_password", "Confirm Password")} value={formData.confirmPassword} width="62%" onChange={event => updateField("confirmPassword", event.target.value)} />
+                                    <div className="admin-form-password-field">
+                                        <PasswordField label={t("fields.confirm_password", "Confirm Password")} value={formData.confirmPassword} width="62%" onChange={event => updateField("confirmPassword", event.target.value)} />
+                                    </div>
                                 </div>
 
                                 {(isLoadingOptions || isLoadingUser) && <p style={{
@@ -361,12 +365,12 @@ setToasts(prev => [...prev, {
                 fontSize: "13px"
               }}>{errorMessage}</p>}
 
-                                <div style={{
+                                <div className="admin-form-submit-row" style={{
                 display: "flex",
                 justifyContent: "flex-end",
                 marginTop: "8px"
               }}>
-                                    <Button label={!isEditMode ? t("buttons.edit_user_details", "Edit User Details") : isSubmitting ? t("buttons.saving", "Saving...") : t("buttons.save_changes", "Save Changes")} type="button" onClick={handlePrimaryAction} disabled={isSubmitting || isLoadingOptions || isLoadingUser || !resolvedUserId} style={{
+                                    <Button className="admin-form-submit-btn" label={!isEditMode ? t("buttons.edit_user_details", "Edit User Details") : isSubmitting ? t("buttons.saving", "Saving...") : t("buttons.save_changes", "Save Changes")} type="button" onClick={handlePrimaryAction} disabled={isSubmitting || isLoadingOptions || isLoadingUser || !resolvedUserId} style={{
                   width: "200px",
                   height: "40px",
                   borderRadius: "8px",
