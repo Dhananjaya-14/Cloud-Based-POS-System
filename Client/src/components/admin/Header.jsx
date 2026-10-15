@@ -288,6 +288,15 @@ const {
         >
           <FaBars size={22} />
         </button>
+        <button
+          className="admin-header-minimize-btn"
+          onClick={() => window.dispatchEvent(new CustomEvent("toggle-admin-sidebar-minimize"))}
+          style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", display: "none", padding: 0 }}
+          title={t("company_admin.toggle_sidebar", "Toggle Sidebar")}
+          aria-label={t("company_admin.toggle_sidebar", "Toggle Sidebar")}
+        >
+          <FaBars size={20} />
+        </button>
         <h2 className="admin-header-title" style={{
         fontSize: "26px",
         margin: 0,
