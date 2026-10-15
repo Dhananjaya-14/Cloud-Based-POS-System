@@ -1547,3 +1547,270 @@ html, body, #root {
     box-sizing: border-box !important;
   }
 }
+
+/* ==========================================================================
+   Admin User Management Responsive Layout
+   ========================================================================== */
+
+/* Base defaults */
+.admin-user-cards-mobile {
+  display: none;
+}
+
+.admin-user-table-desktop {
+  display: block;
+}
+
+/* Tablet Overrides (768px <= width <= 1024px) */
+@media (max-width: 1024px) and (min-width: 768px) {
+  .admin-page-root {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+
+  .admin-user-content-container {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 18px 16px !important;
+  }
+
+  .admin-user-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 12px !important;
+  }
+
+  .admin-user-table-card {
+    height: auto !important;
+    min-height: 400px !important;
+    overflow: visible !important;
+  }
+
+  .admin-user-table-desktop {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  .admin-user-cards-mobile {
+    display: none !important;
+  }
+}
+
+/* Mobile Overrides (width < 768px) */
+@media (max-width: 767px) {
+  .admin-page-root {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+
+  .admin-user-content-container {
+    height: auto !important;
+    overflow: visible !important;
+    padding: 14px 10px !important;
+    gap: 12px !important;
+  }
+
+  .admin-user-toolbar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 10px !important;
+  }
+
+  .admin-user-title {
+    font-size: 22px !important;
+    margin: 0 !important;
+  }
+
+  .admin-user-add-btn {
+    width: 100% !important;
+    justify-content: center !important;
+    height: 38px !important;
+  }
+
+  .admin-user-stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .admin-user-card {
+    padding: 10px 12px !important;
+    min-height: 60px !important;
+    border-radius: 12px !important;
+    gap: 8px !important;
+  }
+
+  .admin-user-card > div:last-child > div:first-child {
+    font-size: 11px !important;
+  }
+
+  .admin-user-card > div:last-child > div:last-child {
+    font-size: 20px !important;
+  }
+
+  .admin-user-filter-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 8px !important;
+  }
+
+  .admin-user-filter-actions {
+    grid-template-columns: 1fr 1fr !important;
+    width: 100% !important;
+  }
+
+  .admin-user-table-card {
+    padding: 12px 10px !important;
+    border-radius: 12px !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Table hidden on mobile, Stacked Cards shown */
+  .admin-user-table-desktop {
+    display: none !important;
+  }
+
+  .admin-user-cards-mobile {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 10px !important;
+  }
+
+  .admin-user-mobile-card {
+    background: #F9FAFB;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    padding: 12px 14px;
+    transition: all 0.2s ease;
+  }
+
+  .admin-user-mobile-card:hover, .admin-user-mobile-card:active {
+    background: #F3F4F6;
+    border-color: #D1D5DB;
+  }
+
+  .admin-user-mobile-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .admin-user-mobile-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 0;
+    border-top: 1px solid #E5E7EB;
+    border-bottom: 1px solid #E5E7EB;
+    font-size: 13px;
+  }
+
+  .admin-user-mobile-info-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .admin-user-mobile-label {
+    color: #6B7280;
+    font-size: 12px;
+    font-weight: 500;
+  }
+
+  .admin-user-mobile-value {
+    color: #1F2937;
+    font-size: 13px;
+    text-align: right;
+  }
+
+  .admin-user-mobile-card-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding-top: 8px;
+  }
+
+  .admin-user-mobile-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .admin-user-mobile-action-btn.edit {
+    background: #EFF6FF;
+    color: #2563EB;
+    border-color: #BFDBFE;
+  }
+
+  .admin-user-mobile-action-btn.delete {
+    background: #FEF2F2;
+    color: #DC2626;
+    border-color: #FECACA;
+  }
+
+  /* Admin User Add/Edit Form responsiveness */
+  .admin-form-page-container {
+    padding: 16px 12px !important;
+  }
+
+  .admin-form-header-title {
+    font-size: 26px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .admin-user-form-layout {
+    grid-template-columns: 1fr !important;
+    gap: 16px !important;
+    justify-items: center !important;
+  }
+
+  .admin-user-avatar-col {
+    margin-top: 0 !important;
+  }
+
+  .admin-user-form-layout form {
+    width: 100% !important;
+  }
+
+  .admin-form-grid-2col {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .admin-form-grid-3col {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .admin-form-password-field > div {
+    width: 100% !important;
+  }
+
+  .admin-form-submit-row {
+    justify-content: stretch !important;
+  }
+
+  .admin-form-submit-btn,
+  .admin-form-submit-row button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .admin-modal-grid-2col {
+    grid-template-columns: 1fr !important;
+  }
+}
