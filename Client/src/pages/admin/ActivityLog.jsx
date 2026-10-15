@@ -14,6 +14,7 @@ import {
   FaInfoCircle,
   FaCheckCircle,
   FaTimesCircle,
+  FaUser,
 } from "react-icons/fa";
 
 const ACTION_TYPES = [
@@ -70,6 +71,7 @@ const Badge = ({ text, bg, color }) => (
 
 const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
   <div
+    className="admin-al-summary-card"
     style={{
       background: "#fff",
       borderRadius: 14,
@@ -83,6 +85,7 @@ const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
     }}
   >
     <div
+      className="admin-al-summary-icon"
       style={{
         width: 44,
         height: 44,
@@ -100,6 +103,7 @@ const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
     </div>
     <div>
       <div
+        className="admin-al-summary-label"
         style={{
           fontSize: 12,
           color: "#9CA3AF",
@@ -109,7 +113,7 @@ const SummaryCard = ({ icon, label, value, bg, iconColor }) => (
       >
         {label}
       </div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>
+      <div className="admin-al-summary-value" style={{ fontSize: 22, fontWeight: 700, color: "#111827" }}>
         {value}
       </div>
     </div>
@@ -189,6 +193,22 @@ const ActivityLog = () => {
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
   const LIMIT = 20;
+
+  const [isSidebarMinimized, setIsSidebarMinimized] = useState(() => {
+    return localStorage.getItem("admin_sidebar_minimized") === "true";
+  });
+
+  useEffect(() => {
+    const handleMinimizeToggle = (e) => {
+      if (e?.detail?.isMinimized !== undefined) {
+        setIsSidebarMinimized(e.detail.isMinimized);
+      } else {
+        setIsSidebarMinimized(prev => !prev);
+      }
+    };
+    window.addEventListener("toggle-admin-sidebar-minimize", handleMinimizeToggle);
+    return () => window.removeEventListener("toggle-admin-sidebar-minimize", handleMinimizeToggle);
+  }, []);
 
   // State for aggregated summary stats (fallback when API summary is unavailable)
   const [summaryStats, setSummaryStats] = useState({
@@ -371,6 +391,7 @@ const ActivityLog = () => {
 
   return (
     <div
+      className="admin-page-root"
       style={{
         display: "flex",
         minHeight: "100vh",
@@ -381,22 +402,27 @@ const ActivityLog = () => {
       <AdminSidebar />
 
       <div
+        className="admin-main-content"
         style={{
           flex: 1,
-          marginLeft: 240,
+          marginLeft: isSidebarMinimized ? 72 : 240,
+          transition: "margin-left 0.25s ease-in-out",
           display: "flex",
           flexDirection: "column",
+          minWidth: 0,
+          width: "100%",
         }}
       >
         <AdminHeader title={t("company_admin.activity_log", "Activity Log")} />
 
-        <div style={{ padding: "24px 28px", flex: 1 }}>
+        <div className="admin-al-content-container" style={{ padding: "24px 28px", flex: 1, minWidth: 0 }}>
           <div
+            className="admin-al-summary-grid"
             style={{
-              display: "flex",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
               gap: 16,
               marginBottom: 24,
-              flexWrap: "wrap",
             }}
           >
             <SummaryCard
@@ -430,6 +456,7 @@ const ActivityLog = () => {
           </div>
 
           <div
+            className="admin-al-toolbar-card"
             style={{
               background: "#fff",
               borderRadius: 14,
@@ -439,6 +466,7 @@ const ActivityLog = () => {
             }}
           >
             <div
+              className="admin-al-toolbar-row1"
               style={{
                 display: "flex",
                 gap: 12,
@@ -448,6 +476,7 @@ const ActivityLog = () => {
               }}
             >
               <div
+                className="admin-al-search-box"
                 style={{
                   position: "relative",
                   flex: "1 1 220px",
@@ -484,7 +513,7 @@ const ActivityLog = () => {
                 />
               </div>
 
-              <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
+              <div className="admin-al-toolbar-actions" style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
                 <button
                   id="btn-refresh-logs"
                   onClick={() => {
@@ -511,9 +540,10 @@ const ActivityLog = () => {
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div className="admin-al-toolbar-row2" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
               <select
                 id="filter-action-type"
+                className="admin-al-filter-select"
                 value={filters.action_type}
                 onChange={(e) => onFilterChange("action_type", e.target.value)}
                 style={{
@@ -540,6 +570,7 @@ const ActivityLog = () => {
 
               <select
                 id="filter-module-name"
+                className="admin-al-filter-select"
                 value={filters.module_name}
                 onChange={(e) => onFilterChange("module_name", e.target.value)}
                 style={{
@@ -565,6 +596,7 @@ const ActivityLog = () => {
               </select>
 
               <div
+                className="admin-al-date-filter"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -599,6 +631,7 @@ const ActivityLog = () => {
               </div>
 
               <div
+                className="admin-al-date-filter"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -639,6 +672,7 @@ const ActivityLog = () => {
                 filters.to) && (
                 <button
                   id="btn-clear-filters"
+                  className="admin-al-clear-btn"
                   onClick={() => {
                     setFilters({
                       search: "",
@@ -692,6 +726,7 @@ const ActivityLog = () => {
           )}
 
           <div
+            className="admin-al-table-card"
             style={{
               background: "#fff",
               borderRadius: 14,
@@ -713,6 +748,7 @@ const ActivityLog = () => {
               </span>
               <span style={{ fontSize: 12, color: "#9CA3AF" }}>
                 {total.toLocaleString()}
+                {" "}
                 {t("company_admin.total_record", "total record")}
                 {total !== 1 ? "s" : ""}
               </span>
@@ -749,169 +785,261 @@ const ActivityLog = () => {
                 </p>
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    minWidth: 860,
-                  }}
-                >
-                  <thead>
-                    <tr style={{ background: "#F9FAFB" }}>
-                      {tableHeaders.map((header) => (
-                        <th
-                          key={header}
-                          style={{
-                            padding: "12px 14px",
-                            textAlign: "left",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: "#6B7280",
-                            borderBottom: "1px solid #F3F4F6",
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {header}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {logs.map((log, idx) => {
-                      const actionStyle = getActionStyle(log.action_type);
-                      let userName = "—";
-                      if (log.u_fname || log.u_lname) {
-                        userName = [log.u_fname, log.u_lname]
-                          .filter(Boolean)
-                          .join(" ");
-                      } else if (log.u_email) {
-                        userName = log.u_email;
-                      } else if (log.user_name) {
-                        userName = log.user_name;
-                      } else if (log.user_email) {
-                        userName = log.user_email;
-                      } else if (log.u_id) {
-                        userName = `User #${log.u_id}`;
-                      } else if (log.user_id) {
-                        userName = `User #${log.user_id}`;
-                      }
-                      if (
-                        userName === "—" ||
-                        userName === "" ||
-                        userName === "undefined" ||
-                        userName === "null"
-                      ) {
-                        userName =
-                          log.action_type === "LOGIN" ||
-                          log.action_type === "LOGIN_FAILED"
-                            ? "System"
-                            : "Unknown User";
-                      }
-
-                      const contextLabel =
-                        [log.com_name, log.branch_name]
-                          .filter(Boolean)
-                          .join(" / ") || "—";
-
-                      return (
-                        <tr
-                          key={log.log_id || idx}
-                          style={{
-                            borderBottom: "1px solid #F3F4F6",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(event) =>
-                            (event.currentTarget.style.background = "#F9FAFB")
-                          }
-                          onMouseLeave={(event) =>
-                            (event.currentTarget.style.background = "transparent")
-                          }
-                        >
-                          <td
+              <>
+                <div className="admin-al-table-desktop" style={{ overflowX: "auto" }}>
+                  <table
+                    style={{
+                      width: "100%",
+                      borderCollapse: "collapse",
+                      minWidth: 860,
+                    }}
+                  >
+                    <thead>
+                      <tr style={{ background: "#F9FAFB" }}>
+                        {tableHeaders.map((header) => (
+                          <th
+                            key={header}
                             style={{
-                              padding: "14px",
-                              fontSize: 13,
+                              padding: "12px 14px",
+                              textAlign: "left",
+                              fontSize: 11,
+                              fontWeight: 700,
                               color: "#6B7280",
-                            }}
-                          >
-                            {idx + 1 + (page - 1) * LIMIT}
-                          </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#111827",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {userName}
-                          </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#6B7280",
-                            }}
-                          >
-                            {contextLabel}
-                          </td>
-                          <td style={{ padding: "14px" }}>
-                            <Badge
-                              text={log.action_type || "—"}
-                              bg={actionStyle.bg}
-                              color={actionStyle.color}
-                            />
-                          </td>
-                          <td style={{ padding: "14px" }}>
-                            <Badge
-                              text={log.module_name || "—"}
-                              bg="#E0E7FF"
-                              color="#4338CA"
-                            />
-                          </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#374151",
-                              maxWidth: 320,
-                            }}
-                          >
-                            <div
-                              style={{
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                              title={log.description}
-                            >
-                              {log.description || "—"}
-                            </div>
-                          </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#6B7280",
+                              borderBottom: "1px solid #F3F4F6",
+                              letterSpacing: "0.05em",
+                              textTransform: "uppercase",
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {formatDate(log.created_at)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            {header}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.map((log, idx) => {
+                        const actionStyle = getActionStyle(log.action_type);
+                        let userName = "—";
+                        if (log.u_fname || log.u_lname) {
+                          userName = [log.u_fname, log.u_lname]
+                            .filter(Boolean)
+                            .join(" ");
+                        } else if (log.u_email) {
+                          userName = log.u_email;
+                        } else if (log.user_name) {
+                          userName = log.user_name;
+                        } else if (log.user_email) {
+                          userName = log.user_email;
+                        } else if (log.u_id) {
+                          userName = `User #${log.u_id}`;
+                        } else if (log.user_id) {
+                          userName = `User #${log.user_id}`;
+                        }
+                        if (
+                          userName === "—" ||
+                          userName === "" ||
+                          userName === "undefined" ||
+                          userName === "null"
+                        ) {
+                          userName =
+                            log.action_type === "LOGIN" ||
+                            log.action_type === "LOGIN_FAILED"
+                              ? "System"
+                              : "Unknown User";
+                        }
+
+                        const contextLabel =
+                          [log.com_name, log.branch_name]
+                            .filter(Boolean)
+                            .join(" / ") || "—";
+
+                        return (
+                          <tr
+                            key={log.log_id || idx}
+                            style={{
+                              borderBottom: "1px solid #F3F4F6",
+                              transition: "background 0.15s",
+                            }}
+                            onMouseEnter={(event) =>
+                              (event.currentTarget.style.background = "#F9FAFB")
+                            }
+                            onMouseLeave={(event) =>
+                              (event.currentTarget.style.background = "transparent")
+                            }
+                          >
+                            <td
+                              style={{
+                                padding: "14px",
+                                fontSize: 13,
+                                color: "#6B7280",
+                              }}
+                            >
+                              {idx + 1 + (page - 1) * LIMIT}
+                            </td>
+                            <td
+                              style={{
+                                padding: "14px",
+                                fontSize: 13,
+                                color: "#111827",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {userName}
+                            </td>
+                            <td
+                              style={{
+                                padding: "14px",
+                                fontSize: 13,
+                                color: "#6B7280",
+                              }}
+                            >
+                              {contextLabel}
+                            </td>
+                            <td style={{ padding: "14px" }}>
+                              <Badge
+                                text={log.action_type || "—"}
+                                bg={actionStyle.bg}
+                                color={actionStyle.color}
+                              />
+                            </td>
+                            <td style={{ padding: "14px" }}>
+                              <Badge
+                                text={log.module_name || "—"}
+                                bg="#E0E7FF"
+                                color="#4338CA"
+                              />
+                            </td>
+                            <td
+                              style={{
+                                padding: "14px",
+                                fontSize: 13,
+                                color: "#374151",
+                                maxWidth: 320,
+                              }}
+                            >
+                              <div
+                                style={{
+                                  whiteSpace: "nowrap",
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                }}
+                                title={log.description}
+                              >
+                                {log.description || "—"}
+                              </div>
+                            </td>
+                            <td
+                              style={{
+                                padding: "14px",
+                                fontSize: 13,
+                                color: "#6B7280",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {formatDate(log.created_at)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Stacked Cards for Mobile screens (< 768px) */}
+                <div className="admin-al-cards-mobile">
+                  {logs.map((log, idx) => {
+                    const actionStyle = getActionStyle(log.action_type);
+                    let userName = "—";
+                    if (log.u_fname || log.u_lname) {
+                      userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
+                    } else if (log.u_email) {
+                      userName = log.u_email;
+                    } else if (log.user_name) {
+                      userName = log.user_name;
+                    } else if (log.user_email) {
+                      userName = log.user_email;
+                    } else if (log.u_id) {
+                      userName = `User #${log.u_id}`;
+                    } else if (log.user_id) {
+                      userName = `User #${log.user_id}`;
+                    }
+
+                    if (
+                      userName === "—" ||
+                      userName === "" ||
+                      userName === "undefined" ||
+                      userName === "null"
+                    ) {
+                      userName =
+                        log.action_type === "LOGIN" ||
+                        log.action_type === "LOGIN_FAILED"
+                          ? "System"
+                          : "Unknown User";
+                    }
+
+                    const contextLabel =
+                      [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
+
+                    return (
+                      <div key={log.log_id || idx} className="admin-al-mobile-card">
+                        <div className="admin-al-mobile-card-header">
+                          <div className="admin-al-mobile-user-row">
+                            <div className="admin-al-mobile-avatar">
+                              {userName.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="admin-al-mobile-username">{userName}</div>
+                              {log.u_email && (
+                                <div className="admin-al-mobile-email">{log.u_email}</div>
+                              )}
+                            </div>
+                          </div>
+                          <Badge
+                            text={log.action_type || "—"}
+                            bg={actionStyle.bg}
+                            color={actionStyle.color}
+                          />
+                        </div>
+
+                        <div className="admin-al-mobile-desc">
+                          {log.description || "—"}
+                        </div>
+
+                        <div className="admin-al-mobile-meta">
+                          <div className="admin-al-mobile-meta-item">
+                            <span className="admin-al-mobile-meta-label">
+                              {t("table_headers.module", "Module")}:
+                            </span>
+                            <span className="admin-al-mobile-module-tag">
+                              {log.module_name || "—"}
+                            </span>
+                          </div>
+                          {contextLabel !== "—" && (
+                            <div className="admin-al-mobile-meta-item">
+                              <span className="admin-al-mobile-meta-label">
+                                {t("table_headers.company_branch", "Branch")}:
+                              </span>
+                              <span>{contextLabel}</span>
+                            </div>
+                          )}
+                          <div className="admin-al-mobile-meta-item">
+                            <span className="admin-al-mobile-meta-label">
+                              {t("table_headers.timestamp", "Timestamp")}:
+                            </span>
+                            <span>{formatDate(log.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
 
           {totalPages > 1 && (
             <div
+              className="admin-al-pagination"
               style={{
                 display: "flex",
                 justifyContent: "flex-end",
