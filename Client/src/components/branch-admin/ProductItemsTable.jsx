@@ -506,7 +506,7 @@ const { t } = useTranslation();
         </table>
       </div>
 
-      <div style={{
+      {(totalItems > 0 || totalPages > 1) && <div style={{
       marginTop: "28px",
       display: "flex",
       alignItems: "center",
@@ -514,7 +514,7 @@ const { t } = useTranslation();
       color: "#6B7280",
       fontSize: "14px"
     }}>
-        <div>{t("branch_admin.showing", "Showing")}{pageStart}{t("branch_admin.to", "to")}{pageEnd}{t("branch_admin.of", "of")}{totalItems}{t("branch_admin.products", "products")}</div>
+        {totalItems > 0 && <div>{t("branch_admin.showing", "Showing")}{pageStart}{t("branch_admin.to", "to")}{pageEnd}{t("branch_admin.of", "of")}{totalItems}{t("branch_admin.products", "products")}</div>}
 
         {totalPages > 1 && <div style={{
         display: "flex",
@@ -561,10 +561,9 @@ const { t } = useTranslation();
           opacity: canGoNext ? 1 : 0.5
         }}>{t("branch_admin.next", "Next")}</button>
           </div>}
-      </div>
+      </div>}
     </>;
 };
 export default ProductItemsTable;
-
 
 
