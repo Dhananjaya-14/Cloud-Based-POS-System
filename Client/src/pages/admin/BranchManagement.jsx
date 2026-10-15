@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
-import { FaSearch, FaBell, FaUserCircle, FaTimes } from "react-icons/fa";
+import { FaSearch, FaBell, FaUserCircle, FaTimes, FaBars } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../components/admin/Sidebar";
 import Header from "../../components/admin/Header";
@@ -258,12 +258,14 @@ const [branches, setBranches] = useState([]);
   }}>
       <Sidebar />
 
-      <div style={{
+      <div className="admin-main-content" style={{
       flex: 1,
-      marginLeft: "240px"
+      marginLeft: "240px",
+      minWidth: 0,
+      width: "100%"
     }}>
         {/* Header with notification icon */}
-        <div style={{
+        <div className="admin-header-bar" style={{
         height: "70px",
         display: "flex",
         width: "100%",
@@ -272,13 +274,24 @@ const [branches, setBranches] = useState([]);
         padding: "0 20px",
         margin: 0,
         color: "#fff",
-        background: "linear-gradient(135deg, #2E3E8F 0%, #00B4EB 59%, #55D24B 100%)"
+        background: "linear-gradient(135deg, #2E3E8F 0%, #00B4EB 59%, #55D24B 100%)",
+        boxSizing: "border-box"
       }}>
-          <h2 style={{
-          fontSize: "26px",
-          margin: 0,
-          fontWeight: "500"
-        }}>{t("company_admin.branch_management", "Branch Management")}</h2>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <button 
+              className="admin-hamburger-btn"
+              onClick={() => window.dispatchEvent(new Event("toggle-admin-sidebar"))}
+              style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", display: "none", padding: 0 }}
+              aria-label="Open sidebar menu"
+            >
+              <FaBars size={22} />
+            </button>
+            <h2 className="admin-header-title" style={{
+            fontSize: "26px",
+            margin: 0,
+            fontWeight: "500"
+          }}>{t("company_admin.branch_management", "Branch Management")}</h2>
+          </div>
 
           <div style={{
           display: "flex",
@@ -310,7 +323,7 @@ const [branches, setBranches] = useState([]);
                 </span>}
             </div>
 
-            <div style={{
+            <div className="admin-user-info" style={{
             display: "flex",
             alignItems: "center",
             gap: "10px",
@@ -342,12 +355,12 @@ const [branches, setBranches] = useState([]);
         <div style={{
         position: 'fixed',
         top: '80px',
-        right: '20px',
+        right: '16px',
         zIndex: 9999,
         display: 'flex',
         flexDirection: 'column',
         gap: '10px',
-        maxWidth: '380px',
+        maxWidth: 'min(380px, calc(100vw - 32px))',
         width: '100%'
       }}>
           {toasts.map(toast => <div key={toast.id} style={{
@@ -394,13 +407,13 @@ const [branches, setBranches] = useState([]);
         {showNotifications && <div style={{
         position: 'fixed',
         top: '80px',
-        right: '20px',
+        right: '16px',
         zIndex: 9998,
         backgroundColor: 'white',
         borderRadius: '12px',
         boxShadow: '0 10px 40px rgba(0,0,0,0.2)',
         maxWidth: '420px',
-        minWidth: '320px',
+        width: 'calc(100% - 32px)',
         maxHeight: '400px',
         overflow: 'hidden',
         border: '1px solid #E5E7EB'
@@ -515,15 +528,15 @@ const [branches, setBranches] = useState([]);
             </div>
           </div>}
 
-        <div style={{
+        <div className="admin-branch-content-container" style={{
         padding: "20px"
       }}>
-          <div style={{
+          <div className="admin-branch-toolbar" style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center"
         }}>
-            <h1 style={{
+            <h1 className="admin-branch-title" style={{
             fontSize: "22px",
             margin: 10,
             fontWeight: "500"
@@ -531,7 +544,7 @@ const [branches, setBranches] = useState([]);
             <Button label={t("buttons.new_branch", "+ New Branch")} onClick={() => setShowModal(true)} />
           </div>
 
-          <div style={{
+          <div className="admin-branch-search-box" style={{
           position: "relative",
           width: "100%",
           maxWidth: "300px",

@@ -1,10 +1,10 @@
 import { useTranslation } from "react-i18next";
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { 
   FaTachometerAlt, FaStore, FaUsers, FaChartBar, FaMoneyBill, 
   FaCog, FaSignOutAlt, FaBox, FaTag, FaFileAlt, FaTruck, 
-  FaClipboardList, FaLock, FaWifi 
+  FaClipboardList, FaLock, FaWifi, FaTimes 
 } from "react-icons/fa";
 import { PiInvoiceBold } from "react-icons/pi";
 import { useAuth } from "../../context/AuthContext";
@@ -15,6 +15,20 @@ const Sidebar = () => {
   const { t } = useTranslation();
   const { user, features, logout } = useAuth();
   const { toasts, removeToast, toast } = useToast();
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    const handleToggle = () => setIsOpen(prev => !prev);
+    const closeSidebar = () => setIsOpen(false);
+
+    window.addEventListener("toggle-admin-sidebar", handleToggle);
+    window.addEventListener("close-admin-sidebar", closeSidebar);
+
+    return () => {
+      window.removeEventListener("toggle-admin-sidebar", handleToggle);
+      window.removeEventListener("close-admin-sidebar", closeSidebar);
+    };
+  }, []);
 
   const menuItem = (icon, label, path, isLocked = false, onClick) => {
     const isActive = location.pathname === path || location.pathname.startsWith(path + "/");
@@ -96,7 +110,10 @@ const Sidebar = () => {
         key={label} 
         to={path} 
         style={style} 
-        onClick={onClick}
+        onClick={(e) => {
+          if (window.innerWidth <= 1024) setIsOpen(false);
+          onClick?.(e);
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
@@ -126,44 +143,73 @@ const Sidebar = () => {
 
   return (
     <>
-      <div style={{
-        width: 250,
-        minHeight: "100vh",
-        height: "100%",
-        color: "#fff",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        background: "#081321", // Deep navy blue matching the image
-        padding: "24px 16px",
-        position: "fixed",
-        left: 0,
-        top: 0,
-        bottom: 0,
-        overflowY: "auto",
-        boxSizing: "border-box",
-        zIndex: 40,
-        borderRight: "1px solid rgba(255,255,255,0.03)"
-      }}>
+      {/* Mobile/Tablet Backdrop Overlay */}
+      {isOpen && (
+        <div 
+          className="admin-sidebar-overlay"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+      <div 
+        className={`admin-sidebar ${isOpen ? "open" : ""}`}
+        style={{
+          width: 250,
+          minHeight: "100vh",
+          height: "100%",
+          color: "#fff",
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "space-between",
+          background: "#081321", // Deep navy blue matching the image
+          padding: "24px 16px",
+          position: "fixed",
+          left: 0,
+          top: 0,
+          bottom: 0,
+          overflowY: "auto",
+          boxSizing: "border-box",
+          zIndex: 50,
+          borderRight: "1px solid rgba(255,255,255,0.03)"
+        }}
+      >
         <div>
           {/* Logo Section */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, paddingLeft: 6, marginBottom: 10 }}>
-            <div style={{
-              width: 34,
-              height: 34,
-              borderRadius: 8,
-              background: "linear-gradient(135deg, #10B981 0%, #059669 100%)", // Bright green gradient
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "#fff"
-            }}>
-              <FaWifi size={18} />
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingLeft: 6, marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{
+                width: 34,
+                height: 34,
+                borderRadius: 8,
+                background: "linear-gradient(135deg, #10B981 0%, #059669 100%)", // Bright green gradient
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#fff"
+              }}>
+                <FaWifi size={18} />
+              </div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: "0.5px" }}>
+                <span style={{ color: "#ffffff" }}>{t("company_admin.slt", "SLT")}</span>{" "}
+                <span style={{ color: "#10B981" }}>{t("company_admin.pos", "POS")}</span>
+              </h2>
             </div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, letterSpacing: "0.5px" }}>
-              <span style={{ color: "#ffffff" }}>{t("company_admin.slt", "SLT")}</span>{" "}
-              <span style={{ color: "#10B981" }}>{t("company_admin.pos", "POS")}</span>
-            </h2>
+            <button 
+              className="admin-sidebar-close-btn"
+              onClick={() => setIsOpen(false)}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#8B9BB4",
+                cursor: "pointer",
+                padding: "6px",
+                display: "none",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+              aria-label="Close menu"
+            >
+              <FaTimes size={18} />
+            </button>
           </div>
 
           {/* MAIN Section */}

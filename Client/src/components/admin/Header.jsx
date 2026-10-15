@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 //"C:\Users\USER\Desktop\2026-06-19 POS System\Cloud-Based-POS-System\Client\src\components\admin\Header.jsx"
 
 import React, { useEffect, useState } from "react";
-import { FaBell, FaUserCircle, FaTimes } from "react-icons/fa";
+import { FaBell, FaUserCircle, FaTimes, FaBars } from "react-icons/fa";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../../services/socket";
 const NOTIFICATION_KEYS = ["branchNotifications", "adminUserNotifications", "adminProductNotifications", "adminSupplierNotifications"];
@@ -279,11 +279,21 @@ const {
     background: "linear-gradient(135deg, #112A3C 20%, #00B4EB 50%, #39ac30 100%)",
     position: "relative"
   }}>
-      <h2 style={{
-      fontSize: "26px",
-      margin: 0,
-      fontWeight: "500"
-    }}>{title}</h2>
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <button 
+          className="admin-hamburger-btn"
+          onClick={() => window.dispatchEvent(new Event("toggle-admin-sidebar"))}
+          style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer", display: "none", padding: 0 }}
+          aria-label="Open sidebar menu"
+        >
+          <FaBars size={22} />
+        </button>
+        <h2 className="admin-header-title" style={{
+        fontSize: "26px",
+        margin: 0,
+        fontWeight: "500"
+      }}>{title}</h2>
+      </div>
 
       <div style={{
       display: "flex",
