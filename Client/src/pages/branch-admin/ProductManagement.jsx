@@ -11,8 +11,10 @@ import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import ReorderModal from "../../components/branch-admin/ReorderModal";
 import { getBranchProducts, updateBranchProduct, deleteBranchProduct, addBranchProductStock, getBranchProductIngredientStatus } from "../../services/api";
 import { getSocket, connectSocket, SOCKET_EVENTS, joinBranchInventoryRoom, leaveBranchInventoryRoom, joinCompanyRoom } from "../../services/socket";
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
+
 const cardBaseStyle = {
   flex: "0 1 calc((100% - 60px) / 3)",
   borderRadius: "18px",
@@ -56,11 +58,13 @@ const statValueStyle = {
   lineHeight: 1.1,
   textAlign: "center"
 };
+
 const getStockStatus = (quantity, lowStockLimit = 10) => {
-if (quantity <= 0) return "Out of stock";
+  if (quantity <= 0) return "Out of stock";
   if (quantity <= lowStockLimit) return "Low stock";
   return "In stock";
 };
+
 const resolveProductImage = value => {
   if (!value) return "";
   const trimmed = String(value).trim();
@@ -69,6 +73,7 @@ const resolveProductImage = value => {
   if (/^(https?:)?\/\//i.test(trimmed)) return trimmed;
   return `${IMAGE_BASE_URL}/images/${trimmed.replace(/^\/+/, "")}`;
 };
+
 const mapApiProductToTableItem = product => {
   const quantity = Number(product.pro_quantity ?? 0);
   const lowStockLimit = Number(product.low_stock_limit ?? 10);
@@ -80,6 +85,7 @@ const mapApiProductToTableItem = product => {
   // server-side via RECIPE/Raw_Material). pre_made/finished products use
   // their own pro_quantity vs low_stock_limit instead.
   const status = productType === "made_to_order" ? product.calculated_status || "In stock" : getStockStatus(quantity, lowStockLimit);
+
   return {
     id: product.Bpro_id,
     product_type: productType,
@@ -95,12 +101,11 @@ const mapApiProductToTableItem = product => {
     _original: product
   };
 };
+
 const ProductManagement = () => {
   const { t } = useTranslation();
-const navigate = useNavigate();
-  const {
-    user
-  } = useAuth();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [stockLevelFilter, setStockLevelFilter] = useState("all");
@@ -108,8 +113,6 @@ const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [updatingStockId, setUpdatingStockId] = useState(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 4;
   const branchId = user?.b_id;
   const companyId = user?.com_id;
   const isSubscribedRef = useRef(false);
@@ -178,8 +181,9 @@ const navigate = useNavigate();
       joinCompanyRoom(companyId);
       console.log(`Branch admin joined company room: ${companyId}`);
     }
+
     const appendNotification = (type, productName, message, extra = {}) => {
-setNotifications(prev => {
+      setNotifications(prev => {
         const existingNotif = prev.find(notification => notification.type === type && notification.productName === productName && new Date() - new Date(notification.timestamp) < 5000);
         if (existingNotif) return prev;
         return [...prev, {
@@ -198,25 +202,27 @@ setNotifications(prev => {
       console.log("New product added by admin via socket (branch):", data);
       if (data.product && data.company_id === companyId) {
         const productName = data.product.pro_name || 'Product';
-        appendNotification('admin_add', productName, `ðŸ“¢ New product available for branch: "${productName}"`, {
+        appendNotification('admin_add', productName, `📢 New product available for branch: "${productName}"`, {
           productId: data.product.pro_id
         });
       }
     };
+
     const handleAdminProductUpdated = data => {
       console.log("Product updated by admin via socket (branch):", data);
       if (data.product && data.company_id === companyId) {
         const productName = data.product.pro_name || 'Product';
-        appendNotification('admin_update', productName, `âœï¸ Product updated by admin: "${productName}"`, {
+        appendNotification('admin_update', productName, `✏️ Product updated by admin: "${productName}"`, {
           productId: data.product.pro_id
         });
       }
     };
+
     const handleAdminProductDeleted = data => {
       console.log("Product deleted by admin via socket (branch):", data);
       if ((data.product || data.pro_id) && data.company_id === companyId) {
         const productName = data.product?.pro_name || data.pro_name || 'Product';
-        appendNotification('admin_delete', productName, `ðŸ—‘ï¸ Product deleted by admin: "${productName}"`, {
+        appendNotification('admin_delete', productName, `🗑️ Product deleted by admin: "${productName}"`, {
           productId: data.product?.pro_id ?? data.pro_id
         });
       }
@@ -238,7 +244,7 @@ setNotifications(prev => {
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'add',
-            message: `ðŸ“¦ New branch product added: "${productName}"`,
+            message: `📦 New branch product added: "${productName}"`,
             timestamp: new Date().toISOString(),
             productName: productName
           }];
@@ -261,7 +267,7 @@ setNotifications(prev => {
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'update',
-            message: `âœï¸ Branch product updated: "${productName}"`,
+            message: `✏️ Branch product updated: "${productName}"`,
             timestamp: new Date().toISOString(),
             productName: productName
           }];
@@ -282,7 +288,7 @@ setNotifications(prev => {
           return [...prev, {
             id: Date.now() + Math.random(),
             type: 'delete',
-            message: `ðŸ—‘ï¸ Branch product deleted: "${productName}"`,
+            message: `🗑️ Branch product deleted: "${productName}"`,
             timestamp: new Date().toISOString(),
             productName: productName
           }];
@@ -297,6 +303,7 @@ setNotifications(prev => {
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_ADDED, handleBranchProductAdded);
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_UPDATED, handleBranchProductUpdated);
     socket.on(SOCKET_EVENTS.BRANCH_PRODUCT_DELETED, handleBranchProductDeleted);
+
     return () => {
       isSubscribedRef.current = false;
       leaveBranchInventoryRoom(branchId);
@@ -338,6 +345,7 @@ setNotifications(prev => {
   const dismissNotification = notificationId => {
     setNotifications(prev => prev.filter(notif => notif.id !== notificationId));
   };
+
   const tableProducts = useMemo(() => {
     let mapped = products.map(mapApiProductToTableItem);
     if (activeTab === "made_to_order") {
@@ -362,33 +370,24 @@ setNotifications(prev => {
       mapped = mapped.filter(item => item.status === stockLevelFilter);
     }
     return mapped;
-  }, [products, searchTerm, activeTab, categoryFilter,stockLevelFilter]);
-  const totalPages = Math.max(1, Math.ceil(tableProducts.length / itemsPerPage));
+  }, [products, searchTerm, activeTab, categoryFilter, stockLevelFilter]);
+
   useEffect(() => {
-    setCurrentPage(1);
     setCategoryFilter("all");
     setStockLevelFilter("all");
   }, [activeTab]);
+
   useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, categoryFilter,stockLevelFilter]);
-  useEffect(() => {
-    if (currentPage > totalPages) {
-      setCurrentPage(totalPages);
-    }
-  }, [currentPage, totalPages]);
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return tableProducts.slice(startIndex, startIndex + itemsPerPage);
-  }, [tableProducts, currentPage]);
-  const pageStart = tableProducts.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
-  const pageEnd = Math.min(currentPage * itemsPerPage, tableProducts.length);
+    // Reset filters when search/filter changes (kept for consistency, no pagination reset needed now)
+  }, [searchTerm, categoryFilter, stockLevelFilter]);
+
   const totalItems = products.length;
   const lowStockCount = products.filter(item => {
     const quantity = Number(item.pro_quantity ?? 0);
     return quantity > 0 && quantity <= 10;
   }).length;
   const outOfStockCount = products.filter(item => Number(item.pro_quantity ?? 0) <= 0).length;
+
   const handleAdjustStock = async (productId, delta) => {
     if (updatingStockId !== null) return;
     const existing = products.find(item => item.Bpro_id === productId);
@@ -413,6 +412,7 @@ setNotifications(prev => {
       setUpdatingStockId(null);
     }
   };
+
   const handleConfirmAddStock = async () => {
     if (!stockModalItem || !stockModalQty) return;
     const qty = parseInt(stockModalQty, 10);
@@ -433,12 +433,14 @@ setNotifications(prev => {
       setUpdatingStockId(null);
     }
   };
+
   const handleDeleteClick = productId => {
     const product = products.find(item => item.Bpro_id === productId);
     setDeleteTargetId(productId);
     setDeleteTargetName(product?.pro_name || "this product");
     setShowDeleteConfirm(true);
   };
+
   const handleConfirmDelete = async () => {
     if (!deleteTargetId) return;
     try {
@@ -454,118 +456,80 @@ setNotifications(prev => {
       setIsDeleting(false);
     }
   };
-  return <div style={{
-    display: "flex",
-    background: "#F2F4F7",
-    minHeight: "100vh"
-  }}>
+
+  return (
+    <div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
       <Sidebar />
 
-      <div style={{
-      flex: 1,
-      marginLeft: "240px"
-    }}>
+      <div style={{ flex: 1, marginLeft: "240px" }}>
         <Header title={t("branch_admin.branch_product_management", "Branch Product Management")} role="Branch Admin" email="branchadmin@gmail.com" showAddUserIcon />
 
-        <div style={{
-        padding: "22px 20px",
-        marginTop: "20px",
-        minHeight: "calc(100vh - 70px)"
-      }}>
+        <div style={{ padding: "22px 20px", marginTop: "20px", minHeight: "calc(100vh - 70px)" }}>
           {/* Notification Container */}
-          {notifications.length > 0 && <div style={{
-          position: 'fixed',
-          top: '20px',
-          right: '20px',
-          zIndex: 9999,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '12px',
-          maxWidth: '420px',
-          minWidth: '320px',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-          paddingRight: '4px'
-        }} className="notifications-container">
-              {notifications.map(notification => <div key={notification.id} style={{
-            background: '#fff',
-            borderRadius: '12px',
-            padding: '12px 16px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            borderLeft: `4px solid ${notification.type === 'admin_add' || notification.type === 'add' ? '#22C55E' : notification.type === 'admin_update' || notification.type === 'update' ? '#3B82F6' : '#EF4444'}`,
-            animation: 'slideInRight 0.3s ease-out'
-          }}>
-                  <div style={{
+          {notifications.length > 0 && (
+            <div style={{
+              position: 'fixed',
+              top: '20px',
+              right: '20px',
+              zIndex: 9999,
               display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'flex-start'
-            }}>
-                    <span style={{
-                fontSize: '14px',
-                color: '#111827'
-              }}>{notification.message}</span>
+              flexDirection: 'column',
+              gap: '12px',
+              maxWidth: '420px',
+              minWidth: '320px',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              paddingRight: '4px'
+            }} className="notifications-container">
+              {notifications.map(notification => (
+                <div key={notification.id} style={{
+                  background: '#fff',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                  borderLeft: `4px solid ${notification.type === 'admin_add' || notification.type === 'add' ? '#22C55E' : notification.type === 'admin_update' || notification.type === 'update' ? '#3B82F6' : '#EF4444'}`,
+                  animation: 'slideInRight 0.3s ease-out'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: '14px', color: '#111827' }}>{notification.message}</span>
                     <button onClick={() => dismissNotification(notification.id)} style={{
-                background: 'transparent',
-                border: 'none',
-                color: '#9CA3AF',
-                cursor: 'pointer',
-                padding: '4px',
-                fontSize: '16px',
-                lineHeight: 1
-              }}>
-                      Ã—
+                      background: 'transparent',
+                      border: 'none',
+                      color: '#9CA3AF',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      fontSize: '16px',
+                      lineHeight: 1
+                    }}>
+                      ×
                     </button>
                   </div>
-                  <div style={{
-              fontSize: '11px',
-              color: '#9CA3AF',
-              marginTop: '4px'
-            }}>
+                  <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px' }}>
                     {new Date(notification.timestamp).toLocaleTimeString()}
                   </div>
-                </div>)}
-            </div>}
+                </div>
+              ))}
+            </div>
+          )}
 
-          <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "28px"
-        }}>
-            <h1 style={{
-            margin: 0,
-            fontSize: "22px",
-            fontWeight: "700",
-            color: "#0F172A"
-          }}>{t("branch_admin.branch_product_management", "Branch Product Management")}</h1>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
+            <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#0F172A" }}>
+              {t("branch_admin.branch_product_management", "Branch Product Management")}
+            </h1>
 
-            <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "12px"
-          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/branch-admin/products/add")} style={{
-              background: "#0E6DCF",
-              borderRadius: "10px",
-              padding: "10px 18px",
-              fontWeight: "600"
-            }} />
+                background: "#0E6DCF",
+                borderRadius: "10px",
+                padding: "10px 18px",
+                fontWeight: "600"
+              }} />
             </div>
           </div>
 
-          <div style={{
-          display: "flex",
-          gap: "15px",
-          marginBottom: "30px"
-        }}>
-            <div style={{
-            ...cardBaseStyle,
-            background: "#BEE8C4"
-          }}>
-              <div style={{
-              ...statIconWrapStyle,
-              background: "#22C55E"
-            }}>
+          <div style={{ display: "flex", gap: "15px", marginBottom: "30px" }}>
+            <div style={{ ...cardBaseStyle, background: "#BEE8C4" }}>
+              <div style={{ ...statIconWrapStyle, background: "#22C55E" }}>
                 <FaBoxOpen color="#0B3F1D" size={12} />
               </div>
               <div style={statTextWrapStyle}>
@@ -575,14 +539,8 @@ setNotifications(prev => {
               <div style={statRightSpacerStyle} />
             </div>
 
-            <div style={{
-            ...cardBaseStyle,
-            background: "#F3C8DA"
-          }}>
-              <div style={{
-              ...statIconWrapStyle,
-              background: "#F87171"
-            }}>
+            <div style={{ ...cardBaseStyle, background: "#F3C8DA" }}>
+              <div style={{ ...statIconWrapStyle, background: "#F87171" }}>
                 <FaBell color="#7F1D1D" size={12} />
               </div>
               <div style={statTextWrapStyle}>
@@ -592,14 +550,8 @@ setNotifications(prev => {
               <div style={statRightSpacerStyle} />
             </div>
 
-            <div style={{
-            ...cardBaseStyle,
-            background: "#C8E0EC"
-          }}>
-              <div style={{
-              ...statIconWrapStyle,
-              background: "#38BDF8"
-            }}>
+            <div style={{ ...cardBaseStyle, background: "#C8E0EC" }}>
+              <div style={{ ...statIconWrapStyle, background: "#38BDF8" }}>
                 <FaExclamationTriangle color="#0C4A6E" size={12} />
               </div>
               <div style={statTextWrapStyle}>
@@ -610,78 +562,68 @@ setNotifications(prev => {
             </div>
           </div>
 
-          {loading && <div style={{
-          marginBottom: "14px",
-          color: "#475569",
-          fontSize: "14px"
-        }}>{t("branch_admin.loading_products", "Loading products...")}</div>}
+          {loading && (
+            <div style={{ marginBottom: "14px", color: "#475569", fontSize: "14px" }}>
+              {t("branch_admin.loading_products", "Loading products...")}
+            </div>
+          )}
 
-          {error && <div style={{
-          marginBottom: "14px",
-          color: "#B91C1C",
-          fontSize: "14px"
-        }}>{error}</div>}
+          {error && (
+            <div style={{ marginBottom: "14px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>
+          )}
 
           {/* Product Type Tabs */}
-          <div style={{
-          display: "flex",
-          gap: "10px",
-          marginBottom: "20px"
-        }}>
+          <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
             <button onClick={() => setActiveTab("made_to_order")} style={{
-            padding: "10px 20px",
-            borderRadius: "20px",
-            border: "none",
-            fontWeight: "600",
-            cursor: "pointer",
-            background: activeTab === "made_to_order" ? "#0E6DCF" : "#fff",
-            color: activeTab === "made_to_order" ? "#fff" : "#4B5563",
-            boxShadow: activeTab === "made_to_order" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
-          }}>{t("branch_admin.made_to_order", "Made to Order")}</button>
+              padding: "10px 20px",
+              borderRadius: "20px",
+              border: "none",
+              fontWeight: "600",
+              cursor: "pointer",
+              background: activeTab === "made_to_order" ? "#0E6DCF" : "#fff",
+              color: activeTab === "made_to_order" ? "#fff" : "#4B5563",
+              boxShadow: activeTab === "made_to_order" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
+            }}>{t("branch_admin.made_to_order", "Made to Order")}</button>
             <button onClick={() => setActiveTab("pre_made")} style={{
-            padding: "10px 20px",
-            borderRadius: "20px",
-            border: "none",
-            fontWeight: "600",
-            cursor: "pointer",
-            background: activeTab === "pre_made" ? "#0E6DCF" : "#fff",
-            color: activeTab === "pre_made" ? "#fff" : "#4B5563",
-            boxShadow: activeTab === "pre_made" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
-          }}>{t("branch_admin.pre_made", "Pre-made")}</button>
+              padding: "10px 20px",
+              borderRadius: "20px",
+              border: "none",
+              fontWeight: "600",
+              cursor: "pointer",
+              background: activeTab === "pre_made" ? "#0E6DCF" : "#fff",
+              color: activeTab === "pre_made" ? "#fff" : "#4B5563",
+              boxShadow: activeTab === "pre_made" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
+            }}>{t("branch_admin.pre_made", "Pre-made")}</button>
             <button onClick={() => setActiveTab("finished")} style={{
-            padding: "10px 20px",
-            borderRadius: "20px",
-            border: "none",
-            fontWeight: "600",
-            cursor: "pointer",
-            background: activeTab === "finished" ? "#0E6DCF" : "#fff",
-            color: activeTab === "finished" ? "#fff" : "#4B5563",
-            boxShadow: activeTab === "finished" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
-          }}>{t("branch_admin.external_products", "External Products")}</button>
+              padding: "10px 20px",
+              borderRadius: "20px",
+              border: "none",
+              fontWeight: "600",
+              cursor: "pointer",
+              background: activeTab === "finished" ? "#0E6DCF" : "#fff",
+              color: activeTab === "finished" ? "#fff" : "#4B5563",
+              boxShadow: activeTab === "finished" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
+            }}>{t("branch_admin.external_products", "External Products")}</button>
           </div>
 
-          <div style={{
-          display: "flex",
-          gap: "14px",
-          marginBottom: "24px"
-        }}>
+          <div style={{ display: "flex", gap: "14px", marginBottom: "24px" }}>
             <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            background: "#fff",
-            borderRadius: "12px",
-            boxShadow: "0 2px 5px rgba(0,0,0,0.18)",
-            padding: "8px 12px",
-            flex: 1
-          }}>
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              background: "#fff",
+              borderRadius: "12px",
+              boxShadow: "0 2px 5px rgba(0,0,0,0.18)",
+              padding: "8px 12px",
+              flex: 1
+            }}>
               <FaSearch color="#9CA3AF" size={14} />
               <input type="text" placeholder={t("branch_admin.search_by_name_or_code", "Search by Name or Code")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
-              border: "none",
-              outline: "none",
-              width: "100%",
-              fontSize: "14px"
-            }} />
+                border: "none",
+                outline: "none",
+                width: "100%",
+                fontSize: "14px"
+              }} />
             </div>
 
             {/* Category Filter */}
@@ -714,7 +656,6 @@ setNotifications(prev => {
               <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
             </div>
 
-            
             {/* Stock Level Filter */}
             <div style={{ position: "relative", width: "182px" }}>
               <select
@@ -746,182 +687,168 @@ setNotifications(prev => {
             </div>
           </div>
 
-
-          <ProductItemsTable products={paginatedProducts} onDecreaseStock={id => handleAdjustStock(id, -1)} onIncreaseStock={id => handleAdjustStock(id, 1)} onAddStock={activeTab !== "made_to_order" ? item => setStockModalItem(item) : null} hideStockColumn={activeTab === "made_to_order"} updatingStockId={updatingStockId} showActions={true} onDeleteProduct={handleDeleteClick} onFetchIngredients={getBranchProductIngredientStatus} onEditProduct={null} currentPage={currentPage} totalPages={totalPages} totalItems={tableProducts.length} pageStart={pageStart} pageEnd={pageEnd} onPageChange={setCurrentPage} />
+          <ProductItemsTable
+            products={tableProducts}
+            onDecreaseStock={id => handleAdjustStock(id, -1)}
+            onIncreaseStock={id => handleAdjustStock(id, 1)}
+            onAddStock={activeTab !== "made_to_order" ? item => setStockModalItem(item) : null}
+            hideStockColumn={activeTab === "made_to_order"}
+            updatingStockId={updatingStockId}
+            showActions={true}
+            onDeleteProduct={handleDeleteClick}
+            onFetchIngredients={getBranchProductIngredientStatus}
+            onEditProduct={null}
+          />
         </div>
       </div>
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.12)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 9999
-    }}>
-          <div style={{
-        width: "min(92vw, 430px)",
-        background: "#EBEBEB",
-        borderRadius: "22px",
-        padding: "32px 20px",
-        textAlign: "center"
-      }}>
-            <div style={{
-          width: "62px",
-          height: "62px",
-          borderRadius: "50%",
-          background: "#EF4444",
-          margin: "0 auto 16px",
+      {showDeleteConfirm && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.12)",
           display: "flex",
           alignItems: "center",
-          justifyContent: "center"
+          justifyContent: "center",
+          zIndex: 9999
         }}>
-              <span style={{
-            color: "#fff",
-            fontSize: "28px"
-          }}>ðŸ—‘ï¸</span>
+          <div style={{
+            width: "min(92vw, 430px)",
+            background: "#EBEBEB",
+            borderRadius: "22px",
+            padding: "32px 20px",
+            textAlign: "center"
+          }}>
+            <div style={{
+              width: "62px",
+              height: "62px",
+              borderRadius: "50%",
+              background: "#EF4444",
+              margin: "0 auto 16px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}>
+              <span style={{ color: "#fff", fontSize: "28px" }}>🗑️</span>
             </div>
 
-            <h2 style={{
-          margin: "0 0 8px",
-          fontSize: "18px",
-          fontWeight: "700",
-          color: "#111"
-        }}>{t("branch_admin.remove_product", "Remove Product?")}</h2>
+            <h2 style={{ margin: "0 0 8px", fontSize: "18px", fontWeight: "700", color: "#111" }}>
+              {t("branch_admin.remove_product", "Remove Product?")}
+            </h2>
 
-            <p style={{
-          margin: "0 0 8px",
-          fontSize: "14px",
-          color: "#555"
-        }}>{t("branch_admin.are_you_sure_you_want_to_remove", "Are you sure you want to remove")}</p>
+            <p style={{ margin: "0 0 8px", fontSize: "14px", color: "#555" }}>
+              {t("branch_admin.are_you_sure_you_want_to_remove", "Are you sure you want to remove")}
+            </p>
 
-            <p style={{
-          margin: "0 0 8px",
-          fontSize: "16px",
-          fontWeight: "700",
-          color: "#111"
-        }}>
+            <p style={{ margin: "0 0 8px", fontSize: "16px", fontWeight: "700", color: "#111" }}>
               "{deleteTargetName}"
             </p>
 
-            <p style={{
-          margin: "0 0 24px",
-          fontSize: "13px",
-          color: "#888"
-        }}>{t("branch_admin.this_will_remove_the_product_from_your_b", "This will remove the product from\n              your branch only. It will still\n              exist in the admin panel and\n              other branches.")}</p>
+            <p style={{ margin: "0 0 24px", fontSize: "13px", color: "#888" }}>
+              {t("branch_admin.this_will_remove_the_product_from_your_b", "This will remove the product from\n              your branch only. It will still\n              exist in the admin panel and\n              other branches.")}
+            </p>
 
-            <div style={{
-          display: "flex",
-          gap: "12px"
-        }}>
+            <div style={{ display: "flex", gap: "12px" }}>
               <button onClick={() => {
-            setShowDeleteConfirm(false);
-            setDeleteTargetId(null);
-            setDeleteTargetName("");
-          }} disabled={isDeleting} style={{
-            flex: 1,
-            height: "48px",
-            border: "1px solid #ddd",
-            borderRadius: "12px",
-            background: "#fff",
-            color: "#333",
-            fontSize: "15px",
-            fontWeight: "600",
-            cursor: "pointer"
-          }}>{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+                setShowDeleteConfirm(false);
+                setDeleteTargetId(null);
+                setDeleteTargetName("");
+              }} disabled={isDeleting} style={{
+                flex: 1,
+                height: "48px",
+                border: "1px solid #ddd",
+                borderRadius: "12px",
+                background: "#fff",
+                color: "#333",
+                fontSize: "15px",
+                fontWeight: "600",
+                cursor: "pointer"
+              }}>{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
               <button onClick={handleConfirmDelete} disabled={isDeleting} style={{
-            flex: 1,
-            height: "48px",
-            border: "none",
-            borderRadius: "12px",
-            background: "#EF4444",
-            color: "#fff",
-            fontSize: "15px",
-            fontWeight: "700",
-            cursor: isDeleting ? "not-allowed" : "pointer",
-            opacity: isDeleting ? 0.7 : 1
-          }}>
+                flex: 1,
+                height: "48px",
+                border: "none",
+                borderRadius: "12px",
+                background: "#EF4444",
+                color: "#fff",
+                fontSize: "15px",
+                fontWeight: "700",
+                cursor: isDeleting ? "not-allowed" : "pointer",
+                opacity: isDeleting ? 0.7 : 1
+              }}>
                 {isDeleting ? "Removing..." : "Remove"}
               </button>
             </div>
           </div>
-        </div>}
+        </div>
+      )}
 
       {/* Stock Add Modal / Reorder Modal */}
-      {stockModalItem && (stockModalItem.product_type === 'finished' ? <ReorderModal material={stockModalItem} onClose={() => {
-      setStockModalItem(null);
-      setStockModalQty("");
-    }} onSuccess={() => {
-      setStockModalItem(null);
-      setStockModalQty("");
-    }} /> : <div style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.12)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 9999
-    }}>
-            <div style={{
-        width: "min(92vw, 400px)",
-        background: "#fff",
-        borderRadius: "16px",
-        padding: "24px",
-        boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
-      }}>
-              <h2 style={{
-          margin: "0 0 16px",
-          fontSize: "18px",
-          color: "#111827"
-        }}>{t("branch_admin.add_stock_for", "Add Stock for")}{stockModalItem.name}
-              </h2>
-              <div style={{
-          marginBottom: "20px"
-        }}>
-                <label style={{
-            display: "block",
-            fontSize: "14px",
-            color: "#4B5563",
-            marginBottom: "8px"
-          }}>{t("branch_admin.quantity_to_add", "Quantity to Add")}</label>
-                <input type="number" min="1" value={stockModalQty} onChange={e => setStockModalQty(e.target.value)} placeholder={t("branch_admin.enter_quantity", "Enter quantity")} style={{
-            width: "100%",
-            padding: "10px 12px",
-            borderRadius: "8px",
-            border: "1px solid #D1D5DB",
-            outline: "none",
-            fontSize: "14px"
-          }} />
-              </div>
-              <div style={{
+      {stockModalItem && (stockModalItem.product_type === 'finished' ? (
+        <ReorderModal material={stockModalItem} onClose={() => {
+          setStockModalItem(null);
+          setStockModalQty("");
+        }} onSuccess={() => {
+          setStockModalItem(null);
+          setStockModalQty("");
+        }} />
+      ) : (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.12)",
           display: "flex",
-          gap: "12px",
-          justifyContent: "flex-end"
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999
         }}>
-                <button onClick={() => setStockModalItem(null)} style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "1px solid #D1D5DB",
+          <div style={{
+            width: "min(92vw, 400px)",
             background: "#fff",
-            cursor: "pointer",
-            fontWeight: "600",
-            color: "#374151"
-          }}>{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
-                <button onClick={handleConfirmAddStock} style={{
-            padding: "8px 16px",
-            borderRadius: "8px",
-            border: "none",
-            background: "#0E6DCF",
-            cursor: "pointer",
-            fontWeight: "600",
-            color: "#fff"
-          }}>{t("branch_admin.confirm", t("buttons.confirm", "Confirm"))}</button>
-              </div>
+            borderRadius: "16px",
+            padding: "24px",
+            boxShadow: "0 10px 25px rgba(0,0,0,0.1)"
+          }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: "18px", color: "#111827" }}>
+              {t("branch_admin.add_stock_for", "Add Stock for")} {stockModalItem.name}
+            </h2>
+            <div style={{ marginBottom: "20px" }}>
+              <label style={{ display: "block", fontSize: "14px", color: "#4B5563", marginBottom: "8px" }}>
+                {t("branch_admin.quantity_to_add", "Quantity to Add")}
+              </label>
+              <input type="number" min="1" value={stockModalQty} onChange={e => setStockModalQty(e.target.value)} placeholder={t("branch_admin.enter_quantity", "Enter quantity")} style={{
+                width: "100%",
+                padding: "10px 12px",
+                borderRadius: "8px",
+                border: "1px solid #D1D5DB",
+                outline: "none",
+                fontSize: "14px"
+              }} />
             </div>
-          </div>)}
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button onClick={() => setStockModalItem(null)} style={{
+                padding: "8px 16px",
+                borderRadius: "8px",
+                border: "1px solid #D1D5DB",
+                background: "#fff",
+                cursor: "pointer",
+                fontWeight: "600",
+                color: "#374151"
+              }}>{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+              <button onClick={handleConfirmAddStock} style={{
+                padding: "8px 16px",
+                borderRadius: "8px",
+                border: "none",
+                background: "#0E6DCF",
+                cursor: "pointer",
+                fontWeight: "600",
+                color: "#fff"
+              }}>{t("branch_admin.confirm", t("buttons.confirm", "Confirm"))}</button>
+            </div>
+          </div>
+        </div>
+      ))}
 
       <style>{`
         @keyframes slideInRight {
@@ -948,6 +875,8 @@ setNotifications(prev => {
           border-radius: 10px;
         }
       `}</style>
-    </div>;
+    </div>
+  );
 };
+
 export default ProductManagement;
