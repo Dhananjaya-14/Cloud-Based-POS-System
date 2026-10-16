@@ -2,10 +2,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaSave, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import AdminSidebar from "../../components/admin/Sidebar";
-import AdminHeader from "../../components/admin/Header";
-import SuperAdminSidebar from "../../components/super-admin/Sidebar";
-import SuperAdminHeader from "../../components/super-admin/Header";
+import AdminSidebar from "../../layout/slidebar";
+import AdminHeader from "../../layout/header";
+import SuperAdminSidebar from "../../layout/slidebar";
+import SuperAdminHeader from "../../layout/header";
 import StatusToggle from "../../components/admin/StatusToggle";
 import { getBranchById, getUserById, updateBranch, updateUser } from "../../services/api";
 const inputBase = {

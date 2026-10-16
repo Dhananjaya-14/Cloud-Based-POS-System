@@ -15,8 +15,8 @@ import {
 } from "chart.js";
 import { FaDownload, FaChevronDown, FaCheck } from "react-icons/fa";
 import * as XLSX from "xlsx";
-import Sidebar from "../../components/branch-admin/Sidebar";
-import Header from "../../components/branch-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders, getUsers, getCashierPerformanceReport } from "../../services/api";
 import { connectSocket, subscribeToBranchAdminDashboardUpdates } from "../../services/socket";

@@ -1,5 +1,5 @@
 import React from 'react';
-import Header from './Header';
+import Header from '../../layout/header';
 
 const LoginLayout = ({ children }) => {
   const outerContainer = {
@@ -55,7 +55,7 @@ const LoginLayout = ({ children }) => {
 
   return (
     <div className="login-outer-container" style={outerContainer}>
-      <Header />
+      <Header variant="register" />
       <div className="login-main-wrapper" style={mainContentWrapper}>
         <div className="login-content-inner" style={contentInner}>
           {/* Left Side: Form */}

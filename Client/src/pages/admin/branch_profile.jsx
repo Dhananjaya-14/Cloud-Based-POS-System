@@ -2,10 +2,10 @@ import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaEdit, FaTrashAlt, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import AdminSidebar from "../../components/admin/Sidebar";
-import AdminHeader from "../../components/admin/Header";
-import SuperAdminSidebar from "../../components/super-admin/Sidebar";
-import SuperAdminHeader from "../../components/super-admin/Header";
+import AdminSidebar from "../../layout/slidebar";
+import AdminHeader from "../../layout/header";
+import SuperAdminSidebar from "../../layout/slidebar";
+import SuperAdminHeader from "../../layout/header";
 import { deleteBranchById, getBranchById, getUserById } from "../../services/api";
 const inputBase = {
   width: "100%",

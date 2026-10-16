@@ -3,8 +3,8 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { getTablesByBranch, createTable, updateTable, deleteTable } from "../../services/api";
 import { connectSocket, subscribeToTableUpdates } from "../../services/socket";
-import Sidebar from "../../components/branch-admin/Sidebar";
-import Header from "../../components/branch-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { FaPlus, FaRegEdit, FaTrash, FaSearch, FaCheck, FaChair, FaClock, FaHeartbeat, FaMapMarkerAlt, FaUserFriends, FaThLarge, FaList, FaExclamationTriangle } from "react-icons/fa";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 const Button = ({

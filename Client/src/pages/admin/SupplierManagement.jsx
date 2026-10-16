@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect, useCallback } from "react";
-import Sidebar from "../../components/admin/Sidebar";
-import Header from "../../components/admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, restoreSupplier, assignSupplierToBranch, removeSupplierFromBranch, getSupplierBranches, getBranches } from "../../services/api";
 import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import { useAuth } from "../../context/AuthContext";

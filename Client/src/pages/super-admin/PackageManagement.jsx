@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FaSearch, FaPlus, FaPen, FaCheckCircle, FaTimesCircle, FaTrash } from "react-icons/fa";
-import Sidebar from "../../components/super-admin/Sidebar";
-import Header from "../../components/super-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { getPackages, createPackage, updatePackage, deletePackage } from "../../services/api";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";

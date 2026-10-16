@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Sidebar from "../../components/branch-admin/Sidebar";
-import Header from "../../components/branch-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { getBranchProducts, getBranches, getCategories, getProducts, getRawMaterials, getRecipesByProduct, createRecipeBulk, deleteRecipeByProduct } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { connectSocket, getSocket, SOCKET_EVENTS } from '../../services/socket';

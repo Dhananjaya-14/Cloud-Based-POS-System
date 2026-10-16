@@ -7,8 +7,8 @@ import { getRawMaterialConsumptionReport, getBranchById } from "../../services/a
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import Header from "../../components/branch-admin/Header";
-import Sidebar from "../../components/branch-admin/Sidebar";
+import Header from "../../layout/header";
+import Sidebar from "../../layout/slidebar";
 
 export default function RawMaterialConsumptionReport() {
   const { t, i18n } = useTranslation();

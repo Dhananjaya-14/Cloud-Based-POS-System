@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { DollarSign, ShoppingBag, Users, Truck } from "lucide-react";
 import { getStatsOverview, getBranches, getOrders, getBranchStats, getCurrentUser } from "../../services/api";
-import Header from "../../components/admin/Header";
-import Sidebar from "../../components/admin/Sidebar";
+import Header from "../../layout/header";
+import Sidebar from "../../layout/slidebar";
 import StatCard from "../../components/admin/StatCard";
 import Filters from "../../components/admin/Filters";
 import SalesChart from "../../components/admin/SalesChart";

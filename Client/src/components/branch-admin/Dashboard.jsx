@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaDollarSign, FaShoppingCart, FaStar, FaUsers } from "react-icons/fa";
-import Sidebar from "./Sidebar";
-import Header from "./Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import StatCard from "./StatCard";
 import { useAuth } from "../../context/AuthContext";
 import {

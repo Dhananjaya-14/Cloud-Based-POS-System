@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FaSearch, FaFilter, FaPlus, FaPen, FaTrash } from "react-icons/fa";
-import Sidebar from "../../components/super-admin/Sidebar";
-import Header from "../../components/super-admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { getCompanies, createCompany, updateCompany, deleteCompany, getPackages, getCurrentUser, setAuthToken, logout } from "../../services/api";
 import { useNavigate, useLocation } from "react-router-dom";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
 import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
-import CashierHeader from "../../components/cashier/Header";
+import CashierHeader from "../../layout/header";
 import { useAuth } from "../../context/AuthContext";
 import { getSalesDetailsReport, getBranchById } from "../../services/api";
 import * as XLSX from "xlsx";

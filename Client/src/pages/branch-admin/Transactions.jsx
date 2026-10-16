@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
-import Header from "../../components/branch-admin/Header";
-import Sidebar from "../../components/branch-admin/Sidebar";
+import Header from "../../layout/header";
+import Sidebar from "../../layout/slidebar";
 import TransactionFilters from "../../components/branch-admin/TransactionFilters";
 import TransactionTable from "../../components/admin/TransactionTable";
 import TransactionDetailsModal from "../../components/admin/TransactionDetailsModal";

@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Header from "../../components/admin/Header";
-import Sidebar from "../../components/admin/Sidebar";
+import Header from "../../layout/header";
+import Sidebar from "../../layout/slidebar";
 import OverviewCards from "../../components/admin/OverviewCards";
 import TodayActivitiesChart from "../../components/admin/TodayActivitiesChart";
 import { getStatsOverview, getBranchStats, getOrders, getBranches, getCurrentUser, getCompanyById } from "../../services/api";

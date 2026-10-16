@@ -2,8 +2,8 @@ import { useTranslation } from "react-i18next";
 // Client/src/pages/branch-admin/InventoryDashboard.jsx
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Sidebar from '../../components/branch-admin/Sidebar';
-import Header from '../../components/branch-admin/Header';
+import Sidebar from '../../layout/slidebar';
+import Header from '../../layout/header';
 import ReorderModal from '../../components/branch-admin/ReorderModal';
 import EditMaterialModal from '../../components/branch-admin/EditMaterialModal';
 import StatCard from '../../components/branch-admin/StatCard';
@@ -264,8 +264,8 @@ export default InventoryDashboard;
 
 // import React, { useState, useEffect, useMemo } from 'react';
 // import { useNavigate } from 'react-router-dom';
-// import Sidebar from '../../components/branch-admin/Sidebar';
-// import Header from '../../components/branch-admin/Header';
+// import Sidebar from '../../layout/slidebar';
+// import Header from '../../layout/header';
 // import ReorderModal from '../../components/branch-admin/ReorderModal';
 // import EditMaterialModal from '../../components/branch-admin/EditMaterialModal';
 // import StatCard from '../../components/branch-admin/StatCard';

@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from "react";
 import { FaSave, FaUpload, FaEye } from "react-icons/fa";
-import Sidebar from "../../components/admin/Sidebar";
-import Header from "../../components/admin/Header";
+import Sidebar from "../../layout/slidebar";
+import Header from "../../layout/header";
 import { getCompanyById, updateCompanySettings } from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { printReceipt } from "../../utils/printReceipt";

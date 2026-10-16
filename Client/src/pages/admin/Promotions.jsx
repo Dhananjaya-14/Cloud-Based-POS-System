@@ -1,7 +1,7 @@
 ﻿import { useTranslation } from "react-i18next";
 import React, { useState } from 'react';
-import Sidebar from '../../components/admin/Sidebar';
-import Header from '../../components/admin/Header';
+import Sidebar from '../../layout/slidebar';
+import Header from '../../layout/header';
 import Button from '../../components/admin/Button'; 
 const menuCategories = [{
   name: 'Burgers',

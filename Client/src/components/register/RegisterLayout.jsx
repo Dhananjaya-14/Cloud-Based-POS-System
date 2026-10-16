@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import Header from './Header';
+import Header from '../../layout/header';
 
 const RegisterLayout = ({ children, disableScroll = false }) => {
   const navigate = useNavigate();
@@ -57,7 +57,7 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
 
   return (
     <div className="register-outer-container" style={outerContainer}>
-      <Header />
+      <Header variant="register" />
       <div className="register-main-wrapper" style={mainContentWrapper}>
         <div className="register-content-inner" style={contentInner}>
           {/* Left Side: Gradient Panel */}
