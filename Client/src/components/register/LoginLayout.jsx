@@ -54,17 +54,10 @@ const LoginLayout = ({ children }) => {
   };
 
   return (
-<<<<<<< HEAD
-    <div style={outerContainer}>
-      <Header variant="register" />
-      <div style={mainContentWrapper}>
-        <div style={contentInner}>
-=======
     <div className="login-outer-container" style={outerContainer}>
-      <Header />
+      <Header variant="register" />
       <div className="login-main-wrapper" style={mainContentWrapper}>
         <div className="login-content-inner" style={contentInner}>
->>>>>>> 01459dcbd45248d48fd6e61ada7dfe101f7cc90e
           {/* Left Side: Form */}
           <div className="login-form-card" style={leftFormCard}>
             <div className="login-form-inner" style={{ width: '100%', maxWidth: '420px' }}>

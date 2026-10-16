@@ -56,17 +56,10 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
   };
 
   return (
-<<<<<<< HEAD
-    <div style={outerContainer}>
-      <Header variant="register" />
-      <div style={mainContentWrapper}>
-        <div style={contentInner}>
-=======
     <div className="register-outer-container" style={outerContainer}>
-      <Header />
+      <Header variant="register" />
       <div className="register-main-wrapper" style={mainContentWrapper}>
         <div className="register-content-inner" style={contentInner}>
->>>>>>> 01459dcbd45248d48fd6e61ada7dfe101f7cc90e
           {/* Left Side: Gradient Panel */}
           <div className="register-left-gradient" style={leftGradient}>
             <h1 className="register-gradient-title" style={{ fontSize: '3.2rem', fontWeight: '700', marginBottom: '10px' }}>Welcome</h1>
