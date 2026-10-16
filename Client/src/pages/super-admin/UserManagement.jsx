@@ -246,8 +246,8 @@ const UserManagement = () => {
       <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
         <Header title="User Management" />
 
-        <div style={{ padding: "30px 40px", flex: 1 }}>
-          <div style={{ marginBottom: 24 }}>
+        <div className="um-content-container" style={{ padding: "30px 40px", flex: 1 }}>
+          <div className="um-header" style={{ marginBottom: 24 }}>
             <h1 style={{ margin: "0 0 8px", fontSize: 28, fontWeight: 700, color: "#111827" }}>
               User Management
             </h1>
@@ -257,6 +257,7 @@ const UserManagement = () => {
           </div>
 
           <div
+            className="um-card"
             style={{
               background: "#fff",
               borderRadius: 12,
@@ -266,6 +267,7 @@ const UserManagement = () => {
           >
             {/* Toolbar */}
             <div
+              className="um-toolbar"
               style={{
                 display: "flex",
                 justifyContent: "space-between",
@@ -276,6 +278,7 @@ const UserManagement = () => {
               }}
             >
               <div
+                className="um-filters-group"
                 style={{
                   display: "flex",
                   alignItems: "center",
@@ -286,6 +289,7 @@ const UserManagement = () => {
                 }}
               >
                 <div
+                  className="um-search-box"
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -316,6 +320,7 @@ const UserManagement = () => {
 
                 {/* Company Filter Dropdown */}
                 <select
+                  className="um-filter-select"
                   value={selectedCompany}
                   onChange={(e) => setSelectedCompany(e.target.value)}
                   style={{
@@ -340,6 +345,7 @@ const UserManagement = () => {
 
                 {/* Role Filter Dropdown */}
                 <select
+                  className="um-filter-select"
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
                   style={{
@@ -364,6 +370,7 @@ const UserManagement = () => {
               </div>
 
               <button
+                className="um-add-user-btn"
                 onClick={() => navigate('/super-admin/users/add')}
                 style={{
                   display: "flex",
@@ -384,102 +391,185 @@ const UserManagement = () => {
             </div>
 
             {/* Table */}
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #E5E7EB" }}>
-                  <th style={thStyle}>NAME</th>
-                  <th style={thStyle}>EMAIL</th>
-                  <th style={thStyle}>COMPANY</th>
-                  <th style={thStyle}>ROLE</th>
-                  <th style={thStyle}>STATUS</th>
-                  <th style={thStyle}>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" style={{ padding: 20 }}>
-                      <Spinner />
-                    </td>
+            <div className="um-table-desktop um-table-responsive">
+              <table style={{ width: "100%", minWidth: 780, borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #E5E7EB" }}>
+                    <th style={thStyle}>NAME</th>
+                    <th style={thStyle}>EMAIL</th>
+                    <th style={thStyle}>COMPANY</th>
+                    <th style={thStyle}>ROLE</th>
+                    <th style={thStyle}>STATUS</th>
+                    <th style={thStyle}>ACTIONS</th>
                   </tr>
-                ) : filteredUsers.length > 0 ? (
-                  filteredUsers.map((user, i) => {
-                    const fullName = `${user.u_fname} ${user.u_lname}`;
-                    const initials = getInitials(fullName);
-                    const avatarColor = getAvatarColor(initials);
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan="6" style={{ padding: 20 }}>
+                        <Spinner />
+                      </td>
+                    </tr>
+                  ) : filteredUsers.length > 0 ? (
+                    filteredUsers.map((user, i) => {
+                      const fullName = `${user.u_fname} ${user.u_lname}`;
+                      const initials = getInitials(fullName);
+                      const avatarColor = getAvatarColor(initials);
 
-                    return (
-                      <tr
-                        key={user.u_id || i}
-                        onClick={() => navigate(`/super-admin/users/${user.u_id}/edit`)}
-                        style={{ borderBottom: "1px solid #F3F4F6", cursor: "pointer", transition: "background 0.2s" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#F9FAFB"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                      >
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                            <div style={{
-                              width: 36, height: 36, borderRadius: 8, background: avatarColor,
-                              color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-                              fontSize: 14, fontWeight: 600
-                            }}>
-                              {initials}
+                      return (
+                        <tr
+                          key={user.u_id || i}
+                          onClick={() => navigate(`/super-admin/users/${user.u_id}/edit`)}
+                          style={{ borderBottom: "1px solid #F3F4F6", cursor: "pointer", transition: "background 0.2s" }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = "#F9FAFB"}
+                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                        >
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                              <div style={{
+                                width: 36, height: 36, borderRadius: 8, background: avatarColor,
+                                color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
+                                fontSize: 14, fontWeight: 600
+                              }}>
+                                {initials}
+                              </div>
+                              <span style={{ fontWeight: 600, color: "#111827" }}>{fullName}</span>
                             </div>
-                            <span style={{ fontWeight: 600, color: "#111827" }}>{fullName}</span>
+                          </td>
+                          <td style={tdStyle}>{user.u_email || "—"}</td>
+                          <td style={tdStyle}>{user.company_name || "—"}</td>
+                          <td style={tdStyle}>
+                            <RoleBadge role={user.role_name} />
+                          </td>
+                          <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <ToggleSwitch
+                                checked={String(user.u_status !== undefined ? user.u_status : "Active").toLowerCase() === "active" || String(user.u_status).toLowerCase() === "true" || user.u_status === true}
+                                onChange={() => handleToggleStatus(user.u_id, user.u_status)}
+                                disabled={togglingId === user.u_id}
+                              />
+                              {togglingId === user.u_id && <Spinner size={16} />}
+                            </div>
+                          </td>
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", gap: 10 }}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/super-admin/users/${user.u_id}/edit`);
+                                }}
+                                style={iconButtonStyle}
+                              >
+                                <FaPen size={12} color="#0EA5E9" />
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openDeleteModal(user);
+                                }}
+                                style={{ ...iconButtonStyle, background: "#FEF2F2" }}
+                              >
+                                <FaTrash size={12} color="#EF4444" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" style={{ padding: 20, textAlign: "center" }}>
+                        No users found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Stacked Cards for Mobile */}
+            <div className="um-cards-mobile">
+              {loading ? (
+                <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
+                  <Spinner />
+                </div>
+              ) : filteredUsers.length > 0 ? (
+                filteredUsers.map((user, i) => {
+                  const fullName = `${user.u_fname} ${user.u_lname}`;
+                  const initials = getInitials(fullName);
+                  const avatarColor = getAvatarColor(initials);
+                  const isActive = String(user.u_status !== undefined ? user.u_status : "Active").toLowerCase() === "active" || String(user.u_status).toLowerCase() === "true" || user.u_status === true;
+
+                  return (
+                    <div
+                      key={user.u_id || i}
+                      className="um-mobile-card"
+                      onClick={() => navigate(`/super-admin/users/${user.u_id}/edit`)}
+                    >
+                      <div className="um-mobile-card-header">
+                        <div className="um-mobile-user-info">
+                          <div className="um-mobile-avatar" style={{ background: avatarColor }}>
+                            {initials}
                           </div>
-                        </td>
-                        <td style={tdStyle}>{user.u_email || "—"}</td>
-                        <td style={tdStyle}>{user.company_name || "—"}</td>
-                        <td style={tdStyle}>
-                          <RoleBadge role={user.role_name} />
-                        </td>
-                        <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <ToggleSwitch
-                              checked={String(user.u_status !== undefined ? user.u_status : "Active").toLowerCase() === "active" || String(user.u_status).toLowerCase() === "true" || user.u_status === true}
-                              onChange={() => handleToggleStatus(user.u_id, user.u_status)}
-                              disabled={togglingId === user.u_id}
-                            />
-                            {togglingId === user.u_id && <Spinner size={16} />}
+                          <div>
+                            <div className="um-mobile-name">{fullName}</div>
+                            {user.company_name && (
+                              <div className="um-mobile-company">{user.company_name}</div>
+                            )}
                           </div>
-                        </td>
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", gap: 10 }}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigate(`/super-admin/users/${user.u_id}/edit`);
-                              }}
-                              style={iconButtonStyle}
-                            >
-                              <FaPen size={12} color="#0EA5E9" />
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openDeleteModal(user);
-                              }}
-                              style={{ ...iconButtonStyle, background: "#FEF2F2" }}
-                            >
-                              <FaTrash size={12} color="#EF4444" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="6" style={{ padding: 20, textAlign: "center" }}>
-                      No users found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        </div>
+                        <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <ToggleSwitch
+                            checked={isActive}
+                            onChange={() => handleToggleStatus(user.u_id, user.u_status)}
+                            disabled={togglingId === user.u_id}
+                          />
+                          {togglingId === user.u_id && <Spinner size={16} />}
+                        </div>
+                      </div>
+
+                      <div className="um-mobile-card-sub">
+                        <RoleBadge role={user.role_name} />
+                        {user.u_email && (
+                          <span style={{ fontSize: 13, color: "#6B7280" }}>{user.u_email}</span>
+                        )}
+                      </div>
+
+                      <div className="um-mobile-card-actions">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigate(`/super-admin/users/${user.u_id}/edit`);
+                          }}
+                          style={iconButtonStyle}
+                          aria-label="Edit user"
+                        >
+                          <FaPen size={12} color="#0EA5E9" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDeleteModal(user);
+                          }}
+                          style={{ ...iconButtonStyle, background: "#FEF2F2" }}
+                          aria-label="Delete user"
+                        >
+                          <FaTrash size={12} color="#EF4444" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div style={{ textAlign: "center", padding: "30px 16px", color: "#6B7280" }}>
+                  No users found
+                </div>
+              )}
+            </div>
 
             {/* Pagination */}
             <div
+              className="um-pagination"
               style={{
                 display: "flex",
                 justifyContent: "space-between",

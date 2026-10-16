@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getSuppliers } from '../../services/api';
+import { getSuppliers, createPurchaseOrder, createPurchaseItem } from '../../services/api';
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
 
 // Converts an entered quantity from the unit the admin picked in the form
@@ -73,42 +73,13 @@ const ReorderModal = ({
         setLoading(false);
         return;
       }
-      const token = localStorage.getItem('token') || localStorage.getItem('authToken') || '';
-      const orderRes = await fetch('/api/purchase-orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? {
-            Authorization: `Bearer ${token}`
-          } : {})
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          sup_id: parseInt(formData.sup_id, 10),
-          B_id: Number(branchId),
-          status: 'pending'
-        })
+      const order = await createPurchaseOrder({
+        sup_id: parseInt(formData.sup_id, 10),
+        B_id: Number(branchId),
+        status: 'pending'
       });
-      if (orderRes.status === 401) {
-        navigate('/login');
-        return;
-      }
-      if (!orderRes.ok) {
-        // try to read response body for better debugging
-        let text = '';
-        try {
-          text = await orderRes.text();
-        } catch {}
-        console.error('Order creation failed', orderRes.status, text);
-        // if server returned JSON { message }, try to parse it
-        try {
-          const errJson = JSON.parse(text || '{}');
-          throw new Error(errJson.message || 'Order creation failed');
-        } catch {
-          throw new Error('Order creation failed');
-        }
-      }
-      const order = await orderRes.json();
+      const po_id = order?.po_id || order?.data?.po_id;
+
       const enteredQty = parseFloat(formData.quantity);
 
       // Convert the entered qty into the material's base unit
@@ -121,33 +92,16 @@ const ReorderModal = ({
 
       // Price is not known at order time — the supplier confirms it when
       // the delivery arrives. Branch admin enters it during receiving.
-      const itemRes = await fetch('/api/purchase-items', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? {
-            Authorization: `Bearer ${token}`
-          } : {})
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          po_id: order.po_id,
-          ...(material.rm_id ? {
-            rm_id: material.rm_id
-          } : {
-            pro_id: material._original?.pro_id || material.pro_id
-          }),
-          qty: qtyToSend
-        })
+      await createPurchaseItem({
+        po_id: po_id,
+        ...(material.rm_id ? {
+          rm_id: material.rm_id
+        } : {
+          pro_id: material._original?.pro_id || material.pro_id
+        }),
+        qty: qtyToSend
       });
-      if (itemRes.status === 401) {
-        navigate('/login');
-        return;
-      }
-      if (!itemRes.ok) {
-        const errData = await itemRes.json().catch(() => ({}));
-        throw new Error(errData.message || 'Item creation failed');
-      }
+
       setIsSuccess(true);
       setTimeout(() => {
         onSuccess();

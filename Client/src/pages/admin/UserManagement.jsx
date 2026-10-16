@@ -205,7 +205,7 @@ setToasts(prev => [...prev, {
       setIsDeleting(false);
     }
   };
-  return <div style={{
+  return <div className="admin-page-root" style={{
     display: "flex",
     background: "#f0f3f9",
     height: "100vh",
@@ -213,7 +213,7 @@ setToasts(prev => [...prev, {
   }}>
       <Sidebar />
 
-      <div style={{
+      <div className="admin-main-content" style={{
       flex: 1,
       marginLeft: "240px",
       height: "100vh",
@@ -223,7 +223,7 @@ setToasts(prev => [...prev, {
     }}>
         <Header title={t("company_admin.user_management", "User Management")} />
 
-        <div style={{
+        <div className="admin-user-content-container" style={{
         flex: 1,
         overflow: "hidden",
         padding: "14px 18px 16px",
@@ -273,12 +273,12 @@ setToasts(prev => [...prev, {
                 </div>)}
             </div>}
 
-          <div style={{
+          <div className="admin-user-toolbar" style={{
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center"
         }}>
-            <h1 style={{
+            <h1 className="admin-user-title" style={{
             fontSize: "30px",
             margin: 0,
             fontWeight: 700,
@@ -286,7 +286,7 @@ setToasts(prev => [...prev, {
             letterSpacing: "0.3px",
             lineHeight: 1
           }}>{t("company_admin.user_management", "User Management")}</h1>
-            <button type="button" onClick={() => navigate("/users/add")} style={{
+            <button className="admin-user-add-btn" type="button" onClick={() => navigate("/users/add")} style={{
             border: "none",
             background: "#0b61b5",
             color: "#fff",
@@ -303,7 +303,7 @@ setToasts(prev => [...prev, {
               <FaPlus size={12} />{t("company_admin.add_new_user", "Add New User")}</button>
           </div>
 
-          <div style={{
+          <div className="admin-user-stats-grid" style={{
           display: "grid",
           gridTemplateColumns: "repeat(4, minmax(160px, 1fr))",
           gap: "12px"
@@ -314,7 +314,7 @@ setToasts(prev => [...prev, {
             <StatCard icon={<FaUserCheck />} title={t("company_admin.active_users", "Active Users")} value={activeUsers} bg="#f8dea5" iconBg="#ddb94b" />
           </div>
 
-          <div style={{
+          <div className="admin-user-table-card" style={{
           background: "#fff",
           borderRadius: "14px",
           padding: "12px",
@@ -324,7 +324,7 @@ setToasts(prev => [...prev, {
           minHeight: 0,
           flex: 1
         }}>
-            <div style={{
+            <div className="admin-user-filter-bar" style={{
             display: "flex",
             alignItems: "center",
             gap: "12px",
@@ -354,7 +354,7 @@ setToasts(prev => [...prev, {
               }} />
               </div>
 
-              <div style={{
+              <div className="admin-user-filter-actions" style={{
               display: "grid",
               gridTemplateColumns: "92px 140px",
               gap: "8px",
@@ -400,7 +400,8 @@ setToasts(prev => [...prev, {
             textAlign: "center",
             color: "#cf3e3e",
             margin: "22px 0"
-          }}>{error}</p> : <div style={{
+          }}>{error}</p> : <>
+            <div className="admin-user-table-desktop" style={{
             flex: 1,
             minHeight: 0,
             overflowY: "auto",
@@ -409,7 +410,8 @@ setToasts(prev => [...prev, {
                 <table style={{
               width: "100%",
               borderCollapse: "collapse",
-              tableLayout: "fixed"
+              tableLayout: "fixed",
+              minWidth: "620px"
             }}>
                   <thead style={{
                 position: "sticky",
@@ -530,20 +532,105 @@ setToasts(prev => [...prev, {
                       </tr>}
                   </tbody>
                 </table>
+              </div>
 
+              {/* Mobile Stacked Card View */}
+              <div className="admin-user-cards-mobile">
+                {visibleUsers.map(user => {
+                  const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim() || "Unknown User";
+                  const initials = `${(user.u_fname || "U").charAt(0)}${(user.u_lname || "S").charAt(0)}`.toUpperCase();
+                  const roleName = roleMap[String(user.role_id)] || "Unknown";
+                  const branchName = branchMap[String(user.b_id)] || "-";
+                  const email = user.u_email || "";
+                  return (
+                    <div key={user.u_id} className="admin-user-mobile-card">
+                      <div className="admin-user-mobile-card-header">
+                        <div style={{ display: "flex", alignItems: "center", gap: "10px", minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            width: "34px",
+                            height: "34px",
+                            borderRadius: "50%",
+                            background: "linear-gradient(135deg, #1f8df2, #0f5ea7)",
+                            color: "#fff",
+                            display: "grid",
+                            placeItems: "center",
+                            fontSize: "11px",
+                            fontWeight: 700,
+                            flexShrink: 0
+                          }}>
+                            {initials}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{ color: "#1f2d4e", fontWeight: 600, fontSize: "14px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{fullName}</div>
+                            {email && <div style={{ color: "#7b8aa8", fontSize: "11px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email}</div>}
+                          </div>
+                        </div>
+                        <span style={{
+                          padding: "3px 8px",
+                          borderRadius: "999px",
+                          background: "#dff6e4",
+                          color: "#20a048",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          flexShrink: 0
+                        }}>{t("company_admin.available", "Available")}</span>
+                      </div>
+
+                      <div className="admin-user-mobile-card-body">
+                        <div className="admin-user-mobile-info-row">
+                          <span className="admin-user-mobile-label">{t("company_admin.role", "Role")}:</span>
+                          <span className="admin-user-mobile-value" style={{ fontWeight: 600, color: "#1f2d4e" }}>{roleName}</span>
+                        </div>
+                        <div className="admin-user-mobile-info-row">
+                          <span className="admin-user-mobile-label">{t("company_admin.branch", "Branch")}:</span>
+                          <span className="admin-user-mobile-value">{branchName}</span>
+                        </div>
+                      </div>
+
+                      <div className="admin-user-mobile-card-footer">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/users/${user.u_id}/edit`)}
+                          className="admin-user-mobile-action-btn edit"
+                          title="Edit user"
+                        >
+                          <FaPen size={11} /> {t("buttons.edit", "Edit")}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteTargetUser({
+                            u_id: user.u_id,
+                            name: fullName
+                          })}
+                          className="admin-user-mobile-action-btn delete"
+                          title="Delete user"
+                        >
+                          <FaTrash size={11} /> {t("buttons.delete", "Delete")}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {visibleUsers.length === 0 && (
+                  <div style={{ textAlign: "center", color: "#7183a8", padding: "18px 0", fontSize: "14px" }}>
+                    {t("company_admin.no_users_found_matching_the_selected_cri", "No users found matching the selected criteria.")}
+                  </div>
+                )}
+              </div>
+
+              <div style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "14px 6px 4px"
+              }}>
                 <div style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              padding: "14px 6px 4px"
-            }}>
-                  <div style={{
-                color: "#6b7280",
-                fontSize: 13,
-                fontWeight: 500
-              }}>{t("company_admin.showing", "Showing")}{visibleUsers.length}{t("company_admin.of", "of")}{totalUsers}{t("company_admin.registered_users", "registered users")}</div>
-                </div>
-              </div>}
+                  color: "#6b7280",
+                  fontSize: 13,
+                  fontWeight: 500
+                }}>{t("company_admin.showing", "Showing")} {visibleUsers.length} {t("company_admin.of", "of")} {totalUsers} {t("company_admin.registered_users", "registered users")}</div>
+              </div>
+            </>}
           </div>
         </div>
       </div>
@@ -580,7 +667,7 @@ const StatCard = ({
   bg,
   iconBg
 }) => {
-return <div style={{
+return <div className="admin-user-card" style={{
     background: bg,
     borderRadius: "16px",
     padding: "14px 16px",
@@ -596,7 +683,8 @@ return <div style={{
       background: iconBg,
       color: "#0c1d3f",
       display: "grid",
-      placeItems: "center"
+      placeItems: "center",
+      flexShrink: 0
     }}>
         {icon}
       </div>
@@ -660,14 +748,19 @@ return <div style={{
     background: "rgba(13, 21, 44, 0.4)",
     display: "grid",
     placeItems: "center",
-    zIndex: 50
+    zIndex: 50,
+    padding: "16px",
+    boxSizing: "border-box"
   }}>
       <div style={{
       width: "min(620px, calc(100vw - 28px))",
+      maxHeight: "90vh",
+      overflowY: "auto",
       background: "#fff",
       borderRadius: "16px",
       boxShadow: "0 18px 55px rgba(21, 32, 58, 0.28)",
-      padding: "18px"
+      padding: "18px",
+      boxSizing: "border-box"
     }}>
         <h3 style={{
         margin: 0,
@@ -680,7 +773,7 @@ return <div style={{
       }}>{t("company_admin.create_a_user_account_and_assign_a_role", "Create a user account and assign a role.")}</p>
 
         <form onSubmit={onSubmit}>
-          <div style={{
+          <div className="admin-modal-grid-2col" style={{
           display: "grid",
           gridTemplateColumns: "repeat(2, minmax(200px, 1fr))",
           gap: "12px"

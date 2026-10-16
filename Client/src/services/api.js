@@ -397,6 +397,21 @@ export const getLowStockMaterials = async () => {
   return response.data;
 };
 
+export const createRawMaterial = async (materialData) => {
+  const response = await api.post("/raw-materials", materialData);
+  return response.data;
+};
+
+export const updateRawMaterial = async (id, payload) => {
+  const response = await api.put(`/raw-materials/${id}`, payload);
+  return response.data;
+};
+
+export const deleteRawMaterial = async (id) => {
+  const response = await api.delete(`/raw-materials/${id}`);
+  return response.data;
+};
+
 // ---------------- RECIPES ----------------
 
 export const getRecipes = async () => {
@@ -703,6 +718,16 @@ export const getPurchaseItemsByOrder = async (
   );
 
   return res.data || [];
+};
+
+export const createPurchaseOrder = async (orderData) => {
+  const response = await api.post("/purchase-orders", orderData);
+  return response.data;
+};
+
+export const createPurchaseItem = async (itemData) => {
+  const response = await api.post("/purchase-items", itemData);
+  return response.data;
 };
 
 // ---------------- PAYMENTS ----------------

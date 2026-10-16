@@ -217,7 +217,7 @@ const AddUser = () => {
       <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
         <Header title="User Management" />
 
-        <div style={{ padding: "30px 40px", flex: 1, display: "flex", flexDirection: "column" }}>
+        <div className="sa-form-content-container" style={{ padding: "30px 40px", flex: 1, display: "flex", flexDirection: "column" }}>
 
           <div
             onClick={() => navigate("/super-admin/users")}
@@ -230,6 +230,7 @@ const AddUser = () => {
           </div>
 
           <div
+            className="sa-form-card"
             style={{
               background: "#fff",
               borderRadius: 16,
@@ -258,7 +259,7 @@ const AddUser = () => {
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
 
               {/* Profile Picture & Names */}
-              <div style={{ display: "flex", gap: 40, alignItems: "center" }}>
+              <div className="sa-form-row-avatar" style={{ display: "flex", gap: 40, alignItems: "center" }}>
                 <div style={{ position: "relative" }}>
                   <div
                     onClick={handleImageClick}
@@ -294,7 +295,7 @@ const AddUser = () => {
                   />
                 </div>
 
-                <div style={{ flex: 1, display: "flex", gap: 20 }}>
+                <div className="sa-form-row" style={{ flex: 1, display: "flex", gap: 20 }}>
                   <div style={{ flex: 1 }}>
                     <label style={labelStyle}>First Name</label>
                     <input name="firstName" value={formData.firstName} onChange={handleChange} style={inputStyle} type="text" />
@@ -307,7 +308,7 @@ const AddUser = () => {
               </div>
 
               {/* Email & Contact Number */}
-              <div style={{ display: "flex", gap: 20 }}>
+              <div className="sa-form-row" style={{ display: "flex", gap: 20 }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>Email</label>
                   <input
@@ -341,7 +342,7 @@ const AddUser = () => {
               </div>
 
               {/* User Role & Company */}
-              <div style={{ display: "flex", gap: 20 }}>
+              <div className="sa-form-row" style={{ display: "flex", gap: 20 }}>
                 <div style={{ flex: 1 }}>
                   <label style={labelStyle}>User Role</label>
                   <select name="userRole" value={formData.userRole} onChange={handleChange} style={selectStyle}>
@@ -385,7 +386,7 @@ const AddUser = () => {
               </div>
 
               {/* Branch & Active Status */}
-              <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
+              <div className="sa-form-row" style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
                 <div style={{ flex: 1 }}>
                   {formData.userRole === "6" || formData.userRole === "2" ? (
                     <>
@@ -448,7 +449,7 @@ const AddUser = () => {
 
               {/* Password Fields */}
               <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-                <div style={{ width: "66%" }}>
+                <div className="sa-form-full-mobile" style={{ width: "66%" }}>
                   <label style={labelStyle}>Password</label>
                   <div style={{ position: "relative" }}>
                     <input
@@ -466,7 +467,7 @@ const AddUser = () => {
                   </div>
                 </div>
 
-                <div style={{ width: "66%" }}>
+                <div className="sa-form-full-mobile" style={{ width: "66%" }}>
                   <label style={labelStyle}>Confirm Password</label>
                   <div style={{ position: "relative" }}>
                     <input

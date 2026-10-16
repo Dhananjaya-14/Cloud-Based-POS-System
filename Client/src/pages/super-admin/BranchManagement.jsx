@@ -1,6 +1,6 @@
 // Client/src/pages/super-admin/BranchManagement.jsx
 import React, { useEffect, useState } from "react";
-import { FaSearch, FaFilter, FaPlus, FaCodeBranch } from "react-icons/fa";
+import { FaSearch, FaFilter, FaPlus, FaCodeBranch, FaEnvelope, FaPhone, FaMapMarkerAlt, FaBuilding } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
@@ -190,9 +190,9 @@ const SuperAdminBranchManagement = () => {
       <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
         <Header title="Branch Management" />
 
-        <div style={{ padding: "30px 40px", flex: 1 }}>
+        <div className="branch-content-container" style={{ padding: "30px 40px", flex: 1 }}>
           {/* Page Header */}
-          <div style={{ marginBottom: 24 }}>
+          <div className="branch-header" style={{ marginBottom: 24 }}>
             <h1 style={{ margin: "0 0 8px", fontSize: 28, fontWeight: 700, color: "#111827" }}>
               Branch Management
             </h1>
@@ -202,13 +202,13 @@ const SuperAdminBranchManagement = () => {
           </div>
 
           {/* Table Card */}
-          <div style={{ background: "#fff", borderRadius: 12, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
+          <div className="branch-card" style={{ background: "#fff", borderRadius: 12, padding: 24, boxShadow: "0 1px 3px rgba(0,0,0,0.1)" }}>
 
             {/* Toolbar — matches HotelManagement style */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+            <div className="branch-toolbar" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
 
               {/* Search */}
-              <div style={{ display: "flex", alignItems: "center", background: "#F3F4F6", padding: "10px 16px", borderRadius: 8, width: 280 }}>
+              <div className="branch-search-box" style={{ display: "flex", alignItems: "center", background: "#F3F4F6", padding: "10px 16px", borderRadius: 8, width: 280 }}>
                 <FaSearch color="#9CA3AF" size={14} />
                 <input
                   type="text"
@@ -220,10 +220,10 @@ const SuperAdminBranchManagement = () => {
               </div>
 
               {/* Filters + Add Button */}
-              <div style={{ display: "flex", gap: 16 }}>
+              <div className="branch-actions-row" style={{ display: "flex", gap: 16 }}>
 
                 {/* Company filter */}
-                <div style={{ display: "flex", alignItems: "center", background: "#F3F4F6", padding: "10px 16px", borderRadius: 8, cursor: "pointer", gap: 8 }}>
+                <div className="branch-filter-item" style={{ display: "flex", alignItems: "center", background: "#F3F4F6", padding: "10px 16px", borderRadius: 8, cursor: "pointer", gap: 8 }}>
                   <FaFilter color="#6B7280" size={14} />
                   <select
                     value={companyFilter}
@@ -238,7 +238,7 @@ const SuperAdminBranchManagement = () => {
                 </div>
 
                 {/* Status filter */}
-                <div style={{ display: "flex", alignItems: "center", background: "#F3F4F6", padding: "10px 16px", borderRadius: 8, cursor: "pointer", gap: 8 }}>
+                <div className="branch-filter-item" style={{ display: "flex", alignItems: "center", background: "#F3F4F6", padding: "10px 16px", borderRadius: 8, cursor: "pointer", gap: 8 }}>
                   <FaFilter color="#6B7280" size={14} />
                   <select
                     value={statusFilter}
@@ -253,6 +253,7 @@ const SuperAdminBranchManagement = () => {
 
                 {/* Add Button */}
                 <button
+                  className="branch-add-btn"
                   onClick={() => setShowModal(true)}
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
@@ -279,36 +280,84 @@ const SuperAdminBranchManagement = () => {
               </div>
             ) : (
               <>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr style={{ borderBottom: "2px solid #E5E7EB" }}>
-                      {["Branch Name", "Company", "Email", "Contact", "Address", "Status"].map((h) => (
-                        <th key={h} style={thStyle}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginated.map((b, i) => (
-                      <tr
-                        key={b.B_id || i}
-                        style={{ borderBottom: "1px solid #F3F4F6", cursor: "pointer" }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#F9FAFB"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
-                        onClick={() => navigate(`/branch_profile/${b.B_id}`)}
-                      >
-                        <td style={tdStyle}><b style={{ color: "#111827" }}>{b.B_name || "—"}</b></td>
-                        <td style={tdStyle}>{b.com_name || "—"}</td>
-                        <td style={tdStyle}>{b.B_email || "—"}</td>
-                        <td style={tdStyle}>{b.B_conNo || "—"}</td>
-                        <td style={tdStyle}>{b.B_address || "—"}</td>
-                        <td style={tdStyle}><StatusBadge status={b.status ?? b.B_status ?? b.branch_status} /></td>
+                {/* Desktop and Tablet Table View */}
+                <div className="branch-table-desktop branch-table-responsive">
+                  <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 720 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid #E5E7EB" }}>
+                        {["Branch Name", "Company", "Email", "Contact", "Address", "Status"].map((h) => (
+                          <th key={h} style={thStyle}>{h}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {paginated.map((b, i) => (
+                        <tr
+                          key={b.B_id || i}
+                          style={{ borderBottom: "1px solid #F3F4F6", cursor: "pointer" }}
+                          onMouseEnter={(e) => e.currentTarget.style.background = "#F9FAFB"}
+                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          onClick={() => navigate(`/branch_profile/${b.B_id}`)}
+                        >
+                          <td style={tdStyle}><b style={{ color: "#111827" }}>{b.B_name || "—"}</b></td>
+                          <td style={tdStyle}>{b.com_name || "—"}</td>
+                          <td style={tdStyle}>{b.B_email || "—"}</td>
+                          <td style={tdStyle}>{b.B_conNo || "—"}</td>
+                          <td style={tdStyle}>{b.B_address || "—"}</td>
+                          <td style={tdStyle}><StatusBadge status={b.status ?? b.B_status ?? b.branch_status} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Stacked Cards for Mobile */}
+                <div className="branch-cards-mobile">
+                  {paginated.map((b, i) => (
+                    <div
+                      key={b.B_id || i}
+                      className="branch-mobile-card"
+                      onClick={() => navigate(`/branch_profile/${b.B_id}`)}
+                    >
+                      <div className="branch-mobile-card-header">
+                        <div>
+                          <h3 className="branch-mobile-card-title">{b.B_name || "—"}</h3>
+                          {b.com_name && (
+                            <span className="branch-mobile-company-tag">
+                              <FaBuilding size={11} style={{ marginRight: 4 }} />
+                              {b.com_name}
+                            </span>
+                          )}
+                        </div>
+                        <StatusBadge status={b.status ?? b.B_status ?? b.branch_status} />
+                      </div>
+
+                      <div className="branch-mobile-card-body">
+                        {b.B_email && (
+                          <div className="branch-mobile-info-row">
+                            <FaEnvelope size={12} className="branch-mobile-icon" />
+                            <span>{b.B_email}</span>
+                          </div>
+                        )}
+                        {b.B_conNo && (
+                          <div className="branch-mobile-info-row">
+                            <FaPhone size={12} className="branch-mobile-icon" />
+                            <span>{b.B_conNo}</span>
+                          </div>
+                        )}
+                        {b.B_address && (
+                          <div className="branch-mobile-info-row">
+                            <FaMapMarkerAlt size={12} className="branch-mobile-icon" />
+                            <span>{b.B_address}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
 
                 {/* Pagination */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24, paddingTop: 16 }}>
+                <div className="branch-pagination" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 24, paddingTop: 16 }}>
                   <div style={{ color: "#6B7280", fontSize: 14 }}>
                     Showing <b>{Math.min(filtered.length, (currentPage - 1) * itemsPerPage + 1)}</b> to{" "}
                     <b>{Math.min(filtered.length, currentPage * itemsPerPage)}</b> of{" "}
@@ -316,11 +365,13 @@ const SuperAdminBranchManagement = () => {
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
+                      className="branch-page-btn"
                       style={{ ...pageBtnStyle, opacity: currentPage === 1 ? 0.5 : 1 }}
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((p) => p - 1)}
                     >Previous</button>
                     <button
+                      className="branch-page-btn"
                       style={{ ...pageBtnStyle, opacity: currentPage >= totalPages ? 0.5 : 1 }}
                       disabled={currentPage >= totalPages}
                       onClick={() => setCurrentPage((p) => p + 1)}

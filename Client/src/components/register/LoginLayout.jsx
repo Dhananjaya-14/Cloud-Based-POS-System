@@ -54,27 +54,34 @@ const LoginLayout = ({ children }) => {
   };
 
   return (
+<<<<<<< HEAD
     <div style={outerContainer}>
       <Header variant="register" />
       <div style={mainContentWrapper}>
         <div style={contentInner}>
+=======
+    <div className="login-outer-container" style={outerContainer}>
+      <Header />
+      <div className="login-main-wrapper" style={mainContentWrapper}>
+        <div className="login-content-inner" style={contentInner}>
+>>>>>>> 01459dcbd45248d48fd6e61ada7dfe101f7cc90e
           {/* Left Side: Form */}
-          <div style={leftFormCard}>
-            <div style={{ width: '100%', maxWidth: '420px' }}>
+          <div className="login-form-card" style={leftFormCard}>
+            <div className="login-form-inner" style={{ width: '100%', maxWidth: '420px' }}>
               {children}
             </div>
           </div>
 
           {/* Right Side: Gradient Panel */}
-          <div style={rightGradient}>
-            <h1 style={{ fontSize: '3rem', marginBottom: '10px' }}>Welcome Back.</h1>
+          <div className="login-right-gradient" style={rightGradient}>
+            <h1 className="login-gradient-title" style={{ fontSize: '3rem', marginBottom: '10px' }}>Welcome Back.</h1>
             <p style={{ fontSize: '1rem', opacity: 0.9 }}>To the Management System, </p>
             <p style={{ fontSize: '1rem', opacity: 0.9 }}>Please log in.</p>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
-              <span style={pillStyle}>🔒 Secure Login</span>
-              <span style={pillStyle}>⚡ Fast Access</span>
-              <span style={pillStyle}>🛡️ Easy to Use</span>
+            <div className="login-pills-container" style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
+              <span className="login-pill" style={pillStyle}>🔒 Secure Login</span>
+              <span className="login-pill" style={pillStyle}>⚡ Fast Access</span>
+              <span className="login-pill" style={pillStyle}>🛡️ Easy to Use</span>
             </div>
 
           </div>

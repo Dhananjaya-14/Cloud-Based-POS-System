@@ -56,19 +56,26 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
   };
 
   return (
+<<<<<<< HEAD
     <div style={outerContainer}>
       <Header variant="register" />
       <div style={mainContentWrapper}>
         <div style={contentInner}>
+=======
+    <div className="register-outer-container" style={outerContainer}>
+      <Header />
+      <div className="register-main-wrapper" style={mainContentWrapper}>
+        <div className="register-content-inner" style={contentInner}>
+>>>>>>> 01459dcbd45248d48fd6e61ada7dfe101f7cc90e
           {/* Left Side: Gradient Panel */}
-          <div style={leftGradient}>
-            <h1 style={{ fontSize: '3.2rem', fontWeight: '700', marginBottom: '10px' }}>Welcome</h1>
+          <div className="register-left-gradient" style={leftGradient}>
+            <h1 className="register-gradient-title" style={{ fontSize: '3.2rem', fontWeight: '700', marginBottom: '10px' }}>Welcome</h1>
             <p style={{ fontSize: '1rem', opacity: 0.9 }}>Enter your details to get started.</p>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
-              <span style={pillStyle}>🔒 Secure Login</span>
-              <span style={pillStyle}>⚡ Fast Access</span>
-              <span style={pillStyle}>🛡️ Easy to Use</span>
+            <div className="register-pills-container" style={{ display: 'flex', gap: '10px', marginTop: '30px' }}>
+              <span className="register-pill" style={pillStyle}>🔒 Secure Login</span>
+              <span className="register-pill" style={pillStyle}>⚡ Fast Access</span>
+              <span className="register-pill" style={pillStyle}>🛡️ Easy to Use</span>
             </div>
 
             <p style={{ marginTop: '40px', fontSize: '13px' }}>
@@ -81,7 +88,7 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
               </span>
             </p>
 
-            <div style={{ position: 'absolute', bottom: '40px', display: 'flex', gap: '15px' }}>
+            <div className="register-social-row" style={{ position: 'absolute', bottom: '40px', display: 'flex', gap: '15px' }}>
               <div style={socialCircle}>📧</div>
               <div style={socialCircle}>f</div>
               <div style={socialCircle}>💬</div>
@@ -89,9 +96,18 @@ const RegisterLayout = ({ children, disableScroll = false }) => {
           </div>
 
           {/* Right Side: Form */}
-          <div style={rightFormCard}>
-            <div style={{ width: '100%', maxWidth: '420px' }}>
+          <div className="register-form-card" style={rightFormCard}>
+            <div className="register-form-inner" style={{ width: '100%', maxWidth: '420px' }}>
               {children}
+              <p className="register-mobile-signin" style={{ marginTop: '20px', fontSize: '13px', color: '#666', textAlign: 'center', display: 'none' }}>
+                Already have an Account?{' '}
+                <span
+                  onClick={() => navigate('/')}
+                  style={{ color: '#0056A2', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
+                >
+                  Sign In
+                </span>
+              </p>
             </div>
           </div>
         </div>
