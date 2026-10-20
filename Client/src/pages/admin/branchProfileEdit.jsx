@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowLeft, FaSave, FaTimes } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -182,7 +182,7 @@ setBranch(branchData);
       B_name: branchData?.B_name || "",
       B_email: branchData?.B_email || "",
       B_address: branchData?.B_address || "",
-      B_conNo: branchData?.B_conNo || "",
+      B_conNo: branchData?.B_conNo || branchData?.b_conno || branchData?.B_phone || branchData?.phone || branchData?.contact || "",
       managerName: fullName,
       username: managerData?.u_email ? managerData.u_email.split("@")[0] : "",
       password: "",
@@ -261,7 +261,7 @@ navigate(`/branch_profile/${branchId}`, {
     background: "#eff1f5",
     minHeight: "100vh"
   }}>
-      <Sidebar />
+      <Sidebar isSuperAdmin={isSuperAdmin} />
 
       <div style={{
       flex: 1,

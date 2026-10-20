@@ -170,7 +170,7 @@ if (deleting) {
       background: "#eff1f5",
       minHeight: "100vh"
     }}>
-        <Sidebar />
+        <Sidebar isSuperAdmin={isSuperAdmin} />
 
         <div style={{
         flex: 1,
@@ -314,7 +314,7 @@ if (deleting) {
                       <Field label={t("fields.username", "Username")} value={username} />
                       <Field label={t("fields.address", "Address")} value={branch?.B_address} />
                       <Field label={t("fields.password", "Password")} value="**********" />
-                      <Field label={t("fields.contact_number", "Contact Number")} value={branch?.B_conNo} />
+                      <Field label={t("fields.contact_number", "Contact Number")} value={branch?.B_conNo || branch?.b_conno || branch?.B_phone || branch?.phone || branch?.contact || "—"} />
                       <Field label={t("fields.status", "Status")} value={branchStatusLabel} />
                     </div>
                   </div>

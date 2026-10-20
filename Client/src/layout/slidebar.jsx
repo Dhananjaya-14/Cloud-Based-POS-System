@@ -6,16 +6,39 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
 import { useToast, ToastContainer } from "../components/super-admin/Toast";
 
-const Slidebar = ({ isOpen = true, setIsOpen }) => {
+const Slidebar = ({ isOpen = true, setIsOpen, isSuperAdmin, superAdmin: superAdminProp }) => {
   const { t } = useTranslation();
   const location = useLocation();
-  const { features, logout } = useAuth();
+  const { features, logout, user } = useAuth();
   const { toasts, removeToast, toast } = useToast();
   const path = location.pathname;
-  const superAdmin = path.startsWith("/super-admin") || path === "/dashboard";
-  const branchAdmin = path.startsWith("/branch-admin");
+
+  const storedUser = user || (() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  })();
+  const isSuperAdminRole = storedUser?.role_id === 6;
+  const isBranchAdminRole = storedUser?.role_id === 1;
+
+  const superAdmin =
+    isSuperAdmin !== undefined
+      ? Boolean(isSuperAdmin)
+      : superAdminProp !== undefined
+      ? Boolean(superAdminProp)
+      : (isSuperAdminRole || path.startsWith("/super-admin") || path === "/dashboard");
+
+  const branchAdmin = !superAdmin && (isBranchAdminRole || path.startsWith("/branch-admin"));
   const locked = (feature) => features && features[feature] !== true;
-  const active = (target) => path === target || path.startsWith(`${target}/`);
+  const active = (target) => {
+    if (path === target || path.startsWith(`${target}/`)) return true;
+    if (superAdmin && target === "/super-admin/branches" && path.startsWith("/branch_profile")) return true;
+    if (!superAdmin && target === "/branches" && path.startsWith("/branch_profile")) return true;
+    if (superAdmin && target === "/super-admin/users" && (path.startsWith("/users") || path.startsWith("/user_profile"))) return true;
+    return false;
+  };
   const item = (icon, label, target, disabled = false, onClick) => {
     const content = <><span className="text-base">{icon}</span><span className="flex-1 text-sm">{label}</span>{disabled && <FaLock size={12} />}</>;
     if (disabled) return <button type="button" key={label} className="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-[#4B5A6E] opacity-60" onClick={() => toast.info("Upgrade Required", `Your current package doesn't include ${label}.`)}>{content}</button>;

@@ -1,46 +1,76 @@
 import React, { useEffect, useState } from "react";
-import { FaSearch, FaPlus, FaPen, FaTrash } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
-import { getUsers, getRoles, getCompanies, createUser, updateUser, deleteUserById, setAuthToken, logout } from "../../services/api";
-import { useNavigate, useLocation } from "react-router-dom";
+import {
+  getUsers,
+  getRoles,
+  getCompanies,
+  updateUser,
+  deleteUserById,
+  setAuthToken,
+  logout,
+} from "../../services/api";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
 import { connectSocket, subscribeToUserUpdates } from "../../services/socket";
+import {
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Sparkles,
+} from "lucide-react";
 
-// Helper to get initials
+// Helper to get 2-letter initials
 const getInitials = (name) => {
   if (!name) return "U";
-  return name.split(" ").map(n => n[0]).join("").substring(0, 2).toUpperCase();
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return parts[0].slice(0, 2).toUpperCase();
 };
 
 // Helper for Avatar colors based on initials
 const getAvatarColor = (initials) => {
-  const colors = ["#0284C7", "#0ea5e9", "#3b82f6", "#6366f1", "#8b5cf6", "#ec4899", "#f43f5e"];
-  const charCode = initials.charCodeAt(0) || 0;
+  const colors = [
+    "#1E293B", // dark navy
+    "#64748B", // slate gray
+    "#0F766E", // teal
+    "#D97706", // amber
+    "#475569", // blue slate
+    "#EA580C", // terracotta / orange
+    "#0F172A", // black slate
+    "#0D9488", // emerald
+  ];
+  const charCode = (initials.charCodeAt(0) || 0) + (initials.charCodeAt(1) || 0);
   return colors[charCode % colors.length];
 };
 
+// Role badge component with exact styling matching design
 const RoleBadge = ({ role }) => {
-  const roleName = role?.toLowerCase() || "user";
-  let bg = "#F3F4F6", color = "#6B7280";
+  const r = (role || "").toLowerCase().trim();
 
-  if (roleName.includes("admin")) {
-    bg = "#FEF3C7"; color = "#D97706";
-  } else if (roleName.includes("manager")) {
-    bg = "#DBEAFE"; color = "#2563EB";
-  } else if (roleName.includes("cashier")) {
-    bg = "#E0E7FF"; color = "#4F46E5";
-  } else if (roleName.includes("waiter")) {
-    bg = "#D1FAE5"; color = "#059669";
+  let badgeStyle = "bg-[#F1F3F5] text-[#64748B]";
+
+  if (r === "super admin" || r === "superadmin") {
+    badgeStyle = "bg-[#0B192C] text-white";
+  } else if (r === "admin" || r === "company admin") {
+    badgeStyle = "bg-[#E8F8F5] text-[#0D9488]";
+  } else if (r === "branch admin" || r === "branchadmin") {
+    badgeStyle = "bg-[#FEF3E8] text-[#D97706]";
+  } else if (r === "cashier") {
+    badgeStyle = "bg-[#E8F8F5] text-[#0D9488]";
+  } else if (r.includes("kitchen")) {
+    badgeStyle = "bg-[#F1F3F5] text-[#64748B]";
   }
 
   return (
-    <span style={{
-      padding: "4px 12px", borderRadius: 6, fontSize: 13, fontWeight: 600,
-      background: bg, color: color
-    }}>
+    <span
+      className={`px-3 py-1 rounded-full text-xs font-semibold inline-block whitespace-nowrap ${badgeStyle}`}
+    >
       {role || "User"}
     </span>
   );
@@ -66,7 +96,7 @@ const UserManagement = () => {
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [totalUsersCount, setTotalUsersCount] = useState(0);
-  const itemsPerPage = 6;
+  const itemsPerPage = 12;
   const totalPages = Math.max(1, Math.ceil(totalUsersCount / itemsPerPage));
 
   // Connect to socket and subscribe to user updates
@@ -77,38 +107,41 @@ const UserManagement = () => {
       return;
     }
     setAuthToken(token);
-    
-    // Connect to socket
-    const socket = connectSocket();
-    
-    // Subscribe to user updates
+
+    connectSocket();
+
     const unsubscribe = subscribeToUserUpdates({
       onUserCreated: (newUser) => {
-        console.log("🆕 New user created via socket:", newUser);
-        setUsers(prevUsers => {
-          // Check if user already exists (prevent duplicates)
-          const exists = prevUsers.some(u => u.u_id === newUser.u_id);
+        setUsers((prevUsers) => {
+          const exists = prevUsers.some((u) => u.u_id === newUser.u_id);
           if (exists) return prevUsers;
           return [...prevUsers, newUser];
         });
-        toast.success("New User Added", `${newUser.u_fname} ${newUser.u_lname} was added by ${newUser.actor_name || 'an admin'}`);
+        toast.success(
+          "New User Added",
+          `${newUser.u_fname} ${newUser.u_lname} was added`
+        );
       },
       onUserUpdated: (updatedUser) => {
-        console.log("✏️ User updated via socket:", updatedUser);
-        setUsers(prevUsers => 
-          prevUsers.map(u => 
+        setUsers((prevUsers) =>
+          prevUsers.map((u) =>
             u.u_id === updatedUser.u_id ? { ...u, ...updatedUser } : u
           )
         );
-        toast.info("User Updated", `${updatedUser.u_fname} ${updatedUser.u_lname} was updated by ${updatedUser.actor_name || 'an admin'}`);
+        toast.info(
+          "User Updated",
+          `${updatedUser.u_fname} ${updatedUser.u_lname} was updated`
+        );
       },
       onUserDeleted: (deletedUser) => {
-        console.log("🗑️ User deleted via socket:", deletedUser);
-        setUsers(prevUsers => 
-          prevUsers.filter(u => u.u_id !== deletedUser.u_id)
+        setUsers((prevUsers) =>
+          prevUsers.filter((u) => u.u_id !== deletedUser.u_id)
         );
-        toast.info("User Deleted", `${deletedUser.userName || 'A user'} was deleted by ${deletedUser.actor_name || 'an admin'}`);
-      }
+        toast.info(
+          "User Deleted",
+          `${deletedUser.userName || "A user"} was deleted`
+        );
+      },
     });
 
     if (location.state?.successMessage) {
@@ -116,7 +149,6 @@ const UserManagement = () => {
       window.history.replaceState({}, document.title);
     }
 
-    // Cleanup on unmount
     return () => {
       if (unsubscribe) unsubscribe();
     };
@@ -130,20 +162,20 @@ const UserManagement = () => {
         offset: (currentPage - 1) * itemsPerPage,
         search: searchQuery,
         companyId: selectedCompany,
-        roleId: selectedRole
+        roleId: selectedRole,
       };
       const countParams = {
         countOnly: "true",
         search: searchQuery,
         companyId: selectedCompany,
-        roleId: selectedRole
+        roleId: selectedRole,
       };
 
       const [usersData, countData, rolesData, companiesData] = await Promise.all([
         getUsers(params),
         getUsers(countParams),
-        getRoles(),
-        getCompanies().catch(() => [])
+        getRoles().catch(() => []),
+        getCompanies().catch(() => []),
       ]);
 
       setUsers(Array.isArray(usersData) ? usersData : []);
@@ -182,21 +214,19 @@ const UserManagement = () => {
       const isActive = s === "active" || s === "true" || currentStatus === true;
       const nextStatus = !isActive;
 
-      // Optimistic update locally
       setUsers((prev) =>
-        prev.map((u) =>
-          u.u_id === userId ? { ...u, u_status: nextStatus } : u
-        )
+        prev.map((u) => (u.u_id === userId ? { ...u, u_status: nextStatus } : u))
       );
 
-      // Call API
       await updateUser(userId, { u_status: nextStatus });
       toast.success("Status Updated", "User status was successfully updated.");
     } catch (err) {
       console.error("Error toggling user status:", err);
-      // Revert on error
       fetchData();
-      toast.error("Error", err.response?.data?.message || err.message || "Failed to update status");
+      toast.error(
+        "Error",
+        err.response?.data?.message || err.message || "Failed to update status"
+      );
     } finally {
       setTogglingId(null);
     }
@@ -213,25 +243,67 @@ const UserManagement = () => {
       fetchData();
     } catch (err) {
       console.error("Error deleting user:", err);
-      setErrorMessage(err.response?.data?.message || err.message || "Failed to delete user.");
-      toast.error("Error", err.response?.data?.message || err.message || "Failed to delete user.");
+      setErrorMessage(
+        err.response?.data?.message || err.message || "Failed to delete user."
+      );
+      toast.error(
+        "Error",
+        err.response?.data?.message || err.message || "Failed to delete user."
+      );
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const filteredUsers = users;
+  // CSV Export functionality
+  const handleExport = () => {
+    if (!users || users.length === 0) {
+      toast.info("No Data", "There are no users to export.");
+      return;
+    }
+    const headers = ["Name", "Email", "Company/Branch", "Role", "Status"];
+    const rows = users.map((u) => [
+      `"${(`${u.u_fname || ""} ${u.u_lname || ""}`).trim()}"`,
+      `"${u.u_email || ""}"`,
+      `"${u.company_name || u.branch_name || "—"}"`,
+      `"${u.role_name || "User"}"`,
+      `"${
+        String(u.u_status).toLowerCase() === "active" ||
+        String(u.u_status).toLowerCase() === "true" ||
+        u.u_status === true
+          ? "Active"
+          : "Inactive"
+      }"`,
+    ]);
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `users_export_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Export Complete", "Users list downloaded successfully.");
+  };
 
-  if (loading) {
+  const companiesCount =
+    companies.filter((c) => c.c_status !== false).length || companies.length || 0;
+
+  if (loading && users.length === 0) {
     return (
-      <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+      <div className="flex min-h-screen bg-[#F8F6F0]">
         <Sidebar />
-        <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+        <div className="sa-main-content flex-1 ml-[240px] flex flex-col">
           <Header title="User Management" />
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 70px)" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div className="flex-1 flex justify-center items-center min-h-[calc(100vh-70px)]">
+            <div className="flex flex-col items-center gap-4">
               <Spinner size={44} />
-              <p style={{ margin: 0, color: "#6B7280", fontWeight: 600, fontSize: 16 }}>Loading User Management...</p>
+              <p className="m-0 text-slate-500 font-medium text-sm">Loading Users...</p>
             </div>
           </div>
         </div>
@@ -240,236 +312,158 @@ const UserManagement = () => {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+    <div className="flex min-h-screen bg-[#F8F6F0]">
       <Sidebar />
 
-      <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+      <div className="sa-main-content flex-1 ml-[240px] flex flex-col min-w-0">
         <Header title="User Management" />
 
-        <div className="um-content-container" style={{ padding: "30px 40px", flex: 1 }}>
-          <div className="um-header" style={{ marginBottom: 24 }}>
-            <h1 style={{ margin: "0 0 8px", fontSize: 28, fontWeight: 700, color: "#111827" }}>
-              User Management
-            </h1>
-            <p style={{ margin: 0, color: "#4B5563", fontSize: 15 }}>
-              Manage all users and their permissions
-            </p>
-          </div>
-
-          <div
-            className="um-card"
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: "24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            }}
-          >
-            {/* Toolbar */}
-            <div
-              className="um-toolbar"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 24,
-                gap: 16,
-                flexWrap: "wrap"
-              }}
-            >
-              <div
-                className="um-filters-group"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  flex: 1,
-                  minWidth: 300,
-                  flexWrap: "wrap"
-                }}
-              >
-                <div
-                  className="um-search-box"
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    background: "#F9FAFB",
-                    border: "1px solid #E5E7EB",
-                    padding: "10px 16px",
-                    borderRadius: 8,
-                    width: "100%",
-                    maxWidth: 320,
-                  }}
-                >
-                  <FaSearch color="#9CA3AF" size={14} />
-                  <input
-                    type="text"
-                    placeholder="Search users..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      marginLeft: 10,
-                      outline: "none",
-                      width: "100%",
-                      fontSize: 14,
-                    }}
-                  />
-                </div>
-
-                {/* Company Filter Dropdown */}
-                <select
-                  className="um-filter-select"
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
-                  style={{
-                    border: "1px solid #E5E7EB",
-                    borderRadius: 8,
-                    padding: "10px 14px",
-                    fontSize: 14,
-                    background: "#F9FAFB",
-                    color: "#374151",
-                    outline: "none",
-                    minWidth: 160,
-                    cursor: "pointer"
-                  }}
-                >
-                  <option value="">All Companies</option>
-                  {companies.filter(c => c.c_status !== false).map((c) => (
-                    <option key={c.com_id} value={String(c.com_id)}>
-                      {c.com_name}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Role Filter Dropdown */}
-                <select
-                  className="um-filter-select"
-                  value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value)}
-                  style={{
-                    border: "1px solid #E5E7EB",
-                    borderRadius: 8,
-                    padding: "10px 14px",
-                    fontSize: 14,
-                    background: "#F9FAFB",
-                    color: "#374151",
-                    outline: "none",
-                    minWidth: 160,
-                    cursor: "pointer"
-                  }}
-                >
-                  <option value="">All Roles</option>
-                  {roles.map((r) => (
-                    <option key={r.role_id} value={String(r.role_id)}>
-                      {r.role_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                className="um-add-user-btn"
-                onClick={() => navigate('/super-admin/users/add')}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  background: "#0284C7",
-                  color: "#fff",
-                  border: "none",
-                  padding: "10px 20px",
-                  borderRadius: 8,
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                }}
-              >
-                <FaPlus /> Add User
-              </button>
+        <div className="p-6 md:p-8 space-y-6">
+          {/* Top Bar: Title, Subtitle, and Add User Button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 m-0">All Users</h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 m-0">
+                {totalUsersCount} user{totalUsersCount === 1 ? "" : "s"} across{" "}
+                {companiesCount} compan{companiesCount === 1 ? "y" : "ies"}
+              </p>
             </div>
 
-            {/* Table */}
-            <div className="um-table-desktop um-table-responsive">
-              <table style={{ width: "100%", minWidth: 780, borderCollapse: "collapse" }}>
+            <button
+              onClick={() => navigate("/super-admin/users/add")}
+              className="bg-[#0B192C] text-white hover:bg-slate-800 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Add New User</span>
+            </button>
+          </div>
+
+          {/* Search and Export Toolbar */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="relative w-full max-w-xs">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+              />
+            </div>
+
+            <button
+              onClick={handleExport}
+              className="border border-slate-200/90 bg-white rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer transition-colors"
+            >
+              <Sparkles size={14} className="text-slate-500" />
+              <span>Export</span>
+            </button>
+          </div>
+
+          {/* Main Users Table Card */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full border-collapse text-left">
                 <thead>
-                  <tr style={{ borderBottom: "2px solid #E5E7EB" }}>
-                    <th style={thStyle}>NAME</th>
-                    <th style={thStyle}>EMAIL</th>
-                    <th style={thStyle}>COMPANY</th>
-                    <th style={thStyle}>ROLE</th>
-                    <th style={thStyle}>STATUS</th>
-                    <th style={thStyle}>ACTIONS</th>
+                  <tr className="border-b border-slate-100">
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      USER
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      COMPANY / BRANCH
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      ROLE
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      STATUS
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">
+                      ACTIONS
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan="6" style={{ padding: 20 }}>
-                        <Spinner />
-                      </td>
-                    </tr>
-                  ) : filteredUsers.length > 0 ? (
-                    filteredUsers.map((user, i) => {
-                      const fullName = `${user.u_fname} ${user.u_lname}`;
+                  {users.length > 0 ? (
+                    users.map((user, i) => {
+                      const fullName = `${user.u_fname || ""} ${user.u_lname || ""}`.trim() || "User";
                       const initials = getInitials(fullName);
                       const avatarColor = getAvatarColor(initials);
+                      const s = String(user.u_status || "").toLowerCase();
+                      const isActive =
+                        s === "active" || s === "true" || user.u_status === true;
 
                       return (
                         <tr
                           key={user.u_id || i}
-                          onClick={() => navigate(`/super-admin/users/${user.u_id}/edit`)}
-                          style={{ borderBottom: "1px solid #F3F4F6", cursor: "pointer", transition: "background 0.2s" }}
-                          onMouseEnter={(e) => e.currentTarget.style.background = "#F9FAFB"}
-                          onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
+                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors"
                         >
-                          <td style={tdStyle}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                              <div style={{
-                                width: 36, height: 36, borderRadius: 8, background: avatarColor,
-                                color: "#fff", display: "flex", alignItems: "center", justifyContent: "center",
-                                fontSize: 14, fontWeight: 600
-                              }}>
+                          {/* Column 1: USER (Avatar + Name & Email) */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3.5">
+                              <div
+                                style={{ backgroundColor: avatarColor }}
+                                className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                              >
                                 {initials}
                               </div>
-                              <span style={{ fontWeight: 600, color: "#111827" }}>{fullName}</span>
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-sm font-bold text-slate-900 leading-tight truncate">
+                                  {fullName}
+                                </span>
+                                <span className="text-xs text-slate-400 mt-0.5 leading-tight truncate">
+                                  {user.u_email || "Not Provided"}
+                                </span>
+                              </div>
                             </div>
                           </td>
-                          <td style={tdStyle}>{user.u_email || "—"}</td>
-                          <td style={tdStyle}>{user.company_name || "—"}</td>
-                          <td style={tdStyle}>
+
+                          {/* Column 2: COMPANY / BRANCH */}
+                          <td className="px-6 py-4">
+                            <span className="text-sm font-medium text-slate-700">
+                              {user.company_name || user.branch_name || "—"}
+                            </span>
+                          </td>
+
+                          {/* Column 3: ROLE */}
+                          <td className="px-6 py-4">
                             <RoleBadge role={user.role_name} />
                           </td>
-                          <td style={tdStyle} onClick={(e) => e.stopPropagation()}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+
+                          {/* Column 4: STATUS (Toggle Switch) */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
                               <ToggleSwitch
-                                checked={String(user.u_status !== undefined ? user.u_status : "Active").toLowerCase() === "active" || String(user.u_status).toLowerCase() === "true" || user.u_status === true}
-                                onChange={() => handleToggleStatus(user.u_id, user.u_status)}
+                                checked={isActive}
+                                onChange={() =>
+                                  handleToggleStatus(user.u_id, user.u_status)
+                                }
                                 disabled={togglingId === user.u_id}
                               />
-                              {togglingId === user.u_id && <Spinner size={16} />}
+                              {togglingId === user.u_id && (
+                                <Spinner size={14} />
+                              )}
                             </div>
                           </td>
-                          <td style={tdStyle}>
-                            <div style={{ display: "flex", gap: 10 }}>
+
+                          {/* Column 5: ACTIONS (Edit & Delete) */}
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigate(`/super-admin/users/${user.u_id}/edit`);
-                                }}
-                                style={iconButtonStyle}
+                                onClick={() =>
+                                  navigate(`/super-admin/users/${user.u_id}/edit`)
+                                }
+                                title="Edit User"
+                                className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:bg-slate-50 transition-colors bg-white cursor-pointer"
                               >
-                                <FaPen size={12} color="#0EA5E9" />
+                                <Pencil size={13} strokeWidth={2} />
                               </button>
                               <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openDeleteModal(user);
-                                }}
-                                style={{ ...iconButtonStyle, background: "#FEF2F2" }}
+                                onClick={() => openDeleteModal(user)}
+                                title="Delete User"
+                                className="w-7 h-7 rounded-lg border border-red-200/80 flex items-center justify-center text-red-500 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition-colors bg-white cursor-pointer"
                               >
-                                <FaTrash size={12} color="#EF4444" />
+                                <Trash2 size={13} strokeWidth={2} />
                               </button>
                             </div>
                           </td>
@@ -478,7 +472,7 @@ const UserManagement = () => {
                     })
                   ) : (
                     <tr>
-                      <td colSpan="6" style={{ padding: 20, textAlign: "center" }}>
+                      <td colSpan={5} className="py-12 text-center text-slate-400 text-sm">
                         No users found
                       </td>
                     </tr>
@@ -487,112 +481,34 @@ const UserManagement = () => {
               </table>
             </div>
 
-            {/* Stacked Cards for Mobile */}
-            <div className="um-cards-mobile">
-              {loading ? (
-                <div style={{ display: "flex", justifyContent: "center", padding: 20 }}>
-                  <Spinner />
-                </div>
-              ) : filteredUsers.length > 0 ? (
-                filteredUsers.map((user, i) => {
-                  const fullName = `${user.u_fname} ${user.u_lname}`;
-                  const initials = getInitials(fullName);
-                  const avatarColor = getAvatarColor(initials);
-                  const isActive = String(user.u_status !== undefined ? user.u_status : "Active").toLowerCase() === "active" || String(user.u_status).toLowerCase() === "true" || user.u_status === true;
+            {/* Pagination Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+              <span className="text-xs text-slate-500">
+                Showing{" "}
+                <b className="text-slate-700">
+                  {totalUsersCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
+                </b>{" "}
+                to{" "}
+                <b className="text-slate-700">
+                  {Math.min(currentPage * itemsPerPage, totalUsersCount)}
+                </b>{" "}
+                of <b className="text-slate-700">{totalUsersCount}</b> users
+              </span>
 
-                  return (
-                    <div
-                      key={user.u_id || i}
-                      className="um-mobile-card"
-                      onClick={() => navigate(`/super-admin/users/${user.u_id}/edit`)}
-                    >
-                      <div className="um-mobile-card-header">
-                        <div className="um-mobile-user-info">
-                          <div className="um-mobile-avatar" style={{ background: avatarColor }}>
-                            {initials}
-                          </div>
-                          <div>
-                            <div className="um-mobile-name">{fullName}</div>
-                            {user.company_name && (
-                              <div className="um-mobile-company">{user.company_name}</div>
-                            )}
-                          </div>
-                        </div>
-                        <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <ToggleSwitch
-                            checked={isActive}
-                            onChange={() => handleToggleStatus(user.u_id, user.u_status)}
-                            disabled={togglingId === user.u_id}
-                          />
-                          {togglingId === user.u_id && <Spinner size={16} />}
-                        </div>
-                      </div>
-
-                      <div className="um-mobile-card-sub">
-                        <RoleBadge role={user.role_name} />
-                        {user.u_email && (
-                          <span style={{ fontSize: 13, color: "#6B7280" }}>{user.u_email}</span>
-                        )}
-                      </div>
-
-                      <div className="um-mobile-card-actions">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigate(`/super-admin/users/${user.u_id}/edit`);
-                          }}
-                          style={iconButtonStyle}
-                          aria-label="Edit user"
-                        >
-                          <FaPen size={12} color="#0EA5E9" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openDeleteModal(user);
-                          }}
-                          style={{ ...iconButtonStyle, background: "#FEF2F2" }}
-                          aria-label="Delete user"
-                        >
-                          <FaTrash size={12} color="#EF4444" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div style={{ textAlign: "center", padding: "30px 16px", color: "#6B7280" }}>
-                  No users found
-                </div>
-              )}
-            </div>
-
-            {/* Pagination */}
-            <div
-              className="um-pagination"
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 24,
-                paddingTop: 16,
-              }}
-            >
-              <div style={{ color: "#6B7280", fontSize: 14 }}>
-                Showing <b>{totalUsersCount === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}</b> to <b>{Math.min(currentPage * itemsPerPage, totalUsersCount)}</b> of <b>{totalUsersCount}</b> users
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button 
-                  style={{ ...pageBtnStyle, opacity: currentPage === 1 ? 0.5 : 1, cursor: currentPage === 1 ? "not-allowed" : "pointer" }}
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <button
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors cursor-pointer"
                 >
                   Previous
                 </button>
-                <button 
-                  style={{ ...pageBtnStyle, opacity: currentPage >= totalPages ? 0.5 : 1, cursor: currentPage >= totalPages ? "not-allowed" : "pointer" }}
+                <button
                   disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                  onClick={() =>
+                    setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                  }
+                  className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors cursor-pointer"
                 >
                   Next
                 </button>
@@ -602,63 +518,45 @@ const UserManagement = () => {
         </div>
       </div>
 
-      {/* Delete User Modal */}
+      {/* Delete User Confirmation Modal */}
       {isDeleteModalOpen && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.5)", zIndex: 100,
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "#fff", width: 440, borderRadius: 16, padding: "24px 32px",
-            position: "relative", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-          }}>
-            <button
-              onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
-              disabled={isDeleting}
-              style={{ position: "absolute", top: 16, right: 16, background: "#F3F4F6", border: "none", borderRadius: "8px", width: 32, height: 32, cursor: isDeleting ? "not-allowed" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 18, color: "#6B7280", lineHeight: 1 }}>&times;</span>
-            </button>
-
-            <h2 style={{ margin: "0 0 24px", fontSize: 20, fontWeight: 700, color: "#111827" }}>Delete User</h2>
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl relative">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={22} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 m-0 mb-1.5">
+              Delete User?
+            </h3>
+            <p className="text-xs text-slate-500 m-0 mb-6 leading-relaxed">
+              Are you sure you want to delete{" "}
+              <strong className="text-slate-700 font-semibold">
+                "{userToDelete?.u_fname} {userToDelete?.u_lname}"
+              </strong>
+              ? This action cannot be undone.
+            </p>
 
             {errorMessage && (
-              <div style={{
-                padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FEE2E2",
-                color: "#EF4444", borderRadius: 8, fontSize: 13, marginBottom: 16
-              }}>
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs mb-4">
                 {errorMessage}
               </div>
             )}
 
-            <p style={{ margin: "0 0 32px", fontSize: 14, color: "#4B5563", lineHeight: 1.5 }}>
-              Are you sure you want to delete this user?<br />
-              This action cannot be undone and will permanently remove all user data.
-            </p>
-
-            <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
+            <div className="flex items-center gap-3">
               <button
-                onClick={() => setIsDeleteModalOpen(false)}
+                onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
                 disabled={isDeleting}
-                style={{ padding: "10px 20px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#111827", fontSize: 14, fontWeight: 600, cursor: isDeleting ? "not-allowed" : "pointer" }}
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteUser}
                 disabled={isDeleting}
-                style={{
-                  padding: "10px 20px", borderRadius: 8, border: "none",
-                  background: "#EF4444", color: "#fff", fontSize: 14, fontWeight: 600,
-                  cursor: isDeleting ? "not-allowed" : "pointer", opacity: isDeleting ? 0.7 : 1,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8
-                }}
+                className="flex-1 h-10 rounded-xl bg-red-600 text-white text-xs font-semibold hover:bg-red-700 cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                {isDeleting && <Spinner size={14} color="#ffffff" />}
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting && <Spinner size={14} color="#fff" />}
+                <span>{isDeleting ? "Deleting..." : "Delete User"}</span>
               </button>
             </div>
           </div>
@@ -668,45 +566,6 @@ const UserManagement = () => {
       <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
-};
-
-const thStyle = {
-  padding: "16px 10px",
-  textAlign: "left",
-  fontSize: 12,
-  fontWeight: 700,
-  color: "#6B7280",
-  letterSpacing: "0.5px"
-};
-
-const tdStyle = {
-  padding: "16px 10px",
-  fontSize: 14,
-  color: "#4B5563",
-  verticalAlign: "middle",
-};
-
-const iconButtonStyle = {
-  background: "#F0F9FF",
-  border: "1px solid #E0F2FE",
-  borderRadius: 6,
-  width: 32,
-  height: 32,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-};
-
-const pageBtnStyle = {
-  background: "#fff",
-  border: "1px solid #E5E7EB",
-  padding: "8px 16px",
-  borderRadius: 6,
-  fontSize: 14,
-  color: "#374151",
-  cursor: "pointer",
-  fontWeight: 500,
 };
 
 export default UserManagement;

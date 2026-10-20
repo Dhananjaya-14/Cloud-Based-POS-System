@@ -1,38 +1,79 @@
 import React, { useEffect, useState } from "react";
-import { FaSearch, FaFilter, FaPlus, FaPen, FaTrash } from "react-icons/fa";
+import { useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
-import { getCompanies, createCompany, updateCompany, deleteCompany, getPackages, getCurrentUser, setAuthToken, logout } from "../../services/api";
-import { useNavigate, useLocation } from "react-router-dom";
+import {
+  getCompanies,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+  getPackages,
+  setAuthToken,
+  logout,
+} from "../../services/api";
 import ToggleSwitch from "../../components/super-admin/ToggleSwitch";
 import Spinner from "../../components/super-admin/Spinner";
 import { useToast, ToastContainer } from "../../components/super-admin/Toast";
-import { connectSocket, subscribeToCompanyUpdates, SOCKET_EVENTS } from "../../services/socket";
+import { connectSocket, subscribeToCompanyUpdates } from "../../services/socket";
+import {
+  Search,
+  Plus,
+  Pencil,
+  Trash2,
+  Building2,
+  Check,
+  XCircle,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^07[0-9]{8}$/;
 
-const StatusBadge = ({ status }) => {
-  const statusStr = String(status || "").toLowerCase();
-  const isActive = statusStr === "active" || statusStr === "true";
-  return (
-    <span
-      style={{
-        padding: "4px 14px",
-        borderRadius: 12,
-        fontSize: 12,
-        fontWeight: 600,
-        background: isActive ? "#DCFCE7" : "#FEE2E2",
-        color: isActive ? "#16A34A" : "#EF4444",
-      }}
-    >
-      {isActive ? "Active" : "Inactive"}
-    </span>
-  );
+// Helper to get 2-letter initials
+const getInitials = (name) => {
+  if (!name) return "CO";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return parts[0].slice(0, 2).toUpperCase();
 };
+
+// Helper for Avatar colors
+const getAvatarColor = (initials) => {
+  const colors = [
+    "#1E293B",
+    "#0F766E",
+    "#D97706",
+    "#475569",
+    "#EA580C",
+    "#0D9488",
+    "#0F172A",
+    "#64748B",
+  ];
+  const charCode = (initials.charCodeAt(0) || 0) + (initials.charCodeAt(1) || 0);
+  return colors[charCode % colors.length];
+};
+
+// Summary Card
+const StatCard = ({ icon, label, value, iconBg, iconColor }) => (
+  <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex items-center gap-4 transition-all">
+    <div
+      className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}
+    >
+      {icon}
+    </div>
+    <div className="flex flex-col">
+      <span className="text-xs font-medium text-slate-500 mb-0.5">{label}</span>
+      <span className="text-2xl font-bold text-slate-900 tracking-tight">{value}</span>
+    </div>
+  </div>
+);
 
 const HotelManagement = () => {
   const [companies, setCompanies] = useState([]);
+  const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
@@ -44,121 +85,72 @@ const HotelManagement = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [modalError, setModalError] = useState("");
-  const [deleteError, setDeleteError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [togglingId, setTogglingId] = useState(null);
   const { toasts, removeToast, toast } = useToast();
-  const [packages, setPackages] = useState([]);
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
-  const [formData, setFormData] = useState({
+
+  const defaultFormData = () => ({
     id: null,
     name: "",
     location: "",
     email: "",
     phone: "",
-    date: "",
+    date: new Date().toISOString().slice(0, 10),
     status: true,
     package_id: "",
     language_code: "en",
   });
+
+  const [formData, setFormData] = useState(defaultFormData());
   const navigate = useNavigate();
   const location = useLocation();
 
-  // WebSocket subscription cleanup
+  // WebSocket subscription
   useEffect(() => {
-    // Connect to socket
-    const socket = connectSocket();
-    
-    // Subscribe to company updates
+    connectSocket();
+
     const unsubscribe = subscribeToCompanyUpdates({
       onCompanyCreated: (newCompany) => {
-        console.log("Company created via WebSocket:", newCompany);
-        setCompanies(prev => [...prev, newCompany]);
-        toast.success("New Company Added", `"${newCompany.com_name}" was added by another admin.`);
+        setCompanies((prev) => [...prev, newCompany]);
       },
       onCompanyUpdated: (updatedCompany) => {
-        console.log("Company updated via WebSocket:", updatedCompany);
-        setCompanies(prev => 
-          prev.map(c => 
+        setCompanies((prev) =>
+          prev.map((c) =>
             c.com_id === updatedCompany.com_id ? updatedCompany : c
           )
         );
-        toast.info("Company Updated", `"${updatedCompany.com_name}" was updated by another admin.`);
       },
       onCompanyDeleted: (deletedCompany) => {
-        console.log("Company deleted via WebSocket:", deletedCompany);
-        setCompanies(prev => 
-          prev.filter(c => c.com_id !== deletedCompany.com_id)
+        setCompanies((prev) =>
+          prev.filter((c) => c.com_id !== deletedCompany.com_id)
         );
-        toast.warning("Company Deleted", `"${deletedCompany.com_name}" was deleted by another admin.`);
-      }
+      },
     });
 
-    // Cleanup subscription on unmount
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
-      }
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 
-  const handleToggleStatus = async (companyId, currentStatus) => {
-    setTogglingId(companyId);
+  const fetchData = async () => {
     try {
-      const statusStr = String(currentStatus || "").toLowerCase();
-      const isActive = statusStr === "active" || statusStr === "true" || currentStatus === true;
-      const nextStatus = !isActive;
-
-      // Optimistic update locally
-      setCompanies((prev) =>
-        prev.map((c) =>
-          c.com_id === companyId ? { ...c, c_status: nextStatus } : c
-        )
-      );
-
-      // Call API
-      await updateCompany(companyId, { c_status: nextStatus });
-      toast.success("Status Updated", `Company status changed to ${nextStatus ? "Active" : "Inactive"}`);
+      setLoading(true);
+      const [companiesData, packagesData] = await Promise.all([
+        getCompanies(),
+        getPackages(),
+      ]);
+      setCompanies(Array.isArray(companiesData) ? companiesData : []);
+      setPackages(Array.isArray(packagesData) ? packagesData : []);
     } catch (err) {
-      console.error("Error toggling company status:", err);
-      // Revert on error
-      fetchData();
-      toast.error("Update Failed", err.response?.data?.message || err.message || "Failed to update status");
+      console.error("Fetch error:", err);
+      if (err.response?.status === 401) {
+        logout();
+        navigate("/login");
+      }
     } finally {
-      setTogglingId(null);
+      setLoading(false);
     }
-  };
-
-  const openAddModal = () => {
-    const today = new Date().toISOString().slice(0, 10);
-    setFormData({ id: null, name: "", location: "", email: "", phone: "", date: today, status: true, package_id: "", language_code: "en" });
-    setModalMode("add");
-    setModalError("");
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (company) => {
-    setFormData({
-      id: company.com_id,
-      name: company.com_name || "",
-      location: company.location || "",
-      email: company.c_email || "",
-      phone: company.phone || "",
-      date: company.reg_date ? new Date(company.reg_date).toISOString().slice(0, 10) : "",
-      status: company.c_status === true || String(company.c_status).toLowerCase() === "active",
-      package_id: company.package_id || "",
-      language_code: company.language_code || "en",
-    });
-    setModalMode("edit");
-    setModalError("");
-    setIsModalOpen(true);
-  };
-
-  const openDeleteModal = (company) => {
-    setCompanyToDelete(company);
-    setDeleteError("");
-    setIsDeleteModalOpen(true);
   };
 
   useEffect(() => {
@@ -176,20 +168,72 @@ const HotelManagement = () => {
     }
   }, [navigate, location.state]);
 
-  const fetchData = async () => {
+  const handleToggleStatus = async (companyId, currentStatus) => {
+    setTogglingId(companyId);
     try {
-      const [companiesData, packagesData] = await Promise.all([getCompanies(), getPackages()]);
-      setCompanies(Array.isArray(companiesData) ? companiesData : []);
-      setPackages(Array.isArray(packagesData) ? packagesData : []);
+      const statusStr = String(currentStatus || "").toLowerCase();
+      const isActive =
+        statusStr === "active" || statusStr === "true" || currentStatus === true;
+      const nextStatus = !isActive;
+
+      setCompanies((prev) =>
+        prev.map((c) =>
+          c.com_id === companyId ? { ...c, c_status: nextStatus } : c
+        )
+      );
+
+      await updateCompany(companyId, { c_status: nextStatus });
+      toast.success(
+        "Status Updated",
+        `Company status changed to ${nextStatus ? "Active" : "Inactive"}`
+      );
     } catch (err) {
-      console.error("Fetch error:", err);
-      if (err.response?.status === 401) {
-        logout();
-        navigate("/login");
-      }
+      console.error("Error toggling company status:", err);
+      fetchData();
+      toast.error(
+        "Update Failed",
+        err.response?.data?.message || err.message || "Failed to update status"
+      );
     } finally {
-      setLoading(false);
+      setTogglingId(null);
     }
+  };
+
+  const openAddModal = () => {
+    setFormData(defaultFormData());
+    setModalMode("add");
+    setModalError("");
+    setEmailError("");
+    setPhoneError("");
+    setIsModalOpen(true);
+  };
+
+  const openEditModal = (company) => {
+    setFormData({
+      id: company.com_id,
+      name: company.com_name || "",
+      location: company.location || "",
+      email: company.c_email || "",
+      phone: company.phone || "",
+      date: company.reg_date
+        ? new Date(company.reg_date).toISOString().slice(0, 10)
+        : "",
+      status:
+        company.c_status === true ||
+        String(company.c_status).toLowerCase() === "active",
+      package_id: company.package_id || "",
+      language_code: company.language_code || "en",
+    });
+    setModalMode("edit");
+    setModalError("");
+    setEmailError("");
+    setPhoneError("");
+    setIsModalOpen(true);
+  };
+
+  const openDeleteModal = (company) => {
+    setCompanyToDelete(company);
+    setIsDeleteModalOpen(true);
   };
 
   const handleSave = async () => {
@@ -222,10 +266,12 @@ const HotelManagement = () => {
     }
 
     if (!PHONE_RE.test(formData.phone.trim())) {
-      setPhoneError("Phone number must be 10 digits and start with 07 (e.g. 0771234567).");
+      setPhoneError(
+        "Phone number must be 10 digits and start with 07 (e.g. 0771234567)."
+      );
       return;
     }
-    
+
     const today = new Date().toISOString().slice(0, 10);
     if (modalMode === "add" && formData.date < today) {
       setModalError("Registered date cannot be in the past.");
@@ -246,98 +292,140 @@ const HotelManagement = () => {
         language_code: formData.language_code || "en",
       };
 
-      let response;
       if (modalMode === "add") {
-        response = await createCompany(payload);
+        const response = await createCompany(payload);
         toast.success("Company Created", `"${formData.name}" was successfully added.`);
-        // Optimistically add to list
-        setCompanies(prev => [...prev, response]);
+        setCompanies((prev) => [...prev, response]);
       } else {
-        response = await updateCompany(formData.id, payload);
+        const response = await updateCompany(formData.id, payload);
         toast.success("Company Updated", `"${formData.name}" details were saved.`);
-        // Optimistically update in list
-        setCompanies(prev => 
-          prev.map(c => 
-            c.com_id === formData.id ? response : c
-          )
+        setCompanies((prev) =>
+          prev.map((c) => (c.com_id === formData.id ? response : c))
         );
       }
 
       setIsModalOpen(false);
-      setIsSaving(false);
-      // Refresh data to ensure consistency
       fetchData();
-      setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error("Error saving company:", err);
-      const errorMsg = err.response?.data?.message || err.message || "Failed to save company.";
+      const errorMsg =
+        err.response?.data?.message || err.message || "Failed to save company.";
       setModalError(errorMsg);
       toast.error("Save Failed", errorMsg);
-      // Revert optimistic update by refreshing
-      await fetchData();
+      fetchData();
     } finally {
       setIsSaving(false);
     }
   };
 
-  const filteredCompanies = companies.filter(
-    (c) => {
-      const searchName = (c.com_name || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchLocation = (c.location || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchEmail = (c.c_email || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchPhone = (c.phone || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const searchMatch = searchName || searchLocation || searchEmail || searchPhone;
-
-      const s = String(c.c_status || "").toLowerCase();
-      const isActive = s === "active" || s === "true" || c.c_status === true;
-
-      const statusMatch = statusFilter === "All Status" ||
-        (statusFilter === "Active" && isActive) ||
-        (statusFilter === "Inactive" && !isActive);
-
-      return searchMatch && statusMatch;
-    }
-  );
-
-  const itemsPerPage = 8;
-  const totalPages = Math.ceil(filteredCompanies.length / itemsPerPage);
-  const currentCompanies = filteredCompanies.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
   const handleDelete = async () => {
     if (!companyToDelete?.com_id) return;
     setIsDeleting(true);
-    setDeleteError("");
     try {
       await deleteCompany(companyToDelete.com_id);
       setIsDeleteModalOpen(false);
       toast.success("Company Deleted", `"${companyToDelete?.com_name}" was removed.`);
-      // Optimistically remove from list
-      setCompanies(prev => 
-        prev.filter(c => c.com_id !== companyToDelete.com_id)
+      setCompanies((prev) =>
+        prev.filter((c) => c.com_id !== companyToDelete.com_id)
       );
-      await fetchData(); // Refresh to ensure consistency
+      fetchData();
     } catch (err) {
       console.error("Error deleting company:", err);
-      const errorMsg = err.response?.data?.message || err.message || "Failed to delete company.";
-      setDeleteError(errorMsg);
+      const errorMsg =
+        err.response?.data?.message || err.message || "Failed to delete company.";
       toast.error("Delete Failed", errorMsg);
-      // Revert by refreshing
-      await fetchData();
+      fetchData();
     } finally {
       setIsDeleting(false);
     }
   };
 
-  if (loading) {
+  // CSV Export
+  const handleExport = () => {
+    if (!companies || companies.length === 0) {
+      toast.info("No Data", "There are no companies to export.");
+      return;
+    }
+    const headers = ["Company Name", "Location", "Email", "Phone", "Package", "Status"];
+    const rows = companies.map((c) => [
+      `"${c.com_name || ""}"`,
+      `"${c.location || ""}"`,
+      `"${c.c_email || ""}"`,
+      `"${c.phone || ""}"`,
+      `"${packages.find((p) => p.package_id === c.package_id)?.package_name || "—"}"`,
+      `"${
+        String(c.c_status).toLowerCase() === "active" ||
+        String(c.c_status).toLowerCase() === "true" ||
+        c.c_status === true
+          ? "Active"
+          : "Inactive"
+      }"`,
+    ]);
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
+      `companies_export_${new Date().toISOString().slice(0, 10)}.csv`
+    );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Export Complete", "Companies list downloaded successfully.");
+  };
+
+  // Filters and pagination
+  const filteredCompanies = companies.filter((c) => {
+    const q = searchQuery.toLowerCase();
+    const searchMatch =
+      !q ||
+      (c.com_name || "").toLowerCase().includes(q) ||
+      (c.location || "").toLowerCase().includes(q) ||
+      (c.c_email || "").toLowerCase().includes(q) ||
+      (c.phone || "").toLowerCase().includes(q);
+
+    const s = String(c.c_status || "").toLowerCase();
+    const isActive = s === "active" || s === "true" || c.c_status === true;
+
+    const statusMatch =
+      statusFilter === "All Status" ||
+      (statusFilter === "Active" && isActive) ||
+      (statusFilter === "Inactive" && !isActive);
+
+    return searchMatch && statusMatch;
+  });
+
+  const itemsPerPage = 8;
+  const totalPages = Math.max(1, Math.ceil(filteredCompanies.length / itemsPerPage));
+  const currentCompanies = filteredCompanies.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalCompaniesCount = companies.length;
+  const activeCompaniesCount = companies.filter(
+    (c) =>
+      String(c.c_status).toLowerCase() === "active" ||
+      String(c.c_status).toLowerCase() === "true" ||
+      c.c_status === true
+  ).length;
+  const inactiveCompaniesCount = totalCompaniesCount - activeCompaniesCount;
+
+  if (loading && companies.length === 0) {
     return (
-      <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+      <div className="flex min-h-screen bg-[#F8F6F0]">
         <Sidebar />
-        <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+        <div className="sa-main-content flex-1 ml-[240px] flex flex-col">
           <Header title="Company Management" />
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 70px)" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div className="flex-1 flex justify-center items-center min-h-[calc(100vh-70px)]">
+            <div className="flex flex-col items-center gap-4">
               <Spinner size={44} />
-              <p style={{ margin: 0, color: "#6B7280", fontWeight: 600, fontSize: 16 }}>Loading Company Management...</p>
+              <p className="m-0 text-slate-500 font-medium text-sm">
+                Loading Companies...
+              </p>
             </div>
           </div>
         </div>
@@ -346,227 +434,310 @@ const HotelManagement = () => {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+    <div className="flex min-h-screen bg-[#F8F6F0]">
       <Sidebar />
 
-      <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+      <div className="sa-main-content flex-1 ml-[240px] flex flex-col min-w-0">
         <Header title="Company Management" />
 
-        <div style={{ padding: "30px 40px", flex: 1 }}>
-          <div style={{ marginBottom: 24 }}>
-            <h1 style={{ margin: "0 0 8px", fontSize: 28, fontWeight: 700, color: "#111827" }}>
-              Company Management
-            </h1>
-            <p style={{ margin: 0, color: "#4B5563", fontSize: 15 }}>
-              Manage all companies and their subscriptions
-            </p>
+        <div className="p-6 md:p-8 space-y-6">
+          {/* ── Top Header ─────────────────────────────────────────── */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 m-0">
+                Company Management
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 m-0">
+                {totalCompaniesCount} compan{totalCompaniesCount === 1 ? "y" : "ies"}{" "}
+                registered on the platform
+              </p>
+            </div>
+
+            <button
+              onClick={openAddModal}
+              className="bg-[#0B192C] text-white hover:bg-slate-800 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer self-start sm:self-auto"
+            >
+              <Plus size={16} strokeWidth={2.5} />
+              <span>Add New Company</span>
+            </button>
           </div>
 
-          {successMessage && (
-            <div style={{
-              padding: "12px 18px",
-              background: successMessage.toLowerCase().includes("deleted") ? "#FEF2F2" : "#ECFDF5",
-              border: successMessage.toLowerCase().includes("deleted") ? "1px solid #FEE2E2" : "1px solid #A7F3D0",
-              color: successMessage.toLowerCase().includes("deleted") ? "#EF4444" : "#065F46",
-              borderRadius: 8, fontSize: 14, fontWeight: 600,
-              marginBottom: 20, display: "flex", alignItems: "center", gap: 8
-            }}>
-              <span style={{ fontSize: 16 }}>{successMessage.toLowerCase().includes("deleted") ? "🗑️" : "✓"}</span>
-              {successMessage}
-            </div>
-          )}
+          {/* ── Summary Stat Cards (3 Cards) ─────────────────────────── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+            <StatCard
+              icon={<Building2 size={18} strokeWidth={2} />}
+              label="Total Companies"
+              value={totalCompaniesCount}
+              iconBg="bg-[#F0F3F6]"
+              iconColor="text-[#64748B]"
+            />
+            <StatCard
+              icon={<Check size={18} strokeWidth={2.5} />}
+              label="Active Companies"
+              value={activeCompaniesCount}
+              iconBg="bg-[#E8F8F0]"
+              iconColor="text-[#16A34A]"
+            />
+            <StatCard
+              icon={<XCircle size={18} strokeWidth={2} />}
+              label="Inactive Companies"
+              value={inactiveCompaniesCount}
+              iconBg="bg-[#FEE2E2]"
+              iconColor="text-[#EF4444]"
+            />
+          </div>
 
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 12,
-              padding: "24px",
-              boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-            }}
-          >
-            {/* Toolbar */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 24,
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  background: "#F3F4F6",
-                  padding: "10px 16px",
-                  borderRadius: 8,
-                  width: 320,
-                }}
-              >
-                <FaSearch color="#9CA3AF" size={14} />
+          {/* ── Search & Filter Toolbar ─────────────────────────────── */}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3 flex-1 min-w-[280px] flex-wrap">
+              {/* Search */}
+              <div className="relative w-full max-w-xs">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <input
                   type="text"
                   placeholder="Search companies..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    border: "none",
-                    background: "transparent",
-                    marginLeft: 10,
-                    outline: "none",
-                    width: "100%",
-                    fontSize: 14,
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
                   }}
+                  className="w-full bg-white border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
                 />
               </div>
 
-              <div style={{ display: "flex", gap: 16 }}>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    background: "#F3F4F6",
-                    padding: "10px 16px",
-                    borderRadius: 8,
-                    cursor: "pointer",
-                    gap: 8,
-                  }}
-                >
-                  <FaFilter color="#6B7280" size={14} />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    style={{
-                      border: "none",
-                      background: "transparent",
-                      outline: "none",
-                      color: "#374151",
-                      fontSize: 14,
-                      cursor: "pointer",
-                    }}
-                  >
-                    <option>All Status</option>
-                    <option>Active</option>
-                    <option>Inactive</option>
-                  </select>
-                </div>
-
-                <button
-                  onClick={openAddModal}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    background: "#0ea5e9",
-                    color: "#fff",
-                    border: "none",
-                    padding: "10px 20px",
-                    borderRadius: 8,
-                    fontSize: 14,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  <FaPlus /> Add New Company
-                </button>
-              </div>
+              {/* Status Filter */}
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className="bg-white border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-700 outline-none focus:border-teal-500 cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+              >
+                <option>All Status</option>
+                <option>Active</option>
+                <option>Inactive</option>
+              </select>
             </div>
 
-            {/* Table */}
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #E5E7EB" }}>
-                  <th style={thStyle}>Company Name</th>
-                  <th style={thStyle}>Location</th>
-                  <th style={thStyle}>Contact</th>
-                  <th style={thStyle}>Registered Date</th>
-                  <th style={thStyle}>Status</th>
-                  <th style={thStyle}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="6" style={{ padding: 20 }}>
-                      <Spinner />
-                    </td>
+            {/* Export Button */}
+            <button
+              onClick={handleExport}
+              className="border border-slate-200/90 bg-white rounded-xl px-3.5 py-2 text-xs sm:text-sm font-medium text-slate-700 hover:bg-slate-50 flex items-center gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.02)] cursor-pointer transition-colors"
+            >
+              <Sparkles size={14} className="text-slate-500" />
+              <span>Export</span>
+            </button>
+          </div>
+
+          {/* ── Companies Table Card ─────────────────────────────────── */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] overflow-hidden">
+            <div className="overflow-x-auto w-full">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-slate-100">
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      COMPANY
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      LOCATION
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      CONTACT
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      PACKAGE
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      REGISTERED DATE
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                      STATUS
+                    </th>
+                    <th className="px-6 py-4 text-[11px] font-semibold text-slate-400 uppercase tracking-wider text-right">
+                      ACTIONS
+                    </th>
                   </tr>
-                ) : filteredCompanies.length > 0 ? (
-                  currentCompanies.map((company, i) => (
-                    <tr key={company.com_id || i} style={{ borderBottom: "1px solid #F3F4F6" }}>
-                      <td style={tdStyle}>{company.com_name || "—"}</td>
-                      <td style={tdStyle}>{company.location || "—"}</td>
-                      <td style={tdStyle}>
-                        <div style={{ color: "#374151" }}>{company.c_email || "—"}</div>
-                        <div style={{ color: "#9CA3AF", fontSize: 13, marginTop: 4 }}>
-                          {company.phone || "—"}
-                        </div>
-                      </td>
-                      <td style={tdStyle}>
-                        {company.reg_date
-                          ? new Date(company.reg_date).toISOString().slice(0, 10).split('-').reverse().join('-')
-                          : "—"}
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                          <ToggleSwitch
-                            checked={String(company.c_status || "").toLowerCase() === "active" || String(company.c_status || "").toLowerCase() === "true" || company.c_status === true}
-                            onChange={() => handleToggleStatus(company.com_id, company.c_status)}
-                            disabled={togglingId === company.com_id}
-                          />
-                          {togglingId === company.com_id && <Spinner size={16} />}
-                        </div>
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", gap: 10 }}>
-                          <button onClick={() => openEditModal(company)} style={iconButtonStyle}>
-                            <FaPen size={12} color="#6B7280" />
-                          </button>
-                          <button
-                            onClick={() => openDeleteModal(company)}
-                            style={{ ...iconButtonStyle, background: "#FEE2E2" }}
-                          >
-                            <FaTrash size={12} color="#EF4444" />
-                          </button>
-                        </div>
+                </thead>
+                <tbody>
+                  {currentCompanies.length > 0 ? (
+                    currentCompanies.map((company, i) => {
+                      const initials = getInitials(company.com_name);
+                      const avatarColor = getAvatarColor(initials);
+                      const pkg = packages.find(
+                        (p) => p.package_id === company.package_id
+                      );
+                      const s = String(company.c_status || "").toLowerCase();
+                      const isActive =
+                        s === "active" || s === "true" || company.c_status === true;
+
+                      return (
+                        <tr
+                          key={company.com_id || i}
+                          className="border-b border-slate-100 last:border-0 hover:bg-slate-50/50 transition-colors"
+                        >
+                          {/* COMPANY (Avatar + Name) */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-3.5">
+                              <div
+                                style={{ backgroundColor: avatarColor }}
+                                className="w-9 h-9 rounded-full shrink-0 flex items-center justify-center text-white text-xs font-bold"
+                              >
+                                {initials}
+                              </div>
+                              <span className="text-sm font-bold text-slate-900 leading-tight">
+                                {company.com_name || "—"}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* LOCATION */}
+                          <td className="px-6 py-4">
+                            <span className="text-sm font-medium text-slate-700">
+                              {company.location || "—"}
+                            </span>
+                          </td>
+
+                          {/* CONTACT */}
+                          <td className="px-6 py-4">
+                            <div className="flex flex-col">
+                              <span className="text-sm text-slate-700">
+                                {company.c_email || "—"}
+                              </span>
+                              <span className="text-xs text-slate-400 mt-0.5">
+                                {company.phone || "—"}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* PACKAGE */}
+                          <td className="px-6 py-4">
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#EEF2FF] text-[#4F46E5] inline-block whitespace-nowrap">
+                              {pkg?.package_name || "Basic"}
+                            </span>
+                          </td>
+
+                          {/* REGISTERED DATE */}
+                          <td className="px-6 py-4">
+                            <span className="text-sm text-slate-600 whitespace-nowrap">
+                              {company.reg_date
+                                ? new Date(company.reg_date)
+                                    .toISOString()
+                                    .slice(0, 10)
+                                    .split("-")
+                                    .reverse()
+                                    .join("-")
+                                : "—"}
+                            </span>
+                          </td>
+
+                          {/* STATUS (ToggleSwitch) */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center gap-2">
+                              <ToggleSwitch
+                                checked={isActive}
+                                onChange={() =>
+                                  handleToggleStatus(company.com_id, company.c_status)
+                                }
+                                disabled={togglingId === company.com_id}
+                              />
+                              {togglingId === company.com_id && (
+                                <Spinner size={14} />
+                              )}
+                            </div>
+                          </td>
+
+                          {/* ACTIONS */}
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                onClick={() => openEditModal(company)}
+                                title="Edit Company"
+                                className="w-7 h-7 rounded-lg border border-slate-200 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:border-slate-300 hover:bg-slate-50 transition-colors bg-white cursor-pointer"
+                              >
+                                <Pencil size={13} strokeWidth={2} />
+                              </button>
+                              <button
+                                onClick={() => openDeleteModal(company)}
+                                title="Delete Company"
+                                className="w-7 h-7 rounded-lg border border-red-200/80 flex items-center justify-center text-red-500 hover:text-red-700 hover:border-red-300 hover:bg-red-50 transition-colors bg-white cursor-pointer"
+                              >
+                                <Trash2 size={13} strokeWidth={2} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-400 text-sm">
+                        No companies found
                       </td>
                     </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="6" style={{ padding: 20, textAlign: "center" }}>
-                      No companies found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-            {/* Pagination */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginTop: 24,
-                paddingTop: 16,
-              }}
-            >
-              <div style={{ color: "#6B7280", fontSize: 14 }}>
-                Showing <b>{Math.min(filteredCompanies.length, (currentPage - 1) * itemsPerPage + 1)}</b> to <b>{Math.min(filteredCompanies.length, currentPage * itemsPerPage)}</b> of <b>{filteredCompanies.length}</b> companies
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
+            {/* Pagination Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white">
+              <span className="text-xs text-slate-500">
+                Showing{" "}
+                <b className="text-slate-700">
+                  {Math.min(
+                    filteredCompanies.length,
+                    (currentPage - 1) * itemsPerPage + 1
+                  )}
+                </b>{" "}
+                to{" "}
+                <b className="text-slate-700">
+                  {Math.min(filteredCompanies.length, currentPage * itemsPerPage)}
+                </b>{" "}
+                of <b className="text-slate-700">{filteredCompanies.length}</b>{" "}
+                companies
+              </span>
+
+              <div className="flex items-center gap-1.5 self-end sm:self-auto">
                 <button
-                  style={{ ...pageBtnStyle, opacity: currentPage === 1 ? 0.5 : 1 }}
                   disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(p => p - 1)}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors cursor-pointer mr-1"
                 >
                   Previous
                 </button>
+
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  let p;
+                  if (totalPages <= 5) {
+                    p = i + 1;
+                  } else if (currentPage <= 3) {
+                    p = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    p = totalPages - 4 + i;
+                  } else {
+                    p = currentPage - 2 + i;
+                  }
+                  const isActive = p === currentPage;
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setCurrentPage(p)}
+                      className={`w-7 h-7 rounded-lg text-xs font-semibold flex items-center justify-center transition-colors cursor-pointer ${
+                        isActive
+                          ? "bg-[#0B192C] text-white"
+                          : "text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+
                 <button
-                  style={{ ...pageBtnStyle, opacity: currentPage >= totalPages ? 0.5 : 1 }}
                   disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage(p => p + 1)}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_1px_2px_rgba(0,0,0,0.02)] transition-colors cursor-pointer ml-1"
                 >
                   Next
                 </button>
@@ -576,178 +747,187 @@ const HotelManagement = () => {
         </div>
       </div>
 
-      <ToastContainer toasts={toasts} removeToast={removeToast} />
+      {/* ── Add / Edit Company Modal ─────────────────────────────── */}
       {isModalOpen && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.5)", zIndex: 100,
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "#fff", width: 500, borderRadius: 16, padding: "24px 32px",
-            position: "relative", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-          }}>
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-lg rounded-2xl p-6 sm:p-7 shadow-2xl relative max-h-[90vh] overflow-y-auto">
             <button
               onClick={() => setIsModalOpen(false)}
-              style={{ position: "absolute", top: 16, right: 16, background: "#F3F4F6", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 18, color: "#6B7280", lineHeight: 1 }}>&times;</span>
+              className="absolute top-5 right-5 w-8 h-8 rounded-full bg-slate-100 text-slate-400 hover:text-slate-700 hover:bg-slate-200 flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <X size={16} />
             </button>
 
-            <h2 style={{ margin: "0 0 24px", fontSize: 20, fontWeight: 700, color: "#111827" }}>
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 m-0 mb-1">
               {modalMode === "add" ? "Add New Company" : "Edit Company"}
             </h2>
+            <p className="text-xs text-slate-500 m-0 mb-5">
+              Enter company profile, registration, and subscription details.
+            </p>
 
             {modalError && (
-              <div style={{
-                padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FEE2E2",
-                color: "#EF4444", borderRadius: 8, fontSize: 13, marginBottom: 16
-              }}>
+              <div className="p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs mb-4">
                 {modalError}
               </div>
             )}
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxHeight: "65vh", overflowY: "auto", paddingRight: 8 }} className="custom-scrollbar">
+            <div className="space-y-4">
               <div>
-                <label style={labelStyle}>Company Name</label>
-                <input type="text" placeholder="Enter company name" style={inputStyle} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>Location</label>
-                <input type="text" placeholder="Enter location" style={inputStyle} value={formData.location} onChange={e => setFormData({ ...formData, location: e.target.value })} />
-              </div>
-              <div>
-                <label style={labelStyle}>Contact Email</label>
-                <input
-                  type="email"
-                  placeholder="Enter email"
-                  style={{ ...inputStyle, borderColor: emailError ? "#EF4444" : "#D1D5DB" }}
-                  value={formData.email}
-                  onChange={e => { setFormData({ ...formData, email: e.target.value }); setEmailError(""); }}
-                />
-                {emailError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{emailError}</p>}
-              </div>
-              <div>
-                <label style={labelStyle}>Phone Number</label>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Company Name
+                </label>
                 <input
                   type="text"
-                  placeholder="07XXXXXXXX"
-                  maxLength={10}
-                  style={{ ...inputStyle, borderColor: phoneError ? "#EF4444" : "#D1D5DB" }}
-                  value={formData.phone}
-                  onChange={e => {
-                    const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
-                    setFormData({ ...formData, phone: digitsOnly });
-                    setPhoneError("");
-                  }}
+                  placeholder="Enter company name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
                 />
-                {phoneError && <p style={{ color: "#EF4444", fontSize: 12, margin: "4px 0 0" }}>{phoneError}</p>}
               </div>
+
               <div>
-                <label style={labelStyle}>Registered Date</label>
-                <input type="date" style={inputStyle} value={formData.date} min={new Date().toISOString().slice(0, 10)}
-                  onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  placeholder="Enter city or district"
+                  value={formData.location}
+                  onChange={(e) =>
+                    setFormData({ ...formData, location: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+                />
               </div>
-              <div>
-                <label style={labelStyle}>Status</label>
-                {modalMode === "add" ? (
-                  <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
-                    <div
-                      onClick={() => setFormData({ ...formData, status: !formData.status })}
-                      style={{
-                        width: 44, height: 24, borderRadius: 12, background: formData.status ? "#111827" : "#E5E7EB",
-                        position: "relative", cursor: "pointer", transition: "background 0.3s"
-                      }}>
-                      <div style={{
-                        width: 18, height: 18, borderRadius: "50%", background: "#fff",
-                        position: "absolute", top: 3, left: formData.status ? 23 : 3, transition: "left 0.3s"
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 14, color: "#4B5563" }}>{formData.status ? "Active" : "Inactive"}</span>
-                  </div>
-                ) : (
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Contact Email
+                  </label>
+                  <input
+                    type="email"
+                    placeholder="name@company.com"
+                    value={formData.email}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value });
+                      setEmailError("");
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 focus:outline-none transition-all ${
+                      emailError
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-slate-200 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    }`}
+                  />
+                  {emailError && (
+                    <p className="text-red-500 text-[11px] mt-1 m-0">{emailError}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Phone Number
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="07XXXXXXXX"
+                    maxLength={10}
+                    value={formData.phone}
+                    onChange={(e) => {
+                      const digitsOnly = e.target.value.replace(/[^0-9]/g, "");
+                      setFormData({ ...formData, phone: digitsOnly });
+                      setPhoneError("");
+                    }}
+                    className={`w-full px-3.5 py-2.5 rounded-xl border text-sm text-slate-800 focus:outline-none transition-all ${
+                      phoneError
+                        ? "border-red-500 focus:border-red-500"
+                        : "border-slate-200 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                    }`}
+                  />
+                  {phoneError && (
+                    <p className="text-red-500 text-[11px] mt-1 m-0">{phoneError}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    Registered Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    min={new Date().toISOString().slice(0, 10)}
+                    onChange={(e) =>
+                      setFormData({ ...formData, date: e.target.value })
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                    SaaS Package
+                  </label>
                   <select
-                    style={{ ...inputStyle, cursor: "pointer", color: "#374151" }}
-                    value={formData.status ? "Active" : "Inactive"}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value === "Active" })}
+                    value={formData.package_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, package_id: e.target.value })
+                    }
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all cursor-pointer bg-white"
                   >
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                )}
-              </div>
-              <div>
-                <label style={labelStyle}>SaaS Package</label>
-                <select
-                  style={{ ...inputStyle, cursor: "pointer", color: formData.package_id ? "#374151" : "#9CA3AF" }}
-                  value={formData.package_id}
-                  onChange={e => setFormData({ ...formData, package_id: e.target.value })}
-                >
-                  <option value="">— Select a Package —</option>
-                  {packages.map(p => (
-                    <option key={p.package_id} value={p.package_id}>{p.package_name}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>Default Language</label>
-                  <select
-                    style={{ ...inputStyle, cursor: "pointer", color: "#374151" }}
-                    value={formData.language_code}
-                    onChange={e => setFormData({ ...formData, language_code: e.target.value })}
-                  >
-                    <option value="en">English </option>
-                    <option value="si">Sinhala</option>
-                    <option value="ta">Tamil</option>
+                    <option value="">— Select a Package —</option>
+                    {packages.map((p) => (
+                      <option key={p.package_id} value={p.package_id}>
+                        {p.package_name}
+                      </option>
+                    ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Default Language
+                </label>
+                <select
+                  value={formData.language_code}
+                  onChange={(e) =>
+                    setFormData({ ...formData, language_code: e.target.value })
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500 transition-all cursor-pointer bg-white"
+                >
+                  <option value="en">English</option>
+                  <option value="si">Sinhala</option>
+                  <option value="ta">Tamil</option>
+                </select>
+              </div>
             </div>
 
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 12, marginTop: 32 }}>
+            {/* Modal Actions */}
+            <div className="flex items-center justify-end gap-3 mt-6 pt-3 border-t border-slate-100">
               <button
+                type="button"
                 onClick={() => !isSaving && setIsModalOpen(false)}
                 disabled={isSaving}
-                style={{ ...cancelBtnStyle, cursor: isSaving ? "not-allowed" : "pointer" }}
+                className="h-10 px-4 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors"
               >
                 Cancel
               </button>
-             <button
+              <button
+                type="button"
                 onClick={handleSave}
                 disabled={isSaving}
-                style={{
-                  ...saveBtnStyle,
-                  background: "#3B82F6",
-                  width: 160,
-                  minWidth: 160,
-                  maxWidth: 160,
-                  flexShrink: 0,
-                  boxSizing: "border-box",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  whiteSpace: "nowrap",
-                  cursor: isSaving ? "not-allowed" : "pointer",
-                }}
+                className="h-10 px-5 rounded-xl bg-[#0D9488] text-white text-xs font-semibold hover:bg-teal-700 cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-70 disabled:cursor-not-allowed"
               >
-                <span
-                  style={{
-                    width: 14,
-                    height: 14,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {isSaving && <Spinner size={14} color="#ffffff" />}
-                </span>
-
+                {isSaving && <Spinner size={14} color="#fff" />}
                 <span>
                   {isSaving
                     ? "Saving..."
                     : modalMode === "add"
-                      ? "Save Company"
-                      : "Save Changes"}
+                    ? "Save Company"
+                    : "Save Changes"}
                 </span>
               </button>
             </div>
@@ -755,114 +935,48 @@ const HotelManagement = () => {
         </div>
       )}
 
-      {/* Delete Modal */}
+      {/* ── Delete Confirmation Modal ─────────────────────────────── */}
       {isDeleteModalOpen && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.5)", zIndex: 100,
-          display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "#fff", width: 440, borderRadius: 16, padding: "24px 32px",
-            position: "relative", boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-          }}>
-            <button
-              onClick={() => setIsDeleteModalOpen(false)}
-              style={{ position: "absolute", top: 16, right: 16, background: "#F3F4F6", border: "none", borderRadius: "50%", width: 32, height: 32, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontSize: 18, color: "#6B7280", lineHeight: 1 }}>&times;</span>
-            </button>
-
-            <h2 style={{ margin: "0 0 16px", fontSize: 20, fontWeight: 700, color: "#111827" }}>Delete Company</h2>
-
-            {deleteError && (
-              <div style={{
-                padding: "10px 14px", background: "#FEF2F2", border: "1px solid #FEE2E2",
-                color: "#EF4444", borderRadius: 8, fontSize: 13, marginBottom: 16
-              }}>
-                {deleteError}
-              </div>
-            )}
-
-            <p style={{ margin: "0 0 32px", fontSize: 14, color: "#4B5563", lineHeight: 1.5 }}>
-              Are you sure you want to delete <b>{companyToDelete?.com_name || "this company"}</b>?<br />
-              This action cannot be undone and will permanently remove all company data.
+        <div className="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-sm rounded-2xl p-6 text-center shadow-2xl relative">
+            <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-4">
+              <Trash2 size={22} />
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 m-0 mb-1.5">
+              Delete Company?
+            </h3>
+            <p className="text-xs text-slate-500 m-0 mb-6 leading-relaxed">
+              Are you sure you want to delete{" "}
+              <strong className="text-slate-700 font-semibold">
+                "{companyToDelete?.com_name}"
+              </strong>
+              ? All associated branches and company data will be affected.
             </p>
 
-            <div style={{ display: "flex", justifyContent: "center", gap: 12 }}>
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => !isDeleting && setIsDeleteModalOpen(false)}
                 disabled={isDeleting}
-                style={{ ...cancelBtnStyle, cursor: isDeleting ? "not-allowed" : "pointer" }}
+                className="flex-1 h-10 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer transition-colors"
               >
-                {t("super_admin.cancel", "Cancel")}
+                Cancel
               </button>
               <button
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  style={{
-                    ...saveBtnStyle,
-                    background: "#EF4444",
-                    cursor: isDeleting ? "not-allowed" : "pointer",
-                    opacity: isDeleting ? 0.7 : 1,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    width: 160, flexShrink: 0,
-                    justifyContent: "center"
-                  }}
-                >
-                  {isDeleting && <Spinner size={14} color="#ffffff" />}
-                  {isDeleting ? "Deleting..." : "Delete Company"}
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="flex-1 h-10 rounded-xl bg-red-600 text-white text-xs font-semibold hover:bg-red-700 cursor-pointer transition-colors flex items-center justify-center gap-2 shadow-xs disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                {isDeleting && <Spinner size={14} color="#fff" />}
+                <span>{isDeleting ? "Deleting..." : "Delete Company"}</span>
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <ToastContainer toasts={toasts} removeToast={removeToast} />
     </div>
   );
 };
-
-const thStyle = {
-  padding: "16px 10px",
-  textAlign: "left",
-  fontSize: 13,
-  fontWeight: 700,
-  color: "#111827",
-};
-
-const tdStyle = {
-  padding: "16px 10px",
-  fontSize: 14,
-  color: "#4B5563",
-  verticalAlign: "middle",
-};
-
-const iconButtonStyle = {
-  background: "#F3F4F6",
-  border: "none",
-  borderRadius: 6,
-  width: 28,
-  height: 28,
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  cursor: "pointer",
-};
-
-const pageBtnStyle = {
-  background: "#fff",
-  border: "1px solid #E5E7EB",
-  padding: "8px 16px",
-  borderRadius: 6,
-  fontSize: 14,
-  color: "#374151",
-  cursor: "pointer",
-  fontWeight: 500,
-};
-
-const labelStyle = { display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 6 };
-const inputStyle = { width: "100%", padding: "10px 14px", borderRadius: 6, border: "1px solid #D1D5DB", outline: "none", fontSize: 14, boxSizing: "border-box" };
-const cancelBtnStyle = { padding: "10px 20px", borderRadius: 8, border: "1px solid #D1D5DB", background: "#fff", color: "#374151", fontSize: 14, fontWeight: 600, cursor: "pointer" };
-const saveBtnStyle = { padding: "10px 20px", borderRadius: 8, border: "none", background: "#3B82F6", color: "#fff", fontSize: 14, fontWeight: 600, cursor: "pointer" };
 
 export default HotelManagement;
