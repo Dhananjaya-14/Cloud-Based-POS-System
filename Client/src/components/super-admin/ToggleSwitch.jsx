@@ -8,7 +8,7 @@ const ToggleSwitch = ({ checked, onChange, disabled }) => {
         width: 46,
         height: 24,
         borderRadius: 12,
-        background: checked ? "#10B981" : "#E5E7EB", // emerald-500 or slate-200
+        background: checked ? "#0D9488" : "#E5E7EB", // teal-600 or slate-200
         position: "relative",
         cursor: disabled ? "not-allowed" : "pointer",
         transition: "background 0.25s cubic-bezier(0.4, 0, 0.2, 1)",

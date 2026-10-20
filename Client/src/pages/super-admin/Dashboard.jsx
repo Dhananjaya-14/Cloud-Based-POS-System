@@ -2,53 +2,52 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
-import { getBranches, getUsers, getCompanies, setAuthToken, logout } from "../../services/api";
+import { getUsers, getCompanies, setAuthToken, logout } from "../../services/api";
 import Spinner from "../../components/super-admin/Spinner";
 import {
-  FaFileInvoiceDollar,
-  FaMoneyBillWave,
-  FaShoppingBag,
-  FaIdCard,
-  FaLock
-} from "react-icons/fa";
+  Home,
+  Users,
+  Lock,
+  Clock,
+  Plus,
+  Pencil,
+} from "lucide-react";
 
 /* ─── Stat Card ─────────────────────────────────────────────── */
-const StatCard = ({ icon, label, value, bgColor, iconBg }) => (
-  <div style={{
-    flex: 1, background: bgColor, borderRadius: 16, padding: "24px",
-    display: "flex", alignItems: "center", gap: 16, justifyContent: "center",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.02)"
-  }}>
-    <div style={{
-      width: 50, height: 50, borderRadius: "50%", background: iconBg,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      color: "#fff", fontSize: 20
-    }}>
+const StatCard = ({ icon, label, value, iconBg, iconColor }) => (
+  <div className="bg-white rounded-2xl p-5 border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex items-center gap-4 transition-all">
+    <div
+      className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 ${iconBg} ${iconColor}`}
+    >
       {icon}
     </div>
-    <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-      <div style={{ color: "#374151", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{label}</div>
-      <div style={{ color: "#111827", fontSize: 22, fontWeight: 700 }}>{value}</div>
+    <div className="flex flex-col justify-center">
+      <span className="text-xs font-medium text-slate-500 mb-0.5">{label}</span>
+      <span className="text-2xl font-bold text-slate-900 tracking-tight">{value}</span>
     </div>
   </div>
 );
 
-/* ─── SVG Line Chart ────────────────────────────────────────── */
+/* ─── SVG Registration Growth Chart ─────────────────────────── */
 const RegistrationChart = ({ data }) => {
   const [hoverIndex, setHoverIndex] = useState(null);
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-  // Extract just the counts for calculations
-  const counts = data.map(d => d.count);
-  const maxDataVal = Math.max(...counts);
-  const maxVal = maxDataVal > 0 ? Math.ceil(maxDataVal * 1.2) : 10;
+  const counts = data.map((d) => d.count);
+  const maxDataVal = Math.max(...counts, 0);
+  const maxVal = maxDataVal > 10 ? Math.ceil(maxDataVal * 1.25) : 10;
 
-  const W = 700, H = 280;
-  const pad = { top: 40, right: 20, bottom: 35, left: 45 };
+  // Custom tick marks matching the design: 10, 8, 5, 3, 0 when maxVal is 10
+  const yTicks =
+    maxVal === 10
+      ? [10, 8, 5, 3, 0]
+      : [maxVal, Math.round(maxVal * 0.8), Math.round(maxVal * 0.5), Math.round(maxVal * 0.3), 0];
+
+  const W = 860;
+  const H = 260;
+  const pad = { top: 30, right: 25, bottom: 35, left: 45 };
   const iw = W - pad.left - pad.right;
   const ih = H - pad.top - pad.bottom;
-
-  const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal].map(Math.ceil);
 
   const pts = data.map((d, i) => ({
     x: pad.left + (i / (data.length - 1)) * iw,
@@ -56,73 +55,110 @@ const RegistrationChart = ({ data }) => {
   }));
 
   return (
-    <div style={{ position: "relative" }}>
-      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow: "visible" }}>
-        {yTicks.map((t) => {
-          const y = pad.top + ih - (t / maxVal) * ih;
-          return (
-            <g key={t}>
-              <line x1={pad.left} y1={y} x2={W - pad.right} y2={y} stroke="#f3f4f6" strokeWidth={1} />
-              <text x={pad.left - 8} y={y + 4} textAnchor="end" fontSize={11} fill="#9ca3af">
-                {t}
-              </text>
-            </g>
-          );
-        })}
-        <polyline
-          fill="none" stroke="#22C55E" strokeWidth={3} strokeLinejoin="round"
-          points={pts.map((p) => `${p.x},${p.y}`).join(" ")}
-          style={{ transition: "all 0.3s ease" }}
-        />
-        {pts.map((p, i) => (
-          <g key={i}
-            onMouseEnter={() => setHoverIndex(i)}
-            onMouseLeave={() => setHoverIndex(null)}
-            style={{ cursor: "pointer" }}
-          >
-            <circle cx={p.x} cy={p.y} r={hoverIndex === i ? 7 : 5} fill="#fff" stroke="#22C55E" strokeWidth={3} style={{ transition: "all 0.2s" }} />
-            {/* Invisible larger hit area for easier hover */}
-            <circle cx={p.x} cy={p.y} r={15} fill="transparent" />
-          </g>
-        ))}
-        {months.map((m, i) => (
-          <text key={m} x={pad.left + (i / (months.length - 1)) * iw} y={H - 8}
-            textAnchor="middle" fontSize={11} fill="#9ca3af" fontWeight={hoverIndex === i ? 700 : 400}>
-            {m}
-          </text>
-        ))}
-      </svg>
+    <div className="relative w-full overflow-x-auto">
+      <div className="min-w-[650px]">
+        <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+          {/* Horizontal Grid lines and Y-axis tick labels */}
+          {yTicks.map((t) => {
+            const y = pad.top + ih - (t / maxVal) * ih;
+            return (
+              <g key={t}>
+                <line
+                  x1={pad.left}
+                  y1={y}
+                  x2={W - pad.right}
+                  y2={y}
+                  stroke="#F1F3F5"
+                  strokeWidth={1}
+                />
+                <text
+                  x={pad.left - 12}
+                  y={y + 4}
+                  textAnchor="end"
+                  fontSize={12}
+                  fill="#94A3B8"
+                  fontWeight={400}
+                >
+                  {t}
+                </text>
+              </g>
+            );
+          })}
 
-      {/* Tooltip */}
-      {hoverIndex !== null && data[hoverIndex].companies.length > 0 && (
-        <div style={{
-          position: "absolute",
-          top: pts[hoverIndex].y - 20,
-          left: Math.min(pts[hoverIndex].x + 10, W - 180),
-          background: "rgba(17, 24, 39, 0.95)",
-          color: "#fff",
-          padding: "12px",
-          borderRadius: "10px",
-          fontSize: "12px",
-          boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.3)",
-          zIndex: 10,
-          minWidth: "160px",
-          pointerEvents: "none",
-          transform: "translateY(-100%)",
-          backdropFilter: "blur(4px)",
-          border: "1px solid rgba(255,255,255,0.1)"
-        }}>
-          <div style={{ fontWeight: 700, marginBottom: "8px", borderBottom: "1px solid rgba(255,255,255,0.2)", paddingBottom: "4px", color: "#4ADE80" }}>
-            {months[hoverIndex]} registrations ({data[hoverIndex].count})
-          </div>
-          {data[hoverIndex].companies.map((c, idx) => (
-            <div key={idx} style={{ marginBottom: "4px", display: "flex", justifyContent: "space-between", gap: "10px" }}>
-              <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>• {c.name}</span>
-              <span style={{ opacity: 0.7, fontSize: "10px" }}>{c.date}</span>
-            </div>
+          {/* Registration Line */}
+          <polyline
+            fill="none"
+            stroke="#0D9488"
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            points={pts.map((p) => `${p.x},${p.y}`).join(" ")}
+          />
+
+          {/* Data Points with White Fill & Teal Border */}
+          {pts.map((p, i) => (
+            <g
+              key={i}
+              onMouseEnter={() => setHoverIndex(i)}
+              onMouseLeave={() => setHoverIndex(null)}
+              className="cursor-pointer"
+            >
+              <circle
+                cx={p.x}
+                cy={p.y}
+                r={hoverIndex === i ? 7 : 5}
+                fill="#FFFFFF"
+                stroke="#0D9488"
+                strokeWidth={2.5}
+                className="transition-all duration-150"
+              />
+              {/* Invisible larger hover area */}
+              <circle cx={p.x} cy={p.y} r={16} fill="transparent" />
+            </g>
           ))}
-        </div>
-      )}
+
+          {/* X-axis Month Labels */}
+          {months.map((m, i) => (
+            <text
+              key={m}
+              x={pad.left + (i / (months.length - 1)) * iw}
+              y={H - 8}
+              textAnchor="middle"
+              fontSize={12}
+              fill={hoverIndex === i ? "#0D9488" : "#94A3B8"}
+              fontWeight={hoverIndex === i ? 600 : 400}
+            >
+              {m}
+            </text>
+          ))}
+        </svg>
+
+        {/* Hover Tooltip */}
+        {hoverIndex !== null && (
+          <div
+            className="absolute z-20 pointer-events-none rounded-xl bg-slate-900/95 text-white px-3.5 py-2.5 text-xs shadow-xl backdrop-blur-sm border border-white/10"
+            style={{
+              top: Math.max(pts[hoverIndex].y - 45, 10),
+              left: Math.min(pts[hoverIndex].x + 10, W - 180),
+              transform: "translateY(-100%)",
+            }}
+          >
+            <div className="font-semibold text-teal-300">
+              {months[hoverIndex]}: {data[hoverIndex].count} signup{data[hoverIndex].count === 1 ? "" : "s"}
+            </div>
+            {data[hoverIndex].companies.length > 0 && (
+              <div className="mt-1.5 space-y-1 max-h-32 overflow-y-auto">
+                {data[hoverIndex].companies.map((c, idx) => (
+                  <div key={idx} className="flex items-center justify-between gap-3 text-[11px] text-slate-300">
+                    <span className="truncate max-w-[120px]">• {c.name}</span>
+                    <span className="text-slate-400 text-[10px]">{c.date}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -132,11 +168,13 @@ const StatusBadge = ({ status }) => {
   const statusStr = String(status || "").toLowerCase();
   const isActive = statusStr === "active" || statusStr === "true";
   return (
-    <span style={{
-      padding: "4px 14px", borderRadius: 12, fontSize: 12, fontWeight: 600,
-      background: isActive ? "#DCFCE7" : "#FEE2E2",
-      color: isActive ? "#16A34A" : "#EF4444",
-    }}>
+    <span
+      className={`px-3 py-0.5 rounded-full text-xs font-semibold ${
+        isActive
+          ? "bg-[#DCFCE7] text-[#16A34A]"
+          : "bg-[#FEE2E2] text-[#EF4444]"
+      }`}
+    >
       {isActive ? "Active" : "Inactive"}
     </span>
   );
@@ -151,7 +189,10 @@ const Dashboard = () => {
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) { navigate("/login"); return; }
+    if (!token) {
+      navigate("/login");
+      return;
+    }
     setAuthToken(token);
     fetchData();
   }, [navigate]);
@@ -160,23 +201,28 @@ const Dashboard = () => {
     try {
       const [ud, cd] = await Promise.all([
         getUsers({ countOnly: "true" }),
-        getCompanies()
+        getCompanies(),
       ]);
       setTotalUsers(ud?.count ?? 0);
       setCompanies(Array.isArray(cd) ? cd : []);
     } catch (err) {
       console.error("Dashboard fetch error:", err);
-      if (err.response?.status === 401) { logout(); navigate("/login"); }
-    } finally { setLoading(false); }
+      if (err.response?.status === 401) {
+        logout();
+        navigate("/login");
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const totalCompanies = companies.length;
-  const activeCompanies = companies.filter(c => {
+  const activeCompanies = companies.filter((c) => {
     const s = String(c.c_status || "").toLowerCase();
     return s === "active" || s === "true" || c.c_status === true;
   }).length;
 
-  /* Try to compute monthly registrations from company reg_date dates. */
+  /* Compute monthly registrations from company dates */
   const getMonthlyData = () => {
     const data = new Array(12).fill(null).map(() => ({ count: 0, companies: [] }));
 
@@ -189,7 +235,7 @@ const Dashboard = () => {
           data[monthIndex].count++;
           data[monthIndex].companies.push({
             name: c.com_name,
-            date: d.toISOString().slice(0, 10).split('-').reverse().join('-')
+            date: d.toISOString().slice(0, 10).split("-").reverse().join("-"),
           });
         }
       }
@@ -197,20 +243,23 @@ const Dashboard = () => {
     return data;
   };
 
+  const monthlyData = getMonthlyData();
+  const totalRegistrationsThisYear = monthlyData.reduce((acc, curr) => acc + curr.count, 0);
+
   const recentCompanies = [...companies]
     .sort((a, b) => new Date(b.reg_date || b.created_at) - new Date(a.reg_date || a.created_at))
-    .slice(0, 4);
+    .slice(0, 5);
 
   if (loading) {
     return (
-      <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+      <div className="flex min-h-screen bg-[#F8F6F0]">
         <Sidebar />
-        <div className="sa-main-content" style={{ flex: 1, marginLeft: 240, display: "flex", flexDirection: "column" }}>
+        <div className="sa-main-content flex-1 ml-[240px] flex flex-col">
           <Header title="System Admin DashBoard" />
-          <div style={{ flex: 1, display: "flex", justifyContent: "center", alignItems: "center", minHeight: "calc(100vh - 70px)" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
+          <div className="flex-1 flex justify-center items-center min-h-[calc(100vh-70px)]">
+            <div className="flex flex-col items-center gap-4">
               <Spinner size={44} />
-              <p style={{ margin: 0, color: "#6B7280", fontWeight: 600, fontSize: 16 }}>Loading Dashboard...</p>
+              <p className="m-0 text-slate-500 font-medium text-sm">Loading Dashboard...</p>
             </div>
           </div>
         </div>
@@ -219,80 +268,132 @@ const Dashboard = () => {
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#F4F6F9" }}>
+    <div className="flex min-h-screen bg-[#F8F6F0]">
       <Sidebar />
 
-      <div className="sa-main-content" style={{ flex: 1, marginLeft: 240 }}>
+      <div className="sa-main-content flex-1 ml-[240px] flex flex-col min-w-0">
         <Header title="System Admin DashBoard" />
 
-        <div style={{ padding: "24px 28px" }}>
+        <div className="p-6 md:p-8 space-y-6">
           {/* ── Stat Cards ─────────────────────────────────── */}
-          <div style={{ display: "flex", gap: 20, marginBottom: 28 }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
             <StatCard
-              icon={<FaFileInvoiceDollar />} label="Total Companies Registered"
-              value={totalCompanies} bgColor="#FFE4EC" iconBg="#FFB6CB"
+              icon={<Home size={20} strokeWidth={1.75} />}
+              label="Total Companies Registered"
+              value={totalCompanies}
+              iconBg="bg-[#F0F3F6]"
+              iconColor="text-[#64748B]"
             />
             <StatCard
-              icon={<FaMoneyBillWave />} label="Total Users"
-              value={totalUsers} bgColor="#D1F5E1" iconBg="#9EE6C5"
+              icon={<Users size={20} strokeWidth={1.75} />}
+              label="Total Users"
+              value={totalUsers}
+              iconBg="bg-[#E6F7F5]"
+              iconColor="text-[#0D9488]"
             />
             <StatCard
-              icon={<FaShoppingBag />} label="Active Companies"
-              value={activeCompanies} bgColor="#FFF3D6" iconBg="#FFD075"
+              icon={<Lock size={20} strokeWidth={1.75} />}
+              label="Active Companies"
+              value={activeCompanies}
+              iconBg="bg-[#FEF3E8]"
+              iconColor="text-[#D97706]"
             />
           </div>
 
-          {/* ── Registration Growth Chart ───────────────────── */}
-          <div style={{
-            background: "#fff", borderRadius: 14, padding: "24px 28px",
-            marginBottom: 28, boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-          }}>
-            <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "#1a1a1a" }}>
-              Company Registration Growth
-            </h3>
-            <RegistrationChart data={getMonthlyData()} />
+          {/* ── Registration Growth Chart Card ─────────────── */}
+          <div className="bg-white rounded-2xl p-6 border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+              <div>
+                <h3 className="m-0 text-base font-bold text-slate-900">
+                  Company Registration Growth
+                </h3>
+                <p className="m-0 text-xs text-slate-400 mt-0.5">
+                  Monthly new company signups
+                </p>
+              </div>
+
+              {/* Status Pill Badge */}
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-slate-200/80 bg-slate-50/50 text-xs text-slate-500 font-medium self-start sm:self-auto">
+                <Clock size={13} className="text-slate-400" />
+                <span>
+                  {totalRegistrationsThisYear === 0
+                    ? "No registrations yet this year"
+                    : `${totalRegistrationsThisYear} registration${totalRegistrationsThisYear === 1 ? "" : "s"} this year`}
+                </span>
+              </div>
+            </div>
+
+            <RegistrationChart data={monthlyData} />
           </div>
 
-          {/* ── Bottom Section: Table + Quick Actions ──────── */}
-          <div style={{ display: "flex", gap: 24, alignItems: "flex-start" }}>
-            {/* Recent Registrations Table */}
-            <div style={{ flex: 2 }}>
-              <h3 style={{ margin: "0 0 16px", fontSize: 18, fontWeight: 700, color: "#1a1a1a" }}>
+          {/* ── Bottom Section: Recent Registrations & Quick Actions ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            {/* Left Card: Recent Company Registrations (2 cols) */}
+            <div className="lg:col-span-2 bg-white rounded-2xl p-6 border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col min-h-[300px]">
+              <h3 className="m-0 text-base font-bold text-slate-900 mb-5">
                 Recent Company Registrations
               </h3>
-              <div style={{
-                background: "#fff", borderRadius: 14, overflow: "hidden",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
-              }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+
+              <div className="overflow-x-auto w-full">
+                <table className="w-full border-collapse text-left">
                   <thead>
-                    <tr style={{ background: "#F9FAFB" }}>
-                      {["Name", "Email", "Registration Date", "Status"].map((h) => (
-                        <th key={h} style={{
-                          padding: "14px 18px", textAlign: "left", fontSize: 13,
-                          fontWeight: 600, color: "#6B7280", borderBottom: "1px solid #F3F4F6",
-                        }}>{h}</th>
-                      ))}
+                    <tr className="border-b border-slate-100">
+                      <th className="pb-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        Name
+                      </th>
+                      <th className="pb-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="pb-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        Registration Date
+                      </th>
+                      <th className="pb-3 px-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        Status
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {recentCompanies.length > 0 ? recentCompanies.map((c, i) => (
-                      <tr key={c.com_id || i} style={{ borderBottom: "1px solid #F3F4F6" }}>
-                        <td style={cellStyle}>{c.com_name || "—"}</td>
-                        <td style={cellStyle}>{c.c_email || "Not Provided"}</td>
-                        <td style={cellStyle}>
-                          {(c.reg_date || c.created_at)
-                            ? new Date(c.reg_date || c.created_at).toISOString().slice(0, 10).split('-').reverse().join('-')
-                            : "N/A"}
-                        </td>
-                        <td style={cellStyle}>
-                          <StatusBadge status={c.c_status} />
-                        </td>
-                      </tr>
-                    )) : (
+                    {recentCompanies.length > 0 ? (
+                      recentCompanies.map((c, i) => (
+                        <tr
+                          key={c.com_id || i}
+                          className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors"
+                        >
+                          <td className="py-3.5 px-3 text-sm font-medium text-slate-800">
+                            {c.com_name || "—"}
+                          </td>
+                          <td className="py-3.5 px-3 text-sm text-slate-600">
+                            {c.c_email || "Not Provided"}
+                          </td>
+                          <td className="py-3.5 px-3 text-sm text-slate-600">
+                            {c.reg_date || c.created_at
+                              ? new Date(c.reg_date || c.created_at)
+                                  .toISOString()
+                                  .slice(0, 10)
+                                  .split("-")
+                                  .reverse()
+                                  .join("-")
+                              : "N/A"}
+                          </td>
+                          <td className="py-3.5 px-3">
+                            <StatusBadge status={c.c_status} />
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
                       <tr>
-                        <td colSpan={4} style={{ ...cellStyle, textAlign: "center", color: "#aaa" }}>
-                          No companies found
+                        <td colSpan={4} className="py-12">
+                          <div className="flex flex-col items-center justify-center text-center">
+                            <div className="w-10 h-10 rounded-xl bg-[#F0F3F6] flex items-center justify-center text-slate-400 mb-3">
+                              <Home size={18} strokeWidth={1.75} />
+                            </div>
+                            <div className="text-sm font-semibold text-slate-800">
+                              No companies registered yet
+                            </div>
+                            <div className="text-xs text-slate-400 mt-1">
+                              New signups will appear here as they come in
+                            </div>
+                          </div>
                         </td>
                       </tr>
                     )}
@@ -301,52 +402,49 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div style={{
-              flex: 1, background: "#fff", borderRadius: 14, padding: "24px",
-              boxShadow: "0 4px 16px rgba(0,0,0,0.08)", minWidth: 240,
-            }}>
-              <h3 style={{ margin: "0 0 20px", fontSize: 18, fontWeight: 700, color: "#1a1a1a", textAlign: "center" }}>
+            {/* Right Card: Quick Actions (1 col) */}
+            <div className="lg:col-span-1 bg-white rounded-2xl p-6 border border-slate-200/70 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              <h3 className="m-0 text-base font-bold text-slate-900 mb-5">
                 Quick Actions
               </h3>
 
-              <div
-                onClick={() => navigate("/super-admin/hotels", { state: { openAddModal: true } })}
-                style={{
-                  display: "flex", alignItems: "center", gap: 14, padding: "14px 0",
-                  cursor: "pointer", borderBottom: "1px solid #F3F4F6",
-                }}
-              >
-                <div style={{
-                  width: 44, height: 44, borderRadius: "12px", background: "#FFF8D6",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "#F59E0B", fontSize: 20,
-                }}>
-                  <FaIdCard />
+              <div className="space-y-3.5">
+                {/* Action 1: Add New Company */}
+                <div
+                  onClick={() =>
+                    navigate("/super-admin/hotels", { state: { openAddModal: true } })
+                  }
+                  className="w-full border border-slate-200/80 rounded-2xl p-4 flex items-center gap-3.5 cursor-pointer bg-white hover:border-teal-500/50 hover:shadow-sm hover:bg-slate-50/50 transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#E6F7F5] flex items-center justify-center text-[#0D9488] shrink-0 group-hover:scale-105 transition-transform">
+                    <Plus size={20} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-800 group-hover:text-teal-700 transition-colors">
+                      Add New Company
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Instantly add new company
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>Add New Company</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af" }}>Instantly add new Company</div>
-                </div>
-              </div>
 
-              <div
-                onClick={() => navigate("/super-admin/hotels")}
-                style={{
-                  display: "flex", alignItems: "center", gap: 14, padding: "14px 0",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{
-                  width: 44, height: 44, borderRadius: "12px", background: "#E0E7FF",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  color: "#4F46E5", fontSize: 20,
-                }}>
-                  <FaLock />
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>Change Company Details</div>
-                  <div style={{ fontSize: 12, color: "#9ca3af" }}>Edit details</div>
+                {/* Action 2: Change Company Details */}
+                <div
+                  onClick={() => navigate("/super-admin/hotels")}
+                  className="w-full border border-slate-200/80 rounded-2xl p-4 flex items-center gap-3.5 cursor-pointer bg-white hover:border-amber-500/50 hover:shadow-sm hover:bg-slate-50/50 transition-all group"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-[#FEF3E8] flex items-center justify-center text-[#D97706] shrink-0 group-hover:scale-105 transition-transform">
+                    <Pencil size={18} strokeWidth={2} />
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold text-slate-800 group-hover:text-amber-700 transition-colors">
+                      Change Company Details
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">
+                      Edit details
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -356,7 +454,5 @@ const Dashboard = () => {
     </div>
   );
 };
-
-const cellStyle = { padding: "14px 18px", fontSize: 14, color: "#374151" };
 
 export default Dashboard;
