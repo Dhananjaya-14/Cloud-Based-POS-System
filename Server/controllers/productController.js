@@ -40,13 +40,88 @@ export async function getProducts(req, res, next) {
     let result;
     if (role_id === ROLES.SUPER_ADMIN) {
       result = await pool.query(
-  'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name", p."add_ons", p."stations", p."product_type" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" ORDER BY p."pro_id"'
-);
+        `SELECT 
+          p."pro_id", 
+          p."pro_name", 
+          p."pro_qty", 
+          p."pro_price", 
+          p." pro_image" AS "pro_image", 
+          p."Com_id" AS "com_id", 
+          p."cat_id", 
+          c."cat_name", 
+          p."add_ons", 
+          p."stations", 
+          p."product_type",
+          COALESCE(disc.discount_value, 0) AS "discount_value",
+          disc.value_type,
+          disc.discount_name
+        FROM "public"."Product" p 
+        LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id"
+        LEFT JOIN LATERAL (
+          SELECT 
+            d.discount_id,
+            d.discount_name,
+            d.discount_value,
+            d.value_type,
+            d.discount_type
+          FROM "public"."discount" d
+          JOIN "public"."Branch_Product" bp ON d."Bpro_id" = bp."Bpro_id"
+          WHERE bp."pro_id" = p."pro_id"
+            AND (d.discount_type = 'product' OR d.discount_type IS NULL)
+            AND (d.is_active = true OR d.is_active IS NULL)
+            AND (d.start_date IS NULL OR d.start_date <= CURRENT_DATE)
+            AND (d.end_date IS NULL OR d.end_date >= CURRENT_DATE)
+            AND (d.max_uses IS NULL OR d.uses_count < d.max_uses)
+          ORDER BY 
+            d.discount_value DESC, 
+            d.discount_id DESC
+          LIMIT 1
+        ) disc ON true
+        ORDER BY p."pro_id"`
+      );
     } else {
       result = await pool.query(
-  'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name", p."add_ons", p."stations", p."product_type" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" WHERE p."Com_id" = $1 ORDER BY p."pro_id"',
-  [com_id]
-);
+        `SELECT 
+          p."pro_id", 
+          p."pro_name", 
+          p."pro_qty", 
+          p."pro_price", 
+          p." pro_image" AS "pro_image", 
+          p."Com_id" AS "com_id", 
+          p."cat_id", 
+          c."cat_name", 
+          p."add_ons", 
+          p."stations", 
+          p."product_type",
+          COALESCE(disc.discount_value, 0) AS "discount_value",
+          disc.value_type,
+          disc.discount_name
+        FROM "public"."Product" p 
+        LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id"
+        LEFT JOIN LATERAL (
+          SELECT 
+            d.discount_id,
+            d.discount_name,
+            d.discount_value,
+            d.value_type,
+            d.discount_type
+          FROM "public"."discount" d
+          JOIN "public"."Branch_Product" bp ON d."Bpro_id" = bp."Bpro_id"
+          WHERE bp."pro_id" = p."pro_id"
+            AND (d.discount_type = 'product' OR d.discount_type IS NULL)
+            AND (d.is_active = true OR d.is_active IS NULL)
+            AND (d.start_date IS NULL OR d.start_date <= CURRENT_DATE)
+            AND (d.end_date IS NULL OR d.end_date >= CURRENT_DATE)
+            AND (d.max_uses IS NULL OR d.uses_count < d.max_uses)
+          ORDER BY 
+            d.discount_value DESC, 
+            d.discount_id DESC
+          LIMIT 1
+        ) disc ON true
+        WHERE p."Com_id" = $1 
+        ORDER BY p."pro_id"`,
+        [com_id]
+      );
     }
     res.json(result.rows);
   } catch (err) {
@@ -64,7 +139,46 @@ export async function getProductById(req, res, next) {
       throw new Error("Invalid product id");
     }
 
-    let query = 'SELECT p."pro_id", p."pro_name", p."pro_qty", p."pro_price", p." pro_image" AS "pro_image", p."Com_id" AS "com_id", p."cat_id", c."cat_name", p."add_ons", p."stations" FROM "public"."Product" p LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id" WHERE p."pro_id" = $1';
+    let query = `
+      SELECT 
+        p."pro_id", 
+        p."pro_name", 
+        p."pro_qty", 
+        p."pro_price", 
+        p." pro_image" AS "pro_image", 
+        p."Com_id" AS "com_id", 
+        p."cat_id", 
+        c."cat_name", 
+        p."add_ons", 
+        p."stations",
+        p."product_type",
+        COALESCE(disc.discount_value, 0) AS "discount_value",
+        disc.value_type,
+        disc.discount_name
+      FROM "public"."Product" p 
+      LEFT JOIN "public"."category" c ON p."cat_id" = c."cat_id"
+      LEFT JOIN LATERAL (
+        SELECT 
+          d.discount_id,
+          d.discount_name,
+          d.discount_value,
+          d.value_type,
+          d.discount_type
+        FROM "public"."discount" d
+        JOIN "public"."Branch_Product" bp ON d."Bpro_id" = bp."Bpro_id"
+        WHERE bp."pro_id" = p."pro_id"
+          AND (d.discount_type = 'product' OR d.discount_type IS NULL)
+          AND (d.is_active = true OR d.is_active IS NULL)
+          AND (d.start_date IS NULL OR d.start_date <= CURRENT_DATE)
+          AND (d.end_date IS NULL OR d.end_date >= CURRENT_DATE)
+          AND (d.max_uses IS NULL OR d.uses_count < d.max_uses)
+        ORDER BY 
+          d.discount_value DESC, 
+          d.discount_id DESC
+        LIMIT 1
+      ) disc ON true
+      WHERE p."pro_id" = $1
+    `;
 
     let params = [id];
 

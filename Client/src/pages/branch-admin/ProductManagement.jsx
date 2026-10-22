@@ -11,6 +11,7 @@ import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import ReorderModal from "../../components/branch-admin/ReorderModal";
 import { getBranchProducts, updateBranchProduct, deleteBranchProduct, addBranchProductStock, getBranchProductIngredientStatus } from "../../services/api";
 import { getSocket, connectSocket, SOCKET_EVENTS, joinBranchInventoryRoom, leaveBranchInventoryRoom, joinCompanyRoom } from "../../services/socket";
+import { formatProductDiscount } from "../../utils/productDiscount";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
@@ -95,7 +96,7 @@ const mapApiProductToTableItem = product => {
     sku: `SKU: BPRD-${String(product.Bpro_id).padStart(3, "0")}`,
     category: product.cat_name || "General",
     price: `$${price.toFixed(2)}`,
-    discount: "0%",
+    discount: formatProductDiscount(product),
     stock: quantity,
     status,
     _original: product

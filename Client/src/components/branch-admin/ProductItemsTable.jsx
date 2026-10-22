@@ -369,7 +369,7 @@ const { t } = useTranslation();
               padding: "10px 14px",
               color: "#6B7280",
               fontSize: "14px"
-            }}>{item.discount}</td>
+            }}>{item.discount ?? "0%"}</td>
 
                 {!hideStockColumn && <td style={{
               padding: "10px 14px"

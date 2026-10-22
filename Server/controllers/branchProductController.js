@@ -78,6 +78,9 @@ function toResponseRow(row) {
     product_type: row.product_type,
     stations: stations || {},
     calculated_status,
+    discount_value: row.discount_value ?? 0,
+    value_type: row.value_type || "percentage",
+    discount_name: row.discount_name || null,
   };
 }
 
@@ -184,6 +187,9 @@ export async function getBranchProducts(req, res, next) {
         c."cat_name",
         p."stations",
         p."product_type",
+        COALESCE(disc.discount_value, 0) AS "discount_value",
+        disc.value_type,
+        disc.discount_name,
         (
           SELECT MIN(
             CASE 
@@ -200,6 +206,28 @@ export async function getBranchProducts(req, res, next) {
       FROM "public"."Branch_Product" bp
       LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
       LEFT JOIN "public"."Product"   p ON bp."pro_id" = p."pro_id"
+      LEFT JOIN LATERAL (
+        SELECT 
+          d.discount_id,
+          d.discount_name,
+          d.discount_value,
+          d.value_type,
+          d.discount_type
+        FROM "public"."discount" d
+        WHERE (d."Bpro_id" = bp."Bpro_id" OR d."Bpro_id" IN (
+          SELECT bp2."Bpro_id" FROM "public"."Branch_Product" bp2 WHERE bp2."pro_id" = bp."pro_id"
+        ))
+          AND (d.discount_type = 'product' OR d.discount_type IS NULL)
+          AND (d.is_active = true OR d.is_active IS NULL)
+          AND (d.start_date IS NULL OR d.start_date <= CURRENT_DATE)
+          AND (d.end_date IS NULL OR d.end_date >= CURRENT_DATE)
+          AND (d.max_uses IS NULL OR d.uses_count < d.max_uses)
+        ORDER BY 
+          CASE WHEN d."Bpro_id" = bp."Bpro_id" THEN 0 ELSE 1 END,
+          d.discount_value DESC, 
+          d.discount_id DESC
+        LIMIT 1
+      ) disc ON true
     `;
 
     const conditions = [];
@@ -261,6 +289,9 @@ export async function getBranchProductById(req, res, next) {
         c."cat_name",
         p."stations",
         p."product_type",
+        COALESCE(disc.discount_value, 0) AS "discount_value",
+        disc.value_type,
+        disc.discount_name,
         (
           SELECT MIN(
             CASE 
@@ -277,6 +308,28 @@ export async function getBranchProductById(req, res, next) {
       FROM "public"."Branch_Product" bp
       LEFT JOIN "public"."category" c ON bp."Cat_id" = c."cat_id"
       LEFT JOIN "public"."Product"   p ON bp."pro_id" = p."pro_id"
+      LEFT JOIN LATERAL (
+        SELECT 
+          d.discount_id,
+          d.discount_name,
+          d.discount_value,
+          d.value_type,
+          d.discount_type
+        FROM "public"."discount" d
+        WHERE (d."Bpro_id" = bp."Bpro_id" OR d."Bpro_id" IN (
+          SELECT bp2."Bpro_id" FROM "public"."Branch_Product" bp2 WHERE bp2."pro_id" = bp."pro_id"
+        ))
+          AND (d.discount_type = 'product' OR d.discount_type IS NULL)
+          AND (d.is_active = true OR d.is_active IS NULL)
+          AND (d.start_date IS NULL OR d.start_date <= CURRENT_DATE)
+          AND (d.end_date IS NULL OR d.end_date >= CURRENT_DATE)
+          AND (d.max_uses IS NULL OR d.uses_count < d.max_uses)
+        ORDER BY 
+          CASE WHEN d."Bpro_id" = bp."Bpro_id" THEN 0 ELSE 1 END,
+          d.discount_value DESC, 
+          d.discount_id DESC
+        LIMIT 1
+      ) disc ON true
     `;
     let params = [id];
 

@@ -9,6 +9,7 @@ import Button from "../../components/admin/Button";
 import ProductItemsTable from "../../components/branch-admin/ProductItemsTable";
 import { getProducts, updateProduct, deleteProduct, deleteBranchProduct, getBranches } from "../../services/api";
 import { connectSocket, getSocket, SOCKET_EVENTS, joinCompanyRoom } from "../../services/socket";
+import { formatProductDiscount } from "../../utils/productDiscount";
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
 const IMAGE_BASE_URL = API_BASE_URL.replace(/\/api\/?$/i, "");
 const cardBaseStyle = {
@@ -86,7 +87,7 @@ const mapApiProductToTableItem = product => {
     sku: `SKU: PRD-${String(product.pro_id).padStart(3, "0")}`,
     category: product.cat_name || "General",
     price: `$${price.toFixed(2)}`,
-    discount: "0%",
+    discount: formatProductDiscount(product),
     stock: quantity,
     status: getStockStatus(quantity),
     _original: product
