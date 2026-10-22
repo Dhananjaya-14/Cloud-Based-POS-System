@@ -13,6 +13,14 @@ function getActorMeta(req) {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^\+?[0-9\s\-().]{7,20}$/;
 
+function isValidPhone(val) {
+  if (typeof val !== "string") return false;
+  const trimmed = val.trim();
+  if (!PHONE_RE.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
 function sanitizeStr(val, max = 255) {
   if (typeof val !== "string") return null;
 
@@ -40,8 +48,8 @@ function validateBranchFields({
     errors.push("A valid branch email address is required.");
   }
 
-  if (!B_conNo || !PHONE_RE.test(B_conNo.trim())) {
-    errors.push("A valid contact number is required (7–20 digits).");
+  if (!B_conNo || !isValidPhone(B_conNo)) {
+    errors.push("A valid contact number is required (7–15 digits).");
   }
 
   if (!sanitizeStr(B_address)) {
@@ -303,9 +311,9 @@ export async function updateBranch(req, res, next) {
       fieldErrors.push("A valid email address is required.");
     }
 
-    if (B_conNo !== undefined && !PHONE_RE.test(B_conNo.trim())) {
+    if (B_conNo !== undefined && !isValidPhone(B_conNo)) {
       fieldErrors.push(
-        "A valid contact number is required (7–20 digits).",
+        "A valid contact number is required (7–15 digits).",
       );
     }
 

@@ -12,6 +12,7 @@ import {
 } from "react-icons/fa";
 import { createBranch, getCurrentUser, getCompanies } from "../../services/api";
 import { useTranslation } from "react-i18next";
+import { validateBranchContact } from "../../utils/branchValidation";
 
 const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
   const [form, setForm] = useState({
@@ -22,6 +23,7 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
     com_id: "",
   });
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [serverError, setServerError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -50,11 +52,11 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.B_email.trim())
     )
       e.B_email = "Valid email required";
-    if (
-      !form.B_conNo?.trim() ||
-      !/^\+?[0-9\s\-().]{7,20}$/.test(form.B_conNo.trim())
-    )
-      e.B_conNo = "Valid contact number required";
+
+    const contactErr = validateBranchContact(form.B_conNo);
+    if (contactErr) {
+      e.B_conNo = contactErr;
+    }
       
     if (isSuperAdmin && !form.com_id) {
       e.com_id = "Company selection is required";
@@ -65,12 +67,35 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
   };
 
   const handleChange = (e) => {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
-    if (errors[e.target.name]) setErrors((p) => ({ ...p, [e.target.name]: null }));
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
     setServerError("");
+
+    if (name === "B_conNo") {
+      const err = validateBranchContact(value);
+      setErrors((prev) => ({ ...prev, B_conNo: err }));
+    } else if (errors[name]) {
+      setErrors((p) => ({ ...p, [name]: null }));
+    }
+  };
+
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched((prev) => ({ ...prev, [name]: true }));
+    if (name === "B_conNo") {
+      const err = validateBranchContact(value);
+      setErrors((prev) => ({ ...prev, B_conNo: err }));
+    }
   };
 
   const handleSubmit = async () => {
+    setTouched({
+      B_name: true,
+      B_email: true,
+      B_conNo: true,
+      B_address: true,
+      com_id: true,
+    });
     if (!validate()) return;
     setIsSubmitting(true);
     try {
@@ -179,15 +204,31 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
           </div>
           {errors.B_email && <div style={errTxt}>{errors.B_email}</div>}
 
-          <label style={label}>{t("company_admin.branch_contact", "Branch Contact")}</label>
-          <div style={inputWrapper}>
-            <FaPhone style={icon} />
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, marginTop: 8 }}>
+            <label style={{ ...label, margin: 0 }}>
+              {t("company_admin.branch_contact", "Branch Contact")}
+            </label>
+            {errors.B_conNo && (
+              <span style={{ color: "#EF4444", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <FaExclamationTriangle size={11} /> {errors.B_conNo}
+              </span>
+            )}
+          </div>
+          <div style={{
+            ...inputWrapper,
+            border: errors.B_conNo ? "1.5px solid #EF4444" : "1px solid #E6EEF7",
+            borderRadius: 10,
+            background: errors.B_conNo ? "#FEF2F2" : "#fff",
+            transition: "all 0.2s ease"
+          }}>
+            <FaPhone style={{ ...icon, color: errors.B_conNo ? "#EF4444" : "#94a3b8" }} />
             <input
               name="B_conNo"
               value={form.B_conNo}
               onChange={handleChange}
+              onBlur={handleBlur}
               placeholder={t("company_admin.branch_contact_placeholder", "+94 77 ...")}
-              style={input}
+              style={{ ...input, border: "none", background: "transparent" }}
             />
           </div>
           {errors.B_conNo && <div style={errTxt}>{errors.B_conNo}</div>}
@@ -212,8 +253,8 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
           </button>
           <button
             onClick={handleSubmit}
-            style={isSubmitting ? disabledBtn : primaryBtn}
-            disabled={isSubmitting}
+            style={isSubmitting || (touched.B_conNo && Boolean(errors.B_conNo)) ? disabledBtn : primaryBtn}
+            disabled={isSubmitting || (touched.B_conNo && Boolean(errors.B_conNo))}
           >
             {isSubmitting ? t("company_admin.creating", "Creating...") : t("company_admin.create_branch", "Create Branch")}
           </button>
