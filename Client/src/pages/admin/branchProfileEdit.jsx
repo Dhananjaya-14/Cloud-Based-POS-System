@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
-import { FaArrowLeft, FaSave, FaTimes } from "react-icons/fa";
+import { FaArrowLeft, FaSave, FaTimes, FaExclamationTriangle } from "react-icons/fa";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import AdminSidebar from "../../layout/slidebar";
 import AdminHeader from "../../layout/header";
@@ -8,6 +8,7 @@ import SuperAdminSidebar from "../../layout/slidebar";
 import SuperAdminHeader from "../../layout/header";
 import StatusToggle from "../../components/admin/StatusToggle";
 import { getBranchById, getUserById, updateBranch, updateUser } from "../../services/api";
+import { validateBranchContact } from "../../utils/branchValidation";
 const inputBase = {
   width: "100%",
   border: "1px solid #d8e0ed",
@@ -84,6 +85,8 @@ const {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [contactError, setContactError] = useState("");
+  const [contactTouched, setContactTouched] = useState(false);
   const [form, setForm] = useState({
     B_name: "",
     B_email: "",
@@ -101,6 +104,8 @@ const {
         setLoading(true);
         setError("");
         setSuccessMessage("");
+        setContactError("");
+        setContactTouched(false);
         let branchData = location.state?.branch || null;
         let managerData = location.state?.manager || null;
         if (!branchData || String(branchData.B_id) !== String(branchId)) {
@@ -167,6 +172,15 @@ const {
       ...prev,
       [name]: value
     }));
+    if (name === "B_conNo") {
+      const err = validateBranchContact(value);
+      setContactError(err || "");
+    }
+  };
+  const handleContactBlur = () => {
+    setContactTouched(true);
+    const err = validateBranchContact(form.B_conNo);
+    setContactError(err || "");
   };
   const handleStatusToggle = e => {
     setForm(prev => ({
@@ -175,8 +189,10 @@ const {
     }));
   };
   const updateLocalState = (branchData, managerData) => {
-setBranch(branchData);
+    setBranch(branchData);
     setManager(managerData);
+    setContactError("");
+    setContactTouched(false);
     const fullName = [managerData?.u_fname || "", managerData?.u_lname || ""].join(" ").trim();
     setForm({
       B_name: branchData?.B_name || "",
@@ -190,15 +206,24 @@ setBranch(branchData);
     });
   };
   const goToProfile = () => {
-navigate(`/branch_profile/${branchId}`, {
+    navigate(`/branch_profile/${branchId}`, {
       state: {
         branch,
         manager
       }
     });
   };
+  const isContactInvalid = Boolean(contactError) || Boolean(validateBranchContact(form.B_conNo));
+  const isSubmitDisabled = saving || (contactTouched && isContactInvalid);
+
   const handleSave = async e => {
     e.preventDefault();
+    setContactTouched(true);
+    const contactErr = validateBranchContact(form.B_conNo);
+    if (contactErr) {
+      setContactError(contactErr);
+      return;
+    }
     if (!branchId) {
       setError("Branch id is missing.");
       return;
@@ -239,7 +264,7 @@ navigate(`/branch_profile/${branchId}`, {
       updateLocalState(nextBranch, updatedManager);
 
       // Set success message
-      setSuccessMessage(`âœ… Branch "${nextBranch.B_name}" updated successfully!`);
+      setSuccessMessage(`✅ Branch "${nextBranch.B_name}" updated successfully!`);
 
       // Navigate back to profile after short delay
       setTimeout(() => {
@@ -410,9 +435,18 @@ navigate(`/branch_profile/${branchId}`, {
                   gridColumn: "1 / -2",
                   gridTemplateColumns: "minmax(26px, 1fr) auto",
                   gap: "18px",
-                  alignItems: "end"
+                  alignItems: "start"
                 }}>
-                      <EditableField label={t("fields.contact_number", "Contact Number")} name="B_conNo" value={form.B_conNo} onChange={handleChange} />
+                      <EditableField
+                        label={t("fields.contact_number", "Contact Number")}
+                        name="B_conNo"
+                        value={form.B_conNo}
+                        onChange={handleChange}
+                        onBlur={handleContactBlur}
+                        error={contactTouched ? contactError : ""}
+                        placeholder={t("company_admin.branch_contact_placeholder", "+94 77 ...")}
+                        required
+                      />
                       <StatusToggle checked={form.status} onChange={handleStatusToggle} />
                     </div>
                   </div>
@@ -425,21 +459,27 @@ navigate(`/branch_profile/${branchId}`, {
               marginTop: "84px",
               flexWrap: "wrap"
             }}>
-                  <button type="submit" disabled={saving} style={{
-                border: "none",
-                width: "128px",
-                height: "44px",
-                borderRadius: "10px",
-                color: "white",
-                cursor: saving ? "not-allowed" : "pointer",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "8px",
-                background: saving ? "#8bc99a" : "#22ba3f",
-                fontWeight: 600,
-                fontSize: "1.05rem"
-              }}>
+                  <button
+                    type="submit"
+                    disabled={isSubmitDisabled}
+                    style={{
+                      border: "none",
+                      width: "128px",
+                      height: "44px",
+                      borderRadius: "10px",
+                      color: "white",
+                      cursor: isSubmitDisabled ? "not-allowed" : "pointer",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "8px",
+                      background: saving ? "#8bc99a" : (contactTouched && isContactInvalid) ? "#9CA3AF" : "#22ba3f",
+                      fontWeight: 600,
+                      fontSize: "1.05rem",
+                      opacity: isSubmitDisabled && !saving ? 0.7 : 1,
+                      transition: "all 0.2s ease"
+                    }}
+                  >
                     <FaSave /> {saving ? t("buttons.saving", "Saving...") : t("buttons.save", "Save")}
                   </button>
 
@@ -484,12 +524,66 @@ const EditableField = ({
   name,
   value,
   onChange,
+  onBlur,
   type = "text",
-  placeholder
+  placeholder,
+  error,
+  required = false
 }) => {
-return <div>
-      <label style={labelBase}>{label}</label>
-      <input name={name} value={value} onChange={onChange} type={type} placeholder={placeholder} style={inputBase} />
-    </div>;
+  return (
+    <div>
+      <div style={{
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: "7px",
+        gap: "8px",
+        flexWrap: "wrap"
+      }}>
+        <label style={{ ...labelBase, marginBottom: 0 }}>
+          {label}
+          {required && <span style={{ color: "#EF4444", marginLeft: "4px" }}>*</span>}
+        </label>
+        {error && (
+          <span style={{
+            color: "#EF4444",
+            fontSize: "0.82rem",
+            fontWeight: 600,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "4px"
+          }}>
+            <FaExclamationTriangle size={12} /> {error}
+          </span>
+        )}
+      </div>
+      <input
+        name={name}
+        value={value}
+        onChange={onChange}
+        onBlur={onBlur}
+        type={type}
+        placeholder={placeholder}
+        style={{
+          ...inputBase,
+          borderColor: error ? "#EF4444" : "#d8e0ed",
+          backgroundColor: error ? "#FEF2F2" : "#ffffff",
+          boxShadow: error ? "0 0 0 3px rgba(239, 68, 68, 0.15)" : "none",
+          transition: "border-color 0.2s, background-color 0.2s"
+        }}
+      />
+      {error && (
+        <span style={{
+          color: "#EF4444",
+          fontSize: "0.8rem",
+          marginTop: "5px",
+          display: "block",
+          fontWeight: 500
+        }}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
 };
 export default BranchProfileEdit;
