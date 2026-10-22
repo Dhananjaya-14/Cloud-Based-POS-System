@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
 import { deleteProduct, getCategories, getProductById, updateProduct } from "../../services/api";
+import { formatProductDiscount } from "../../utils/productDiscount";
 const cardStyle = {
   border: "1px solid #D9E4F2",
   borderRadius: "14px",
@@ -248,7 +249,7 @@ setForm(prev => ({
         add_ons: form.add_ons,
         stations: form.stations
       });
-      setProduct(updated);
+      setProduct(prev => ({ ...prev, ...updated }));
       setSuccess("Product updated successfully");
       setTimeout(() => setSuccess(""), 2200);
     } catch (err) {
@@ -503,7 +504,7 @@ if (isDeletePage) {
                   maxWidth: "140px"
                 }}>
 											<label style={labelStyle}>{t("branch_admin.discount", "Discount")}</label>
-											<input style={inputStyle} value="10%" readOnly />
+											<input style={inputStyle} value={formatProductDiscount(product)} readOnly />
 										</div>
 									</div>
 								</>}
