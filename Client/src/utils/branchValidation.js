@@ -2,11 +2,12 @@
  * Validates a branch contact number.
  * Returns a user-friendly error message if invalid, or an empty string if valid.
  *
- * Requirements:
+ * Rules:
  * - Must not be empty.
  * - Allowed characters: digits, spaces, '+', '-', '(', ')', '.'.
- * - Must contain between 7 and 15 actual digits (standard international & local telephone range).
- * - Overall length must not exceed 20 characters.
+ * - If mobile/contact number starts with '+94': exactly 11 digits must be included (94 + 9 digits).
+ * - If mobile/contact number starts with '0': exactly 10 digits must be included (0 + 9 digits).
+ * - Any other prefix is rejected.
  *
  * @param {string} contact - The branch contact number to validate
  * @returns {string} Error message if invalid, or "" if valid
@@ -18,26 +19,36 @@ export const validateBranchContact = (contact) => {
 
   const trimmed = contact.trim();
 
-  // Check for disallowed characters
-  if (!/^[0-9+\s\-().]+$/.test(trimmed)) {
-    return "Contact number can only contain digits and symbols (+, -, ())";
+  // Check for disallowed characters or misplaced '+'
+  if (
+    !/^[0-9+\s\-().]+$/.test(trimmed) ||
+    (trimmed.includes("+") && !trimmed.startsWith("+")) ||
+    (trimmed.match(/\+/g) || []).length > 1
+  ) {
+    return "Contact number can only contain digits and valid symbols (+, -, ())";
   }
 
-  // Count actual numeric digits
+  // Strip formatting symbols to evaluate prefix and digits
+  const normalized = trimmed.replace(/[\s\-().]/g, "");
   const digits = trimmed.replace(/\D/g, "");
 
-  if (digits.length < 7) {
-    return "Contact number must contain at least 7 digits";
+  if (normalized.startsWith("+94")) {
+    if (digits.length !== 11) {
+      return "Contact number starting with +94 must contain exactly 11 digits";
+    }
+    return "";
   }
 
-  if (digits.length > 15) {
-    return "Contact number cannot exceed 15 digits";
+  if (normalized.startsWith("0")) {
+    if (digits.length !== 10) {
+      return "Contact number starting with 0 must contain exactly 10 digits";
+    }
+    return "";
   }
 
-  // Check overall structure (+ allowed only at the start, length between 7 and 20)
-  if (!/^\+?[0-9\s\-().]{7,20}$/.test(trimmed)) {
-    return "Please enter a valid contact number format";
-  }
+  return "Contact number must start with +94 (11 digits) or 0 (10 digits)";
+};
 
-  return "";
+export const isValidBranchContact = (contact) => {
+  return validateBranchContact(contact) === "";
 };

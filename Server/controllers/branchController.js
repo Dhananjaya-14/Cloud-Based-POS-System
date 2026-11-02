@@ -11,14 +11,25 @@ function getActorMeta(req) {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_RE = /^\+?[0-9\s\-().]{7,20}$/;
+const PHONE_RE = /^\+?[0-9\s\-().]{7,25}$/;
 
 function isValidPhone(val) {
   if (typeof val !== "string") return false;
   const trimmed = val.trim();
   if (!PHONE_RE.test(trimmed)) return false;
+  if (trimmed.includes("+") && !trimmed.startsWith("+")) return false;
+  if ((trimmed.match(/\+/g) || []).length > 1) return false;
+
+  const normalized = trimmed.replace(/[\s\-().]/g, "");
   const digits = trimmed.replace(/\D/g, "");
-  return digits.length >= 7 && digits.length <= 15;
+
+  if (normalized.startsWith("+94")) {
+    return digits.length === 11;
+  }
+  if (normalized.startsWith("0")) {
+    return digits.length === 10;
+  }
+  return false;
 }
 
 function sanitizeStr(val, max = 255) {
@@ -49,7 +60,7 @@ function validateBranchFields({
   }
 
   if (!B_conNo || !isValidPhone(B_conNo)) {
-    errors.push("A valid contact number is required (7–15 digits).");
+    errors.push("A valid contact number is required: must start with +94 (11 digits) or 0 (10 digits).");
   }
 
   if (!sanitizeStr(B_address)) {
@@ -313,7 +324,7 @@ export async function updateBranch(req, res, next) {
 
     if (B_conNo !== undefined && !isValidPhone(B_conNo)) {
       fieldErrors.push(
-        "A valid contact number is required (7–15 digits).",
+        "A valid contact number is required: must start with +94 (11 digits) or 0 (10 digits).",
       );
     }
 

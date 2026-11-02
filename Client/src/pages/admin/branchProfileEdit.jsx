@@ -214,7 +214,7 @@ const {
     });
   };
   const isContactInvalid = Boolean(contactError) || Boolean(validateBranchContact(form.B_conNo));
-  const isSubmitDisabled = saving || (contactTouched && isContactInvalid);
+  const isSubmitDisabled = saving || isContactInvalid;
 
   const handleSave = async e => {
     e.preventDefault();
@@ -438,13 +438,13 @@ const {
                   alignItems: "start"
                 }}>
                       <EditableField
-                        label={t("fields.contact_number", "Contact Number")}
+                        label={t("company_admin.contact", "Contact")}
                         name="B_conNo"
                         value={form.B_conNo}
                         onChange={handleChange}
                         onBlur={handleContactBlur}
-                        error={contactTouched ? contactError : ""}
-                        placeholder={t("company_admin.branch_contact_placeholder", "+94 77 ...")}
+                        error={contactTouched || Boolean(contactError) ? contactError : ""}
+                        placeholder="+94 77 123 4567 or 077 123 4567"
                         required
                       />
                       <StatusToggle checked={form.status} onChange={handleStatusToggle} />
