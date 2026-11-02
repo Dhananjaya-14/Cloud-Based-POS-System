@@ -2,9 +2,11 @@ import { useTranslation } from "react-i18next";
 import React, { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
+import { FaExclamationTriangle } from "react-icons/fa";
 import { getSuppliers, createSupplier, updateSupplier, deleteSupplier, restoreSupplier, assignSupplierToBranch, removeSupplierFromBranch, getSupplierBranches, getBranches } from "../../services/api";
 import { getSocket, connectSocket, SOCKET_EVENTS } from "../../services/socket";
 import { useAuth } from "../../context/AuthContext";
+import { validateSupplierContact } from "../../utils/supplierValidation";
 
 // -----Toast ─---------------
 const Toast = ({
@@ -37,12 +39,25 @@ const Modal = ({
 const Field = ({
   label,
   required,
+  error,
   children
 }) => <div className="mb-4">
-    <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-      {label}{required && <span className="text-red-500 ml-1">*</span>}
-    </label>
+    <div className="flex justify-between items-center mb-1.5 gap-2 flex-wrap">
+      <label className="block text-sm font-semibold text-gray-700 m-0">
+        {label}{required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+      {error && (
+        <span className="text-xs font-semibold text-red-500 inline-flex items-center gap-1">
+          <FaExclamationTriangle size={11} /> {error}
+        </span>
+      )}
+    </div>
     {children}
+    {error && (
+      <span className="text-xs font-medium text-red-500 mt-1 block">
+        {error}
+      </span>
+    )}
   </div>;
 const BranchCheckbox = ({
   branch,
@@ -57,6 +72,7 @@ const BranchCheckbox = ({
     {badge && <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${badgeColor}`}>{badge}</span>}
   </label>;
 const inputClass = "w-full px-3.5 py-2.5 rounded-lg border-2 border-gray-300 text-sm text-gray-900 outline-none transition-colors focus:border-[#2E3E8F]";
+const inputErrorClass = "w-full px-3.5 py-2.5 rounded-lg border-2 border-red-500 bg-red-50 text-sm text-gray-900 outline-none transition-colors focus:border-red-600 focus:ring-1 focus:ring-red-500";
 const btnClass = "px-5 py-2.5 rounded-lg border-none cursor-pointer font-semibold text-sm transition-opacity hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed";
 const btnPrimary = `${btnClass} bg-[#2E3E8F] text-white`;
 const btnSecondary = `${btnClass} bg-gray-100 text-gray-700`;
@@ -99,6 +115,8 @@ const {
     sup_address: "",
     b_id: ""
   });
+  const [contactError, setContactError] = useState("");
+  const [contactTouched, setContactTouched] = useState(false);
   const currentUserId = Number(user?.u_id ?? user?.id);
   const showToast = (message, type = "success") => {
 setToast({
@@ -289,47 +307,91 @@ setToast({
 
   // -----------------CRUD -----------------------
   const openCreate = () => {
-setForm({
+    setForm({
       sup_name: "",
       sup_email: "",
       sup_contact: "",
       sup_address: "",
       b_id: ""
     });
+    setContactError("");
+    setContactTouched(false);
     setShowCreate(true);
   };
   const openEdit = sup => {
     setForm({
-      sup_name: sup.sup_name,
-      sup_email: sup.sup_email,
-      sup_contact: sup.sup_contact,
+      sup_name: sup.sup_name || "",
+      sup_email: sup.sup_email || "",
+      sup_contact: sup.sup_contact || "",
       sup_address: sup.sup_address || "",
       b_id: ""
     });
+    setContactError("");
+    setContactTouched(false);
     setEditSupplier(sup);
   };
+  const handleContactChange = e => {
+    const val = e.target.value;
+    setForm(f => ({
+      ...f,
+      sup_contact: val
+    }));
+    const err = validateSupplierContact(val);
+    if (contactTouched || contactError) {
+      setContactError(err);
+    }
+  };
+  const handleContactBlur = () => {
+    setContactTouched(true);
+    const err = validateSupplierContact(form.sup_contact);
+    setContactError(err);
+  };
   const handleSave = async () => {
+    setContactTouched(true);
+    const contactErr = validateSupplierContact(form.sup_contact);
+    if (contactErr) {
+      setContactError(contactErr);
+      return;
+    }
+
+    if (!form.sup_name?.trim()) {
+      showToast("Supplier name is required", "error");
+      return;
+    }
+    if (!form.sup_email?.trim()) {
+      showToast("Supplier email is required", "error");
+      return;
+    }
+    if (!editSupplier && !form.b_id) {
+      showToast("Initial branch selection is required", "error");
+      return;
+    }
+
     setSaving(true);
     try {
       if (editSupplier) {
         await updateSupplier(editSupplier.sup_id, {
-          sup_name: form.sup_name,
-          sup_email: form.sup_email,
-          sup_contact: form.sup_contact,
-          sup_address: form.sup_address
+          sup_name: form.sup_name.trim(),
+          sup_email: form.sup_email.trim(),
+          sup_contact: form.sup_contact.trim(),
+          sup_address: form.sup_address?.trim() || ""
         });
         showToast("Supplier updated successfully!");
         setEditSupplier(null);
+        setContactError("");
+        setContactTouched(false);
       } else {
         await createSupplier({
-          sup_name: form.sup_name,
-          sup_email: form.sup_email,
-          sup_contact: form.sup_contact,
-          sup_address: form.sup_address,
+          sup_name: form.sup_name.trim(),
+          sup_email: form.sup_email.trim(),
+          sup_contact: form.sup_contact.trim(),
+          sup_address: form.sup_address?.trim() || "",
           b_id: Number(form.b_id)
         });
         showToast("Supplier created and assigned to branch!");
         setShowCreate(false);
+        setContactError("");
+        setContactTouched(false);
       }
       loadData();
     } catch (err) {
@@ -511,7 +573,7 @@ setForm({
         </Modal>}
 
       {/* ── Create Supplier Modal ── */}
-      {showCreate && <Modal title="Add New Supplier" onClose={() => setShowCreate(false)}>
+      {showCreate && <Modal title="Add New Supplier" onClose={() => { setShowCreate(false); setContactError(""); setContactTouched(false); }}>
           <Field label={t("fields.supplier_name", "Supplier Name")} required>
             <input className={inputClass} value={form.sup_name} onChange={e => setForm(f => ({
           ...f,
@@ -524,11 +586,18 @@ setForm({
           sup_email: e.target.value
         }))} placeholder={t("company_admin.supplier_email_com", "supplier@email.com")} />
           </Field>
-          <Field label={t("fields.contact_number", "Contact Number")} required>
-            <input className={inputClass} value={form.sup_contact} onChange={e => setForm(f => ({
-          ...f,
-          sup_contact: e.target.value
-        }))} placeholder={t("company_admin.94_77_000_0000", "+94 77 000 0000")} />
+          <Field
+            label={t("fields.contact_number", "Contact Number")}
+            required
+            error={contactTouched ? contactError : ""}
+          >
+            <input
+              className={contactTouched && contactError ? inputErrorClass : inputClass}
+              value={form.sup_contact}
+              onChange={handleContactChange}
+              onBlur={handleContactBlur}
+              placeholder={t("company_admin.94_77_000_0000", "+94 77 000 0000")}
+            />
           </Field>
           <Field label={t("fields.address", "Address")}>
             <input className={inputClass} value={form.sup_address} onChange={e => setForm(f => ({
@@ -550,15 +619,19 @@ setForm({
             </select>
           </Field>
           <div className="flex gap-3 mt-3">
-            <button onClick={() => setShowCreate(false)} className={`${btnSecondary} flex-1`}>{t("company_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
-            <button onClick={handleSave} disabled={saving} className={`${btnPrimary} flex-1`}>
+            <button onClick={() => { setShowCreate(false); setContactError(""); setContactTouched(false); }} className={`${btnSecondary} flex-1`}>{t("company_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+            <button
+              onClick={handleSave}
+              disabled={saving || (contactTouched && Boolean(contactError))}
+              className={`${btnPrimary} flex-1 ${contactTouched && contactError ? "opacity-60 cursor-not-allowed bg-gray-400 hover:bg-gray-400" : ""}`}
+            >
               {saving ? t("buttons.saving", "Saving...") : "Create Supplier"}
             </button>
           </div>
         </Modal>}
 
       {/* ── Edit Supplier Modal ── */}
-      {editSupplier && <Modal title="Edit Supplier" onClose={() => setEditSupplier(null)}>
+      {editSupplier && <Modal title="Edit Supplier" onClose={() => { setEditSupplier(null); setContactError(""); setContactTouched(false); }}>
           <Field label={t("fields.supplier_name", "Supplier Name")} required>
             <input className={inputClass} value={form.sup_name} onChange={e => setForm(f => ({
           ...f,
@@ -571,11 +644,18 @@ setForm({
           sup_email: e.target.value
         }))} />
           </Field>
-          <Field label={t("fields.contact_number", "Contact Number")} required>
-            <input className={inputClass} value={form.sup_contact} onChange={e => setForm(f => ({
-          ...f,
-          sup_contact: e.target.value
-        }))} />
+          <Field
+            label={t("fields.contact_number", "Contact Number")}
+            required
+            error={contactTouched ? contactError : ""}
+          >
+            <input
+              className={contactTouched && contactError ? inputErrorClass : inputClass}
+              value={form.sup_contact}
+              onChange={handleContactChange}
+              onBlur={handleContactBlur}
+              placeholder="+94 77 000 0000"
+            />
           </Field>
           <Field label={t("fields.address", "Address")}>
             <input className={inputClass} value={form.sup_address} onChange={e => setForm(f => ({
@@ -584,8 +664,12 @@ setForm({
         }))} />
           </Field>
           <div className="flex gap-3 mt-4">
-            <button onClick={() => setEditSupplier(null)} className={`${btnSecondary} flex-1`}>{t("company_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
-            <button onClick={handleSave} disabled={saving} className={`${btnPrimary} flex-1`}>
+            <button onClick={() => { setEditSupplier(null); setContactError(""); setContactTouched(false); }} className={`${btnSecondary} flex-1`}>{t("company_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+            <button
+              onClick={handleSave}
+              disabled={saving || (contactTouched && Boolean(contactError))}
+              className={`${btnPrimary} flex-1 ${contactTouched && contactError ? "opacity-60 cursor-not-allowed bg-gray-400 hover:bg-gray-400" : ""}`}
+            >
               {saving ? t("buttons.saving", "Saving...") : t("buttons.save_changes", "Save Changes")}
             </button>
           </div>
