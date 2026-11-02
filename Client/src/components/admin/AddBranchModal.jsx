@@ -206,7 +206,7 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
 
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, marginTop: 8 }}>
             <label style={{ ...label, margin: 0 }}>
-              {t("company_admin.branch_contact", "Branch Contact")}
+              {t("company_admin.contact", "Contact")}<span style={{ color: "#EF4444", marginLeft: 4 }}>*</span>
             </label>
             {errors.B_conNo && (
               <span style={{ color: "#EF4444", fontSize: 12, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
@@ -219,6 +219,7 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
             border: errors.B_conNo ? "1.5px solid #EF4444" : "1px solid #E6EEF7",
             borderRadius: 10,
             background: errors.B_conNo ? "#FEF2F2" : "#fff",
+            boxShadow: errors.B_conNo ? "0 0 0 3px rgba(239, 68, 68, 0.12)" : "none",
             transition: "all 0.2s ease"
           }}>
             <FaPhone style={{ ...icon, color: errors.B_conNo ? "#EF4444" : "#94a3b8" }} />
@@ -227,7 +228,7 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
               value={form.B_conNo}
               onChange={handleChange}
               onBlur={handleBlur}
-              placeholder={t("company_admin.branch_contact_placeholder", "+94 77 ...")}
+              placeholder="+94 77 123 4567 or 077 123 4567"
               style={{ ...input, border: "none", background: "transparent" }}
             />
           </div>
@@ -253,8 +254,8 @@ const AddBranchWizard = ({ onClose, onSuccess, com_id: propComId }) => {
           </button>
           <button
             onClick={handleSubmit}
-            style={isSubmitting || (touched.B_conNo && Boolean(errors.B_conNo)) ? disabledBtn : primaryBtn}
-            disabled={isSubmitting || (touched.B_conNo && Boolean(errors.B_conNo))}
+            style={isSubmitting || Boolean(errors.B_conNo) ? disabledBtn : primaryBtn}
+            disabled={isSubmitting || Boolean(errors.B_conNo)}
           >
             {isSubmitting ? t("company_admin.creating", "Creating...") : t("company_admin.create_branch", "Create Branch")}
           </button>
