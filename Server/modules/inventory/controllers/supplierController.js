@@ -29,8 +29,12 @@ function validateEmail(email) {
 }
 
 function validateContact(contact) {
-  const contactRegex = /^[0-9+\-\s()]{7,30}$/;
-  return contactRegex.test(contact);
+  if (typeof contact !== "string") return false;
+  const trimmed = contact.trim();
+  if (!/^[0-9+\s\-().]+$/.test(trimmed)) return false;
+  if (!/^\+?[0-9\s\-().]{7,25}$/.test(trimmed)) return false;
+  const digits = trimmed.replace(/\D/g, "");
+  return digits.length >= 7 && digits.length <= 15;
 }
 
 function validateSupplierName(sup_name) {
@@ -146,15 +150,10 @@ export async function getSupplierById(req, res, next) {
   }
 }
 
-// Only Company Admin or Super Admin can create suppliers
+// Create supplier (Company Admin, Branch Admin, or Super Admin)
 export async function createSupplier(req, res, next) {
   const client = await pool.connect();
   try {
-    if (req.user.role_id === ROLES.BRANCH_ADMIN) {
-      res.status(403);
-      throw new Error("Branch Admins cannot create suppliers. Contact your Company Admin.");
-    }
-
     if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
       res.status(400);
       throw new Error("Request body must be a JSON object");
@@ -165,7 +164,10 @@ export async function createSupplier(req, res, next) {
     ]);
 
     const { sup_name, sup_email, sup_contact, sup_address } = body;
-    const b_id = body.b_id ? Number(body.b_id) : null;
+    let b_id = body.b_id ? Number(body.b_id) : null;
+    if (req.user.role_id === ROLES.BRANCH_ADMIN) {
+      b_id = Number(req.user.b_id);
+    }
 
     if (!sup_name || !sup_email || !sup_contact) {
       res.status(400);
@@ -189,7 +191,7 @@ export async function createSupplier(req, res, next) {
 
     if (typeof sup_contact !== "string" || !validateContact(sup_contact)) {
       res.status(400);
-      throw new Error("sup_contact must be a valid phone number (7–30 characters)");
+      throw new Error("sup_contact must be a valid contact number (7–15 digits)");
     }
 
     if (sup_address !== undefined) {
@@ -403,11 +405,6 @@ export async function getSupplierBranches(req, res, next) {
 
 export async function updateSupplier(req, res, next) {
   try {
-    if (req.user.role_id === ROLES.BRANCH_ADMIN) {
-      res.status(403);
-      throw new Error("Branch Admins cannot edit suppliers.");
-    }
-
     const id = parsePositiveInt(req.params.id, "sup_id");
 
     if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
@@ -426,11 +423,20 @@ export async function updateSupplier(req, res, next) {
 
     const { sup_name, sup_email, sup_contact, sup_address } = body;
 
-    let existQuery = `SELECT sup_id, "Com_id" FROM "SUPPLIER" WHERE sup_id = $1`;
-    const existParams = [id];
-    if (req.user.role_id !== ROLES.SUPER_ADMIN) {
-      existQuery += ` AND "Com_id" = $2`;
-      existParams.push(req.user.com_id);
+    let existQuery;
+    let existParams;
+    if (req.user.role_id === ROLES.SUPER_ADMIN) {
+      existQuery = `SELECT sup_id, "Com_id" FROM "SUPPLIER" WHERE sup_id = $1`;
+      existParams = [id];
+    } else if (req.user.role_id === ROLES.BRANCH_ADMIN) {
+      existQuery = `SELECT s.sup_id, s."Com_id" 
+                    FROM "SUPPLIER" s
+                    JOIN "Branch_Supplier" bs ON bs.sup_id = s.sup_id
+                    WHERE s.sup_id = $1 AND bs.b_id = $2 AND (s."Com_id" = $3 OR $3 IS NULL)`;
+      existParams = [id, req.user.b_id, req.user.com_id];
+    } else {
+      existQuery = `SELECT sup_id, "Com_id" FROM "SUPPLIER" WHERE sup_id = $1 AND "Com_id" = $2`;
+      existParams = [id, req.user.com_id];
     }
     const existing = await pool.query(existQuery, existParams);
     if (existing.rows.length === 0) {
@@ -470,7 +476,7 @@ export async function updateSupplier(req, res, next) {
     if (sup_contact !== undefined) {
       if (!validateContact(sup_contact)) {
         res.status(400);
-        throw new Error("sup_contact must be a valid phone number (7–30 characters)");
+        throw new Error("sup_contact must be a valid contact number (7–15 digits)");
       }
       const dupContact = await pool.query(
         `SELECT sup_id FROM "SUPPLIER" WHERE sup_contact = $1 AND sup_id <> $2 AND "Com_id" = $3`,

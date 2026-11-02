@@ -26,7 +26,7 @@ router.use(requireModule("has_inventory"));
 
 // ── Collection routes ──────────────────────────────────────────────────────
 router.get("/",   requireBranchAdminOrAdmin, getSuppliers);
-router.post("/",  requireAdmin,              createSupplier);
+router.post("/",  requireBranchAdminOrAdmin, createSupplier);
 
 // ── Sub-resource routes  (must be BEFORE /:id to avoid param collision) ────
 router.get(   "/:id/branches",          requireAdmin, getSupplierBranches);
@@ -36,7 +36,7 @@ router.patch( "/:id/restore",           requireAdmin, restoreSupplier);
 
 // ── Single-resource routes ─────────────────────────────────────────────────
 router.get(   "/:id", requireBranchAdminOrAdmin, getSupplierById);
-router.put(   "/:id", requireAdmin,              updateSupplier);
+router.put(   "/:id", requireBranchAdminOrAdmin, updateSupplier);
 router.delete("/:id", requireAdmin,              deleteSupplier);
 
 export default router;

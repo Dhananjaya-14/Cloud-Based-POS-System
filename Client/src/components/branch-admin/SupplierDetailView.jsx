@@ -4,7 +4,8 @@ import ReceiveOrderModal from "./ReceiveOrderModal";
 const SupplierDetailView = ({
   supplier,
   onBack,
-  showToast
+  showToast,
+  onEditSupplier
 }) => {
   const { t } = useTranslation();
 const [orders, setOrders] = useState([]);
@@ -136,14 +137,43 @@ const [orders, setOrders] = useState([]);
       padding: "24px",
       borderRadius: "12px",
       border: "1px solid #E4E7EC",
-      marginBottom: "24px"
+      marginBottom: "24px",
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center"
     }}>
-        <h2 style={{
-        margin: 0
-      }}>{supplier.sup_name}</h2>
-        <p style={{
-        color: "#667085"
-      }}>{supplier.sup_email} | {supplier.sup_contact}</p>
+        <div>
+          <h2 style={{
+          margin: 0
+        }}>{supplier.sup_name}</h2>
+          <p style={{
+          color: "#667085",
+          marginTop: "4px",
+          marginBottom: 0
+        }}>{supplier.sup_email} | {supplier.sup_contact}</p>
+          {supplier.sup_address && (
+            <p style={{ color: "#98A2B3", fontSize: "12px", marginTop: "4px", marginBottom: 0 }}>
+              📍 {supplier.sup_address}
+            </p>
+          )}
+        </div>
+        {onEditSupplier && (
+          <button
+            onClick={onEditSupplier}
+            style={{
+              padding: "8px 18px",
+              background: "#F8F9FC",
+              color: "#344054",
+              border: "1px solid #D0D5DD",
+              borderRadius: "8px",
+              fontWeight: "600",
+              fontSize: "13px",
+              cursor: "pointer"
+            }}
+          >
+            {t("buttons.edit", "Edit Supplier")}
+          </button>
+        )}
       </div>
 
       {loading ? <p>{t("branch_admin.loading_history", "Loading history...")}</p> : orders.map(order => <div key={order.po_id} style={{
