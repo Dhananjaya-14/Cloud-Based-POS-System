@@ -458,7 +458,7 @@ export default function AdminDashboardPage() {
   }, [currentComId]);
   return <div style={{
     display: "flex",
-    backgroundColor: "#F5F7FA",
+    backgroundColor: "#F7F5F0",
     minHeight: "100vh"
   }}>
       <Sidebar />
@@ -468,9 +468,9 @@ export default function AdminDashboardPage() {
       display: "flex",
       flexDirection: "column"
     }}>
-        <Header title={`${t("company_admin.admin_dashboard", "Admin Dashboard")} — ${companyLabel}`} />
+        <Header title={t("company_admin.admin_dashboard", "Admin Dashboard")} subtitle={companyLabel} />
         <main style={{
-        padding: 40,
+        padding:  "32px 36px",
         flex: 1
       }}>
           {error && <div style={{
@@ -487,10 +487,10 @@ export default function AdminDashboardPage() {
 
           <div style={{
           display: "grid",
-          gridTemplateColumns: "1fr 360px",
+          gridTemplateColumns: "2.1fr 1fr",
           gridTemplateRows: "auto auto",
           gap: 20,
-          marginTop: 20,
+          marginTop: 0,
           alignItems: "start"
         }}>
             <div style={{
