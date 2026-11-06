@@ -6,10 +6,47 @@ import Sidebar from "../../layout/slidebar";
 import OverviewCards from "../../components/admin/OverviewCards";
 import TodayActivitiesChart from "../../components/admin/TodayActivitiesChart";
 import { getStatsOverview, getBranchStats, getOrders, getBranches, getCurrentUser, getCompanyById } from "../../services/api";
-import { Doughnut } from "react-chartjs-2";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { FiPlus, FiBarChart2 } from "react-icons/fi";
-ChartJS.register(ArcElement, Tooltip, Legend);
+
+const ORDER_COLORS = { completed: "#0F9B8E", pending: "#0B2E4F", other: "#E0654F" };
+
+// Donut ring drawn with SVG to match the design (160px, 20px ring, rounded ends)
+function OrderDonut({ segments }) {
+  const size = 160;
+  const radius = 60;
+  const stroke = 20;
+  const circumference = 2 * Math.PI * radius;
+  const total = segments.reduce((sum, seg) => sum + seg.value, 0);
+  let offset = 0;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="Order summary">
+      <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#EFEBE2" strokeWidth={stroke} />
+      {total > 0 && segments.filter(seg => seg.value > 0).map(seg => {
+        const length = (seg.value / total) * circumference;
+        const circle = (
+          <circle
+            key={seg.key}
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke={seg.color}
+            strokeWidth={stroke}
+            strokeLinecap="round"
+            strokeDasharray={`${length} ${circumference}`}
+            strokeDashoffset={-offset}
+            transform={`rotate(-90 ${size / 2} ${size / 2})`}
+          >
+            <title>{`${seg.label}: ${seg.value.toLocaleString()} (${seg.pct}%)`}</title>
+          </circle>
+        );
+        offset += length;
+        return circle;
+      })}
+    </svg>
+  );
+}
+
 function OrderSummaryChart({ branchStats = [], currentComId = null }) {
   const { t } = useTranslation();
   const [counts, setCounts] = React.useState({
@@ -70,239 +107,37 @@ function OrderSummaryChart({ branchStats = [], currentComId = null }) {
   }, [currentComId, branchStats]);
 
   const total = counts.completed + counts.pending + counts.other;
-  const getPct = val => (total > 0 ? ((val / total) * 100).toFixed(1) : "0.0");
+  const getPct = val => (total > 0 ? Math.round((val / total) * 100) : 0);
 
-  const pctCompleted = getPct(counts.completed);
-  const pctPending = getPct(counts.pending);
-  const pctOther = getPct(counts.other);
-
-  const completedName = t("company_admin.completed", "Completed");
-  const pendingName = t("company_admin.pending", "Pending");
-  const otherName = t("company_admin.other", "Other");
-
-  // Chart datasets & labels with counts and percentages for both legend and tooltip
-  const chartData = {
-    labels: [
-      `${completedName}: ${counts.completed} (${pctCompleted}%)`,
-      `${pendingName}: ${counts.pending} (${pctPending}%)`,
-      `${otherName}: ${counts.other} (${pctOther}%)`
-    ],
-    datasets: total > 0 ? [{
-      data: [counts.completed, counts.pending, counts.other],
-      backgroundColor: ["#16A34A", "#0D5EA8", "#EF4444"],
-      hoverBackgroundColor: ["#15803D", "#0A4880", "#DC2626"],
-      borderWidth: 2,
-      borderColor: "#ffffff"
-    }] : [{
-      data: [1],
-      backgroundColor: ["#E2E8F0"],
-      hoverBackgroundColor: ["#E2E8F0"],
-      borderWidth: 0
-    }]
-  };
-
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: "70%",
-    plugins: {
-      legend: {
-        position: "bottom",
-        labels: {
-          usePointStyle: true,
-          pointStyle: "circle",
-          padding: 8,
-          boxWidth: 8,
-          boxHeight: 8,
-          color: "#475569",
-          font: {
-            size: 11,
-            weight: 600
-          }
-        }
-      },
-      tooltip: {
-        enabled: total > 0,
-        backgroundColor: "#1E293B",
-        titleColor: "#FFFFFF",
-        bodyColor: "#F8FAFC",
-        padding: 10,
-        cornerRadius: 8,
-        callbacks: {
-          label: context => {
-            const val = context.raw || 0;
-            const pct = getPct(val);
-            const titles = [completedName, pendingName, otherName];
-            const name = titles[context.dataIndex] || context.label;
-            return ` ${name}: ${val.toLocaleString()} orders (${pct}%)`;
-          },
-          footer: () => ` Total Orders: ${total.toLocaleString()}`
-        }
-      }
-    }
-  };
+  const segments = [
+    { key: "completed", label: t("company_admin.completed", "Completed"), value: counts.completed, color: ORDER_COLORS.completed },
+    { key: "pending", label: t("company_admin.pending", "Pending"), value: counts.pending, color: ORDER_COLORS.pending },
+    { key: "other", label: t("company_admin.other", "Other"), value: counts.other, color: ORDER_COLORS.other }
+  ].map(seg => ({ ...seg, pct: getPct(seg.value) }));
 
   if (loading) {
     return (
-      <div style={{
-        height: 180,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 8,
-        color: "#64748B",
-        fontSize: "0.9rem"
-      }}>
-        <div style={{
-          width: 24,
-          height: 24,
-          border: "3px solid #E2E8F0",
-          borderTopColor: "#0D5EA8",
-          borderRadius: "50%",
-          animation: "spin 0.8s linear infinite"
-        }} />
+      <div className="flex h-[160px] flex-col items-center justify-center gap-2 text-sm text-[#5B6470]">
+        <div className="h-6 w-6 animate-spin rounded-full border-[3px] border-[#EFEBE2] border-t-[#0F9B8E]" />
         <span>{t("company_admin.loading", "Loading order summary...")}</span>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
   }
 
-  const breakdownItems = [
-    {
-      key: "completed",
-      label: completedName,
-      count: counts.completed,
-      pct: pctCompleted,
-      color: "#16A34A",
-      bgBadge: "#DCFCE7",
-      textBadge: "#15803D"
-    },
-    {
-      key: "pending",
-      label: pendingName,
-      count: counts.pending,
-      pct: pctPending,
-      color: "#0D5EA8",
-      bgBadge: "#DBEAFE",
-      textBadge: "#1D4ED8"
-    },
-    {
-      key: "other",
-      label: otherName,
-      count: counts.other,
-      pct: pctOther,
-      color: "#EF4444",
-      bgBadge: "#FEE2E2",
-      textBadge: "#B91C1C"
-    }
-  ];
-
   return (
-    <div style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center" }}>
-      {/* Doughnut Chart with Center Total */}
-      <div style={{
-        position: "relative",
-        width: "100%",
-        maxWidth: 240,
-        height: 180,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center"
-      }}>
-        <Doughnut data={chartData} options={chartOptions} />
-        <div style={{
-          position: "absolute",
-          top: "40%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          textAlign: "center",
-          pointerEvents: "none"
-        }}>
-          <div style={{ fontSize: "20px", fontWeight: "800", color: "#0F172A", lineHeight: 1 }}>
-            {total.toLocaleString()}
-          </div>
-          <div style={{ fontSize: "10px", color: "#64748B", fontWeight: "600", marginTop: "2px", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            {t("company_admin.orders", "Orders")}
-          </div>
-        </div>
-      </div>
-
-      {/* Numeric Status Breakdown */}
-      <div style={{
-        marginTop: 14,
-        borderTop: "1px solid #F1F5F9",
-        paddingTop: 12,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        width: "100%"
-      }}>
-        {breakdownItems.map(item => (
-          <div
-            key={item.key}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "7px 10px",
-              borderRadius: 8,
-              backgroundColor: "#F8FAFC",
-              border: "1px solid #EEF2F6"
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  backgroundColor: item.color,
-                  display: "inline-block",
-                  flexShrink: 0
-                }}
-              />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>
-                {item.label}
-              </span>
+    <div className="flex flex-col items-center gap-5">
+      <OrderDonut segments={segments} />
+      {/* Status breakdown: coloured dot, label and right-aligned percentage */}
+      <div className="flex w-full flex-col gap-2.5">
+        {segments.map(seg => (
+          <div key={seg.key} className="flex items-center justify-between text-[13px]">
+            <div className="flex items-center gap-2 text-[#5B6470]">
+              <span className="h-[9px] w-[9px] rounded-full" style={{ background: seg.color }} />
+              {seg.label}
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: "#0F172A" }}>
-                {item.count.toLocaleString()}
-              </span>
-              <span
-                style={{
-                  fontSize: 11,
-                  fontWeight: 700,
-                  padding: "2px 7px",
-                  borderRadius: 12,
-                  backgroundColor: item.bgBadge,
-                  color: item.textBadge,
-                  minWidth: 44,
-                  textAlign: "center"
-                }}
-              >
-                {item.pct}%
-              </span>
-            </div>
+            <div className="font-bold text-[#071E38]">{seg.pct}%</div>
           </div>
         ))}
-
-        {/* Total Summary Row */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "4px 10px 0",
-          fontSize: 12,
-          fontWeight: 600,
-          color: "#64748B"
-        }}>
-          <span>{t("company_admin.total_orders", "Total Breakdown")}</span>
-          <span style={{ fontWeight: 700, color: "#0F172A" }}>
-            {total.toLocaleString()} ({total > 0 ? "100%" : "0%"})
-          </span>
-        </div>
       </div>
     </div>
   );
@@ -470,7 +305,7 @@ export default function AdminDashboardPage() {
     }}>
         <Header title={t("company_admin.admin_dashboard", "Admin Dashboard")} subtitle={companyLabel} />
         <main style={{
-        padding:  "32px 36px",
+        padding: "32px 36px",
         flex: 1
       }}>
           {error && <div style={{
@@ -504,19 +339,8 @@ export default function AdminDashboardPage() {
             gridColumn: "2 / 3",
             gridRow: "1 / 2"
           }}>
-              <div style={{
-              background: "#fff",
-              padding: 16,
-              borderRadius: 12,
-              boxShadow: "0 4px 15px rgba(0,0,0,0.03)"
-            }}>
-                <h3 style={{
-                margin: 0,
-                marginBottom: 12,
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#313D4F"
-              }}>{t("company_admin.order_summary", "Order Summary")}</h3>
+              <div className="rounded-[14px] border border-[#E7E3D8] bg-white p-6">
+                <h2 className="m-0 mb-[22px] font-space text-base font-bold text-[#071E38]">{t("company_admin.order_summary", "Order Summary")}</h2>
                 <OrderSummaryChart branchStats={branchStats} currentComId={currentComId} />
               </div>
             </div>
