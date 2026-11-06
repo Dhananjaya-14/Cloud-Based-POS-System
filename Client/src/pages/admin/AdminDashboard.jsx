@@ -145,81 +145,40 @@ function OrderSummaryChart({ branchStats = [], currentComId = null }) {
 function QuickActionsCompact() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const handleAddBranch = () => {
-    navigate("/branches");
-  };
-  const handleBranchStats = () => {
-    navigate("/admin/statistics");
-  };
-  const cardStyle = {
-    display: "flex",
-    gap: 12,
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 12,
-    background: "#fff",
-    border: "1px solid #EEF2F7",
-    cursor: "pointer"
-  };
-  const iconWrap = bg => ({
-    background: bg,
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0
-  });
-  return <div style={{
-    background: "#F8FAFC",
-    padding: 12,
-    borderRadius: 12
-  }}>
-      <div style={{
-      display: "flex",
-      flexDirection: "column",
-      gap: 12
-    }}>
-        <div role="button" onClick={handleAddBranch} style={cardStyle}>
-          <div style={iconWrap("#FFFBEB")}>
-            <FiPlus size={20} color="#F59E0B" />
-          </div>
-          <div style={{
-          textAlign: "left"
-        }}>
-            <div style={{
-            fontSize: 14,
-            fontWeight: 700,
-            color: "#0F172A"
-          }}>{t("company_admin.add_new_branch", "Add New Branch")}</div>
-            <div style={{
-            fontSize: 12,
-            color: "#64748B"
-          }}>{t("company_admin.instantly_add_new_branch", "Instantly add new branch")}</div>
-          </div>
-        </div>
-
-        <div role="button" onClick={handleBranchStats} style={cardStyle}>
-          <div style={iconWrap("#EFF6FF")}>
-            <FiBarChart2 size={20} color="#0D5EA8" />
-          </div>
-          <div style={{
-          textAlign: "left"
-        }}>
-            <div style={{
-            fontSize: 14,
-            fontWeight: 700,
-            color: "#0F172A"
-          }}>{t("company_admin.branch_statistics", "Branch Statistics")}</div>
-            <div style={{
-            fontSize: 12,
-            color: "#64748B"
-          }}>{t("company_admin.view_branch_performance", "View branch performance")}</div>
-          </div>
-        </div>
-      </div>
-    </div>;
+  const actions = [
+    {
+      key: "add-branch",
+      icon: <FiPlus size={17} />,
+      title: t("company_admin.add_new_branch", "Add New Branch"),
+      subtitle: t("company_admin.instantly_add_new_branch", "Instantly add new branch"),
+      onClick: () => navigate("/branches")
+    },
+    {
+      key: "branch-stats",
+      icon: <FiBarChart2 size={17} />,
+      title: t("company_admin.branch_statistics", "Branch Statistics"),
+      subtitle: t("company_admin.view_branch_performance", "View branch performance"),
+      onClick: () => navigate("/admin/statistics")
+    }
+  ];
+  return (
+    <div className="mt-5 flex flex-col gap-3">
+      {actions.map(action => (
+        <button
+          key={action.key}
+          type="button"
+          onClick={action.onClick}
+          className="flex w-full items-center gap-3.5 rounded-xl border border-[#E7E3D8] bg-white px-[18px] py-4 text-left transition-colors hover:border-[#0F9B8E]"
+        >
+          <span className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-[9px] bg-[#0F9B8E]/10 text-[#0F9B8E]">{action.icon}</span>
+          <span>
+            <span className="block text-[13.5px] font-bold text-[#071E38]">{action.title}</span>
+            <span className="block text-xs text-[#5B6470]">{action.subtitle}</span>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
 }
 export default function AdminDashboardPage() {
   const { t } = useTranslation();
@@ -323,33 +282,24 @@ export default function AdminDashboardPage() {
           <div style={{
           display: "grid",
           gridTemplateColumns: "2.1fr 1fr",
-          gridTemplateRows: "auto auto",
           gap: 20,
           marginTop: 0,
           alignItems: "start"
         }}>
             <div style={{
-            gridColumn: "1 / 2",
-            gridRow: "1 / 3"
+            gridColumn: "1 / 2"
           }}>
               <TodayActivitiesChart data={branchStats} />
             </div>
 
             <div style={{
-            gridColumn: "2 / 3",
-            gridRow: "1 / 2"
+            gridColumn: "2 / 3"
           }}>
               <div className="rounded-[14px] border border-[#E7E3D8] bg-white p-6">
                 <h2 className="m-0 mb-[22px] font-space text-base font-bold text-[#071E38]">{t("company_admin.order_summary", "Order Summary")}</h2>
                 <OrderSummaryChart branchStats={branchStats} currentComId={currentComId} />
+                <QuickActionsCompact />
               </div>
-            </div>
-
-            <div style={{
-            gridColumn: "2 / 3",
-            gridRow: "2 / 3"
-          }}>
-              <QuickActionsCompact />
             </div>
           </div>
         </main>
