@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaBell, FaBoxOpen, FaChevronDown, FaExclamationTriangle, FaSearch, FaTimes, FaTrash } from "react-icons/fa";
+import { FiChevronDown, FiSearch, FiX } from "react-icons/fi";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
 import Button from "../../components/admin/Button";
@@ -93,6 +94,190 @@ const mapApiProductToTableItem = product => {
     _original: product
   };
 };
+
+/* ===== Design components (Product Management redesign) ===== */
+/* ---------- Summary cards ---------- */
+const STAT_TONES = {
+  green: "bg-[#EAF9EC] text-[#3CAE49]",
+  amber: "bg-[#FFF6E6] text-[#F59E0B]",
+  red: "bg-[#FDECEC] text-[#EF4444]",
+};
+
+const StatBoxIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 7L12 3L4 7L12 11L20 7Z" /><path d="M4 7V17L12 21L20 17V7" /><path d="M12 11V21" /></svg>;
+const StatWarningIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9V13M12 17H12.01" /><path d="M10.3 3.9L2.5 17a2 2 0 001.7 3h15.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0Z" /></svg>;
+const StatOutIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M15 9L9 15M9 9L15 15" /></svg>;
+const PlusIcon = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5V19M5 12H19" /></svg>;
+const EditIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3A2.83 2.83 0 0121 7L7 21H3V17Z" /></svg>;
+const DeleteIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7H20M9 7V4H15V7M6 7L7 20H17L18 7" /></svg>;
+
+function PageHeading({ title, subtitle, buttonLabel, onButtonClick }) {
+  return (
+    <div className="mb-[22px] flex items-start justify-between gap-4">
+      <div>
+        <h2 className="mb-1 font-space text-2xl font-bold text-[#111827]">{title}</h2>
+        <p className="text-[13px] text-[#6B7280]">{subtitle}</p>
+      </div>
+      <button
+        type="button"
+        onClick={onButtonClick}
+        className="inline-flex flex-shrink-0 items-center gap-2 rounded-[9px] bg-[#071E38] px-5 py-[11px] text-[13.5px] font-bold text-white shadow-[0_8px_18px_rgba(7,30,56,0.25)] hover:bg-[#0D2B4D]"
+      >
+        <PlusIcon />
+        {buttonLabel}
+      </button>
+    </div>
+  );
+}
+
+function ProductStatCard({ icon, tone = "green", value, label }) {
+  return (
+    <div className="flex flex-1 items-center gap-[15px] rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-[18px] shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+      <div className={`flex h-[46px] w-[46px] flex-shrink-0 items-center justify-center rounded-xl ${STAT_TONES[tone]}`}>{icon}</div>
+      <div>
+        <div className="font-space text-[22px] font-bold leading-tight text-[#071E38]">{value}</div>
+        <div className="text-xs font-semibold text-[#6B7280]">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------- Filter bar ---------- */
+function FilterSearch({ value, onChange, placeholder }) {
+  return (
+    <div className="relative min-w-[260px] flex-1">
+      <FiSearch size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" />
+      <input
+        type="text"
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white py-3 pl-10 pr-9 text-[13px] text-[#111827] outline-none focus:border-[#14A6E0]"
+      />
+      {value && (
+        <button type="button" onClick={() => onChange("")} aria-label="Clear search" className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#111827]">
+          <FiX size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FilterSelect({ value, onChange, options, ariaLabel }) {
+  return (
+    <div className="relative">
+      <select
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        aria-label={ariaLabel}
+        className="cursor-pointer appearance-none rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white py-3 pl-3.5 pr-9 text-[12.5px] font-semibold text-[#111827] outline-none focus:border-[#14A6E0]"
+      >
+        {options.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+      </select>
+      <FiChevronDown size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[#111827]" />
+    </div>
+  );
+}
+
+/* ---------- Badges ---------- */
+const CATEGORY_TONES = {
+  appetizers: "bg-[#FFF6E6] text-[#B45309]",
+  "fast food": "bg-[#FDECEC] text-[#B91C1C]",
+  desserts: "bg-[#F3EDFE] text-[#6D28D9]",
+  "main courses": "bg-[#EAF9EC] text-[#15803D]",
+  beverages: "bg-[#EAF6FD] text-[#0E6FA8]",
+};
+const EXTRA_TONES = Object.values(CATEGORY_TONES);
+const categoryTone = name => {
+  const key = String(name || "").trim().toLowerCase();
+  if (CATEGORY_TONES[key]) return CATEGORY_TONES[key];
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return EXTRA_TONES[hash % EXTRA_TONES.length];
+};
+const TYPE_LABELS = { pre_made: "Pre-made", finished: "External", made_to_order: "Made to Order" };
+
+/* ---------- Product table ---------- */
+function ProductCatalogTable({
+  products,
+  loading,
+  emptyText,
+  columns,
+  onViewProduct,
+  onEditProduct,
+  onDeleteProduct,
+  footerText,
+  currentPage,
+  totalPages,
+  onPageChange,
+}) {
+  return (
+    <div className="overflow-hidden rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(7,30,56,0.04)]">
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[860px] border-collapse">
+          <thead>
+            <tr>
+              {columns.map(col => (
+                <th key={col} className="border-b border-[#E5E7EB] bg-[#FAFAFB] px-5 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-[#9CA3AF]">{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {products.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length} className="px-5 py-14 text-center text-sm text-[#9CA3AF]">{loading ? "…" : emptyText}</td>
+              </tr>
+            ) : products.map(item => (
+              <tr key={item.id} className="border-b border-[#E5E7EB] last:border-b-0 hover:bg-[#FAFBFC]">
+                <td className="px-5 py-[13px]">
+                  <button type="button" onClick={() => onViewProduct?.(item.id)} className="flex h-[52px] w-[52px] items-center justify-center overflow-hidden rounded-[11px] bg-[#F3F4F6] text-center text-[9px] font-semibold leading-tight text-[#9CA3AF]">
+                    {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAlt} className="h-full w-full object-cover" /> : <>No<br />image</>}
+                  </button>
+                </td>
+                <td className="px-5 py-[13px]">
+                  <button type="button" onClick={() => onViewProduct?.(item.id)} className="text-left">
+                    <span className="block text-[13.5px] font-bold text-[#071E38] hover:underline">{item.name}</span>
+                    <span className="mt-0.5 block text-[11px] text-[#9CA3AF]">{item.sku}</span>
+                  </button>
+                </td>
+                <td className="px-5 py-[13px]">
+                  <span className={`inline-block rounded-full px-[11px] py-[5px] text-[11px] font-bold ${categoryTone(item.category)}`}>{item.category}</span>
+                </td>
+                <td className="px-5 py-[13px]">
+                  <span className="inline-block rounded-full bg-[#F3F4F6] px-[11px] py-[5px] text-[11px] font-bold text-[#6B7280]">{TYPE_LABELS[item.product_type] || "Made to Order"}</span>
+                </td>
+                <td className="px-5 py-[13px] font-space text-[13.5px] font-bold text-[#071E38]">{item.price}</td>
+                <td className="px-5 py-[13px] text-[13.5px] font-semibold text-[#6B7280]">{item.discount}</td>
+                <td className="px-5 py-[13px]">
+                  <div className="flex items-center gap-2">
+                    <button type="button" onClick={() => onEditProduct?.(item.id)} aria-label={`Edit ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E5E7EB] bg-white text-[#14A6E0] transition-colors hover:border-[#14A6E0] hover:bg-[#EAF6FD]">
+                      <EditIcon />
+                    </button>
+                    <button type="button" onClick={() => onDeleteProduct?.(item.id)} aria-label={`Delete ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E5E7EB] bg-white text-[#EF4444] transition-colors hover:border-[#EF4444] hover:bg-[#FDECEC]">
+                      <DeleteIcon />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Footer: count on the left, pagination on the right when there is more than one page */}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E7EB] px-5 py-3.5 text-[12.5px] text-[#6B7280]">
+        <span>{footerText}</span>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-2">
+            <button type="button" disabled={currentPage <= 1} onClick={() => onPageChange(currentPage - 1)} className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 font-semibold text-[#111827] disabled:cursor-not-allowed disabled:opacity-40">Prev</button>
+            <span className="px-1 font-semibold text-[#111827]">{currentPage} / {totalPages}</span>
+            <button type="button" disabled={currentPage >= totalPages} onClick={() => onPageChange(currentPage + 1)} className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 font-semibold text-[#111827] disabled:cursor-not-allowed disabled:opacity-40">Next</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+/* ===== End of design components ===== */
 
 const ProductManagement = () => {
   const { t } = useTranslation();
@@ -521,22 +706,19 @@ const ProductManagement = () => {
 
   return <div style={{
     display: "flex",
-    background: "#F2F4F7",
+    background: "#F3F4F6",
     minHeight: "100vh"
   }}>
     <Sidebar />
 
     <div style={{
       flex: 1,
-      marginLeft: "240px"
+      marginLeft: "240px",
+      minWidth: 0
     }}>
       <Header title={t("company_admin.product_management", "Product Management")} />
 
-      <div style={{
-        padding: "22px 20px",
-        marginTop: "20px",
-        minHeight: "calc(100vh - 70px)"
-      }}>
+      <div className="px-8 pb-10 pt-7">
         {/* Toast Notifications */}
         {toasts.length > 0 && <div style={{
           position: 'fixed',
@@ -579,216 +761,76 @@ const ProductManagement = () => {
           </div>)}
         </div>}
 
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "28px"
-        }}>
-          <h1 style={{
-            margin: 0,
-            fontSize: "22px",
-            fontWeight: "700",
-            color: "#0F172A"
-          }}>{t("company_admin.product_management", "Product Management")}</h1>
+        <PageHeading
+          title={t("company_admin.product_management", "Product Management")}
+          subtitle={t("company_admin.product_management_subtitle", "Manage catalog items, pricing, and stock visibility")}
+          buttonLabel={t("company_admin.add_product", "Add Product")}
+          onButtonClick={() => navigate("/admin/products/add")}
+        />
 
-          <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/admin/products/add")} style={{
-            background: "#0E6DCF",
-            borderRadius: "3px",
-            padding: "10px 18px",
-            fontWeight: "600"
-          }} />
+        <div className="mb-[22px] flex flex-col gap-4 md:flex-row">
+          <ProductStatCard icon={<StatBoxIcon />} tone="green" value={totalItems} label={t("company_admin.total_items", "Total Items")} />
+          <ProductStatCard icon={<StatWarningIcon />} tone="amber" value={lowStockCount} label={t("company_admin.low_stock", "Low Stock")} />
+          <ProductStatCard icon={<StatOutIcon />} tone="red" value={outOfStockCount} label={t("company_admin.out_of_stock", "Out Of Stock")} />
         </div>
 
-        <div style={{
-          display: "flex",
-          gap: "15px",
-          marginBottom: "30px"
-        }}>
-          <div style={{
-            ...cardBaseStyle,
-            background: "#BEE8C4"
-          }}>
-            <div style={{
-              ...statIconWrapStyle,
-              background: "#22C55E"
-            }}>
-              <FaBoxOpen color="#0B3F1D" size={12} />
-            </div>
-            <div style={statTextWrapStyle}>
-              <div style={statTitleStyle}>{t("company_admin.total_items", "Total Items")}</div>
-              <div style={statValueStyle}>{totalItems}</div>
-            </div>
-            <div style={statRightSpacerStyle} />
-          </div>
+        {error && <div className="mb-3.5 text-sm text-[#B91C1C]">{error}</div>}
 
-          <div style={{
-            ...cardBaseStyle,
-            background: "#F3C8DA"
-          }}>
-            <div style={{
-              ...statIconWrapStyle,
-              background: "#F87171"
-            }}>
-              <FaBell color="#7F1D1D" size={12} />
-            </div>
-            <div style={statTextWrapStyle}>
-              <div style={statTitleStyle}>{t("company_admin.low_stock", "Low Stock")}</div>
-              <div style={statValueStyle}>{lowStockCount}</div>
-            </div>
-            <div style={statRightSpacerStyle} />
-          </div>
-
-          <div style={{
-            ...cardBaseStyle,
-            background: "#C8E0EC"
-          }}>
-            <div style={{
-              ...statIconWrapStyle,
-              background: "#38BDF8"
-            }}>
-              <FaExclamationTriangle color="#0C4A6E" size={12} />
-            </div>
-            <div style={statTextWrapStyle}>
-              <div style={statTitleStyle}>{t("company_admin.out_of_stock", "Out Of Stock")}</div>
-              <div style={statValueStyle}>{outOfStockCount}</div>
-            </div>
-            <div style={statRightSpacerStyle} />
-          </div>
+        <div className="mb-[18px] flex flex-wrap gap-2.5">
+          <FilterSearch
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder={t("company_admin.search_products_skus_or_categories", "Search Products, SKUs, or Categories")}
+          />
+          <FilterSelect
+            value={selectedCategory}
+            onChange={setSelectedCategory}
+            ariaLabel="Category"
+            options={categoryOptions.map(cat => ({ value: cat, label: cat === "All" ? `${t("company_admin.category", "Category")} : All` : cat }))}
+          />
+          <FilterSelect
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+            ariaLabel="Status"
+            options={[
+              { value: "All", label: `${t("company_admin.status", "Status")} : All` },
+              { value: "In Stock", label: "In Stock" },
+              { value: "Low Stock", label: "Low Stock" },
+              { value: "Out of Stock", label: "Out of Stock" }
+            ]}
+          />
+          <FilterSelect
+            value={selectedStockLevel}
+            onChange={setSelectedStockLevel}
+            ariaLabel="Stock level"
+            options={[
+              { value: "All", label: `${t("company_admin.stock_level", "Stock Level")} : All` },
+              { value: "Low (1-10)", label: "Low (1-10)" },
+              { value: "Out (0)", label: "Out (0)" },
+              { value: "High (>10)", label: "High (>10)" }
+            ]}
+          />
+          <FilterSelect
+            value={itemsPerPage}
+            onChange={value => setItemsPerPage(Number(value))}
+            ariaLabel="Products per page"
+            options={[10, 25, 50, 100].map(n => ({ value: n, label: `Products per page: ${n}` }))}
+          />
         </div>
 
-        {loading && <div style={{
-          marginBottom: "14px",
-          color: "#475569",
-          fontSize: "14px"
-        }}>{t("company_admin.loading_products", "Loading products...")}</div>}
-
-        {error && <div style={{
-          marginBottom: "14px",
-          color: "#B91C1C",
-          fontSize: "14px"
-        }}>{error}</div>}
-
-        {/* Combined Search Bar + Filters Row */}
-        <div style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "12px",
-          marginBottom: "24px",
-          flexWrap: "wrap"
-        }}>
-          {/* Search Bar */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            background: "#fff",
-            borderRadius: "10px",
-            padding: "0 12px",
-            height: "40px",
-            flex: "2 1 260px",
-            minWidth: "220px",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
-            border: "1px solid #D9DCE1"
-          }}>
-            <FaSearch color="#9CA3AF" size={14} />
-            <input
-              type="text"
-              value={searchTerm}
-              placeholder={t("company_admin.search_products_skus_or_categories", "Search Products, SKUs, or Categories")}
-              style={{
-                border: "none",
-                outline: "none",
-                background: "transparent",
-                width: "100%",
-                fontSize: "13px",
-                color: "#374151"
-              }}
-              onChange={event => setSearchTerm(event.target.value)}
-            />
-            {searchTerm && (
-              <button
-                type="button"
-                onClick={() => setSearchTerm("")}
-                style={{
-                  border: "none",
-                  background: "transparent",
-                  cursor: "pointer",
-                  color: "#9CA3AF",
-                  display: "inline-flex",
-                  padding: 0
-                }}
-                aria-label="Clear search"
-              >
-                <FaTimes size={12} />
-              </button>
-            )}
-          </div>
-
-          {/* Category Dropdown */}
-          <div style={filterWrapperStyle}>
-            <select
-              value={selectedCategory}
-              onChange={e => setSelectedCategory(e.target.value)}
-              style={filterSelectStyle}
-            >
-              {categoryOptions.map(cat => (
-                <option key={cat} value={cat}>
-                  {cat === "All" ? `${t("company_admin.category", "Category")} : All` : cat}
-                </option>
-              ))}
-            </select>
-            <FaChevronDown size={11} style={filterChevronStyle} />
-          </div>
-
-          {/* Status Dropdown */}
-          <div style={filterWrapperStyle}>
-            <select
-              value={selectedStatus}
-              onChange={e => setSelectedStatus(e.target.value)}
-              style={filterSelectStyle}
-            >
-              <option value="All">{t("company_admin.status", "Status")} : All</option>
-              <option value="In Stock">In Stock</option>
-              <option value="Low Stock">Low Stock</option>
-              <option value="Out of Stock">Out of Stock</option>
-            </select>
-            <FaChevronDown size={11} style={filterChevronStyle} />
-          </div>
-
-          {/* Stock Level Dropdown */}
-          <div style={filterWrapperStyle}>
-            <select
-              value={selectedStockLevel}
-              onChange={e => setSelectedStockLevel(e.target.value)}
-              style={filterSelectStyle}
-            >
-              <option value="All">{t("company_admin.stock_level", "Stock Level")} : All</option>
-              <option value="Low (1-10)">Low (1-10)</option>
-              <option value="Out (0)">Out (0)</option>
-              <option value="High (>10)">High (&gt;10)</option>
-            </select>
-            <FaChevronDown size={11} style={filterChevronStyle} />
-          </div>
-
-          {/* Page size Dropdown */}
-          <div style={filterWrapperStyle}>
-            <select
-              value={itemsPerPage}
-              onChange={e => setItemsPerPage(Number(e.target.value))}
-              style={filterSelectStyle}
-              aria-label="Products per page"
-            >
-              <option value={10}>Products per page: 10</option>
-              <option value={25}>Products per page: 25</option>
-              <option value={50}>Products per page: 50</option>
-              <option value={100}>Products per page: 100</option>
-            </select>
-            <FaChevronDown size={11} style={filterChevronStyle} />
-          </div>
-        </div>
-
-        <ProductItemsTable products={paginatedProducts} hideStockColumn={true} hideStatusColumn={true} showTypeColumn={true} onViewProduct={handleViewProduct} onEditProduct={handleEditProduct} onDeleteProduct={handleDeleteProduct} currentPage={currentPage} totalPages={totalPages} totalItems={tableProducts.length} pageStart={pageStart} pageEnd={pageEnd} onPageChange={setCurrentPage} />
+        <ProductCatalogTable
+          products={paginatedProducts}
+          loading={loading}
+          emptyText={t("company_admin.no_products_found", "No products found")}
+          columns={["Image", "Product Name", "Category", "Type", "Price", "Discount", "Action"]}
+          onViewProduct={handleViewProduct}
+          onEditProduct={handleEditProduct}
+          onDeleteProduct={handleDeleteProduct}
+          footerText={loading ? t("company_admin.loading_products", "Loading products...") : `Showing ${pageStart}-${pageEnd} of ${tableProducts.length} products`}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
 
