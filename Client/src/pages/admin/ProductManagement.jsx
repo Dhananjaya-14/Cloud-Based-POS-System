@@ -249,12 +249,9 @@ function ProductCatalogTable({
                 <td className="px-5 py-[13px] text-[13.5px] font-semibold text-[#6B7280]">{item.discount}</td>
                 <td className="px-5 py-[13px]">
                   <div className="flex items-center gap-2">
-                    <button type="button" onClick={() => onEditProduct?.(item.id)} aria-label={`Edit ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E5E7EB] bg-white text-[#14A6E0] transition-colors hover:border-[#14A6E0] hover:bg-[#EAF6FD]">
-                      <EditIcon />
-                    </button>
-                    <button type="button" onClick={() => onDeleteProduct?.(item.id)} aria-label={`Delete ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E5E7EB] bg-white text-[#EF4444] transition-colors hover:border-[#EF4444] hover:bg-[#FDECEC]">
-                      <DeleteIcon />
-                    </button>
+                                          <button type="button" onClick={() => onDeleteProduct?.(item.id)} aria-label={`Delete ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E0654F] bg-white text-[#E0654F] transition-colors hover:bg-[#FDECEC]">
+                         <DeleteIcon />
+                       </button>
                   </div>
                 </td>
               </tr>
