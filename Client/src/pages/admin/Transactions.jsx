@@ -2,8 +2,6 @@ import { useTranslation } from "react-i18next";
 import React, { useEffect, useMemo, useState } from "react";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/slidebar";
-import TransactionFilters from "../../components/admin/TransactionFilters";
-import TransactionTable from "../../components/admin/TransactionTable";
 import TransactionDetailsModal from "../../components/admin/TransactionDetailsModal";
 import { getOrders, getSupplierPayments, getPayments, getPurchaseOrders, getBranches, getCurrentUser } from "../../services/api";
 import { SOCKET_EVENTS } from "../../services/socket";
@@ -19,6 +17,46 @@ const withRequestTimeout = (request, label) => {
 
   return Promise.race([request, timeout]).finally(() => clearTimeout(timeoutId));
 };
+
+/* ===== Design components (Transactions redesign) ===== */
+const TX_INPUT = "w-full rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white px-3.5 py-[11px] text-[13px] text-[#111827] outline-none focus:border-[#14A6E0]";
+const TX_TD = "whitespace-nowrap px-5 py-[15px] text-[13.5px]";
+const TX_STAT_TONES = {
+  green: "bg-[#EAF9EC] text-[#3CAE49]",
+  red: "bg-[#FDECEC] text-[#EF4444]",
+  navy: "bg-[#E7ECF2] text-[#071E38]",
+  blue: "bg-[#EAF6FD] text-[#14A6E0]"
+};
+const formatRs = value => `Rs ${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const formatMethod = m => m ? String(m).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "-";
+const TxUpIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 19V5M5 12L12 5L19 12" /></svg>;
+const TxDownIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5V19M5 12L12 19L19 12" /></svg>;
+const TxBalanceIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 12H21M3 6H21M3 18H15" /></svg>;
+const TxTruckIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="15" height="10" rx="1.5" /><path d="M17 10H20.5L22 13V17H17" /><circle cx="7" cy="19" r="1.7" /><circle cx="18.5" cy="19" r="1.7" /></svg>;
+const TxCashIcon = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><path d="M4 7H20M4 7V17H20V7M4 7L12 3L20 7" /></svg>;
+const TxCardIcon = () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3"><rect x="2" y="5" width="20" height="14" rx="2.5" /><path d="M2 10H22" /></svg>;
+
+function TxStatCard({ icon, tone, value, label }) {
+  return (
+    <div className="flex items-center gap-[15px] rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-[18px] shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+      <div className={`flex h-[46px] w-[46px] flex-shrink-0 items-center justify-center rounded-xl ${TX_STAT_TONES[tone]}`}>{icon}</div>
+      <div className="min-w-0">
+        <div className="truncate font-space text-[21px] font-bold leading-tight text-[#071E38]">{value}</div>
+        <div className="text-xs font-semibold text-[#6B7280]">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function TxField({ label, children }) {
+  return (
+    <div>
+      <label className="mb-2 block text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#9CA3AF]">{label}</label>
+      {children}
+    </div>
+  );
+}
+/* ===== End of design components ===== */
 
 export default function Transactions() {
   const { t } = useTranslation();
@@ -36,6 +74,24 @@ const [filters, setFilters] = useState({
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(null);
   const [pageSize] = useState(10);
+  const [branchOptions, setBranchOptions] = useState([]);
+
+  // Branch list for the "Branch Node" dropdown
+  useEffect(() => {
+    let isMounted = true;
+    getBranches().then(list => {
+      if (!isMounted) return;
+      setBranchOptions((list || []).map(b => {
+        const id = b.b_id ?? b.B_id ?? b.bId;
+        return { id, name: b.B_name ?? b.b_name ?? b.name ?? `Branch #${id}` };
+      }));
+    }).catch(() => {
+      if (isMounted) setBranchOptions([]);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // company scoping from logged-in user
   const currentUser = getCurrentUser();
@@ -223,36 +279,184 @@ const [filters, setFilters] = useState({
       return true;
     });
   }, [transactions, filters]);
-  return <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased">
+  // Pagination (10 rows per page) - go back to page 1 whenever the filters change
+  const [page, setPage] = useState(1);
+  useEffect(() => {
+    setPage(1);
+  }, [filters]);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Summary cards follow the current filters
+  const totalIncome = filtered.filter(row => row.type === "sale").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const totalExpenses = filtered.filter(row => row.type === "purchase").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const netBalance = totalIncome - totalExpenses;
+  const updateFilters = patch => setFilters(prev => ({
+    ...prev,
+    ...patch
+  }));
+  const ledgerTabs = [
+    { value: "all", label: t("company_admin.all_ledger", "All Ledger") },
+    { value: "income", label: t("company_admin.income_sales", "Income (Sales)") },
+    { value: "expense", label: t("company_admin.expenses_purchases", "Expenses (Purchases)") }
+  ];
+  const columns = [
+    t("company_admin.transaction_id", "Transaction ID"),
+    t("company_admin.invoice_po", "Invoice / PO"),
+    t("company_admin.branch_node", "Branch Node"),
+    t("company_admin.counterparty_asset", "Counterparty Asset"),
+    t("company_admin.timestamp", "Timestamp"),
+    t("company_admin.settlement_route", "Settlement Route"),
+    t("company_admin.amount_lkr", "Amount (LKR)"),
+    t("company_admin.actions", "Actions")
+  ];
+
+  return <div className="flex min-h-screen bg-[#F3F4F6] text-[#111827] antialiased">
       <Sidebar />
 
-      <div className="flex flex-1 flex-col overflow-hidden" style={{
+      <div className="flex min-w-0 flex-1 flex-col" style={{
       marginLeft: 240
     }}>
         <Header title={t("company_admin.transaction_details", "Transaction Details")} />
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl space-y-6">
-            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("company_admin.financial_ledger", "Financial Ledger")}</h1>
-                <p className="text-sm text-slate-500">{t("company_admin.audit_inspect_and_trace_company_branch_t", "Audit, inspect, and trace company branch transactions and payments.")}</p>
+        <main className="flex-1 px-8 pb-10 pt-7">
+          {/* Page heading */}
+          <div className="mb-[22px]">
+            <h2 className="mb-1 font-space text-2xl font-bold text-[#111827]">{t("company_admin.financial_ledger", "Financial Ledger")}</h2>
+            <p className="text-[13px] text-[#6B7280]">{t("company_admin.audit_inspect_and_trace_company_branch_t", "Audit, inspect, and trace company branch transactions and payments.")}</p>
+          </div>
+
+          {/* Summary cards */}
+          <div className="mb-[22px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <TxStatCard tone="green" icon={<TxUpIcon />} value={formatRs(totalIncome)} label={t("company_admin.total_income", "Total Income")} />
+            <TxStatCard tone="red" icon={<TxDownIcon />} value={formatRs(totalExpenses)} label={t("company_admin.total_expenses", "Total Expenses")} />
+            <TxStatCard tone="navy" icon={<TxBalanceIcon />} value={formatRs(netBalance)} label={t("company_admin.net_balance", "Net Balance")} />
+            <TxStatCard tone="blue" icon={<TxTruckIcon />} value={filtered.length} label={t("company_admin.transactions", "Transactions")} />
+          </div>
+
+          {/* Filters panel */}
+          <div className="mb-[18px] rounded-[14px] border border-[#E5E7EB] bg-white px-6 py-[22px] shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+            <div className="mb-[18px] flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="relative flex-1">
+                <svg className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
+                <input type="text" value={filters.search} onChange={e => updateFilters({
+                search: e.target.value
+              })} placeholder={t("company_admin.search_by_transaction_id_invoice_no_bran", "Search by Transaction ID, Invoice No., Branch location, or Personnel...")} className="w-full rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white py-[13px] pl-[42px] pr-4 text-[13.5px] outline-none focus:border-[#14A6E0]" />
+              </div>
+              <div className="flex flex-shrink-0 self-start rounded-[10px] bg-[#F3F4F6] p-1 lg:self-auto">
+                {ledgerTabs.map(tab => <button key={tab.value} type="button" onClick={() => updateFilters({
+                tab: tab.value
+              })} className={`whitespace-nowrap rounded-lg px-4 py-[9px] text-[12.5px] font-bold transition-colors ${filters.tab === tab.value ? "bg-[#071E38] text-white" : "text-[#6B7280] hover:text-[#111827]"}`}>{tab.label}</button>)}
               </div>
             </div>
 
-            <TransactionFilters filters={filters} setFilters={setFilters} />
-
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              {loadError ? <div className="p-20 text-center">
-                  <p className="text-base font-medium text-slate-600">{loadError}</p>
-                  <button type="button" onClick={() => setRetryCount(count => count + 1)} className="mt-4 rounded-md bg-indigo-600 px-3 py-2 text-xs font-medium text-white hover:bg-indigo-700">
-                    {t("company_admin.retry", "Retry")}
-                  </button>
-                </div> : !loading && filtered.length === 0 && filters.branch !== "all" ? <div className="p-20 text-center">
-                  <p className="text-base font-medium text-slate-600">{t("company_admin.no_transaction_history_in_this_branch", "No transaction history in this branch.")}</p>
-                  <p className="text-xs text-slate-400 mt-1">{t("company_admin.try_selecting_a_different_date_range_or_", "Try selecting a different date range or clearing the branch filter.")}</p>
-                </div> : <TransactionTable data={filtered} loading={loading} pageSize={pageSize} onView={item => setSelected(item)} />}
+            <div className="grid grid-cols-1 gap-[18px] sm:grid-cols-2 lg:grid-cols-4">
+              <TxField label={t("company_admin.branch_node", "Branch Node")}>
+                <select value={filters.branch} onChange={e => {
+                const v = e.target.value;
+                updateFilters({
+                  branch: v === "all" ? "all" : Number(v)
+                });
+              }} className={TX_INPUT}>
+                  <option value="all">{t("company_admin.all_branches", "All Branches")}</option>
+                  {branchOptions.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </TxField>
+              <TxField label={t("company_admin.payment_channel", "Payment Channel")}>
+                <select value={filters.method} onChange={e => updateFilters({
+                method: e.target.value
+              })} className={TX_INPUT}>
+                  <option value="all">{t("company_admin.all_settlement_methods", "All Settlement Methods")}</option>
+                  <option value="cash">{t("company_admin.cash_tender", "Cash Tender")}</option>
+                  <option value="card">{t("company_admin.card_terminal_pos", "Card Terminal / POS")}</option>
+                  <option value="mobile_pay">{t("company_admin.mobile_payment", "Mobile Payment")}</option>
+                  <option value="voucher">{t("company_admin.voucher_payment", "Voucher")}</option>
+                  <option value="split">{t("company_admin.split_payment", "Split Payment")}</option>
+                </select>
+              </TxField>
+              <TxField label={t("company_admin.date_from", "Date From")}>
+                <input type="date" value={filters.dateFrom || ""} onChange={e => updateFilters({
+                dateFrom: e.target.value || null
+              })} className={TX_INPUT} />
+              </TxField>
+              <TxField label={t("company_admin.date_to", "Date To")}>
+                <input type="date" value={filters.dateTo || ""} onChange={e => updateFilters({
+                dateTo: e.target.value || null
+              })} className={TX_INPUT} />
+              </TxField>
             </div>
+          </div>
+
+          {/* Transaction table */}
+          <div className="overflow-hidden rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(7,30,56,0.04)]">
+            {loadError ? <div className="p-20 text-center">
+                <p className="text-base font-medium text-[#6B7280]">{loadError}</p>
+                <button type="button" onClick={() => setRetryCount(count => count + 1)} className="mt-4 rounded-lg bg-[#071E38] px-4 py-2 text-xs font-bold text-white hover:bg-[#0D2B4D]">
+                  {t("company_admin.retry", "Retry")}
+                </button>
+              </div> : loading ? <div className="flex flex-col items-center justify-center p-16 text-[#6B7280]">
+                <div className="mb-3 h-9 w-9 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-[#14A6E0]" />
+                <span className="text-sm font-medium">{t("company_admin.compiling_matching_accounts", "Compiling matching accounts...")}</span>
+              </div> : filtered.length === 0 ? <div className="p-20 text-center">
+                <p className="text-base font-medium text-[#6B7280]">{filters.branch !== "all" ? t("company_admin.no_transaction_history_in_this_branch", "No transaction history in this branch.") : t("company_admin.no_transactions_match_your_query_criteri", "No transactions match your query criteria.")}</p>
+                <p className="mt-1 text-xs text-[#9CA3AF]">{t("company_admin.try_selecting_a_different_date_range_or_", "Try selecting a different date range or clearing the branch filter.")}</p>
+              </div> : <>
+                <div className="overflow-x-auto">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr>
+                        {columns.map(col => <th key={col} className="whitespace-nowrap border-b border-[#E5E7EB] bg-[#FAFAFB] px-5 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-[#9CA3AF]">{col}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagedRows.map(row => {
+                    const isSale = row.type === "sale";
+                    const isCash = String(row.paymentMethod || "").toLowerCase().includes("cash");
+                    return <tr key={row.id} className="border-b border-[#E5E7EB] last:border-b-0 hover:bg-[#FAFBFC]">
+                            <td className={`${TX_TD} font-bold text-[#071E38]`}>{row.txId}</td>
+                            <td className={TX_TD}>#{row.invoiceNo}</td>
+                            <td className={TX_TD}>
+                              <span className="inline-block rounded-full bg-[#EAF6FD] px-[11px] py-[5px] text-[11px] font-bold text-[#0E6FA8]">{row.branchLabel ?? row.branchId ?? "-"}</span>
+                            </td>
+                            <td className={`${TX_TD} ${row.cashierLabel ? "text-[#6B7280]" : "text-[#9CA3AF]"}`}>{row.cashierLabel ?? "—"}</td>
+                            <td className={`${TX_TD} text-[#6B7280]`}>
+                              {row.date ? new Date(row.date).toLocaleString([], {
+                          dateStyle: "medium",
+                          timeStyle: "short"
+                        }) : "-"}
+                            </td>
+                            <td className={TX_TD}>
+                              <span className={`inline-flex items-center gap-[5px] rounded-full border-[1.5px] px-3 py-[5px] text-[11px] font-bold ${isCash ? "border-[#3CAE49]/30 bg-[#EAF9EC] text-[#15803D]" : "border-[#14A6E0]/30 bg-[#EAF6FD] text-[#0E6FA8]"}`}>
+                                {isCash ? <TxCashIcon /> : <TxCardIcon />}
+                                {formatMethod(row.paymentMethod)}
+                              </span>
+                            </td>
+                            <td className={`${TX_TD} font-space font-bold ${isSale ? "text-[#15803D]" : "text-[#B91C1C]"}`}>
+                              {isSale ? "+ " : "- "}{Number(row.amount ?? 0).toFixed(2)}
+                            </td>
+                            <td className={TX_TD}>
+                              <div className="flex items-center gap-2">
+                                <button type="button" onClick={() => setSelected(row)} className="rounded-lg border-[1.5px] border-[#E5E7EB] bg-white px-3.5 py-2 text-xs font-bold text-[#111827] hover:bg-[#F9FAFB]">{t("company_admin.receipt", "Receipt")}</button>
+                                <button type="button" onClick={() => setSelected(row)} className="rounded-lg bg-[#071E38] px-4 py-2 text-xs font-bold text-white hover:bg-[#0D2B4D]">{t("company_admin.view", "View")}</button>
+                              </div>
+                            </td>
+                          </tr>;
+                  })}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer: entries bottom-left, pagination bottom-right */}
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E5E7EB] px-5 py-3.5 text-xs text-[#6B7280]">
+                  <p>{t("company_admin.showing", "Showing")} <span className="font-semibold text-[#111827]">{pagedRows.length}</span> {t("company_admin.of", "of")} <span className="font-semibold text-[#111827]">{filtered.length}</span> <span className="font-semibold text-[#0F9B8E]">{t("company_admin.entries", "entries")}</span></p>
+                  <div className="flex items-center gap-3">
+                    <button type="button" onClick={() => setPage(Math.max(1, currentPage - 1))} disabled={currentPage <= 1} className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 font-semibold text-[#111827] disabled:cursor-not-allowed disabled:text-[#9CA3AF] disabled:opacity-60">{t("company_admin.prev", "Prev")}</button>
+                    <span className="font-semibold text-[#111827]">{currentPage} / {totalPages}</span>
+                    <button type="button" onClick={() => setPage(Math.min(totalPages, currentPage + 1))} disabled={currentPage >= totalPages} className="rounded-lg border border-[#E5E7EB] bg-white px-3 py-1.5 font-semibold text-[#111827] disabled:cursor-not-allowed disabled:text-[#9CA3AF] disabled:opacity-60">{t("company_admin.next", "Next")}</button>
+                  </div>
+                </div>
+              </>}
           </div>
         </main>
       </div>

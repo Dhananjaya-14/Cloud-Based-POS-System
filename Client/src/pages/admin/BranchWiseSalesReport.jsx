@@ -10,6 +10,46 @@ import autoTable from "jspdf-autotable";
 import Header from "../../layout/header";
 import Sidebar from "../../layout/slidebar";
 
+/* ===== Design components (Branch Sales Report redesign) ===== */
+const SR_INPUT = "rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white px-3.5 py-2.5 text-[13px] text-[#111827] outline-none focus:border-[#14A6E0]";
+const SR_STAT_TONES = {
+  navy: "bg-[#E7ECF2] text-[#071E38]",
+  blue: "bg-[#EAF6FD] text-[#14A6E0]",
+  amber: "bg-[#FFF6E6] text-[#F59E0B]",
+  green: "bg-[#EAF9EC] text-[#3CAE49]"
+};
+const SrTrendIcon = ({ size = 19 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M4 19V13L10 7L14 11L20 5" /><path d="M15 5H20V10" /></svg>;
+const SrFileIcon = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><path d="M14 2v6h6" /></svg>;
+const SrBranchIcon = ({ size = 20 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9H21M9 21V9" /></svg>;
+const SrTruckIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="7" width="15" height="10" rx="1.5" /><path d="M17 10H20.5L22 13V17H17" /><circle cx="7" cy="19" r="1.7" /><circle cx="18.5" cy="19" r="1.7" /></svg>;
+const SrBoxIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 7L12 3L4 7L12 11L20 7Z" /><path d="M4 7V17L12 21L20 17V7" /></svg>;
+const SrBarsIcon = () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 20V10M12 20V4M6 20v-6" /></svg>;
+const SrClockIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7V12L15 14" /></svg>;
+const SrCheckSquareIcon = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="3" /><path d="M8 12L11 15L16 9" /></svg>;
+const SrRefreshIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M21 12A9 9 0 103.5 16.5M21 12V6M21 12H15" /></svg>;
+
+function SrStatCard({ icon, tone, value, label }) {
+  return (
+    <div className="flex items-center gap-[15px] rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-[18px] shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+      <div className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl ${SR_STAT_TONES[tone]}`}>{icon}</div>
+      <div className="min-w-0">
+        <div className="truncate font-space text-xl font-bold leading-tight text-[#071E38]">{value}</div>
+        <div className="text-xs font-semibold text-[#6B7280]">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function SrField({ label, children }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#9CA3AF]">{label}</label>
+      {children}
+    </div>
+  );
+}
+/* ===== End of design components ===== */
+
 export default function BranchWiseSalesReport() {
   const { t, i18n } = useTranslation();
 
@@ -320,159 +360,208 @@ const doc = new jsPDF();
     }
   };
 
-return <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
+// Summary numbers for the stat cards (from the generated report rows)
+  const branchCount = new Set(rows.map(row => row.branch_name ?? row.branch_id)).size;
+  const totalOrdersSum = rows.reduce((sum, row) => sum + Number(row.total_orders || 0), 0);
+  const productsSoldSum = rows.reduce((sum, row) => sum + Number(row.total_products || 0), 0);
+  const visibleColumns = availableColumns.filter(col => selectedColumns.includes(col.key));
+  const intervalOptions = [
+    { value: "daily", label: t("reports.daily_overview", "Daily Overview") },
+    { value: "weekly", label: t("reports.weekly_statement", "Weekly Statement") },
+    { value: "monthly", label: t("reports.monthly_statement", "Monthly Statement") },
+    { value: "custom", label: t("reports.custom_range", "Custom Range") }
+  ];
+  const toggleColumn = key => {
+    if (selectedColumns.includes(key)) {
+      setSelectedColumns(selectedColumns.filter(c => c !== key));
+    } else {
+      setSelectedColumns([...selectedColumns, key]);
+    }
+  };
+
+  return <div className="flex min-h-screen w-full bg-[#F3F4F6] text-[#111827] antialiased">
       <Sidebar />
-      <div className="flex flex-1 flex-col h-auto min-h-screen pb-12 overflow-y-visible" style={{
+      <div className="flex min-w-0 flex-1 flex-col" style={{
       marginLeft: 240
     }}>
         <Header title={t("company_admin.analytical_report", "Analytical Report")} />
 
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center px-5 py-4 gap-4">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-600">{t("company_admin.branch_sales_report", "Branch Sales Report")}</h1>
-
-          <div className="flex gap-2.5">
-            <button onClick={exportExcel} className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150 cursor-pointer">
-              <FaFileExcel />{t("company_admin.export_excel", "Export Excel")}</button>
-
-            <button onClick={exportPDF} className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150 cursor-pointer">
-              <FaFilePdf />{t("company_admin.export_pdf", "Export PDF")}</button>
+        <main className="flex-1 px-8 pb-10 pt-7">
+          {/* Page heading + export buttons */}
+          <div className="mb-[22px] flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[11px] bg-[#EAF9EC] text-[#071E38]"><SrTrendIcon size={19} /></div>
+              <div>
+                <h2 className="font-space text-[19px] font-bold text-[#071E38]">{t("company_admin.branch_sales_report", "Branch Sales Report")}</h2>
+                <p className="mt-0.5 text-xs text-[#6B7280]">{t("company_admin.branch_sales_report_subtitle", "Compare performance across every branch")}</p>
+              </div>
+            </div>
+            <div className="flex gap-2.5">
+              <button type="button" onClick={exportExcel} className="inline-flex items-center gap-[7px] rounded-[9px] bg-[#3CAE49] px-4 py-2.5 text-[12.5px] font-bold text-white shadow-[0_6px_14px_rgba(60,174,73,0.25)] hover:brightness-95">
+                <SrFileIcon />{t("company_admin.export_excel", "Export Excel")}
+              </button>
+              <button type="button" onClick={exportPDF} className="inline-flex items-center gap-[7px] rounded-[9px] bg-[#D9435B] px-4 py-2.5 text-[12.5px] font-bold text-white shadow-[0_6px_14px_rgba(217,67,91,0.25)] hover:brightness-95">
+                <SrFileIcon />{t("company_admin.export_pdf", "Export PDF")}
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div className="px-5">
-          {/* Filters Configurations */}
-          <div className="bg-white rounded-lg shadow p-4 mb-4">
-            <h3 className="font-bold text-gray-800 text-base mb-3">{t("company_admin.interval_configuration", "Interval Configuration")}</h3>
+          {/* Summary cards */}
+          <div className="mb-[22px] grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <SrStatCard tone="navy" icon={<SrBranchIcon size={20} />} value={branchCount} label={t("company_admin.branches", "Branches")} />
+            <SrStatCard tone="blue" icon={<SrTruckIcon />} value={totalOrdersSum} label={t("reports.total_orders", "Total Orders")} />
+            <SrStatCard tone="amber" icon={<SrBoxIcon />} value={productsSoldSum} label={t("company_admin.products_sold", "Products Sold")} />
+            <SrStatCard tone="green" icon={<SrBarsIcon />} value={`Rs ${Number(grandTotal || 0).toLocaleString()}`} label={t("company_admin.grand_total_sales", "Grand Total Sales")} />
+          </div>
 
-            <div className="flex flex-wrap gap-6 items-center border-b border-gray-100 pb-4 mb-4">
-              {["daily", "weekly", "monthly", "custom"].map(type => <label key={type} className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer capitalize">
-                  <input type="radio" className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked={filters.filterType === type} onChange={() => setFilters({
+          {/* Interval configuration */}
+          <div className="mb-[18px] rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+            <div className="flex items-center gap-[9px] px-[22px] pb-1 pt-[18px] text-[#14A6E0]">
+              <SrClockIcon />
+              <h3 className="text-sm font-bold text-[#071E38]">{t("company_admin.interval_configuration", "Interval Configuration")}</h3>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 px-[22px] pb-[22px] pt-4">
+              {intervalOptions.map(option => {
+              const isOn = filters.filterType === option.value;
+              return <button key={option.value} type="button" onClick={() => setFilters({
                 ...filters,
-                filterType: type
-              })} />
-                  {type === "daily" ? t("reports.daily_overview", "Daily Overview") : type === "custom" ? t("reports.custom_range", "Custom Range") : type === "weekly" ? t("reports.weekly_statement", "Weekly Statement") : t("reports.monthly_statement", "Monthly Statement")}
-                </label>)}
+                filterType: option.value
+              })} className={`flex items-center gap-[9px] rounded-[10px] border-[1.5px] px-[15px] py-2.5 text-[12.5px] font-semibold ${isOn ? "border-[#14A6E0]/35 bg-[#EAF6FD] text-[#071E38]" : "border-transparent bg-[#F3F4F6] text-[#6B7280]"}`}>
+                    <span className={`flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 ${isOn ? "border-[#14A6E0]" : "border-[#9CA3AF]"}`}>
+                      {isOn && <span className="h-2 w-2 rounded-full bg-[#14A6E0]" />}
+                    </span>
+                    {option.label}
+                  </button>;
+            })}
+              <button type="button" onClick={generateReport} disabled={loading} className="ml-1 inline-flex items-center gap-2 rounded-[10px] bg-gradient-to-r from-[#071E38] to-[#14A6E0] px-5 py-[11px] text-[13px] font-bold text-white shadow-[0_8px_18px_rgba(20,166,224,0.26)] disabled:cursor-not-allowed disabled:opacity-60">
+                <SrRefreshIcon />
+                {loading ? t("buttons.processing", "Processing...") : t("buttons.generate_report", "Generate Report")}
+              </button>
             </div>
 
-            {filters.filterType === "weekly" && <div className="flex gap-4 items-end mt-2 animate-fadeIn">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("company_admin.month", "Month")}</label>
+            {/* Extra inputs for weekly / monthly / custom */}
+            {filters.filterType === "weekly" && <div className="flex flex-wrap items-end gap-4 px-[22px] pb-[22px]">
+                <SrField label={t("company_admin.month", "Month")}>
                   <input type="month" value={filters.selectedMonth} onChange={e => setFilters({
                 ...filters,
                 selectedMonth: e.target.value
-              })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700" />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("company_admin.week", "Week")}</label>
+              })} className={SR_INPUT} />
+                </SrField>
+                <SrField label={t("company_admin.week", "Week")}>
                   <select value={filters.selectedWeek} onChange={e => setFilters({
                 ...filters,
                 selectedWeek: e.target.value
-              })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700">
-                    {["1", "2", "3", "4", "5"].map(w => <option key={w} value={w}>{t("company_admin.week", "Week")}{w}</option>)}
+              })} className={SR_INPUT}>
+                    {["1", "2", "3", "4", "5"].map(w => <option key={w} value={w}>{t("company_admin.week", "Week")} {w}</option>)}
                   </select>
-                </div>
+                </SrField>
               </div>}
-
-            {filters.filterType === "monthly" && <div className="flex flex-col gap-1.5 max-w-xs animate-fadeIn">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("company_admin.select_month", "Select Month")}</label>
-                <input type="month" value={filters.selectedMonth} onChange={e => setFilters({
-              ...filters,
-              selectedMonth: e.target.value
-            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            {filters.filterType === "monthly" && <div className="flex flex-wrap items-end gap-4 px-[22px] pb-[22px]">
+                <SrField label={t("company_admin.select_month", "Select Month")}>
+                  <input type="month" value={filters.selectedMonth} onChange={e => setFilters({
+                ...filters,
+                selectedMonth: e.target.value
+              })} className={SR_INPUT} />
+                </SrField>
               </div>}
-
-            {filters.filterType === "custom" && <div className="flex gap-4 items-center mt-2 animate-fadeIn">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("company_admin.from_date", "From Date")}</label>
+            {filters.filterType === "custom" && <div className="flex flex-wrap items-end gap-4 px-[22px] pb-[22px]">
+                <SrField label={t("company_admin.from_date", "From Date")}>
                   <input type="date" value={filters.fromDate} onChange={e => setFilters({
                 ...filters,
                 fromDate: e.target.value
-              })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("company_admin.to_date", "To Date")}</label>
+              })} className={SR_INPUT} />
+                </SrField>
+                <SrField label={t("company_admin.to_date", "To Date")}>
                   <input type="date" value={filters.toDate} onChange={e => setFilters({
                 ...filters,
                 toDate: e.target.value
-              })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" />
-                </div>
+              })} className={SR_INPUT} />
+                </SrField>
               </div>}
-
-            <button onClick={generateReport} disabled={loading} className={`mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all duration-200
-                ${loading ? "bg-blue-400 text-blue-100 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] cursor-pointer"}`}>
-              {loading ? t("buttons.processing", "Processing...") : t("buttons.generate_report", "Generate Report")}
-            </button>
           </div>
 
-          {/* Dynamic Selection Box Grid Array */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-            <h3 className="font-bold text-gray-800 text-base mb-3">{t("company_admin.visible_columns", "Visible Columns")}</h3>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {availableColumns.map(col => <label key={col.key} className="flex items-center gap-2.5 p-2 rounded-lg border border-gray-50 hover:bg-gray-50 transition-colors text-sm text-gray-600 font-medium cursor-pointer">
-                  <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4" checked={selectedColumns.includes(col.key)} onChange={() => {
-                if (selectedColumns.includes(col.key)) {
-                  setSelectedColumns(selectedColumns.filter(c => c !== col.key));
-                } else {
-                  setSelectedColumns([...selectedColumns, col.key]);
-                }
-              }} />
-                  {col.label}
-                </label>)}
+          {/* Visible columns */}
+          <div className="mb-[18px] rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+            <div className="flex items-center gap-[9px] px-[22px] pb-1 pt-[18px] text-[#14A6E0]">
+              <SrCheckSquareIcon />
+              <h3 className="text-sm font-bold text-[#071E38]">{t("company_admin.visible_columns", "Visible Columns")}</h3>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5 px-[22px] pb-[22px] pt-3.5">
+              {availableColumns.map(col => {
+              const isOn = selectedColumns.includes(col.key);
+              return <button key={col.key} type="button" onClick={() => toggleColumn(col.key)} aria-pressed={isOn} className={`flex items-center gap-[9px] rounded-[10px] border-[1.5px] px-3.5 py-[9px] text-[12.5px] font-semibold ${isOn ? "border-[#14A6E0]/35 bg-[#EAF6FD] text-[#071E38]" : "border-transparent bg-[#F3F4F6] text-[#111827]"}`}>
+                    <span className={`flex h-[17px] w-[17px] flex-shrink-0 items-center justify-center rounded-[5px] ${isOn ? "bg-[#14A6E0]" : "border-2 border-[#9CA3AF] bg-white"}`}>
+                      {isOn && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><path d="M20 6L9 17l-5-5" /></svg>}
+                    </span>
+                    {col.label}
+                  </button>;
+            })}
             </div>
           </div>
 
-          {/* Main Table Layout Panel Grid */}
-          {loading ? <div className="flex flex-col items-center justify-center py-16 gap-3 animate-pulse">
-              <div className="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin shadow-sm" />
-              <p className="text-sm font-semibold text-slate-600 tracking-wide">{t("company_admin.compiling_regional_analytics", "Compiling Regional Analytics...")}</p>
-            </div> : <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
-              <table className="w-full min-w-max">
-                <thead className="bg-gray-100">
-                  <tr>
-                    {availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => <th key={col.key} className="p-3 text-left font-semibold text-sm text-gray-700">
-                          {col.label}
-                        </th>)}
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {rows.length === 0 ? <tr>
-                      <td colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length} className="text-center py-12 text-gray-400 font-medium">{t("company_admin.no_matching_branch_sales_statements_foun", "No matching branch sales statements found. Adjust filters and reload.")}</td>
-                    </tr> : rows.map((row, rowIndex) => <tr key={rowIndex} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
-                        {availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => {
-                  const cellValue = row[col.key];
-                  if (col.key === "total_sales") {
-                    return <td key={col.key} className="p-4 text-sm font-medium text-gray-700">{t("company_admin.rs", "Rs.")}{Number(cellValue || 0).toFixed(2)}
+          {/* Report table */}
+          {loading ? <div className="flex flex-col items-center justify-center gap-3 py-16">
+              <div className="h-12 w-12 animate-spin rounded-full border-4 border-[#E5E7EB] border-t-[#14A6E0]" />
+              <p className="text-sm font-semibold text-[#6B7280]">{t("company_admin.compiling_regional_analytics", "Compiling Regional Analytics...")}</p>
+            </div> : <div className="mb-5 overflow-hidden rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(7,30,56,0.04)]">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-max border-collapse">
+                  <thead>
+                    <tr>
+                      {visibleColumns.map(col => <th key={col.key} className="border-b border-[#E5E7EB] bg-[#FAFAFB] px-[22px] py-3.5 text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-[#9CA3AF]">{col.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.length === 0 ? <tr>
+                        <td colSpan={Math.max(1, visibleColumns.length)} className="px-[22px] py-16 text-center text-sm text-[#9CA3AF]">{t("company_admin.no_matching_branch_sales_statements_foun", "No matching branch sales statements found. Adjust filters and reload.")}</td>
+                      </tr> : rows.map((row, rowIndex) => <tr key={rowIndex} className="border-b border-[#E5E7EB] hover:bg-[#FAFBFC]">
+                          {visibleColumns.map(col => {
+                    const cellValue = row[col.key];
+                    if (col.key === "report_date") {
+                      return <td key={col.key} className="px-[22px] py-3.5 text-[13.5px] tabular-nums text-[#6B7280]">{cellValue ? new Date(cellValue).toLocaleDateString("en-CA") : ""}</td>;
+                    }
+                    if (col.key === "branch_name") {
+                      return <td key={col.key} className="px-[22px] py-3.5">
+                                  <div className="flex items-center gap-2.5 text-[13.5px] font-bold text-[#071E38]">
+                                    <span className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-lg bg-[#EAF9EC] text-[#3CAE49]"><SrBranchIcon size={14} /></span>
+                                    {String(cellValue ?? "")}
+                                  </div>
                                 </td>;
-                  }
-                  if (col.key === "report_date" && cellValue) {
-                    return <td key={col.key} className="p-4 text-sm text-gray-600">
-                                  {new Date(cellValue).toLocaleDateString("en-CA")}
-                                </td>;
-                  }
-                  return <td key={col.key} className="p-4 text-sm text-gray-600">
-                                {String(cellValue ?? "")}
-                              </td>;
-                })}
-                      </tr>)}
-                </tbody>
-
-                <tfoot>
-                  <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                    <td colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length - 1} className="p-4 text-right">{t("company_admin.grand_total", "Grand Total")}</td>
-                    <td className="p-4 text-green-600 text-base">{t("company_admin.rs", "Rs.")}{Number(grandTotal).toFixed(2)}
-                    </td>
-                  </tr>
-                </tfoot>
-              </table>
+                    }
+                    if (col.key === "branch_address") {
+                      return <td key={col.key} className="px-[22px] py-3.5 text-[13.5px] text-[#6B7280]">{String(cellValue ?? "")}</td>;
+                    }
+                    if (col.key === "total_sales") {
+                      return <td key={col.key} className="px-[22px] py-3.5 font-space text-[13.5px] font-bold text-[#071E38]">Rs {Number(cellValue || 0).toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2
+                        })}</td>;
+                    }
+                    return <td key={col.key} className="px-[22px] py-3.5 text-[13.5px] font-semibold tabular-nums">{String(cellValue ?? "")}</td>;
+                  })}
+                        </tr>)}
+                  </tbody>
+                  {visibleColumns.length > 0 && <tfoot>
+                      <tr className="border-t border-[#E5E7EB] bg-[#FAFAFB]">
+                        {visibleColumns.length > 1 && <td colSpan={visibleColumns.length - 1} className="px-[22px] py-[18px] text-right text-[13.5px] font-bold text-[#071E38]">{t("company_admin.grand_total", "Grand Total")}</td>}
+                        <td className="px-[22px] py-[18px] font-space text-base font-bold text-[#3CAE49]">Rs {Number(grandTotal || 0).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
+                      })}</td>
+                      </tr>
+                    </tfoot>}
+                </table>
+              </div>
             </div>}
-        </div>
 
-        {/* Dynamic Navigation Trigger Button */}
-        <button onClick={() => navigate(-1)} className="fixed bottom-6 right-6 inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-lg hover:shadow-xl active:scale-95 transition-all duration-150 z-50 border border-slate-700 cursor-pointer group">
-          <FaArrowLeft className="text-xs group-hover:-translate-x-1 transition-transform" />{t("company_admin.back", "Back")}</button>
+          {/* Back button */}
+          <div className="flex justify-end">
+            <button type="button" onClick={() => navigate(-1)} className="inline-flex items-center gap-2 rounded-[10px] bg-[#071E38] px-5 py-[11px] text-[13px] font-bold text-white hover:bg-[#0D2B4D]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><path d="M19 12H5M12 19L5 12L12 5" /></svg>
+              {t("company_admin.back", "Back")}
+            </button>
+          </div>
+        </main>
       </div>
     </div>;
 }

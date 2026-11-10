@@ -166,6 +166,51 @@ const Toast = ({ message, type, onClose }) => {
   );
 };
 
+/* ===== Design components (Activity Log redesign) ===== */
+const AL_INPUT = "rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white px-3.5 py-[11px] text-[13px] font-normal text-[#111827] outline-none focus:border-[#14A6E0]";
+const AL_TD = "whitespace-nowrap px-5 py-3 text-[13px]";
+const AL_PAGER = "rounded-lg border-[1.5px] border-[#E5E7EB] bg-white px-4 py-2 text-xs font-bold text-[#111827] hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-40";
+const AL_STAT_TONES = {
+  navy: "bg-[#E7ECF2] text-[#071E38]",
+  green: "bg-[#EAF9EC] text-[#3CAE49]",
+  blue: "bg-[#EAF6FD] text-[#14A6E0]",
+  red: "bg-[#FDECEC] text-[#EF4444]"
+};
+const AlFilterIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4H20L14 12.5V19L10 21V12.5L4 4Z" /></svg>;
+const AlCheckIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>;
+const AlClockIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 8V12L15 14" /></svg>;
+const AlCrossIcon = () => <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M15 9L9 15M9 9L15 15" /></svg>;
+
+// Action pill colours from the design
+const actionTone = (action) => {
+  const value = String(action || "").toUpperCase();
+  if (value.includes("FAILED")) return "bg-[#FDECEC] text-[#B91C1C]";
+  if (value === "LOGIN") return "bg-[#EAF9EC] text-[#15803D]";
+  if (value === "CREATE") return "bg-[#EAF6FD] text-[#0E6FA8]";
+  if (value === "DELETE") return "bg-[#FDECEC] text-[#B91C1C]";
+  if (value === "UPDATE") return "bg-[#FFF6E6] text-[#B45309]";
+  return "bg-[#F3F4F6] text-[#374151]";
+};
+
+const getInitials = (name) => {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  return ((parts[0][0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase();
+};
+
+function AlStatCard({ icon, tone, value, label }) {
+  return (
+    <div className="flex items-center gap-[15px] rounded-[14px] border border-[#E5E7EB] bg-white px-5 py-[18px] shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+      <div className={`flex h-[46px] w-[46px] flex-shrink-0 items-center justify-center rounded-xl ${AL_STAT_TONES[tone]}`}>{icon}</div>
+      <div className="min-w-0">
+        <div className="truncate font-space text-[22px] font-bold leading-tight text-[#071E38]">{value}</div>
+        <div className="text-xs font-semibold text-[#6B7280]">{label}</div>
+      </div>
+    </div>
+  );
+}
+/* ===== End of design components ===== */
+
 const ActivityLog = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -369,296 +414,83 @@ const ActivityLog = () => {
     t("table_headers.timestamp", "Timestamp"),
   ];
 
+  const hasActiveFilters = filters.search || filters.action_type || filters.module_name || filters.from || filters.to;
+
   return (
-    <div
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        background: "#F4F6F9",
-        fontFamily: "'Inter', sans-serif",
-      }}
-    >
+    <div className="flex min-h-screen bg-[#F3F4F6] text-[#111827]">
       <AdminSidebar />
 
-      <div
-        style={{
-          flex: 1,
-          marginLeft: 240,
-          display: "flex",
-          flexDirection: "column",
-        }}
-      >
+      <div className="flex min-w-0 flex-1 flex-col" style={{ marginLeft: 240 }}>
         <AdminHeader title={t("company_admin.activity_log", "Activity Log")} />
 
-        <div style={{ padding: "24px 28px", flex: 1 }}>
-          <div
-            style={{
-              display: "flex",
-              gap: 16,
-              marginBottom: 24,
-              flexWrap: "wrap",
-            }}
-          >
-            <SummaryCard
-              icon={<FaFilter />}
-              label={t("company_admin.total_events", "Total Events")}
-              value={summaryStats.totalEvents.toLocaleString()}
-              bg="#EFF6FF"
-              iconColor="#3B82F6"
-            />
-            <SummaryCard
-              icon={<FaCheckCircle />}
-              label={t("company_admin.logins", "Logins")}
-              value={summaryStats.logins.toLocaleString()}
-              bg="#DCFCE7"
-              iconColor="#16A34A"
-            />
-            <SummaryCard
-              icon={<FaInfoCircle />}
-              label={t("company_admin.creates", "Creates")}
-              value={summaryStats.creates.toLocaleString()}
-              bg="#DBEAFE"
-              iconColor="#1D4ED8"
-            />
-            <SummaryCard
-              icon={<FaTimesCircle />}
-              label={t("company_admin.deletes", "Deletes")}
-              value={summaryStats.deletes.toLocaleString()}
-              bg="#FEE2E2"
-              iconColor="#DC2626"
-            />
+        <main className="flex-1 px-8 pb-10 pt-7">
+          {/* Page heading */}
+          <div className="mb-[22px]">
+            <h2 className="mb-1 font-space text-2xl font-bold text-[#111827]">{t("company_admin.activity_log", "Activity Log")}</h2>
+            <p className="text-[13px] text-[#6B7280]">{t("company_admin.activity_log_subtitle", "Track every login, create, update, and delete action across the system")}</p>
           </div>
 
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              padding: "18px 20px",
-              marginBottom: 20,
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                gap: 12,
-                marginBottom: 14,
-                flexWrap: "wrap",
-                alignItems: "center",
-              }}
-            >
-              <div
-                style={{
-                  position: "relative",
-                  flex: "1 1 220px",
-                  minWidth: 180,
-                }}
-              >
-                <FaSearch
-                  style={{
-                    position: "absolute",
-                    left: 12,
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    color: "#9CA3AF",
-                    pointerEvents: "none",
-                  }}
-                />
+          {/* Summary cards */}
+          <div className="mb-[22px] grid grid-cols-2 gap-4 xl:grid-cols-4">
+            <AlStatCard tone="navy" icon={<AlFilterIcon />} value={summaryStats.totalEvents.toLocaleString()} label={t("company_admin.total_events", "Total Events")} />
+            <AlStatCard tone="green" icon={<AlCheckIcon />} value={summaryStats.logins.toLocaleString()} label={t("company_admin.logins", "Logins")} />
+            <AlStatCard tone="blue" icon={<AlClockIcon />} value={summaryStats.creates.toLocaleString()} label={t("company_admin.creates", "Creates")} />
+            <AlStatCard tone="red" icon={<AlCrossIcon />} value={summaryStats.deletes.toLocaleString()} label={t("company_admin.deletes", "Deletes")} />
+          </div>
+
+          {/* Search + filters panel */}
+          <div className="mb-[18px] rounded-[14px] border border-[#E5E7EB] bg-white px-[22px] py-[18px] shadow-[0_2px_10px_rgba(7,30,56,0.03)]">
+            <div className="mb-3.5 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative flex-1">
+                <svg className="pointer-events-none absolute left-[15px] top-1/2 -translate-y-1/2 text-[#9CA3AF]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
                 <input
                   id="log-search"
                   value={filters.search}
                   onChange={(e) => onFilterChange("search", e.target.value)}
-                  placeholder={t(
-                    "company_admin.search_description",
-                    "Search description…"
-                  )}
-                  style={{
-                    width: "100%",
-                    padding: "9px 12px 9px 36px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    fontSize: 13,
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
+                  placeholder={t("company_admin.search_description", "Search description…")}
+                  className="w-full rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white py-3 pl-[42px] pr-4 text-[13.5px] outline-none focus:border-[#14A6E0]"
                 />
               </div>
-
-              <div style={{ display: "flex", gap: 10, marginLeft: "auto" }}>
-                <button
-                  id="btn-refresh-logs"
-                  onClick={() => {
-                    fetchLogs();
-                    fetchSummary();
-                  }}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    padding: "9px 16px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    background: "#F9FAFB",
-                    color: "#374151",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                    fontSize: 13,
-                  }}
-                >
-                  <FaSync size={12} />
-                  {t("company_admin.refresh", "Refresh")}
-                </button>
-              </div>
+              <button
+                id="btn-refresh-logs"
+                type="button"
+                onClick={() => {
+                  fetchLogs();
+                  fetchSummary();
+                }}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border-[1.5px] border-[#E5E7EB] bg-white px-[18px] py-3 text-[13px] font-bold text-[#111827] hover:bg-[#F9FAFB]"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 12A9 9 0 103.5 16.5M21 12V6M21 12H15" /></svg>
+                {t("company_admin.refresh", "Refresh")}
+              </button>
             </div>
 
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              <select
-                id="filter-action-type"
-                value={filters.action_type}
-                onChange={(e) => onFilterChange("action_type", e.target.value)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #E5E7EB",
-                  fontSize: 13,
-                  color: "#374151",
-                  background: "#fff",
-                  cursor: "pointer",
-                  outline: "none",
-                  flex: "1 1 150px",
-                }}
-              >
-                <option value="">
-                  {t("company_admin.all_actions", "All Actions")}
-                </option>
-                {ACTION_TYPES.map((action) => (
-                  <option key={action} value={action}>
-                    {action}
-                  </option>
-                ))}
+            <div className="flex flex-wrap items-center gap-3">
+              <select id="filter-action-type" value={filters.action_type} onChange={(e) => onFilterChange("action_type", e.target.value)} className={`${AL_INPUT} min-w-[170px]`}>
+                <option value="">{t("company_admin.all_actions", "All Actions")}</option>
+                {ACTION_TYPES.map((action) => <option key={action} value={action}>{action}</option>)}
               </select>
-
-              <select
-                id="filter-module-name"
-                value={filters.module_name}
-                onChange={(e) => onFilterChange("module_name", e.target.value)}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #E5E7EB",
-                  fontSize: 13,
-                  color: "#374151",
-                  background: "#fff",
-                  cursor: "pointer",
-                  outline: "none",
-                  flex: "1 1 160px",
-                }}
-              >
-                <option value="">
-                  {t("company_admin.all_modules", "All Modules")}
-                </option>
-                {MODULE_NAMES.map((moduleName) => (
-                  <option key={moduleName} value={moduleName}>
-                    {moduleName}
-                  </option>
-                ))}
+              <select id="filter-module-name" value={filters.module_name} onChange={(e) => onFilterChange("module_name", e.target.value)} className={`${AL_INPUT} min-w-[170px]`}>
+                <option value="">{t("company_admin.all_modules", "All Modules")}</option>
+                {MODULE_NAMES.map((moduleName) => <option key={moduleName} value={moduleName}>{moduleName}</option>)}
               </select>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  flex: "1 1 180px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: 12,
-                    color: "#9CA3AF",
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("company_admin.from", "From:")}
-                </label>
-                <input
-                  id="filter-from-date"
-                  type="date"
-                  value={filters.from}
-                  onChange={(e) => onFilterChange("from", e.target.value)}
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    fontSize: 13,
-                    outline: "none",
-                    flex: 1,
-                  }}
-                />
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  flex: "1 1 180px",
-                }}
-              >
-                <label
-                  style={{
-                    fontSize: 12,
-                    color: "#9CA3AF",
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {t("company_admin.to", "To:")}
-                </label>
-                <input
-                  id="filter-to-date"
-                  type="date"
-                  value={filters.to}
-                  onChange={(e) => onFilterChange("to", e.target.value)}
-                  style={{
-                    padding: "8px 10px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    fontSize: 13,
-                    outline: "none",
-                    flex: 1,
-                  }}
-                />
-              </div>
-
-              {(filters.search ||
-                filters.action_type ||
-                filters.module_name ||
-                filters.from ||
-                filters.to) && (
+              <label className="flex items-center gap-2 text-xs font-bold text-[#6B7280]">
+                {t("company_admin.from", "From:")}
+                <input id="filter-from-date" type="date" value={filters.from} onChange={(e) => onFilterChange("from", e.target.value)} className={AL_INPUT} />
+              </label>
+              <label className="flex items-center gap-2 text-xs font-bold text-[#6B7280]">
+                {t("company_admin.to", "To:")}
+                <input id="filter-to-date" type="date" value={filters.to} onChange={(e) => onFilterChange("to", e.target.value)} className={AL_INPUT} />
+              </label>
+              {hasActiveFilters && (
                 <button
                   id="btn-clear-filters"
+                  type="button"
                   onClick={() => {
-                    setFilters({
-                      search: "",
-                      action_type: "",
-                      module_name: "",
-                      from: "",
-                      to: "",
-                    });
+                    setFilters({ search: "", action_type: "", module_name: "", from: "", to: "" });
                     setPage(1);
                   }}
-                  style={{
-                    padding: "8px 14px",
-                    borderRadius: 8,
-                    border: "1px solid #E5E7EB",
-                    background: "#fff",
-                    color: "#6B7280",
-                    fontSize: 12,
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
+                  className="rounded-[10px] border-[1.5px] border-[#EF4444]/40 bg-white px-3.5 py-[11px] text-[13px] font-bold text-[#EF4444] hover:bg-[#FDECEC]"
                 >
                   {t("company_admin.clear_filters", "Clear Filters")}
                 </button>
@@ -667,126 +499,47 @@ const ActivityLog = () => {
           </div>
 
           {isMockData && (
-            <div
-              style={{
-                background: "#FEF3C7",
-                border: "1px solid #F59E0B",
-                borderRadius: 10,
-                padding: "12px 18px",
-                marginBottom: 16,
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                color: "#92400E",
-                fontSize: 13,
-              }}
-            >
+            <div className="mb-[18px] flex items-center gap-2 rounded-[10px] border border-[#F59E0B]/40 bg-[#FFF6E6] px-4 py-3 text-[13px] font-semibold text-[#B45309]">
               <FaInfoCircle />
-              <span>
-                {t(
-                  "company_admin.activity_logs_are_not_yet_implemented_on",
-                  "Activity logs are not yet implemented on the backend. Showing mock data."
-                )}
-              </span>
+              <span>{t("company_admin.activity_logs_are_not_yet_implemented_on", "Activity logs are not yet implemented on the backend. Showing mock data.")}</span>
             </div>
           )}
 
-          <div
-            style={{
-              background: "#fff",
-              borderRadius: 14,
-              overflow: "hidden",
-              boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-            }}
-          >
-            <div
-              style={{
-                padding: "14px 20px",
-                borderBottom: "1px solid #F3F4F6",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>
-                {t("company_admin.activity_logs", "Activity Logs")}
-              </span>
-              <span style={{ fontSize: 12, color: "#9CA3AF" }}>
-                {total.toLocaleString()}
-                {t("company_admin.total_record", "total record")}
-                {total !== 1 ? "s" : ""}
-              </span>
-            </div>
+          {/* Logs heading */}
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="font-space text-[15px] font-bold text-[#071E38]">{t("company_admin.activity_logs", "Activity Logs")}</h3>
+            <span className="text-xs font-semibold text-[#6B7280]">
+              <b className="text-[#071E38]">{total.toLocaleString()}</b> {t("company_admin.total_records", "total records")}
+            </span>
+          </div>
 
+          {/* Logs table */}
+          <div className="overflow-hidden rounded-[14px] border border-[#E5E7EB] bg-white shadow-[0_2px_10px_rgba(7,30,56,0.04)]">
             {loading ? (
-              <div
-                style={{
-                  padding: "60px 0",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "center",
-                  flexDirection: "column",
-                  gap: 12,
-                }}
-              >
+              <div className="flex flex-col items-center justify-center gap-3 py-16">
                 <Spinner size={40} />
-                <p
-                  style={{
-                    margin: 0,
-                    color: "#6B7280",
-                    fontSize: 14,
-                    fontWeight: 600,
-                  }}
-                >
-                  {t("company_admin.loading_logs", "Loading logs…")}
-                </p>
+                <p className="text-sm text-[#6B7280]">{t("company_admin.loading_logs", "Loading logs…")}</p>
               </div>
             ) : logs.length === 0 ? (
-              <div style={{ padding: "60px 0", textAlign: "center" }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
-                <p style={{ margin: 0, color: "#9CA3AF", fontSize: 14 }}>
-                  {t("company_admin.no_activity_logs_found", "No activity logs found")}
-                </p>
+              <div className="py-16 text-center">
+                <div className="mb-3 text-4xl">📭</div>
+                <p className="text-sm text-[#9CA3AF]">{t("company_admin.no_activity_logs_found", "No activity logs found")}</p>
               </div>
             ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table
-                  style={{
-                    width: "100%",
-                    borderCollapse: "collapse",
-                    minWidth: 860,
-                  }}
-                >
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
                   <thead>
-                    <tr style={{ background: "#F9FAFB" }}>
+                    <tr>
                       {tableHeaders.map((header) => (
-                        <th
-                          key={header}
-                          style={{
-                            padding: "12px 14px",
-                            textAlign: "left",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: "#6B7280",
-                            borderBottom: "1px solid #F3F4F6",
-                            letterSpacing: "0.05em",
-                            textTransform: "uppercase",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {header}
-                        </th>
+                        <th key={header} className="whitespace-nowrap border-b border-[#E5E7EB] bg-[#FAFAFB] px-5 py-3.5 text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-[#9CA3AF]">{header}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {logs.map((log, idx) => {
-                      const actionStyle = getActionStyle(log.action_type);
                       let userName = "—";
                       if (log.u_fname || log.u_lname) {
-                        userName = [log.u_fname, log.u_lname]
-                          .filter(Boolean)
-                          .join(" ");
+                        userName = [log.u_fname, log.u_lname].filter(Boolean).join(" ");
                       } else if (log.u_email) {
                         userName = log.u_email;
                       } else if (log.user_name) {
@@ -798,109 +551,29 @@ const ActivityLog = () => {
                       } else if (log.user_id) {
                         userName = `User #${log.user_id}`;
                       }
-                      if (
-                        userName === "—" ||
-                        userName === "" ||
-                        userName === "undefined" ||
-                        userName === "null"
-                      ) {
-                        userName =
-                          log.action_type === "LOGIN" ||
-                          log.action_type === "LOGIN_FAILED"
-                            ? "System"
-                            : "Unknown User";
+                      if (userName === "—" || userName === "" || userName === "undefined" || userName === "null") {
+                        userName = log.action_type === "LOGIN" || log.action_type === "LOGIN_FAILED" ? "System" : "Unknown User";
                       }
-
-                      const contextLabel =
-                        [log.com_name, log.branch_name]
-                          .filter(Boolean)
-                          .join(" / ") || "—";
+                      const contextLabel = [log.com_name, log.branch_name].filter(Boolean).join(" / ") || "—";
 
                       return (
-                        <tr
-                          key={log.log_id || idx}
-                          style={{
-                            borderBottom: "1px solid #F3F4F6",
-                            transition: "background 0.15s",
-                          }}
-                          onMouseEnter={(event) =>
-                            (event.currentTarget.style.background = "#F9FAFB")
-                          }
-                          onMouseLeave={(event) =>
-                            (event.currentTarget.style.background = "transparent")
-                          }
-                        >
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#6B7280",
-                            }}
-                          >
-                            {idx + 1 + (page - 1) * LIMIT}
-                          </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#111827",
-                              fontWeight: 500,
-                            }}
-                          >
-                            {userName}
-                          </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#6B7280",
-                            }}
-                          >
-                            {contextLabel}
-                          </td>
-                          <td style={{ padding: "14px" }}>
-                            <Badge
-                              text={log.action_type || "—"}
-                              bg={actionStyle.bg}
-                              color={actionStyle.color}
-                            />
-                          </td>
-                          <td style={{ padding: "14px" }}>
-                            <Badge
-                              text={log.module_name || "—"}
-                              bg="#E0E7FF"
-                              color="#4338CA"
-                            />
-                          </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#374151",
-                              maxWidth: 320,
-                            }}
-                          >
-                            <div
-                              style={{
-                                whiteSpace: "nowrap",
-                                overflow: "hidden",
-                                textOverflow: "ellipsis",
-                              }}
-                              title={log.description}
-                            >
-                              {log.description || "—"}
+                        <tr key={log.log_id || idx} className="border-b border-[#E5E7EB] last:border-b-0 hover:bg-[#FAFBFC]">
+                          <td className={`${AL_TD} font-semibold text-[#9CA3AF]`}>{idx + 1 + (page - 1) * LIMIT}</td>
+                          <td className={AL_TD}>
+                            <div className="flex items-center gap-2.5">
+                              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#14A6E0] to-[#3CAE49] font-space text-[10px] font-bold text-white">{getInitials(userName)}</span>
+                              <span className="font-bold text-[#071E38]">{userName}</span>
                             </div>
                           </td>
-                          <td
-                            style={{
-                              padding: "14px",
-                              fontSize: 13,
-                              color: "#6B7280",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {formatDate(log.created_at)}
+                          <td className={`${AL_TD} text-[#6B7280]`}>{contextLabel}</td>
+                          <td className={AL_TD}>
+                            <span className={`inline-block rounded-full px-2.5 py-1 text-[10.5px] font-bold tracking-[0.03em] ${actionTone(log.action_type)}`}>{log.action_type || "—"}</span>
                           </td>
+                          <td className={AL_TD}>
+                            <span className="inline-block rounded-full bg-[#F3EDFE] px-2.5 py-1 text-[10.5px] font-bold text-[#6D28D9]">{log.module_name || "—"}</span>
+                          </td>
+                          <td className={`${AL_TD} max-w-[340px] overflow-hidden text-ellipsis text-[#6B7280]`} title={log.description}>{log.description || "—"}</td>
+                          <td className={`${AL_TD} tabular-nums text-[#9CA3AF]`}>{formatDate(log.created_at)}</td>
                         </tr>
                       );
                     })}
@@ -908,50 +581,18 @@ const ActivityLog = () => {
                 </table>
               </div>
             )}
-          </div>
 
-          {totalPages > 1 && (
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: 8,
-                marginTop: 16,
-              }}
-            >
-              <button
-                onClick={() => setPage((current) => Math.max(1, current - 1))}
-                disabled={page === 1}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #E5E7EB",
-                  background: page === 1 ? "#F9FAFB" : "#fff",
-                  color: page === 1 ? "#9CA3AF" : "#374151",
-                  cursor: page === 1 ? "not-allowed" : "pointer",
-                }}
-              >
+            {/* Pagination */}
+            <div className="flex items-center justify-end gap-2 border-t border-[#E5E7EB] px-[22px] py-4">
+              <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={page === 1} className={AL_PAGER}>
                 {t("company_admin.previous", "Previous")}
               </button>
-              <button
-                onClick={() =>
-                  setPage((current) => Math.min(totalPages, current + 1))
-                }
-                disabled={page >= totalPages}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 8,
-                  border: "1px solid #E5E7EB",
-                  background: page >= totalPages ? "#F9FAFB" : "#fff",
-                  color: page >= totalPages ? "#9CA3AF" : "#374151",
-                  cursor: page >= totalPages ? "not-allowed" : "pointer",
-                }}
-              >
+              <button type="button" onClick={() => setPage((current) => Math.min(totalPages, current + 1))} disabled={page >= totalPages} className={AL_PAGER}>
                 {t("company_admin.next", "Next")}
               </button>
             </div>
-          )}
-        </div>
+          </div>
+        </main>
       </div>
 
       {toast && (
@@ -964,5 +605,4 @@ const ActivityLog = () => {
     </div>
   );
 };
-
 export default ActivityLog;
