@@ -249,9 +249,15 @@ function ProductCatalogTable({
                 <td className="px-5 py-[13px] text-[13.5px] font-semibold text-[#6B7280]">{item.discount}</td>
                 <td className="px-5 py-[13px]">
                   <div className="flex items-center gap-2">
-                                          <button type="button" onClick={() => onDeleteProduct?.(item.id)} aria-label={`Delete ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E0654F] bg-white text-[#E0654F] transition-colors hover:bg-[#FDECEC]">
+
+                                        <button type="button" onClick={() => onEditProduct?.(item.id)} aria-label={`Edit ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E5E7EB] bg-white text-[#14A6E0] transition-colors hover:border-[#14A6E0] hover:bg-[#EAF6FD]">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 3A2.83 2.83 0 0121 7L7 21H3V17Z" /></svg>
+                    </button>
+               <button type="button" onClick={() => onDeleteProduct?.(item.id)} aria-label={`Delete ${item.name}`} className="flex h-8 w-8 items-center justify-center rounded-lg border-[1.5px] border-[#E0654F] bg-white text-[#E0654F] transition-colors hover:bg-[#FDECEC]">
                          <DeleteIcon />
                        </button>
+
+                       
                   </div>
                 </td>
               </tr>
