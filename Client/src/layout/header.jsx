@@ -154,6 +154,10 @@ const Header = ({ title = "Dashboard", subtitle, variant = "app", toggleSidebar 
     return ((parts[0]?.[0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "U";
   }, [displayName]);
 
+  // Branch users get their branch as the subtitle automatically (e.g. "Kadawatha branch")
+  const branchSubtitle = branchName ? (/branch/i.test(branchName) ? branchName : `${branchName} branch`) : "";
+  const headerSubtitle = subtitle ?? (user?.b_id ? branchSubtitle : "");
+
   if (variant === "register") {
     return <div className="w-full bg-gradient-to-r from-[#0056A2] via-[#00B4EB] to-[#50B748] px-5 py-2 text-xs text-white">SLT POS</div>;
   }
@@ -164,7 +168,7 @@ const Header = ({ title = "Dashboard", subtitle, variant = "app", toggleSidebar 
         {toggleSidebar && <button type="button" className="lg:hidden" onClick={toggleSidebar} aria-label="Toggle sidebar"><FaBars size={22} /></button>}
         <div className="min-w-0">
           <h1 className="m-0 truncate font-space text-[21px] font-bold leading-tight text-white">{title}</h1>
-          {subtitle && <div className="mt-[3px] truncate text-[12.5px] text-white/75">{subtitle}</div>}
+          {headerSubtitle && <div className="mt-[3px] truncate text-[12.5px] text-white/75">{headerSubtitle}</div>}
         </div>
       </div>
       <div className="flex items-center gap-5">
@@ -190,7 +194,7 @@ const Header = ({ title = "Dashboard", subtitle, variant = "app", toggleSidebar 
         </div>
         <div className="flex items-center gap-2.5">
           <div className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-full bg-white/95 text-[13px] font-bold text-[#071E38]">{initials}</div>
-          <div className="hidden leading-[1.3] sm:block"><div className="text-[13.5px] font-semibold text-white">{displayName}</div><div className="text-[11.5px] text-white/75">{email || branchName}</div></div>
+          <div className="hidden leading-[1.3] sm:block"><div className="text-[13.5px] font-semibold text-white">{displayName}</div><div className="text-[11px] text-white/75">{email || branchName}</div>{email && branchName && <div className="text-[11px] text-white/60">{branchName}</div>}</div>
         </div>
       </div>
     </header>
