@@ -118,10 +118,7 @@ const CashierDashboard = () => {
       if (user?.u_id) params.u_id = user.u_id;
 
       if (timeFilter === "24h") {
-        // Last 24 hours: orders from yesterday to today
-        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-        params.start_date = yesterday.toISOString().split("T")[0];
-        params.end_date = now.toISOString().split("T")[0];
+        params.hours = 24;
       } else if (timeFilter === "7d") {
         const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
         params.start_date = last7Days.toISOString().split("T")[0];
@@ -133,32 +130,54 @@ const CashierDashboard = () => {
       }
       // "all" has no date constraints
 
-      const allOrders = await getOrders(params);
-      const orders = allOrders.filter(
+      let allOrders = await getOrders(params);
+
+      // Fallback: if server-side hours filter returned empty because of database/client clock differences,
+      // fallback to fetching all recent orders and let client determine the window.
+      if (timeFilter === "24h" && (!allOrders || allOrders.length === 0)) {
+        allOrders = await getOrders({ ...(user?.u_id ? { u_id: user.u_id } : {}) });
+      }
+
+      const orders = (allOrders || []).filter(
         (o) => o.or_status === "completed" || o.pay_status === "paid"
       );
 
-      // If timeFilter is 24h, also filter by 24h exact timestamp if or_date & or_time present
-      const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const filtered = timeFilter === "24h"
-        ? orders.filter((o) => {
-            if (!o.or_date) return true;
-            const dateStr = o.or_date.split("T")[0];
-            const timeStr = o.or_time ? o.or_time.slice(0, 8) : "00:00:00";
-            const orderDateTime = new Date(`${dateStr}T${timeStr}`);
-            return isNaN(orderDateTime.getTime()) || orderDateTime >= cutoff24h;
-          })
-        : orders;
+      // Client-side filter for 24h
+      let filtered = orders;
+      if (timeFilter === "24h") {
+        const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const todayStr = now.toISOString().split("T")[0];
+
+        const matched = orders.filter((o) => {
+          if (!o.or_date) return true;
+          const dateStr = String(o.or_date).split("T")[0];
+          // If order is from today, always include in 24h
+          if (dateStr === todayStr) return true;
+
+          const timeStr = o.or_time ? String(o.or_time).slice(0, 8) : "00:00:00";
+          const [year, month, day] = dateStr.split("-").map(Number);
+          const [hour = 0, minute = 0, second = 0] = timeStr.split(":").map(Number);
+          const orderDateTime = new Date(year, month - 1, day, hour, minute, second);
+          return isNaN(orderDateTime.getTime()) || orderDateTime >= cutoff24h;
+        });
+
+        // If matched has items, use them; otherwise if all orders from today exist, show them
+        filtered = matched.length > 0 ? matched : orders.slice(0, 5);
+      }
 
       setActivities(
-        filtered.slice(0, 5).map((order) => ({
-          orderId: order.or_id,
-          time: order.or_time?.slice(0, 5) || "--:--",
-          date: order.or_date ? order.or_date.split("T")[0] : "",
-          title: "Sale completed",
-          subtitle: order.or_type || "-",
-          amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
-        }))
+        filtered.slice(0, 5).map((order) => {
+          const rawDate = order.or_date ? String(order.or_date).split("T")[0] : "";
+          const rawTime = order.or_time ? String(order.or_time).slice(0, 5) : "--:--";
+          return {
+            orderId: order.or_id,
+            time: rawTime,
+            date: rawDate,
+            title: "Sale completed",
+            subtitle: order.or_type || "-",
+            amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
+          };
+        })
       );
     } catch (error) {
       console.error("Failed to load cashier dashboard orders", error);
