@@ -86,7 +86,7 @@ const Slidebar = ({ isOpen = true, setIsOpen, isSuperAdmin, superAdmin: superAdm
     item(<FaBox />, "Package Management", "/super-admin/packages"),
   ];
   const items = superAdmin ? superItems : branchAdmin ? branchItems : adminItems;
-  return <><aside className={`fixed bottom-0 left-0 top-0 z-40 flex w-[250px] flex-col justify-between overflow-y-auto bg-[#081321] p-6 text-white transition-transform lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
+  return <><aside className={`fixed bottom-0 left-0 top-0 z-40 flex w-[250px] flex-col justify-between overflow-y-auto bg-[#081321] p-6 text-white transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
     <div><div className="mb-4 flex items-center gap-3 pl-1"><div className="flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600"><FaWifi size={18} /></div><h2 className="m-0 text-lg font-bold"><span>SLT</span> <span className="text-emerald-500">POS</span></h2></div>{section("MAIN")}{items}</div>
     <div>{item(<FaSignOutAlt />, t("company_admin.log_out", "Log Out"), "/logout", false, (event) => { event.preventDefault(); logout(); })}</div>
   </aside><ToastContainer toasts={toasts} removeToast={removeToast} /></>;

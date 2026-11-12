@@ -188,7 +188,24 @@ const ActivityLog = () => {
   });
   const [page, setPage] = useState(1);
   const [toast, setToast] = useState(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
   const LIMIT = 20;
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsSidebarOpen(false);
+      } else {
+        setIsSidebarOpen(true);
+      }
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // State for aggregated summary stats (fallback when API summary is unavailable)
   const [summaryStats, setSummaryStats] = useState({
@@ -376,21 +393,47 @@ const ActivityLog = () => {
         minHeight: "100vh",
         background: "#F4F6F9",
         fontFamily: "'Inter', sans-serif",
+        position: "relative",
       }}
     >
-      <AdminSidebar />
+      {/* Mobile/Tablet Backdrop Overlay */}
+      {isMobile && isSidebarOpen && (
+        <div
+          onClick={() => setIsSidebarOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.5)",
+            zIndex: 35,
+            transition: "opacity 0.3s ease-in-out",
+          }}
+          aria-label="Close sidebar overlay"
+        />
+      )}
+
+      <AdminSidebar
+        isOpen={isSidebarOpen}
+        setIsOpen={setIsSidebarOpen}
+      />
 
       <div
         style={{
           flex: 1,
-          marginLeft: 240,
+          marginLeft: isSidebarOpen ? (isMobile ? 0 : 250) : 0,
           display: "flex",
           flexDirection: "column",
+          transition: "margin-left 0.3s ease-in-out",
+          minWidth: 0,
+          width: "100%",
         }}
       >
-        <AdminHeader title={t("company_admin.activity_log", "Activity Log")} />
+        <AdminHeader
+          title={t("company_admin.activity_log", "Activity Log")}
+          toggleSidebar={() => setIsSidebarOpen((prev) => !prev)}
+          isSidebarOpen={isSidebarOpen}
+        />
 
-        <div style={{ padding: "24px 28px", flex: 1 }}>
+        <div style={{ padding: isMobile ? "16px 12px" : "24px 28px", flex: 1, minWidth: 0 }}>
           <div
             style={{
               display: "flex",
