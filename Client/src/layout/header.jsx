@@ -40,7 +40,7 @@ const saveNotifications = (items) => NOTIFICATION_KEYS.forEach((key) => {
   else sessionStorage.removeItem(key);
 });
 
-const Header = ({ title = "Dashboard", variant = "app", toggleSidebar }) => {
+const Header = ({ title = "Dashboard", variant = "app", toggleSidebar, isSidebarOpen }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [branchName, setBranchName] = useState("");
@@ -155,7 +155,7 @@ const Header = ({ title = "Dashboard", variant = "app", toggleSidebar }) => {
 
   return (
 <header className="relative flex h-[70px] w-full items-center justify-between bg-gradient-to-r from-[#0B192C] from-25% via-[#00B4EB] via-65% to-[#55D24B] px-5 text-white shadow-sm">      <div className="flex items-center gap-4">
-        {toggleSidebar && <button type="button" className="lg:hidden" onClick={toggleSidebar} aria-label="Toggle sidebar"><FaBars size={22} /></button>}
+        {toggleSidebar && <button type="button" className="p-1 rounded hover:bg-white/10 transition-colors" onClick={toggleSidebar} aria-label="Toggle sidebar"><FaBars size={22} /></button>}
         <h2 className="m-0 text-2xl font-medium">{title}</h2>
       </div>
       <div className="flex items-center gap-4">
