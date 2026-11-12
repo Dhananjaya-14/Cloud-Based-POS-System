@@ -1,36 +1,69 @@
 import { useTranslation } from "react-i18next";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
 import LoginLayout from "../components/register/LoginLayout";
 import { useAuth } from "../context/AuthContext";
 
+const getRoleRoute = (roleId) => {
+  const id = Number(roleId);
+  if (id === 6) return "/dashboard";
+  if (id === 2) return "/admin/dashboard";
+  if (id === 1) return "/branch-admin/dashboard";
+  if (id === 3) return "/cashier/dashboard";
+  if (id === 9) return "/kitchen/orders";
+  if (id === 8) return "/waiter/pos";
+  return null;
+};
+
 const Login = () => {
   const { t } = useTranslation();
-const navigate = useNavigate();
-  const { login } = useAuth();
+  const navigate = useNavigate();
+  const { login, user, token } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
-  const [u_email, setEmail] = useState("");
+  const [u_email, setEmail] = useState(() => localStorage.getItem("remembered_email") || "");
   const [u_pw, setPw] = useState("");
+  const [rememberMe, setRememberMe] = useState(() => localStorage.getItem("remember_me") === "true");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // If user is already authenticated and Remember Me is active, navigate to their dashboard
+  useEffect(() => {
+    if (token && user) {
+      const isRemembered = localStorage.getItem("remember_me") === "true";
+      if (isRemembered) {
+        const targetRoute = getRoleRoute(user.role_id);
+        if (targetRoute) {
+          navigate(targetRoute, { replace: true });
+        }
+      }
+    }
+  }, [token, user, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
-      const data = await login({ u_email, u_pw }); // { token, user }
+      const data = await login({ u_email, u_pw }, rememberMe); // { token, user }
       const roleId = Number(data.user?.role_id);
       sessionStorage.setItem("loginSuccessMessage", "Logged in successfully.");
+
+      if (rememberMe) {
+        localStorage.setItem("remember_me", "true");
+        localStorage.setItem("remembered_email", u_email);
+      } else {
+        localStorage.removeItem("remember_me");
+        localStorage.removeItem("remembered_email");
+      }
+
       // map role ids to routes
-      if (roleId === 6) navigate("/dashboard"); // super admin -> Dashboard overview
-      else if (roleId === 2) navigate("/admin/dashboard"); // admin -> BranchManagement
-      else if (roleId === 1) navigate("/branch-admin/dashboard");
-      else if (roleId === 3) navigate("/cashier/dashboard");
-      else if (roleId === 9) navigate("/kitchen/orders");
-      else if (roleId === 8) navigate("/waiter/pos");
-      else navigate("/"); // fallback
+      const targetRoute = getRoleRoute(roleId);
+      if (targetRoute) {
+        navigate(targetRoute);
+      } else {
+        navigate("/");
+      }
     } catch (err) {
       setError(err.response?.data?.message || err.message || "Login failed");
     } finally {
@@ -93,7 +126,12 @@ const navigate = useNavigate();
 
           <div style={rowStyle}>
             <label style={{ display: "flex", alignItems: "center", gap: "8px", cursor: "pointer", fontSize: "13px", color: "#555" }}>
-              <input type="checkbox" /> {t("auth.remember_me", "Remember Me")}
+              <input
+                type="checkbox"
+                checked={rememberMe}
+                onChange={(e) => setRememberMe(e.target.checked)}
+              />{" "}
+              {t("auth.remember_me", "Remember Me")}
             </label>
             <button type="button" onClick={() => navigate("/forgot-password")} style={{ color: "#0056A2", fontSize: "13px", cursor: "pointer", fontWeight: "600", border: "none", background: "none", padding: 0 }}>
               {t("auth.forgot_password", "Forgot Password?")}
