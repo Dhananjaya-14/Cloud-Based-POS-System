@@ -226,7 +226,7 @@ export const checkOrderStock = async (req, res) => {
 // ─────────────────────────────────────────────
 export const getAllOrders = async (req, res) => {
   try {
-    const { status, type, b_id, u_id, date, start_date, end_date } = req.query;
+    const { status, type, b_id, u_id, date, start_date, end_date, hours } = req.query;
 
     // Validate filter values if provided
     if (status && !VALID_STATUSES.includes(status)) {
@@ -256,6 +256,11 @@ export const getAllOrders = async (req, res) => {
         .status(400)
         .json({ success: false, error: "Invalid end_date format" });
     }
+    if (hours && isNaN(Number(hours))) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid hours format" });
+    }
 
     const conditions = [];
     const values = [];
@@ -281,13 +286,19 @@ export const getAllOrders = async (req, res) => {
       conditions.push(`o.or_date = $${i++}`);
       values.push(date);
     }
-    if (start_date) {
-      conditions.push(`o.or_date >= $${i++}`);
-      values.push(start_date);
-    }
-    if (end_date) {
-      conditions.push(`o.or_date <= $${i++}`);
-      values.push(end_date);
+    if (hours) {
+      // Last N hours or current calendar day, whichever matches best
+      conditions.push(`((o.or_date + o.or_time) >= (NOW() - ($${i++} || ' hours')::INTERVAL) OR o.or_date >= CURRENT_DATE)`);
+      values.push(Number(hours));
+    } else {
+      if (start_date) {
+        conditions.push(`o.or_date >= $${i++}`);
+        values.push(start_date);
+      }
+      if (end_date) {
+        conditions.push(`o.or_date <= $${i++}`);
+        values.push(end_date);
+      }
     }
 
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
