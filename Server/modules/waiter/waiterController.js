@@ -1,8 +1,9 @@
 import pool from "../../config/database.js";
 import { ROLES } from "../../middleware/authMiddleware.js";
 import { emitSocketEvent, SOCKET_EVENTS } from "../../utils/socket.js";
+import { getBranchTaxRate, recalculateOrderTotals } from "../../utils/orderTotals.js";
 
-const VALID_STATUSES = ["pending", "preparing", "completed", "cancelled"];
+const VALID_STATUSES = ["pending", "hold", "preparing", "completed", "cancelled"];
 
 function parsePositiveInt(value, fieldName) {
   const parsed = Number(value);
@@ -16,32 +17,6 @@ function parsePositiveInt(value, fieldName) {
 
 function getTodayStr() {
   return new Date().toISOString().split("T")[0];
-}
-
-function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
-  const tax = parseFloat(or_tax ?? 0);
-  const cost = parseFloat(or_totalcost);
-  const costWtax = parseFloat(or_totalCostWtax);
-
-  if (isNaN(cost) || cost < 0) {
-    return "or_totalcost must be a non-negative number";
-  }
-  if (isNaN(costWtax) || costWtax < 0) {
-    return "or_totalCostWtax must be a non-negative number";
-  }
-  if (isNaN(tax) || tax < 0 || tax > 100) {
-    return "or_tax must be a number between 0 and 100";
-  }
-  if (costWtax < cost) {
-    return "or_totalCostWtax cannot be less than or_totalcost";
-  }
-
-  const expected = parseFloat((cost * (1 + tax / 100)).toFixed(2));
-  if (Math.abs(expected - costWtax) > 0.05) {
-    return `or_totalCostWtax (${costWtax}) does not match total with tax (${expected})`;
-  }
-
-  return null;
 }
 
 async function resolveWaiterBranchId(waiterId) {
@@ -369,29 +344,16 @@ export async function getMyOrders(req, res, next) {
 export async function createWaiterOrder(req, res, next) {
   try {
     const waiterId = req.user.u_id;
+    // or_tax / or_totalcost / or_totalCostWtax from the client are ignored:
+    // tax comes from the company, totals are calculated from the order items.
     const {
       table_id,
-      or_tax = 0,
-      or_totalcost,
-      or_totalCostWtax,
       or_notes,
       or_addons,
       or_allergies,
     } = req.body;
 
-    if (or_totalcost === undefined || or_totalCostWtax === undefined) {
-      res.status(400);
-      return next(
-        new Error("or_totalcost and or_totalCostWtax are required"),
-      );
-    }
-
     const tableIdInt = table_id ? parsePositiveInt(table_id, "table_id") : null;
-    const costError = validateCosts(or_tax, or_totalcost, or_totalCostWtax);
-    if (costError) {
-      res.status(400);
-      return next(new Error(costError));
-    }
 
     let branchId = null;
     if (tableIdInt) {
@@ -424,16 +386,16 @@ export async function createWaiterOrder(req, res, next) {
     try {
       await client.query("BEGIN");
 
-      const orderResult = await client.query(
+      const taxRate = await getBranchTaxRate(client, branchId);
+
+      const inserted = await client.query(
         `INSERT INTO "ORDER"
            (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type,
             u_id, b_id, table_id, or_notes, or_addons, or_allergies)
-         VALUES ($1, $2, $3, 'pending', 'dine-in', $4, $5, $6, $7, $8, $9)
-         RETURNING *`,
+         VALUES ($1, 0, 0, 'pending', 'dine-in', $2, $3, $4, $5, $6, $7)
+         RETURNING or_id`,
         [
-          parseFloat(or_tax),
-          parseFloat(or_totalcost),
-          parseFloat(or_totalCostWtax),
+          taxRate,
           waiterId,
           branchId,
           tableIdInt,
@@ -442,6 +404,7 @@ export async function createWaiterOrder(req, res, next) {
           or_allergies || null,
         ],
       );
+      const orderResult = { rows: [await recalculateOrderTotals(client, inserted.rows[0].or_id)] };
 
       if (tableIdInt) {
         await client.query(
@@ -523,7 +486,7 @@ export async function deleteWaiterOrder(req, res, next) {
         const activeOrders = await client.query(
           `SELECT or_id
            FROM "ORDER"
-           WHERE table_id = $1 AND or_status IN ('pending', 'preparing')
+           WHERE table_id = $1 AND or_status IN ('pending', 'hold', 'preparing')
            LIMIT 1`,
           [order.table_id],
         );

@@ -8,7 +8,8 @@ import {
   updateOrderStatus,
   deleteOrder,
   checkOrderStock,
-
+  getOrdersByBranch,
+  getOrdersByCompany,
 } from "../controllers/orderController.js";
 
 import {
@@ -58,6 +59,13 @@ const canDeleteOrder = requireRole(
 );
 
 router.get("/", requireAuth, canReadOrders, getAllOrders);
+
+// Company-wide orders: Admin (own company only); Super Admin bypasses role checks
+const canReadCompanyOrders = requireRole([ROLES.ADMIN], "Admin");
+
+// Must be registered before "/:id"
+router.get("/branch/:branchId", requireAuth, canReadOrders, getOrdersByBranch);
+router.get("/company/:companyId", requireAuth, canReadCompanyOrders, getOrdersByCompany);
 
 router.get("/:id", requireAuth, canReadOrders, getOrderById);
 

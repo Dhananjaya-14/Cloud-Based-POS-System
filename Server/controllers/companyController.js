@@ -8,12 +8,65 @@ function sanitizeName(value) {
   return trimmed.length > 0 && trimmed.length <= 255 ? trimmed : null;
 }
 
+// ─────────────────────────────────────────────
+// Optional service charge / tax settings (set by Super Admin)
+//   service_charge_enabled, tax_enabled : boolean
+//   service_charge_rate, tax_rate       : percentage 0–100 (max 2 decimals)
+// Giving a rate without its *_enabled flag turns the charge on when rate > 0.
+// Returns { error } or { fields } containing only the keys that were sent.
+// ─────────────────────────────────────────────
+const CHARGE_COLUMNS = `"service_charge_enabled", "service_charge_rate", "tax_enabled", "tax_rate"`;
+
+function parseChargeFields(body = {}) {
+  const fields = {};
+
+  for (const [flag, rate, label] of [
+    ["service_charge_enabled", "service_charge_rate", "Service charge"],
+    ["tax_enabled", "tax_rate", "Tax"],
+  ]) {
+    if (body[flag] !== undefined && body[flag] !== null) {
+      const v = body[flag];
+      if (typeof v === "boolean") fields[flag] = v;
+      else if (v === "true" || v === "false") fields[flag] = v === "true";
+      else return { error: `${flag} must be true or false` };
+    }
+
+    if (body[rate] !== undefined && body[rate] !== null && body[rate] !== "") {
+      const n = Number(body[rate]);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        return { error: `${rate} must be a number between 0 and 100` };
+      }
+      if (Math.round(n * 100) !== n * 100) {
+        return { error: `${rate} can have at most 2 decimal places` };
+      }
+      fields[rate] = n;
+      if (fields[flag] === undefined) fields[flag] = n > 0;
+    }
+
+    if (fields[flag] === true && fields[rate] === undefined && body.__requireRateWhenEnabled) {
+      return { error: `${label} is enabled but ${rate} is missing` };
+    }
+  }
+
+  return { fields };
+}
+
+// numeric columns come back from pg as strings — return numbers
+function formatCompany(row) {
+  if (!row) return row;
+  return {
+    ...row,
+    ...(row.service_charge_rate != null && { service_charge_rate: Number(row.service_charge_rate) }),
+    ...(row.tax_rate != null && { tax_rate: Number(row.tax_rate) }),
+  };
+}
+
 export async function getCompanies(req, res, next) {
   try {
     const result = await pool.query(
-      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo", "language_code" FROM "Company" ORDER BY "com_id"',
+      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo", "language_code", "service_charge_enabled", "service_charge_rate", "tax_enabled", "tax_rate" FROM "Company" ORDER BY "com_id"',
     );
-    res.json(result.rows);
+    res.json(result.rows.map(formatCompany));
   } catch (err) {
     next(err);
   }
@@ -29,7 +82,7 @@ export async function getCompanyById(req, res, next) {
     }
 
     const result = await pool.query(
-      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "bill_greeting", "bill_logo", "language_code", "package_id" FROM "Company" WHERE "com_id" = $1',
+      'SELECT "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "bill_greeting", "bill_logo", "language_code", "package_id", "service_charge_enabled", "service_charge_rate", "tax_enabled", "tax_rate" FROM "Company" WHERE "com_id" = $1',
       [id],
     );
 
@@ -38,7 +91,7 @@ export async function getCompanyById(req, res, next) {
       throw new Error("Company not found");
     }
 
-    res.json(result.rows[0]);
+    res.json(formatCompany(result.rows[0]));
   } catch (err) {
     next(err);
   }
@@ -51,17 +104,30 @@ export async function createCompany(req, res, next) {
 
     if (!sanitizedName) {
       res.status(400);
-      throw new Error("com_name is required and must be 1â€“255 characters");
+      throw new Error("com_name is required and must be 1–255 characters");
     }
 
+    // Optional — defaults: both disabled, rate 0
+    const charges = parseChargeFields({ ...req.body, __requireRateWhenEnabled: true });
+    if (charges.error) {
+      res.status(400);
+      throw new Error(charges.error);
+    }
+    const c = charges.fields;
+
     const result = await pool.query(
-      `INSERT INTO "Company" ("com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "language_code")
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "language_code"`,
-      [sanitizedName, c_status ?? true, c_email ?? null, reg_date ?? new Date(), location ?? null, phone ?? null, package_id ?? null, language_code ?? 'en'],
+      `INSERT INTO "Company" ("com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "language_code",
+                              ${CHARGE_COLUMNS})
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "language_code",
+                 ${CHARGE_COLUMNS}`,
+      [
+        sanitizedName, c_status ?? true, c_email ?? null, reg_date ?? new Date(), location ?? null, phone ?? null, package_id ?? null, language_code ?? 'en',
+        c.service_charge_enabled ?? false, c.service_charge_rate ?? 0, c.tax_enabled ?? false, c.tax_rate ?? 0,
+      ],
     );
 
-    const newCompany = result.rows[0];
+    const newCompany = formatCompany(result.rows[0]);
     
     // Emit company created event to all connected super admins
     try {
@@ -98,7 +164,14 @@ export async function updateCompany(req, res, next) {
     const { com_name, c_status, c_email, reg_date, location, phone, package_id, bill_greeting, bill_logo, language_code } = req.body;
     const sanitizedName = com_name ? sanitizeName(com_name) : null;
 
-    if (!sanitizedName && c_status === undefined && !c_email && !reg_date && !location && !phone && package_id === undefined && bill_greeting === undefined && bill_logo === undefined) {
+    const charges = parseChargeFields(req.body);
+    if (charges.error) {
+      res.status(400);
+      throw new Error(charges.error);
+    }
+    const c = charges.fields;
+
+    if (!sanitizedName && c_status === undefined && !c_email && !reg_date && !location && !phone && package_id === undefined && bill_greeting === undefined && bill_logo === undefined && language_code === undefined && Object.keys(c).length === 0) {
       res.status(400);
       throw new Error("At least one field is required to update");
     }
@@ -123,13 +196,21 @@ export async function updateCompany(req, res, next) {
            "package_id" = COALESCE($8, "package_id"),
            "bill_greeting" = COALESCE($9, "bill_greeting"),
            "bill_logo" = COALESCE($10, "bill_logo"),
-           "language_code" = COALESCE($11, "language_code")
+           "language_code" = COALESCE($11, "language_code"),
+           "service_charge_enabled" = COALESCE($12, "service_charge_enabled"),
+           "service_charge_rate"    = COALESCE($13, "service_charge_rate"),
+           "tax_enabled"            = COALESCE($14, "tax_enabled"),
+           "tax_rate"               = COALESCE($15, "tax_rate")
        WHERE "com_id" = $7
-       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo", "language_code"`,
-      [sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null, bill_greeting ?? null, bill_logo ?? null, language_code ?? null],
+       RETURNING "com_id", "com_name", "c_status", "c_email", "reg_date", "location", "phone", "package_id", "bill_greeting", "bill_logo", "language_code",
+                 ${CHARGE_COLUMNS}`,
+      [
+        sanitizedName ?? null, c_status ?? null, c_email ?? null, reg_date ?? null, location ?? null, phone ?? null, id, package_id ?? null, bill_greeting ?? null, bill_logo ?? null, language_code ?? null,
+        c.service_charge_enabled ?? null, c.service_charge_rate ?? null, c.tax_enabled ?? null, c.tax_rate ?? null,
+      ],
     );
 
-    const updatedCompany = result.rows[0];
+    const updatedCompany = formatCompany(result.rows[0]);
     
     // Emit company updated event to all connected super admins
     try {

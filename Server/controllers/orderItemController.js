@@ -1,12 +1,12 @@
 import pool from "../config/database.js";
 import { ROLES } from "../middleware/authMiddleware.js";
 import { emitSocketEvent } from "../utils/socket.js";
+import { lockOrder, recalculateOrderTotals, round2 } from "../utils/orderTotals.js";
 
 // ─────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────
 const MAX_QUANTITY = 999;
-const MAX_UNIT_PRICE = 1_000_000;
 
 // ─────────────────────────────────────────────
 // SHARED VALIDATORS
@@ -22,20 +22,6 @@ function validateQuantity(pro_quantity) {
   }
   if (qty > MAX_QUANTITY) {
     return `pro_quantity cannot exceed ${MAX_QUANTITY}`;
-  }
-  return null;
-}
-
-/**
- * Validates unit_price — must be a non-negative number.
- */
-function validateUnitPrice(unit_price) {
-  const price = parseFloat(unit_price);
-  if (isNaN(price) || price < 0) {
-    return "unit_price must be a non-negative number";
-  }
-  if (price > MAX_UNIT_PRICE) {
-    return `unit_price cannot exceed ${MAX_UNIT_PRICE}`;
   }
   return null;
 }
@@ -65,6 +51,23 @@ export async function fetchBranchProduct(Bpro_id) {
     [Bpro_id],
   );
   return rows[0] ?? null;
+}
+
+/**
+ * Checks that a branch product can be sold on this order:
+ * it exists, belongs to the order's branch and has a valid price.
+ * Returns { status, error } or null.
+ */
+export function checkProductForOrder(bProduct, order) {
+  if (!bProduct) return { status: 404, error: "Branch product not found" };
+  if (Number(bProduct.B_id) !== Number(order.b_id)) {
+    return { status: 400, error: `Branch product ${bProduct.Bpro_id} does not belong to this order's branch` };
+  }
+  const price = Number(bProduct.Pro_Price);
+  if (bProduct.Pro_Price === null || !Number.isFinite(price) || price < 0) {
+    return { status: 400, error: `Branch product ${bProduct.Bpro_id} has no valid price` };
+  }
+  return null;
 }
 
 /**
@@ -257,15 +260,14 @@ export const getOrderItemById = async (req, res) => {
 export const createOrderItem = async (req, res) => {
   const client = await pool.connect();
   try {
-    const { Bpro_id, pro_quantity, unit_price, order_id } = req.body;
+    // unit_price from the client is ignored — the price always comes from Branch_Product
+    const { Bpro_id, pro_quantity, order_id } = req.body;
 
     // ── Required fields ──
     const missing = [];
     if (Bpro_id === undefined || Bpro_id === null) missing.push("Bpro_id");
     if (pro_quantity === undefined || pro_quantity === null)
       missing.push("pro_quantity");
-    if (unit_price === undefined || unit_price === null)
-      missing.push("unit_price");
     if (order_id === undefined || order_id === null) missing.push("order_id");
 
     if (missing.length) {
@@ -280,10 +282,6 @@ export const createOrderItem = async (req, res) => {
     if (qtyError)
       return res.status(400).json({ success: false, error: qtyError });
 
-    const priceError = validateUnitPrice(unit_price);
-    if (priceError)
-      return res.status(400).json({ success: false, error: priceError });
-
     const parsedOrderId = parseInt(order_id, 10);
     if (isNaN(parsedOrderId) || parsedOrderId <= 0) {
       return res
@@ -291,29 +289,32 @@ export const createOrderItem = async (req, res) => {
         .json({ success: false, error: "Invalid order_id" });
     }
 
-    // ── FK: order must exist and be editable ──
-    const order = await fetchOrder(parsedOrderId);
+    await client.query("BEGIN");
+
+    // ── FK: order must exist and be editable (row locked until COMMIT) ──
+    const order = await lockOrder(client, parsedOrderId);
     if (!order) {
+      await client.query("ROLLBACK");
       return res.status(404).json({ success: false, error: "Order not found" });
     }
     const statusError = guardOrderStatus(order.or_status, req.user?.role_id);
-    if (statusError)
+    if (statusError) {
+      await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: statusError });
-
-    // ── FK: branch product must exist ──
-    const bProduct = await fetchBranchProduct(Bpro_id);
-    if (!bProduct) {
-      return res
-        .status(404)
-        .json({ success: false, error: "Branch product not found" });
     }
 
-    // ── Compute derived field ──
-    const qty = parseInt(pro_quantity, 10);
-    const price = parseFloat(unit_price);
-    const total_price = parseFloat((price * qty).toFixed(2));
+    // ── FK: branch product must exist, belong to the order's branch, and have a price ──
+    const bProduct = await fetchBranchProduct(Bpro_id);
+    const productError = checkProductForOrder(bProduct, order);
+    if (productError) {
+      await client.query("ROLLBACK");
+      return res.status(productError.status).json({ success: false, error: productError.error });
+    }
 
-    await client.query("BEGIN");
+    // ── Server-side price ──
+    const qty = parseInt(pro_quantity, 10);
+    const price = Number(bProduct.Pro_Price);
+    const total_price = round2(price * qty);
 
     // Deduct raw material stock
     const stockWarnings = await adjustStockForOrderItem(client, bProduct, qty, "subtract");
@@ -325,6 +326,10 @@ export const createOrderItem = async (req, res) => {
       [Bpro_id, qty, price, total_price, parsedOrderId],
     );
 
+    const updatedOrder = await recalculateOrderTotals(client, parsedOrderId);
+
+    await client.query("COMMIT");
+
     emitSocketEvent("order:created", {
       orderId: parsedOrderId,
       orderItem: result.rows[0],
@@ -332,11 +337,10 @@ export const createOrderItem = async (req, res) => {
       or_status: order.or_status,
     });
 
-    await client.query("COMMIT");
-
     res.status(201).json({
       success: true,
       data: result.rows[0],
+      order: updatedOrder,
       warnings: stockWarnings,
     });
   } catch (err) {
@@ -366,15 +370,14 @@ export const updateOrderItem = async (req, res) => {
         .json({ success: false, error: "Invalid order item ID" });
     }
 
-    const { Bpro_id, pro_quantity, unit_price, order_id } = req.body;
+    // unit_price from the client is ignored — the price always comes from Branch_Product
+    const { Bpro_id, pro_quantity, order_id } = req.body;
 
     // ── All fields required for full update ──
     const missing = [];
     if (Bpro_id === undefined || Bpro_id === null) missing.push("Bpro_id");
     if (pro_quantity === undefined || pro_quantity === null)
       missing.push("pro_quantity");
-    if (unit_price === undefined || unit_price === null)
-      missing.push("unit_price");
     if (order_id === undefined || order_id === null) missing.push("order_id");
 
     if (missing.length) {
@@ -384,11 +387,23 @@ export const updateOrderItem = async (req, res) => {
       });
     }
 
+    const qtyError = validateQuantity(pro_quantity);
+    if (qtyError) {
+      return res.status(400).json({ success: false, error: qtyError });
+    }
+
+    const parsedOrderId = parseInt(order_id, 10);
+    if (isNaN(parsedOrderId) || parsedOrderId <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Invalid order_id" });
+    }
+
     await client.query("BEGIN");
 
     // ── Confirm item exists ──
     const existing = await client.query(
-      `SELECT * FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1 FOR UPDATE`,
+      `SELECT * FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1`,
       [id],
     );
     if (existing.rows.length === 0) {
@@ -397,59 +412,48 @@ export const updateOrderItem = async (req, res) => {
         .status(404)
         .json({ success: false, error: "Order item not found" });
     }
-
     const oldItem = existing.rows[0];
 
-    // ── Numeric / range validation ──
-    const qtyError = validateQuantity(pro_quantity);
-    if (qtyError) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ success: false, error: qtyError });
-    }
-
-    const priceError = validateUnitPrice(unit_price);
-    if (priceError) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ success: false, error: priceError });
-    }
-
-    const parsedOrderId = parseInt(order_id, 10);
-    if (isNaN(parsedOrderId) || parsedOrderId <= 0) {
-      await client.query("ROLLBACK");
-      return res
-        .status(400)
-        .json({ success: false, error: "Invalid order_id" });
-    }
+    // Lock both the old and the new parent order (lowest id first to avoid deadlocks)
+    const orderIds = [...new Set([Number(oldItem.order_id), parsedOrderId])].sort((a, b) => a - b);
+    const locked = {};
+    for (const oid of orderIds) locked[oid] = await lockOrder(client, oid);
+    await client.query(
+      `SELECT 1 FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1 FOR UPDATE`,
+      [id],
+    );
 
     // ── FK: order must exist and be editable ──
-    const order = await fetchOrder(parsedOrderId);
+    const order = locked[parsedOrderId];
     if (!order) {
       await client.query("ROLLBACK");
       return res.status(404).json({ success: false, error: "Order not found" });
     }
-    const statusError = guardOrderStatus(order.or_status, req.user?.role_id);
-    if (statusError) {
-      await client.query("ROLLBACK");
-      return res.status(400).json({ success: false, error: statusError });
+    for (const o of Object.values(locked)) {
+      const statusError = o && guardOrderStatus(o.or_status, req.user?.role_id);
+      if (statusError) {
+        await client.query("ROLLBACK");
+        return res.status(400).json({ success: false, error: statusError });
+      }
     }
 
-    // ── FK: branch product must exist ──
+    // ── FK: branch product must exist, belong to the order's branch, and have a price ──
     const bProduct = await fetchBranchProduct(Bpro_id);
-    if (!bProduct) {
+    const productError = checkProductForOrder(bProduct, order);
+    if (productError) {
       await client.query("ROLLBACK");
-      return res
-        .status(404)
-        .json({ success: false, error: "Branch product not found" });
+      return res.status(productError.status).json({ success: false, error: productError.error });
     }
 
+    // ── Server-side price ──
     const qty = parseInt(pro_quantity, 10);
-    const price = parseFloat(unit_price);
-    const total_price = parseFloat((price * qty).toFixed(2));
+    const price = Number(bProduct.Pro_Price);
+    const total_price = round2(price * qty);
 
     // Calculate quantity difference and adjust stock
     if (Number(oldItem.Bpro_id) !== Number(Bpro_id)) {
       const oldBProduct = await fetchBranchProduct(oldItem.Bpro_id);
-      await adjustStockForOrderItem(client, oldBProduct, oldItem.pro_quantity, "add");
+      if (oldBProduct) await adjustStockForOrderItem(client, oldBProduct, oldItem.pro_quantity, "add");
       await adjustStockForOrderItem(client, bProduct, qty, "subtract");
     } else {
       const diff = qty - oldItem.pro_quantity;
@@ -468,9 +472,16 @@ export const updateOrderItem = async (req, res) => {
       [Bpro_id, qty, price, total_price, parsedOrderId, id],
     );
 
+    // Recalculate every order the item touched (old and new parent)
+    let updatedOrder = null;
+    for (const oid of orderIds) {
+      const o = await recalculateOrderTotals(client, oid);
+      if (oid === parsedOrderId) updatedOrder = o;
+    }
+
     await client.query("COMMIT");
 
-    res.json({ success: true, data: result.rows[0] });
+    res.json({ success: true, data: result.rows[0], order: updatedOrder });
   } catch (err) {
     await client.query("ROLLBACK");
     if (err.code === "23503") {
@@ -502,10 +513,7 @@ export const deleteOrderItem = async (req, res) => {
 
     // ── Confirm item exists ──
     const existing = await client.query(
-      `SELECT oi.*, o.or_status
-       FROM public."ORDER_ITEM" oi
-       JOIN "ORDER" o ON o.or_id = oi.order_id
-       WHERE oi."orderItem_id" = $1 FOR UPDATE`,
+      `SELECT * FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1`,
       [id],
     );
     if (existing.rows.length === 0) {
@@ -514,11 +522,17 @@ export const deleteOrderItem = async (req, res) => {
         .status(404)
         .json({ success: false, error: "Order item not found" });
     }
-
     const item = existing.rows[0];
 
+    // Lock the parent order, then the item
+    const order = await lockOrder(client, item.order_id);
+    await client.query(
+      `SELECT 1 FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1 FOR UPDATE`,
+      [id],
+    );
+
     // ── Block deletion if the parent order is terminal ──
-    const statusError = guardOrderStatus(item.or_status, req.user?.role_id);
+    const statusError = order && guardOrderStatus(order.or_status, req.user?.role_id);
     if (statusError) {
       await client.query("ROLLBACK");
       return res.status(400).json({ success: false, error: statusError });
@@ -526,12 +540,14 @@ export const deleteOrderItem = async (req, res) => {
 
     // Restore stock levels
     const bProduct = await fetchBranchProduct(item.Bpro_id);
-    await adjustStockForOrderItem(client, bProduct, item.pro_quantity, "add");
+    if (bProduct) await adjustStockForOrderItem(client, bProduct, item.pro_quantity, "add");
 
     const result = await client.query(
       `DELETE FROM public."ORDER_ITEM" WHERE "orderItem_id" = $1 RETURNING *`,
       [id],
     );
+
+    const updatedOrder = await recalculateOrderTotals(client, item.order_id);
 
     await client.query("COMMIT");
 
@@ -539,6 +555,7 @@ export const deleteOrderItem = async (req, res) => {
       success: true,
       message: "Order item deleted successfully",
       data: result.rows[0],
+      order: updatedOrder,
     });
   } catch (err) {
     await client.query("ROLLBACK");
