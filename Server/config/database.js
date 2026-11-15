@@ -43,7 +43,7 @@ export async function checkDatabaseConnection() {
     const reason =
       err.message || err.code || err.errors?.[0]?.message || String(err);
     console.error(`✗ Database not connected: ${describeTarget()} → ${reason}`);
-    return false;
+    return false; 
   }
 }
 

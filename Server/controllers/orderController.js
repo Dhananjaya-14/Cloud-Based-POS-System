@@ -389,7 +389,7 @@ export const getOrdersByBranch = async (req, res) => {
         return res.status(403).json({
           success: false,
           error: "You can only view orders of your assigned branch.",
-        });
+        }); 
       }
     }
 

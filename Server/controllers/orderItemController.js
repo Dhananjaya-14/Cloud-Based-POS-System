@@ -81,7 +81,7 @@ function guardOrderStatus(or_status, roleId) {
   if (or_status === "completed" && roleId !== ROLES.CASHIER) {
     return `Cannot modify items on a "${or_status}" order`;
   }
-  return null;
+  return null; 
 }
 
 // Unit conversion for recipe ingredients

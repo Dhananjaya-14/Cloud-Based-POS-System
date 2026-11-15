@@ -18,7 +18,7 @@ function sanitizeName(value) {
 const CHARGE_COLUMNS = `"service_charge_enabled", "service_charge_rate", "tax_enabled", "tax_rate"`;
 
 function parseChargeFields(body = {}) {
-  const fields = {};
+  const fields = {}; 
 
   for (const [flag, rate, label] of [
     ["service_charge_enabled", "service_charge_rate", "Service charge"],
