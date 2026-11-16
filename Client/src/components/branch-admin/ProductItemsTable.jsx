@@ -3,19 +3,19 @@ import React, { useEffect, useRef, useState } from "react";
 import { FaEdit, FaMinus, FaPlus, FaSpinner, FaTrashAlt } from "react-icons/fa";
 const statusStyles = {
   "In stock": {
-    background: "#D7F4DF",
-    color: "#2C9B52"
+    background: "rgba(60,174,73,0.12)",
+    color: "#3CAE49"
   },
   "Low stock": {
-    background: "#FFE8BE",
-    color: "#C98918"
+    background: "rgba(217,161,92,0.15)",
+    color: "#B7791F"
   },
   "Out of stock": {
-    background: "#FFD8D8",
-    color: "#D04444"
+    background: "rgba(224,101,79,0.1)",
+    color: "#E0654F"
   }
 };
-const statusIcon = s => s === "out" ? "Ã¢ÂÅ’" : s === "low" ? "Ã¢Å¡Â Ã¯Â¸Â" : "Ã¢Å“â€¦";
+const statusIcon = s => s === "out" ? "\u274C" : s === "low" ? "\u26A0\uFE0F" : "\u2705";
 const statusLabel = s => s === "out" ? "Out of stock" : s === "low" ? "Low stock" : "OK";
 const ingredientRowColor = s => s === "out" ? "#FFF0F0" : s === "low" ? "#FFFBF0" : "#F6FFF8";
 const IngredientPopover = ({
@@ -103,7 +103,7 @@ const popoverRef = useRef(null);
           fontSize: "13px",
           fontWeight: "700",
           color: "#92400E"
-        }}>{t("branch_admin.ingredient_status", "Ã¢Å¡Â Ã¯Â¸Â Ingredient Status")}</div>
+        }}>{t("branch_admin.ingredient_status", "⚠️ Ingredient Status")}</div>
           <div style={{
           fontSize: "11px",
           color: "#B45309",
@@ -116,7 +116,7 @@ const popoverRef = useRef(null);
         fontSize: "16px",
         cursor: "pointer",
         color: "#9CA3AF"
-      }}>Ãƒâ€”</button>
+      }}>×</button>
       </div>
       <div style={{
       padding: "10px 0",
@@ -208,10 +208,11 @@ const [open, setOpen] = useState(false);
         background: "#E5E7EB",
         color: "#374151"
       }),
-      borderRadius: "18px",
-      padding: "5px 12px",
-      fontSize: "12px",
-      fontWeight: "600",
+      borderRadius: "100px",
+      padding: "4px 11px",
+      fontSize: "11px",
+      fontWeight: "700",
+      whiteSpace: "nowrap",
       display: "inline-block"
     }}>
         {item.status}
@@ -222,10 +223,11 @@ const [open, setOpen] = useState(false);
       if (!open) setOpen(true);
     }} style={{
       ...(statusStyles[item.status] || {}),
-      borderRadius: "18px",
-      padding: "5px 12px",
-      fontSize: "12px",
-      fontWeight: "600",
+      borderRadius: "100px",
+      padding: "4px 11px",
+      fontSize: "11px",
+      fontWeight: "700",
+      whiteSpace: "nowrap",
       display: "inline-flex",
       alignItems: "center",
       gap: "4px",
@@ -235,7 +237,7 @@ const [open, setOpen] = useState(false);
         {item.status} <span style={{
         fontSize: "10px",
         opacity: 0.7
-      }}>Ã¢â€“Â¼</span>
+      }}>▾</span>
       </button>
       {open && <IngredientPopover productId={item.id} productName={item.name} onFetch={onFetchIngredients} onClose={() => setOpen(false)} anchorRef={badgeRef} />}
     </>;
@@ -255,6 +257,7 @@ const ProductItemsTable = ({
   hideStockColumn = false,
   hideStatusColumn = false,
   showTypeColumn = false,
+  toolbar = null,
   currentPage = 1,
   totalPages = 1,
   totalItems = 0,
@@ -262,308 +265,131 @@ const ProductItemsTable = ({
   pageEnd = 0,
   onPageChange
 }) => {
-const { t } = useTranslation();
+  const { t } = useTranslation();
   const shouldShowActions = showActions && (onViewProduct || onEditProduct || onDeleteProduct);
   const showPageNumbers = totalPages <= 4;
   const canGoPrevious = currentPage > 1;
   const canGoNext = currentPage < totalPages;
-  const headers = [t("table_headers.image", "IMAGE"), t("table_headers.product_name", "PRODUCT NAME"), t("table_headers.category", "CATEGORY"), ...(showTypeColumn ? [t("table_headers.type", "TYPE")] : []), t("table_headers.price", "PRICE"), t("table_headers.discount", "DISCOUNT"), ...(hideStockColumn ? [] : [t("table_headers.stock_quantity", "STOCK QUANTITY")]), ...(hideStatusColumn ? [] : [t("table_headers.status", "STATUS")]), ...(shouldShowActions ? [t("table_headers.action", "ACTION")] : [])];
+  const headers = [
+    t("table_headers.product", "Product"),
+    t("table_headers.category", "Category"),
+    ...(showTypeColumn ? [t("table_headers.type", "Type")] : []),
+    t("table_headers.price", "Price"),
+    t("table_headers.discount", "Discount"),
+    ...(hideStockColumn ? [] : [t("table_headers.stock_quantity", "Stock Quantity")]),
+    ...(hideStatusColumn ? [] : [t("table_headers.status", "Status")]),
+    ...(shouldShowActions ? [t("table_headers.action", "Action")] : [])
+  ];
+  const TD = "px-[22px] py-3 align-middle text-[13px] text-[#1A1A1A]";
+  const pagerBtn = "rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-3.5 py-1.5 text-[13px] font-semibold text-[#071E38] disabled:cursor-not-allowed disabled:opacity-40";
   return <>
       <style>
         {`@keyframes stockButtonSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}
       </style>
-      <div style={{
-      background: "#fff",
-      borderRadius: "10px",
-      border: "1px solid #E5E7EB",
-      overflow: "hidden"
-    }}>
-        <table style={{
-        width: "100%",
-        borderCollapse: "collapse"
-      }}>
-          <thead style={{
-          background: "#F8FAFC"
-        }}>
-            <tr>
-              {headers.map(head => <th key={head} style={{
-              textAlign: "left",
-              padding: "12px 14px",
-              fontSize: "11px",
-              color: "#94A3B8",
-              fontWeight: "700"
-            }}>
-                  {head}
-                </th>)}
-            </tr>
-          </thead>
+      <div className="overflow-hidden rounded-[14px] border border-[#E7E3D8] bg-white">
+        {/* Search + filters inside the table card */}
+        {toolbar && <div className="flex flex-wrap items-center gap-3 border-b border-[#E7E3D8] px-[22px] py-[18px]">{toolbar}</div>}
 
-          <tbody>
-            {products.map(item => <tr key={item.id} style={{
-            borderTop: "1px solid #EEF2F7"
-          }}>
-                <td style={{
-              padding: "10px 14px"
-            }}>
-                  {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAlt || "Product"} style={{
-                width: "42px",
-                height: "42px",
-                objectFit: "cover",
-                borderRadius: "10px"
-              }} onError={e => {
-                e.currentTarget.style.display = "none";
-              }} /> : <span style={{
-                fontSize: "12px",
-                color: "#9CA3AF"
-              }}>{t("branch_admin.no_image", "No image")}</span>}
-                </td>
-                <td style={{
-              padding: "10px 14px"
-            }}>
-                  <button type="button" onClick={() => onViewProduct?.(item.id)} style={{
-                border: "none",
-                background: "transparent",
-                padding: 0,
-                margin: 0,
-                display: "block",
-                textAlign: "left",
-                fontSize: "15px",
-                fontWeight: "600",
-                color: "#1F2937",
-                cursor: onViewProduct ? "pointer" : "default"
-              }}>
-                    {item.name}
-                  </button>
-                  <div style={{
-                fontSize: "12px",
-                color: "#9CA3AF",
-                marginTop: "3px"
-              }}>{item.sku}</div>
-                </td>
-                <td style={{
-              padding: "10px 14px",
-              color: "#6B7280",
-              fontSize: "14px"
-            }}>{item.category}</td>
-                {showTypeColumn && <td style={{
-              padding: "10px 14px"
-            }}>
-                    <span style={{
-                background: item.product_type === 'pre_made' ? '#E0F2FE' : item.product_type === 'finished' ? '#FEF3C7' : '#F3F4F6',
-                color: item.product_type === 'pre_made' ? '#0369A1' : item.product_type === 'finished' ? '#B45309' : '#374151',
-                padding: "4px 8px",
-                borderRadius: "6px",
-                fontSize: "12px",
-                fontWeight: "600",
-                whiteSpace: "nowrap"
-              }}>
-                      {item.product_type === 'pre_made' ? 'Pre-made' : item.product_type === 'finished' ? 'External' : 'Made to Order'}
-                    </span>
-                  </td>}
-                <td style={{
-              padding: "10px 14px",
-              color: "#6B7280",
-              fontSize: "14px"
-            }}>{item.price}</td>
-                <td style={{
-              padding: "10px 14px",
-              color: "#6B7280",
-              fontSize: "14px"
-            }}>{item.discount ?? "0%"}</td>
+        <div className="overflow-x-auto">
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                {headers.map((head, index) => <th key={head} className={`whitespace-nowrap border-b border-[#E7E3D8] bg-[#FBFAF7] px-[22px] py-3 text-[10.5px] font-bold uppercase tracking-[0.05em] text-[#5B6470] ${shouldShowActions && index === headers.length - 1 ? "text-right" : "text-left"}`}>{head}</th>)}
+              </tr>
+            </thead>
 
-                {!hideStockColumn && <td style={{
-              padding: "10px 14px"
-            }}>
-                    <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "10px",
-                color: "#111827"
-              }}>
-                      {onAddStock ? <>
-                          <span style={{
-                    fontSize: "14px",
-                    fontWeight: "600",
-                    minWidth: "26px"
-                  }}>{item.stock}</span>
-                          <button type="button" onClick={() => onAddStock(item)} disabled={updatingStockId === item.id} style={{
-                    background: "#0E6DCF",
-                    color: "#fff",
-                    border: "none",
-                    borderRadius: "6px",
-                    padding: "4px 10px",
-                    fontSize: "12px",
-                    fontWeight: "600",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                    opacity: updatingStockId === item.id ? 0.6 : 1
-                  }}>
-                            {updatingStockId === item.id ? <FaSpinner size={10} style={{
-                      animation: "stockButtonSpin 0.8s linear infinite"
-                    }} /> : null}
-
-                            {item.product_type === 'finished' ? t("buttons.order", "Order") : t("buttons.add_stock", "Add Stock")}
-                          </button>
-                        </> : <>
-                          <button type="button" onClick={() => onDecreaseStock?.(item.id)} disabled={updatingStockId === item.id} style={{
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "4px",
-                    border: "1px solid #D1D5DB",
-                    background: "#fff",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    lineHeight: 1,
-                    opacity: updatingStockId === item.id ? 0.6 : 1
-                  }}>
-                            {updatingStockId === item.id ? <FaSpinner size={10} color="#6B7280" style={{
-                      display: "block",
-                      animation: "stockButtonSpin 0.8s linear infinite"
-                    }} /> : <FaMinus size={10} color="#6B7280" style={{
-                      display: "block"
-                    }} />}
-                          </button>
-                          <span style={{
-                    width: "26px",
-                    textAlign: "center",
-                    fontSize: "14px"
-                  }}>{item.stock}</span>
-                          <button type="button" onClick={() => onIncreaseStock?.(item.id)} disabled={updatingStockId === item.id} style={{
-                    width: "20px",
-                    height: "20px",
-                    borderRadius: "4px",
-                    border: "1px solid #D1D5DB",
-                    background: "#fff",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    padding: 0,
-                    lineHeight: 1,
-                    opacity: updatingStockId === item.id ? 0.6 : 1
-                  }}>
-                            {updatingStockId === item.id ? <FaSpinner size={10} color="#6B7280" style={{
-                      display: "block",
-                      animation: "stockButtonSpin 0.8s linear infinite"
-                    }} /> : <FaPlus size={10} color="#6B7280" style={{
-                      display: "block"
-                    }} />}
-                          </button>
-                        </>}
+            <tbody>
+              {products.length === 0 && <tr>
+                  <td colSpan={headers.length} className="px-[22px] py-14 text-center text-sm text-[#5B6470]">{t("branch_admin.no_products_found", "No products found")}</td>
+                </tr>}
+              {products.map(item => <tr key={item.id} className="border-b border-[#E7E3D8] last:border-b-0 hover:bg-[#FBFAF7]">
+                  {/* Product = thumbnail + name + SKU */}
+                  <td className={TD}>
+                    <div className="flex items-center gap-3">
+                      {item.imageUrl ? <img src={item.imageUrl} alt={item.imageAlt || "Product"} className="h-[42px] w-[42px] flex-shrink-0 rounded-[9px] object-cover" onError={e => {
+                    e.currentTarget.style.display = "none";
+                  }} /> : <span className="flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-[9px] bg-[#FBFAF7] text-center text-[9px] font-semibold leading-tight text-[#5B6470]">{t("branch_admin.no_image", "No image")}</span>}
+                      <div className="min-w-0">
+                        <button type="button" onClick={() => onViewProduct?.(item.id)} className={`block text-left text-[13.5px] font-semibold text-[#071E38] ${onViewProduct ? "cursor-pointer hover:underline" : "cursor-default"}`}>
+                          {item.name}
+                        </button>
+                        <div className="text-[11px] text-[#5B6470]">{item.sku}</div>
+                      </div>
                     </div>
-                  </td>}
+                  </td>
+                  <td className={TD}>{item.category}</td>
+                  {showTypeColumn && <td className={TD}>
+                      <span className="whitespace-nowrap rounded-full bg-[#FBFAF7] px-2.5 py-1 text-[11px] font-bold text-[#5B6470]">
+                        {item.product_type === 'pre_made' ? 'Pre-made' : item.product_type === 'finished' ? 'External' : 'Made to Order'}
+                      </span>
+                    </td>}
+                  <td className={TD}>{item.price}</td>
+                  <td className={TD}>{item.discount ?? "0%"}</td>
 
-                {!hideStatusColumn && <td style={{
-              padding: "10px 14px"
-            }}>
-                    <StatusBadge item={item} onFetchIngredients={onFetchIngredients} />
-                  </td>}
+                  {!hideStockColumn && <td className={TD}>
+                      <div className="flex items-center gap-2.5">
+                        {onAddStock ? <>
+                            <span className="min-w-[26px] font-semibold">{item.stock}</span>
+                            <button type="button" onClick={() => onAddStock(item)} disabled={updatingStockId === item.id} className="inline-flex items-center gap-1 rounded-[7px] bg-[#071E38] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#0F9B8E] disabled:opacity-60">
+                              {updatingStockId === item.id ? <FaSpinner size={10} style={{
+                        animation: "stockButtonSpin 0.8s linear infinite"
+                      }} /> : null}
+                              {item.product_type === 'finished' ? t("buttons.order", "Order") : t("buttons.add_stock", "Add Stock")}
+                            </button>
+                          </> : <>
+                            <button type="button" onClick={() => onDecreaseStock?.(item.id)} disabled={updatingStockId === item.id} className="flex h-6 w-6 items-center justify-center rounded-md border-[1.5px] border-[#E7E3D8] bg-white text-[#5B6470] disabled:opacity-60">
+                              {updatingStockId === item.id ? <FaSpinner size={10} style={{
+                        animation: "stockButtonSpin 0.8s linear infinite"
+                      }} /> : <FaMinus size={9} />}
+                            </button>
+                            <span className="w-[26px] text-center">{item.stock}</span>
+                            <button type="button" onClick={() => onIncreaseStock?.(item.id)} disabled={updatingStockId === item.id} className="flex h-6 w-6 items-center justify-center rounded-md border-[1.5px] border-[#E7E3D8] bg-white text-[#5B6470] disabled:opacity-60">
+                              {updatingStockId === item.id ? <FaSpinner size={10} style={{
+                        animation: "stockButtonSpin 0.8s linear infinite"
+                      }} /> : <FaPlus size={9} />}
+                            </button>
+                          </>}
+                      </div>
+                    </td>}
 
+                  {!hideStatusColumn && <td className={TD}>
+                      <StatusBadge item={item} onFetchIngredients={onFetchIngredients} />
+                    </td>}
 
-                {shouldShowActions && <td style={{
-              padding: "10px 14px"
-            }}>
-                    <div style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px"
-              }}>
-                      {onEditProduct && <button type="button" onClick={() => onEditProduct?.(item.id)} style={{
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "7px",
-                  border: "none",
-                  background: "#F1F3F6",
-                  cursor: "pointer",
-                  display: "grid",
-                  placeItems: "center",
-                  padding: 0
-                }}>
-                          <FaEdit color="#8A94A6" size={10} />
-                        </button>}
-                      {onDeleteProduct && <button type="button" onClick={() => onDeleteProduct?.(item.id)} style={{
-                  width: "24px",
-                  height: "24px",
-                  borderRadius: "7px",
-                  border: "none",
-                  background: "#FFE7E7",
-                  cursor: "pointer",
-                  display: "grid",
-                  placeItems: "center",
-                  padding: 0
-                }} title="Delete product">
-                          <FaTrashAlt color="#FF6A6A" size={10} />
-                        </button>}
-                    </div>
-                  </td>}
-              </tr>)}
-          </tbody>
-        </table>
-      </div>
+                  {shouldShowActions && <td className={TD}>
+                      <div className="flex items-center justify-end gap-2">
+                        {onEditProduct && <button type="button" onClick={() => onEditProduct?.(item.id)} title="Edit product" className="flex h-8 w-8 items-center justify-center rounded-[7px] border-[1.5px] border-[#E7E3D8] bg-white text-[#071E38] hover:border-[#0F9B8E] hover:text-[#0F9B8E]">
+                            <FaEdit size={12} />
+                          </button>}
+                        {onDeleteProduct && <button type="button" onClick={() => onDeleteProduct?.(item.id)} title="Delete product" className="flex h-8 w-8 items-center justify-center rounded-[7px] border-[1.5px] border-[#E0654F]/30 bg-white text-[#E0654F] transition-colors hover:bg-[#E0654F] hover:text-white">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M3 6h18" /><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6" /></svg>
+                          </button>}
+                      </div>
+                    </td>}
+                </tr>)}
+            </tbody>
+          </table>
+        </div>
 
-      {(totalItems > 0 || totalPages > 1) && <div style={{
-      marginTop: "28px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "space-between",
-      color: "#6B7280",
-      fontSize: "14px"
-    }}>
-        {totalItems > 0 && <div>{t("branch_admin.showing", "Showing")}{pageStart}{t("branch_admin.to", "to")}{pageEnd}{t("branch_admin.of", "of")}{totalItems}{t("branch_admin.products", "products")}</div>}
+        {/* Footer: count bottom-left, pagination bottom-right when needed */}
+        {(totalItems > 0 || totalPages > 1) && <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[#E7E3D8] px-[22px] py-4 text-[13px] text-[#5B6470]">
+            {totalItems > 0 && <div>{t("branch_admin.showing", "Showing")} {pageStart} {t("branch_admin.to", "to")} {pageEnd} {t("branch_admin.of", "of")} {totalItems} {t("branch_admin.products", "products")}</div>}
 
-        {totalPages > 1 && <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: "16px"
-      }}>
-            <button type="button" onClick={() => onPageChange?.(currentPage - 1)} disabled={!canGoPrevious} style={{
-          border: "none",
-          background: "#fff",
-          borderRadius: "10px",
-          padding: "8px 16px",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-          cursor: canGoPrevious ? "pointer" : "not-allowed",
-          color: "#374151",
-          opacity: canGoPrevious ? 1 : 0.5
-        }}>{t("branch_admin.previous", "Previous")}</button>
-            {showPageNumbers && Array.from({
-          length: totalPages
-        }, (_, index) => {
-          const page = index + 1;
-          const isActive = page === currentPage;
-          return <button key={page} type="button" onClick={() => onPageChange?.(page)} style={{
-            width: "34px",
-            height: "34px",
-            borderRadius: "10px",
-            border: "none",
-            cursor: "pointer",
-            color: isActive ? "#fff" : "#374151",
-            background: isActive ? "#0E6DCF" : "#fff",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-            fontWeight: "600"
-          }}>
-                    {page}
-                  </button>;
-        })}
-            <button type="button" onClick={() => onPageChange?.(currentPage + 1)} disabled={!canGoNext} style={{
-          border: "none",
-          background: "#fff",
-          borderRadius: "10px",
-          padding: "8px 16px",
-          boxShadow: "0 2px 4px rgba(0,0,0,0.15)",
-          cursor: canGoNext ? "pointer" : "not-allowed",
-          color: "#374151",
-          opacity: canGoNext ? 1 : 0.5
-        }}>{t("branch_admin.next", "Next")}</button>
+            {totalPages > 1 && <div className="flex items-center gap-2">
+                <button type="button" onClick={() => onPageChange?.(currentPage - 1)} disabled={!canGoPrevious} className={pagerBtn}>{t("branch_admin.previous", "Previous")}</button>
+                {showPageNumbers && Array.from({
+            length: totalPages
+          }, (_, index) => {
+            const page = index + 1;
+            const isActive = page === currentPage;
+            return <button key={page} type="button" onClick={() => onPageChange?.(page)} className={`h-8 w-8 rounded-lg text-[13px] font-semibold ${isActive ? "bg-[#071E38] text-white" : "border-[1.5px] border-[#E7E3D8] bg-white text-[#071E38]"}`}>
+                        {page}
+                      </button>;
+          })}
+                <button type="button" onClick={() => onPageChange?.(currentPage + 1)} disabled={!canGoNext} className={pagerBtn}>{t("branch_admin.next", "Next")}</button>
+              </div>}
           </div>}
-      </div>}
+      </div>
     </>;
 };
 export default ProductItemsTable;
-
-

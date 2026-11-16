@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FaBell, FaBars, FaTimes, FaUserCircle } from "react-icons/fa";
+import { FaBars, FaTimes } from "react-icons/fa";
+import { FiBell } from "react-icons/fi";
 import { useAuth } from "../context/AuthContext";
 import { getBranchById } from "../services/api";
 import { connectSocket, getSocket, SOCKET_EVENTS } from "../services/socket";
@@ -40,7 +41,7 @@ const saveNotifications = (items) => NOTIFICATION_KEYS.forEach((key) => {
   else sessionStorage.removeItem(key);
 });
 
-const Header = ({ title = "Dashboard", variant = "app", toggleSidebar, isSidebarOpen }) => {
+const Header = ({ title = "Dashboard", subtitle, variant = "app", toggleSidebar }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [branchName, setBranchName] = useState("");
@@ -148,21 +149,33 @@ const Header = ({ title = "Dashboard", variant = "app", toggleSidebar, isSidebar
   };
   const displayName = useMemo(() => nameOf(user) || user?.u_email || "User", [user]);
   const email = user?.u_email || user?.email || "";
+  const initials = useMemo(() => {
+    const parts = String(displayName).trim().split(/\s+/).filter(Boolean);
+    return ((parts[0]?.[0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")).toUpperCase() || "U";
+  }, [displayName]);
+
+  // Branch users get their branch as the subtitle automatically (e.g. "Kadawatha branch")
+  const branchSubtitle = branchName ? (/branch/i.test(branchName) ? branchName : `${branchName} branch`) : "";
+  const headerSubtitle = subtitle ?? (user?.b_id ? branchSubtitle : "");
 
   if (variant === "register") {
     return <div className="w-full bg-gradient-to-r from-[#0056A2] via-[#00B4EB] to-[#50B748] px-5 py-2 text-xs text-white">SLT POS</div>;
   }
 
   return (
-<header className="relative flex h-[70px] w-full items-center justify-between bg-gradient-to-r from-[#0B192C] from-25% via-[#00B4EB] via-65% to-[#55D24B] px-5 text-white shadow-sm">      <div className="flex items-center gap-4">
-        {toggleSidebar && <button type="button" className="p-1 rounded hover:bg-white/10 transition-colors" onClick={toggleSidebar} aria-label="Toggle sidebar"><FaBars size={22} /></button>}
-        <h2 className="m-0 text-2xl font-medium">{title}</h2>
+<header className="relative flex min-h-[70px] w-full items-center justify-between bg-gradient-to-r from-[#071E38] via-[#14A6E0] via-55% to-[#3CAE49] px-5 py-5 text-white shadow-sm lg:px-9">
+      <div className="flex min-w-0 items-center gap-4">
+        {toggleSidebar && <button type="button" className="lg:hidden" onClick={toggleSidebar} aria-label="Toggle sidebar"><FaBars size={22} /></button>}
+        <div className="min-w-0">
+          <h1 className="m-0 truncate font-space text-[21px] font-bold leading-tight text-white">{title}</h1>
+          {headerSubtitle && <div className="mt-[3px] truncate text-[12.5px] text-white/75">{headerSubtitle}</div>}
+        </div>
       </div>
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         <div className="relative">
-          <button type="button" className="rounded-full p-2 hover:bg-white/10" onClick={() => setShowNotifications((value) => !value)} aria-label="Notifications">
-            <FaBell size={22} />
-            {notifications.length > 0 && <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-white bg-red-500 px-1 text-center text-[11px] font-bold">{notifications.length > 99 ? "99+" : notifications.length}</span>}
+          <button type="button" className="relative flex h-[38px] w-[38px] items-center justify-center rounded-[10px] border border-white/30 bg-white/10 text-white hover:bg-white/20" onClick={() => setShowNotifications((value) => !value)} aria-label="Notifications">
+            <FiBell size={18} />
+            {notifications.length > 0 && <span className="absolute right-2 top-2 h-[7px] w-[7px] rounded-full border-[1.5px] border-white bg-[#E0654F]" />}
           </button>
           {showNotifications && <div className="absolute right-0 top-12 z-[1000] w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-black/10 bg-white text-gray-800 shadow-2xl">
             <div className="flex items-center justify-between border-b bg-gray-50 px-5 py-4">
@@ -179,9 +192,9 @@ const Header = ({ title = "Dashboard", variant = "app", toggleSidebar, isSidebar
             </div>
           </div>}
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5">
-          <FaUserCircle size={30} />
-          <div className="hidden leading-tight sm:block"><div className="text-sm font-semibold">{displayName}</div><div className="text-xs opacity-90">{email || branchName}</div></div>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-[38px] w-[38px] flex-shrink-0 items-center justify-center rounded-full bg-white/95 text-[13px] font-bold text-[#071E38]">{initials}</div>
+          <div className="hidden leading-[1.3] sm:block"><div className="text-[13.5px] font-semibold text-white">{displayName}</div><div className="text-[11px] text-white/75">{email || branchName}</div>{email && branchName && <div className="text-[11px] text-white/60">{branchName}</div>}</div>
         </div>
       </div>
     </header>

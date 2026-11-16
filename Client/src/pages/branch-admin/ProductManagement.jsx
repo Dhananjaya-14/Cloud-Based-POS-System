@@ -103,6 +103,26 @@ const mapApiProductToTableItem = product => {
   };
 };
 
+/* ===== Design components (Branch Product Management redesign) ===== */
+const BP_SELECT = "cursor-pointer rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-3.5 py-2.5 text-[13px] text-[#1A1A1A] outline-none focus:border-[#0F9B8E] disabled:cursor-not-allowed disabled:opacity-50";
+const BP_TONES = {
+  teal: "bg-[#0F9B8E]/10 text-[#0F9B8E]",
+  brass: "bg-[#D9A15C]/15 text-[#D9A15C]",
+  coral: "bg-[#E0654F]/10 text-[#E0654F]"
+};
+function BpKpiCard({ icon, tone, label, value }) {
+  return (
+    <div className="flex items-center gap-3.5 rounded-[14px] border border-[#E7E3D8] bg-white p-5">
+      <div className={`flex h-[42px] w-[42px] flex-shrink-0 items-center justify-center rounded-[11px] ${BP_TONES[tone]}`}>{icon}</div>
+      <div>
+        <div className="mb-[3px] text-[12.5px] text-[#5B6470]">{label}</div>
+        <div className="font-space text-[22px] font-bold leading-none text-[#071E38]">{value}</div>
+      </div>
+    </div>
+  );
+}
+/* ===== End of design components ===== */
+
 const ProductManagement = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -110,6 +130,7 @@ const ProductManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [stockLevelFilter, setStockLevelFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -367,14 +388,24 @@ const ProductManagement = () => {
     if (categoryFilter !== "all") {
       mapped = mapped.filter(item => item.category === categoryFilter);
     }
-    if (stockLevelFilter !== "all") {
-      mapped = mapped.filter(item => item.status === stockLevelFilter);
+    if (statusFilter !== "all") {
+      mapped = mapped.filter(item => item.status === statusFilter);
+    }
+    // Stock level uses the stock quantity (not used for made-to-order products)
+    if (stockLevelFilter !== "all" && activeTab !== "made_to_order") {
+      mapped = mapped.filter(item => {
+        const qty = Number(item.stock ?? 0);
+        if (stockLevelFilter === "out") return qty <= 0;
+        if (stockLevelFilter === "low") return qty > 0 && qty <= 10;
+        return qty > 10;
+      });
     }
     return mapped;
-  }, [products, searchTerm, activeTab, categoryFilter, stockLevelFilter]);
+  }, [products, searchTerm, activeTab, categoryFilter, statusFilter, stockLevelFilter]);
 
   useEffect(() => {
     setCategoryFilter("all");
+    setStatusFilter("all");
     setStockLevelFilter("all");
   }, [activeTab]);
 
@@ -459,13 +490,13 @@ const ProductManagement = () => {
   };
 
   return (
-    <div style={{ display: "flex", background: "#F2F4F7", minHeight: "100vh" }}>
+    <div style={{ display: "flex", background: "#F7F5F0", minHeight: "100vh" }}>
       <Sidebar />
 
-      <div style={{ flex: 1, marginLeft: "240px" }}>
-        <Header title={t("branch_admin.branch_product_management", "Branch Product Management")} role="Branch Admin" email="branchadmin@gmail.com" showAddUserIcon />
+      <div style={{ flex: 1, marginLeft: "240px", minWidth: 0 }}>
+        <Header title={t("branch_admin.branch_product_management", "Branch Product Management")} />
 
-        <div style={{ padding: "22px 20px", marginTop: "20px", minHeight: "calc(100vh - 70px)" }}>
+        <div className="px-9 py-8">
           {/* Notification Container */}
           {notifications.length > 0 && (
             <div style={{
@@ -513,182 +544,63 @@ const ProductManagement = () => {
             </div>
           )}
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "28px" }}>
-            <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "700", color: "#0F172A" }}>
-              {t("branch_admin.branch_product_management", "Branch Product Management")}
-            </h1>
-
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <Button label={t("buttons.add_product", "+  Add Product")} onClick={() => navigate("/branch-admin/products/add")} style={{
-                background: "#0E6DCF",
-                borderRadius: "10px",
-                padding: "10px 18px",
-                fontWeight: "600"
-              }} />
+          <div className="mb-[22px] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h2 className="mb-1 font-space text-xl font-bold text-[#071E38]">{t("branch_admin.products_title", "Products")}</h2>
+              <p className="text-[13px] text-[#5B6470]">{totalItems} {t("branch_admin.products_in_this_branch", "products in this branch")}</p>
             </div>
+            <button type="button" onClick={() => navigate("/branch-admin/products/add")} className="inline-flex flex-shrink-0 items-center gap-[7px] rounded-lg bg-[#071E38] px-4 py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-[#0F9B8E]">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 5v14M5 12h14" /></svg>
+              {t("branch_admin.add_product", "Add Product")}
+            </button>
           </div>
 
-          <div style={{ display: "flex", gap: "15px", marginBottom: "30px" }}>
-            <div style={{ ...cardBaseStyle, background: "#BEE8C4" }}>
-              <div style={{ ...statIconWrapStyle, background: "#22C55E" }}>
-                <FaBoxOpen color="#0B3F1D" size={12} />
-              </div>
-              <div style={statTextWrapStyle}>
-                <div style={statTitleStyle}>{t("branch_admin.total_items", "Total Items")}</div>
-                <div style={statValueStyle}>{totalItems}</div>
-              </div>
-              <div style={statRightSpacerStyle} />
-            </div>
-
-            <div style={{ ...cardBaseStyle, background: "#F3C8DA" }}>
-              <div style={{ ...statIconWrapStyle, background: "#F87171" }}>
-                <FaBell color="#7F1D1D" size={12} />
-              </div>
-              <div style={statTextWrapStyle}>
-                <div style={statTitleStyle}>{t("branch_admin.low_stock", "Low Stock")}</div>
-                <div style={statValueStyle}>{lowStockCount}</div>
-              </div>
-              <div style={statRightSpacerStyle} />
-            </div>
-
-            <div style={{ ...cardBaseStyle, background: "#C8E0EC" }}>
-              <div style={{ ...statIconWrapStyle, background: "#38BDF8" }}>
-                <FaExclamationTriangle color="#0C4A6E" size={12} />
-              </div>
-              <div style={statTextWrapStyle}>
-                <div style={statTitleStyle}>{t("branch_admin.out_of_stock", "Out Of Stock")}</div>
-                <div style={statValueStyle}>{outOfStockCount}</div>
-              </div>
-              <div style={statRightSpacerStyle} />
-            </div>
+          {/* Summary cards */}
+          <div className="mb-[22px] grid grid-cols-1 gap-[18px] md:grid-cols-3">
+            <BpKpiCard tone="teal" label={t("branch_admin.total_items", "Total Items")} value={totalItems} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18M9 21V9" /></svg>} />
+            <BpKpiCard tone="brass" label={t("branch_admin.low_stock", "Low Stock")} value={lowStockCount} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /><path d="M12 9v4M12 17h.01" /></svg>} />
+            <BpKpiCard tone="coral" label={t("branch_admin.out_of_stock", "Out Of Stock")} value={outOfStockCount} icon={<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="10" /><path d="M15 9l-6 6M9 9l6 6" /></svg>} />
           </div>
 
-          {loading && (
-            <div style={{ marginBottom: "14px", color: "#475569", fontSize: "14px" }}>
-              {t("branch_admin.loading_products", "Loading products...")}
-            </div>
-          )}
-
-          {error && (
-            <div style={{ marginBottom: "14px", color: "#B91C1C", fontSize: "14px" }}>{error}</div>
-          )}
+          {loading && <div className="mb-3.5 text-sm text-[#5B6470]">{t("branch_admin.loading_products", "Loading products...")}</div>}
+          {error && <div className="mb-3.5 text-sm text-[#B91C1C]">{error}</div>}
 
           {/* Product Type Tabs */}
-          <div style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-            <button onClick={() => setActiveTab("made_to_order")} style={{
-              padding: "10px 20px",
-              borderRadius: "20px",
-              border: "none",
-              fontWeight: "600",
-              cursor: "pointer",
-              background: activeTab === "made_to_order" ? "#0E6DCF" : "#fff",
-              color: activeTab === "made_to_order" ? "#fff" : "#4B5563",
-              boxShadow: activeTab === "made_to_order" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
-            }}>{t("branch_admin.made_to_order", "Made to Order")}</button>
-            <button onClick={() => setActiveTab("pre_made")} style={{
-              padding: "10px 20px",
-              borderRadius: "20px",
-              border: "none",
-              fontWeight: "600",
-              cursor: "pointer",
-              background: activeTab === "pre_made" ? "#0E6DCF" : "#fff",
-              color: activeTab === "pre_made" ? "#fff" : "#4B5563",
-              boxShadow: activeTab === "pre_made" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
-            }}>{t("branch_admin.pre_made", "Pre-made")}</button>
-            <button onClick={() => setActiveTab("finished")} style={{
-              padding: "10px 20px",
-              borderRadius: "20px",
-              border: "none",
-              fontWeight: "600",
-              cursor: "pointer",
-              background: activeTab === "finished" ? "#0E6DCF" : "#fff",
-              color: activeTab === "finished" ? "#fff" : "#4B5563",
-              boxShadow: activeTab === "finished" ? "0 4px 6px rgba(14, 109, 207, 0.2)" : "0 2px 4px rgba(0,0,0,0.05)"
-            }}>{t("branch_admin.external_products", "External Products")}</button>
-          </div>
-
-          <div style={{ display: "flex", gap: "14px", marginBottom: "24px" }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              background: "#fff",
-              borderRadius: "12px",
-              boxShadow: "0 2px 5px rgba(0,0,0,0.18)",
-              padding: "8px 12px",
-              flex: 1
-            }}>
-              <FaSearch color="#9CA3AF" size={14} />
-              <input type="text" placeholder={t("branch_admin.search_by_name_or_code", "Search by Name or Code")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} style={{
-                border: "none",
-                outline: "none",
-                width: "100%",
-                fontSize: "14px"
-              }} />
-            </div>
-
-            {/* Category Filter */}
-            <div style={{ position: "relative", width: "182px" }}>
-              <select
-                value={categoryFilter}
-                onChange={e => setCategoryFilter(e.target.value)}
-                style={{
-                  width: "100%",
-                  height: "36px",
-                  background: "#fff",
-                  borderRadius: "13px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-                  border: "1px solid #D9DCE1",
-                  padding: "0 34px 0 14px",
-                  fontSize: "13px",
-                  fontWeight: "500",
-                  color: "#4B5563",
-                  outline: "none",
-                  appearance: "none",
-                  WebkitAppearance: "none",
-                  MozAppearance: "none"
-                }}
-              >
-                <option value="all">Category : All</option>
-                {[...new Set(products.map(p => p.cat_name).filter(Boolean))].sort().map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-            </div>
-
-            {/* Stock Level Filter */}
-            <div style={{ position: "relative", width: "182px" }}>
-              <select
-                value={stockLevelFilter}
-                onChange={e => setStockLevelFilter(e.target.value)}
-                style={{
-                  width: "100%",
-                  height: "36px",
-                  background: "#fff",
-                  borderRadius: "13px",
-                  boxShadow: "0 1px 3px rgba(0,0,0,0.22)",
-                  border: "1px solid #D9DCE1",
-                  padding: "0 34px 0 14px",
-                  fontSize: "13px",
-                  fontWeight: "500",
-                  color: "#4B5563",
-                  outline: "none",
-                  appearance: "none",
-                  WebkitAppearance: "none",
-                  MozAppearance: "none"
-                }}
-              >
-                <option value="all">Stock Level : All</option>
-                <option value="In stock">In Stock</option>
-                <option value="Low stock">Low Stock</option>
-                <option value="Out of stock">Out of Stock</option>
-              </select>
-              <FaChevronDown size={11} color="#111827" style={{ position: "absolute", right: "17px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-            </div>
+          <div className="mb-5 flex flex-wrap gap-2">
+            {[
+              { value: "made_to_order", label: t("branch_admin.made_to_order", "Made to Order") },
+              { value: "pre_made", label: t("branch_admin.pre_made", "Pre-made") },
+              { value: "finished", label: t("branch_admin.external_products", "External Products") }
+            ].map(tab => (
+              <button key={tab.value} type="button" onClick={() => setActiveTab(tab.value)} className={`rounded-full border-[1.5px] px-[18px] py-[9px] text-[13px] font-semibold transition-colors ${activeTab === tab.value ? "border-[#071E38] bg-[#071E38] text-white" : "border-[#E7E3D8] bg-white text-[#5B6470] hover:border-[#071E38]"}`}>
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           <ProductItemsTable
+            toolbar={<>
+              <div className="relative min-w-[220px] flex-1">
+                <svg className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#5B6470]" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" /></svg>
+                <input type="text" placeholder={t("branch_admin.search_by_name_or_code", "Search by Name or Code")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full rounded-lg border-[1.5px] border-[#E7E3D8] py-2.5 pl-9 pr-3.5 text-[13px] outline-none focus:border-[#0F9B8E]" />
+              </div>
+              <select value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)} className={BP_SELECT} aria-label="Category">
+                <option value="all">{t("branch_admin.category_all", "Category: All")}</option>
+                {[...new Set(products.map(p => p.cat_name).filter(Boolean))].sort().map(cat => <option key={cat} value={cat}>{cat}</option>)}
+              </select>
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className={BP_SELECT} aria-label="Status">
+                <option value="all">{t("branch_admin.status_all", "Status: All")}</option>
+                <option value="In stock">In stock</option>
+                <option value="Low stock">Low stock</option>
+                <option value="Out of stock">Out of stock</option>
+              </select>
+              <select value={stockLevelFilter} onChange={e => setStockLevelFilter(e.target.value)} className={BP_SELECT} aria-label="Stock level" disabled={activeTab === "made_to_order"} title={activeTab === "made_to_order" ? "Made-to-order stock depends on ingredients. Use Status instead." : undefined}>
+                <option value="all">{t("branch_admin.stock_level_all", "Stock Level: All")}</option>
+                <option value="high">High (&gt;10)</option>
+                <option value="low">Low (1-10)</option>
+                <option value="out">Out (0)</option>
+              </select>
+            </>}
             products={tableProducts}
             onDecreaseStock={id => handleAdjustStock(id, -1)}
             onIncreaseStock={id => handleAdjustStock(id, 1)}
@@ -699,6 +611,9 @@ const ProductManagement = () => {
             onDeleteProduct={handleDeleteClick}
             onFetchIngredients={getBranchProductIngredientStatus}
             onEditProduct={null}
+            totalItems={tableProducts.length}
+            pageStart={tableProducts.length > 0 ? 1 : 0}
+            pageEnd={tableProducts.length}
           />
         </div>
       </div>
