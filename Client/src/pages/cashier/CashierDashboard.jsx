@@ -108,34 +108,83 @@ const CashierDashboard = () => {
   const [stats, setStats] = useState({ revenue: 0, transactions: 0, productsSold: 0 });
   const [activities, setActivities] = useState([]);
   const [orderReadyAlerts, setOrderReadyAlerts] = useState([]);
+  const [timeFilter, setTimeFilter] = useState("24h"); // "24h" | "7d" | "30d" | "all"
 
-  // ── Load today's orders ──────────────────────────────────────────────────────
-  const loadTodayOrders = useCallback(async () => {
+  // ── Load orders based on timeFilter ──────────────────────────────────────────
+  const loadOrders = useCallback(async () => {
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const params = { date: today };
+      const now = new Date();
+      const params = {};
       if (user?.u_id) params.u_id = user.u_id;
 
-      const allOrders = await getOrders(params);
-      const orders = allOrders.filter(
+      if (timeFilter === "24h") {
+        params.hours = 24;
+      } else if (timeFilter === "7d") {
+        const last7Days = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        params.start_date = last7Days.toISOString().split("T")[0];
+        params.end_date = now.toISOString().split("T")[0];
+      } else if (timeFilter === "30d") {
+        const last30Days = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        params.start_date = last30Days.toISOString().split("T")[0];
+        params.end_date = now.toISOString().split("T")[0];
+      }
+      // "all" has no date constraints
+
+      let allOrders = await getOrders(params);
+
+      // Fallback: if server-side hours filter returned empty because of database/client clock differences,
+      // fallback to fetching all recent orders and let client determine the window.
+      if (timeFilter === "24h" && (!allOrders || allOrders.length === 0)) {
+        allOrders = await getOrders({ ...(user?.u_id ? { u_id: user.u_id } : {}) });
+      }
+
+      const orders = (allOrders || []).filter(
         (o) => o.or_status === "completed" || o.pay_status === "paid"
       );
 
+      // Client-side filter for 24h
+      let filtered = orders;
+      if (timeFilter === "24h") {
+        const cutoff24h = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        const todayStr = now.toISOString().split("T")[0];
+
+        const matched = orders.filter((o) => {
+          if (!o.or_date) return true;
+          const dateStr = String(o.or_date).split("T")[0];
+          // If order is from today, always include in 24h
+          if (dateStr === todayStr) return true;
+
+          const timeStr = o.or_time ? String(o.or_time).slice(0, 8) : "00:00:00";
+          const [year, month, day] = dateStr.split("-").map(Number);
+          const [hour = 0, minute = 0, second = 0] = timeStr.split(":").map(Number);
+          const orderDateTime = new Date(year, month - 1, day, hour, minute, second);
+          return isNaN(orderDateTime.getTime()) || orderDateTime >= cutoff24h;
+        });
+
+        // If matched has items, use them; otherwise if all orders from today exist, show them
+        filtered = matched.length > 0 ? matched : orders.slice(0, 5);
+      }
+
       setActivities(
-        orders.slice(0, 5).map((order) => ({
-          orderId: order.or_id,
-          time: order.or_time?.slice(0, 5) || "--:--",
-          title: "Sale completed",
-          subtitle: order.or_type || "-",
-          amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
-        }))
+        filtered.slice(0, 5).map((order) => {
+          const rawDate = order.or_date ? String(order.or_date).split("T")[0] : "";
+          const rawTime = order.or_time ? String(order.or_time).slice(0, 5) : "--:--";
+          return {
+            orderId: order.or_id,
+            time: rawTime,
+            date: rawDate,
+            title: "Sale completed",
+            subtitle: order.or_type || "-",
+            amount: `$${Number(order.or_totalCostWtax ?? order.or_totalcost ?? 0).toFixed(2)}`,
+          };
+        })
       );
     } catch (error) {
       console.error("Failed to load cashier dashboard orders", error);
     }
-  }, [user?.u_id]);
+  }, [user?.u_id, timeFilter]);
 
-  useEffect(() => { loadTodayOrders(); }, [loadTodayOrders]);
+  useEffect(() => { loadOrders(); }, [loadOrders]);
 
   // ── Order-ready alerts ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -167,7 +216,7 @@ const CashierDashboard = () => {
         return [item, ...cur.filter((x) => Number(x.orderId) !== Number(order.or_id))].slice(0, 5);
       });
 
-      loadTodayOrders();
+      loadOrders();
     };
 
     const handleOrderRejected = (order) => {
@@ -186,7 +235,7 @@ const CashierDashboard = () => {
       socket.off("order:ready", handleOrderReady);
       socket.off("order:rejected", handleOrderRejected);
     };
-  }, [loadTodayOrders, user?.u_id]);
+  }, [loadOrders, user?.u_id]);
 
   const handleDismissOrderReady = useCallback(
     (orderId) => {
@@ -297,9 +346,22 @@ const CashierDashboard = () => {
                   {t("cashier.your_latest_transactions_and_updates", "Your latest transactions and updates")}
                 </p>
               </div>
-              <button className="self-start px-3 py-1.5 rounded-full border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors">
-                {t("cashier.last_24_hours", "Last 24 hours")}
-              </button>
+              <div className="relative self-start">
+                <select
+                  value={timeFilter}
+                  onChange={(e) => setTimeFilter(e.target.value)}
+                  className="px-3 py-1.5 rounded-full border border-slate-200 text-xs font-medium text-slate-600 bg-white hover:bg-slate-50 transition-colors outline-none cursor-pointer pr-7 appearance-none"
+                  aria-label={t("cashier.filter_by_time", "Filter by time range")}
+                >
+                  <option value="24h">{t("cashier.last_24_hours", "Last 24 hours")}</option>
+                  <option value="7d">{t("cashier.last_7_days", "Last 7 days")}</option>
+                  <option value="30d">{t("cashier.last_30_days", "Last 30 days")}</option>
+                  <option value="all">{t("cashier.all_time", "All time")}</option>
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400 text-[10px]">
+                  ▼
+                </div>
+              </div>
             </div>
 
             <div className="divide-y divide-slate-100">
@@ -320,7 +382,7 @@ const CashierDashboard = () => {
                       <div>
                         <div className="inline-flex items-center gap-2 text-[11px] font-medium text-slate-700 mb-0.5">
                           <span className="px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50">
-                            {item.time}
+                            {item.date ? `${item.date} ` : ""}{item.time}
                           </span>
                           <span className="inline-flex items-center text-emerald-500 text-[10px]">
                             <span className="mr-1">●</span>

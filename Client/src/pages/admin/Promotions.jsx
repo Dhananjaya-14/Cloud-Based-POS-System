@@ -1,4 +1,4 @@
-﻿import { useTranslation } from "react-i18next";
+import { useTranslation } from "react-i18next";
 import React, { useState } from 'react';
 import Sidebar from '../../layout/slidebar';
 import Header from '../../layout/header';
@@ -77,14 +77,17 @@ const [view, setView] = useState('list');
   const [successMessage, setSuccessMessage] = useState('');
   const [editingPromo, setEditingPromo] = useState(null);
   const handleDelete = id => {
-    setPromotions(promotions.filter(p => p.id !== id));
+    setPromotions(prev => prev.filter(p => p.id !== id));
+    setSuccessMessage(t("company_admin.promotion_deleted_successfully", "Promotion deleted successfully."));
   };
   const handleEdit = promo => {
+    setSuccessMessage('');
     setEditingPromo(promo);
     setView('create');
   };
   const [viewingPromo, setViewingPromo] = useState(null);
   const handleView = promo => {
+    setSuccessMessage('');
     setViewingPromo(promo);
     setView('view');
   };
@@ -129,10 +132,15 @@ const [view, setView] = useState('list');
             padding: 0
           }}>×</button>
           </div>}
-          {view === 'list' ? <PromotionsList promotions={promotions} onAddClick={() => setView('create')} onDelete={handleDelete} onEdit={handleEdit} onView={handleView} /> : view === 'view' ? <ViewPromotion promo={viewingPromo} menuCategories={menuCategories} onBack={() => {
+          {view === 'list' ? <PromotionsList promotions={promotions} onAddClick={() => {
+          setSuccessMessage('');
+          setEditingPromo(null);
+          setView('create');
+        }} onDelete={handleDelete} onEdit={handleEdit} onView={handleView} /> : view === 'view' ? <ViewPromotion promo={viewingPromo} menuCategories={menuCategories} onBack={() => {
           setViewingPromo(null);
           setView('list');
         }} onEdit={() => {
+          setSuccessMessage('');
           setEditingPromo(viewingPromo);
           setViewingPromo(null);
           setView('create');
@@ -145,6 +153,7 @@ const [view, setView] = useState('list');
               ...data,
               id: editingPromo.id
             } : p));
+            setSuccessMessage(t("company_admin.promotion_updated_successfully", "Promotion updated successfully."));
           } else {
             setPromotions([...promotions, {
               ...data,
