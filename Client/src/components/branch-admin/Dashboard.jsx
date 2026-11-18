@@ -1,9 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaDollarSign, FaShoppingCart, FaStar, FaUsers } from "react-icons/fa";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
-import StatCard from "./StatCard";
 import { useAuth } from "../../context/AuthContext";
 import {
 	getOrders,
@@ -22,6 +20,48 @@ const formatCurrency = (value) => {
 	return `$${number.toFixed(2)}`;
 };
 
+/* ===== Design components (Branch Admin dashboard redesign) ===== */
+const BD_PANEL = "rounded-[14px] border border-[#E7E3D8] bg-white p-6";
+const BD_PANEL_TITLE = "font-space text-[15px] font-bold text-[#071E38]";
+const BD_PANEL_SUB = "mt-0.5 text-xs text-[#5B6470]";
+const BD_OUTLINE_BTN = "inline-flex flex-shrink-0 items-center gap-[7px] whitespace-nowrap rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-4 py-[9px] text-[13px] font-semibold text-[#071E38] transition-colors hover:border-[#0F9B8E] hover:text-[#0F9B8E]";
+const BD_TONES = {
+	teal: "bg-[#0F9B8E]/10 text-[#0F9B8E]",
+	navy: "bg-[#0B2E4F]/[0.08] text-[#0B2E4F]",
+	brass: "bg-[#D9A15C]/15 text-[#D9A15C]",
+	coral: "bg-[#E0654F]/10 text-[#E0654F]",
+};
+const BdMoneyIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>;
+const BdBagIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" /><path d="M3 6h18" /></svg>;
+const BdStarIcon = () => <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2l3 6 6.5 1-4.7 4.5L18 20l-6-3-6 3 1.2-6.5L2 9l6.5-1z" /></svg>;
+const BdUsersIcon = ({ size = 19 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>;
+const BdTableIcon = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M8 12h8" /></svg>;
+const BdCheckIcon = () => <svg className="flex-shrink-0 text-[#3CAE49]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 6L9 17l-5-5" /></svg>;
+const BdWarningIcon = () => <svg className="flex-shrink-0 text-[#E0654F]" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 9V13M12 17H12.01" /><path d="M10.3 3.9L2.5 17a2 2 0 001.7 3h15.6a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0Z" /></svg>;
+
+function BdKpiCard({ icon, tone, label, value }) {
+	return (
+		<div className="flex items-center gap-3.5 rounded-[14px] border border-[#E7E3D8] bg-white p-5">
+			<div className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] ${BD_TONES[tone]}`}>{icon}</div>
+			<div className="min-w-0">
+				<div className="mb-[3px] text-xs text-[#5B6470]">{label}</div>
+				<div className="truncate font-space text-base font-bold text-[#071E38]">{value}</div>
+			</div>
+		</div>
+	);
+}
+
+function BdEmptyState({ icon, title, sub }) {
+	return (
+		<div className="flex flex-col items-center justify-center gap-2 py-7 text-center">
+			<div className="flex h-10 w-10 items-center justify-center rounded-[11px] bg-[#FBFAF7] text-[#5B6470]">{icon}</div>
+			<div className="text-[13px] font-semibold text-[#071E38]">{title}</div>
+			<div className="text-[11.5px] text-[#5B6470]">{sub}</div>
+		</div>
+	);
+}
+/* ===== End of design components ===== */
+
 const Dashboard = () => {
 	const { user, features } = useAuth();
 	const inventoryEnabled = features?.has_inventory === true;
@@ -35,7 +75,7 @@ const Dashboard = () => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState("");
 	const [refreshTrigger, setRefreshTrigger] = useState(0);
-	const [activeCashierTab, setActiveCashierTab] = useState("All");
+	const [activeCashierTab, setActiveCashierTab] = useState("Bar");
 
 	// Socket connection and real-time dashboard listeners
 	useEffect(() => {
@@ -209,65 +249,46 @@ const Dashboard = () => {
 	}, [stockItems]);
 
 	const lowStockItem = lowStockMaterials[0];
+	const cashierAreas = ["Bar", "Restaurant", "Spa", "Reception"];
+
+	// Cashier rows for the selected area tab
+	const cashierRows = cashierStats
+		.map((cashier, index) => ({
+			cashier,
+			// NOTE: areas are assigned in rotation (same logic as before) until real area data exists
+			area: cashierAreas[index % cashierAreas.length],
+			percent: totalRevenue > 0 ? Math.round((cashier.revenue / totalRevenue) * 100) : 0,
+		}))
+		.filter((row) => row.area === activeCashierTab);
+
+	const kpiValue = (value) => (isLoading
+		? <span className="text-[13px] font-medium italic text-[#5B6470]">{t("branch_admin.awaiting_data", "Awaiting data")}</span>
+		: value);
 
 	return (
 		<>
 			<Sidebar />
-			<div style={{ marginLeft: 240, background: "#F4F6FB", minHeight: "100vh" }}>
+			<div style={{ marginLeft: 240, background: "#F7F5F0", minHeight: "100vh" }}>
 				<Header title={t("branch_admin.branch_admin_overview", "Branch Admin Overview")} showAddUserIcon={false} />
 
-				<div className="p-8">
-					<div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+				<div className="px-9 py-8">
+					{/* Heading */}
+					<div className="mb-[22px] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
 						<div>
-							<h3 className="text-[22px] font-bold text-slate-900">{t("branch_admin.today_s_sales", "Today's Sales")}</h3>
-							<p className="text-[15px] text-slate-500">{t("branch_admin.sales_summary", "Sales summary")}</p>
+							<h3 className="mb-1 font-space text-xl font-bold text-[#071E38]">{t("branch_admin.today_s_sales", "Today's Sales")}</h3>
+							<p className="text-[13px] text-[#5B6470]">{t("branch_admin.sales_summary", "Sales summary")}</p>
 						</div>
-						<button
-							type="button"
-							onClick={() => navigate("/branch-admin/transactions")}
-							className="px-4 py-2 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50"
-						>
+						<button type="button" onClick={() => navigate("/branch-admin/transactions")} className={BD_OUTLINE_BTN}>
 							{t("branch_admin.see_transactions", t("buttons.see_transactions", "See Transactions"))}
 						</button>
 					</div>
 
-					<div className="flex flex-col lg:flex-row gap-4 mb-8">
-						<StatCard
-							title={t("branch_admin.total_revenue", "Total Revenue")}
-							value={isLoading ? "..." : formatCurrency(totalRevenue)}
-							showAction={false}
-							cardClass=""
-							cardStyle={{ backgroundColor: "#B7F5BC" }}
-							iconClass="bg-white/80 text-emerald-600 ring-1 ring-emerald-200"
-							icon={<FaDollarSign />}
-						/>
-						<StatCard
-							title={t("branch_admin.total_sales", "Total Sales")}
-							value={isLoading ? "..." : String(orders.length)}
-							showAction={false}
-							cardClass=""
-							cardStyle={{ backgroundColor: "#FFC0D4" }}
-							iconClass="bg-white/80 text-pink-500 ring-1 ring-pink-200"
-							icon={<FaShoppingCart />}
-						/>
-						<StatCard
-							title={t("branch_admin.top_selling_item", "Top Selling Item")}
-							value={isLoading ? "..." : topSelling.name}
-							showAction={false}
-							cardClass=""
-							cardStyle={{ backgroundColor: "#A8E6FF" }}
-							iconClass="bg-white/80 text-sky-600 ring-1 ring-sky-200"
-							icon={<FaStar />}
-						/>
-						<StatCard
-							title={t("branch_admin.active_staff", "Active Staff")}
-							value={isLoading ? "..." : String(cashierUsers.length)}
-							showAction={false}
-							cardClass=""
-							cardStyle={{ backgroundColor: "#FFE7B8" }}
-							iconClass="bg-white/80 text-amber-600 ring-1 ring-amber-200"
-							icon={<FaUsers />}
-						/>
+					{/* Summary cards */}
+					<div className="mb-6 grid grid-cols-1 gap-[18px] sm:grid-cols-2 xl:grid-cols-4">
+						<BdKpiCard tone="teal" icon={<BdMoneyIcon />} label={t("branch_admin.total_revenue", "Total Revenue")} value={kpiValue(formatCurrency(totalRevenue))} />
+						<BdKpiCard tone="navy" icon={<BdBagIcon />} label={t("branch_admin.total_sales", "Total Sales")} value={kpiValue(String(orders.length))} />
+						<BdKpiCard tone="brass" icon={<BdStarIcon />} label={t("branch_admin.top_selling_item", "Top Selling Item")} value={kpiValue(topSelling.name)} />
+						<BdKpiCard tone="coral" icon={<BdUsersIcon />} label={t("branch_admin.active_staff", "Active Staff")} value={kpiValue(String(cashierUsers.length))} />
 					</div>
 
 					{error && (
@@ -276,114 +297,97 @@ const Dashboard = () => {
 						</div>
 					)}
 
-					<div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-						<div className={`bg-white rounded-2xl border border-slate-100 p-5 shadow-sm ${inventoryEnabled ? '' : 'lg:col-span-3'}`}>
-							<div className="mb-4">
-								<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.todays_staff", "Today&apos;s Staff")}</h4>
-								<p className="text-xs text-slate-500">{t("branch_admin.staff_performance", "Staff performance")}</p>
+					{/* Today's Staff + Inventory Updates */}
+					<div className={`mb-5 grid grid-cols-1 gap-5 ${inventoryEnabled ? "lg:grid-cols-2" : ""}`}>
+						<div className={BD_PANEL}>
+							<div className="mb-[18px]">
+								<h4 className={BD_PANEL_TITLE}>{t("branch_admin.todays_staff_title", "Today's Staff")}</h4>
+								<p className={BD_PANEL_SUB}>{t("branch_admin.staff_performance", "Staff performance")}</p>
 							</div>
-							<div className="space-y-4">
-								{topStaff.length === 0 && !isLoading && (
-									<div className="text-xs text-slate-500">No staff activity recorded yet.</div>
-								)}
-								{(isLoading ? Array.from({ length: 2 }) : topStaff).map((staff, index) => {
-									if (!staff) {
+							{isLoading ? (
+								<div className="space-y-4">
+									{[0, 1].map((n) => <div key={n} className="h-14 animate-pulse rounded-xl bg-[#FBFAF7]" />)}
+								</div>
+							) : topStaff.length === 0 ? (
+								<BdEmptyState icon={<BdUsersIcon size={18} />} title={t("branch_admin.no_staff_activity", "No staff activity yet today")} sub={t("branch_admin.no_staff_activity_sub", "Performance will appear here once shifts start")} />
+							) : (
+								<div className="space-y-4">
+									{topStaff.map((staff) => {
+										const percent = maxStaffRevenue > 0 ? Math.round((staff.revenue / maxStaffRevenue) * 100) : 0;
 										return (
-											<div key={`staff-skeleton-${index}`} className="h-16 rounded-xl bg-slate-50 animate-pulse" />
-										);
-									}
-
-									const percent = maxStaffRevenue > 0
-										? Math.round((staff.revenue / maxStaffRevenue) * 100)
-										: 0;
-
-									return (
-										<div key={staff.id} className="flex items-center gap-3">
-											<div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
-												{staff.name
-													.split(" ")
-													.map((part) => part[0])
-													.join("")
-													.slice(0, 2)
-													.toUpperCase()}
-											</div>
-											<div className="flex-1">
-												<div className="text-sm font-semibold text-slate-900">{staff.name}</div>
-												<div className="text-xs text-slate-500">Cashier</div>
-												<div className="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
-													<div
-														className="h-full bg-sky-500"
-														style={{ width: `${percent}%` }}
-													/>
+											<div key={staff.id} className="flex items-center gap-3">
+												<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#0F9B8E]/10 font-space text-xs font-bold text-[#0F9B8E]">
+													{staff.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase()}
+												</div>
+												<div className="min-w-0 flex-1">
+													<div className="flex items-center justify-between gap-2">
+														<div className="truncate text-[13px] font-semibold text-[#071E38]">{staff.name}</div>
+														<div className="text-xs font-bold text-[#0F9B8E]">{percent}%</div>
+													</div>
+													<div className="text-[11.5px] text-[#5B6470]">{t("branch_admin.cashier", "Cashier")}</div>
+													<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#EFEBE2]">
+														<div className="h-full rounded-full bg-[#0F9B8E]" style={{ width: `${percent}%` }} />
+													</div>
 												</div>
 											</div>
-											<div className="text-xs font-semibold text-sky-600">{percent}%</div>
-										</div>
-									);
-								})}
-							</div>
+										);
+									})}
+								</div>
+							)}
 						</div>
 
 						{inventoryEnabled && (
-							<div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm lg:col-span-2">
-								<div className="flex items-start justify-between mb-4">
+							<div className={BD_PANEL}>
+								<div className="mb-[18px] flex items-start justify-between gap-3">
 									<div>
-										<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.inventory_updates", "Inventory Updates")}</h4>
-										<p className="text-xs text-slate-500">{t("branch_admin.current_stock_levels", "Current stock levels")}</p>
+										<h4 className={BD_PANEL_TITLE}>{t("branch_admin.inventory_updates", "Inventory Updates")}</h4>
+										<p className={BD_PANEL_SUB}>{t("branch_admin.current_stock_levels", "Current stock levels")}</p>
 									</div>
-									<button
-										type="button"
-										onClick={() => navigate("/branch-admin/inventory")}
-										className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 bg-white hover:bg-slate-50"
-									>
+									<button type="button" onClick={() => navigate("/branch-admin/inventory")} className={BD_OUTLINE_BTN}>
 										{t("branch_admin.go_to_inventory_page", "Go to Inventory Page")}
 									</button>
 								</div>
 
-								<div className="mb-4">
-									<div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center justify-between">
-										<div>
-											<div className="text-xs font-semibold text-red-600">{t("branch_admin.low_stock_alert", "Low Stock Alert")}</div>
-											<div className="text-xs text-red-500">
-												{lowStockItem ? lowStockItem.rm_name : t("branch_admin.no_low_stock_alerts", "No low stock alerts")}
+								{/* Green banner when all good, coral warning when something is low */}
+								{lowStockItem ? (
+									<div className="mb-4 flex items-center gap-2.5 rounded-[10px] border border-[#E0654F]/30 bg-[#E0654F]/[0.08] px-4 py-3">
+										<BdWarningIcon />
+										<div className="min-w-0 flex-1">
+											<div className="text-[12.5px] font-bold text-[#071E38]">{t("branch_admin.low_stock_alert", "Low Stock Alert")}</div>
+											<div className="truncate text-[11.5px] text-[#5B6470]">
+												{lowStockItem.rm_name}{lowStockMaterials.length > 1 ? ` +${lowStockMaterials.length - 1} ${t("branch_admin.more", "more")}` : ""}
 											</div>
 										</div>
-										<div className="text-sm font-semibold text-red-600">
-											{lowStockItem ? `${Number(lowStockItem.stock_qty ?? 0)} left` : "--"}
+										<div className="text-[13px] font-bold text-[#E0654F]">{Number(lowStockItem.stock_qty ?? 0)} {t("branch_admin.left", "left")}</div>
+									</div>
+								) : !isLoading && (
+									<div className="mb-4 flex items-center gap-2.5 rounded-[10px] border border-[#3CAE49]/25 bg-[#3CAE49]/[0.08] px-4 py-3">
+										<BdCheckIcon />
+										<div>
+											<div className="text-[12.5px] font-bold text-[#071E38]">{t("branch_admin.no_low_stock_alerts", "No low stock alerts")}</div>
+											<div className="text-[11.5px] text-[#5B6470]">{t("branch_admin.all_items_well_stocked", "All tracked items are currently well stocked")}</div>
 										</div>
 									</div>
-								</div>
+								)}
 
 								<div className="space-y-4">
-									{stockItems.length === 0 && !isLoading && (
-										<div className="text-xs text-slate-500">No stock data available.</div>
-									)}
-									{(isLoading ? Array.from({ length: 4 }) : stockItems).map((item, index) => {
-										if (!item) {
-											return (
-												<div key={`stock-skeleton-${index}`} className="h-12 rounded-xl bg-slate-50 animate-pulse" />
-											);
-										}
-
+									{isLoading && [0, 1, 2].map((n) => <div key={n} className="h-11 animate-pulse rounded-xl bg-[#FBFAF7]" />)}
+									{!isLoading && stockItems.map((item) => {
 										const stockQty = Number(item.stock_qty ?? 0);
-										const recordLevel = Number(item.record_level ?? 0);
-										const percent = maxStockQty > 0
-											? Math.round((stockQty / maxStockQty) * 100)
-											: 0;
-
+										const percent = maxStockQty > 0 ? Math.round((stockQty / maxStockQty) * 100) : 0;
 										return (
-											<div key={item.rm_id} className="flex items-center gap-4">
-												<div className="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-xs font-semibold text-slate-600">
+											<div key={item.rm_id} className="flex items-center gap-3">
+												<div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-[10px] bg-[#FBFAF7] font-space text-xs font-bold text-[#5B6470]">
 													{item.rm_name?.slice(0, 2)?.toUpperCase() || "RM"}
 												</div>
-												<div className="flex-1">
-													<div className="text-xs font-semibold text-slate-900">{item.rm_name}</div>
-													<div className="mt-2 h-2 rounded-full bg-slate-100 overflow-hidden">
-														<div className="h-full bg-sky-500" style={{ width: `${percent}%` }} />
+												<div className="min-w-0 flex-1">
+													<div className="flex items-center justify-between gap-2">
+														<div className="truncate text-[13px] font-semibold text-[#071E38]">{item.rm_name}</div>
+														<div className="whitespace-nowrap text-xs font-semibold text-[#5B6470]">{stockQty} {item.unit || ""}</div>
 													</div>
-												</div>
-												<div className="text-xs text-slate-500 font-medium">
-													{stockQty} {item.unit || ""}
+													<div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#EFEBE2]">
+														<div className="h-full rounded-full bg-[#0F9B8E]" style={{ width: `${percent}%` }} />
+													</div>
 												</div>
 											</div>
 										);
@@ -393,22 +397,20 @@ const Dashboard = () => {
 						)}
 					</div>
 
-					<div className="mt-8 bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-						<div className="mb-4">
-							<h4 className="text-sm font-bold text-slate-900">{t("branch_admin.todays_cashiers", "Today's cashiers")}</h4>
-							<p className="text-xs text-slate-500">{t("branch_admin.work_distribution", "Work distribution")}</p>
+					{/* Today's Cashiers */}
+					<div className={BD_PANEL}>
+						<div className="mb-[18px]">
+							<h4 className={BD_PANEL_TITLE}>{t("branch_admin.todays_cashiers_title", "Today's Cashiers")}</h4>
+							<p className={BD_PANEL_SUB}>{t("branch_admin.work_distribution", "Work distribution")}</p>
 						</div>
 
-						<div className="flex flex-wrap gap-3 mb-5">
-							{["All", "Bar", "Restaurant", "Spa", "Reception"].map((area) => (
+						<div className="mb-[18px] flex flex-wrap gap-2">
+							{cashierAreas.map((area) => (
 								<button
 									key={area}
+									type="button"
 									onClick={() => setActiveCashierTab(area)}
-									className={`px-3 py-1 rounded-full border text-xs font-semibold cursor-pointer transition-colors ${
-										activeCashierTab === area 
-											? "bg-slate-800 text-white border-slate-800" 
-											: "border-slate-200 text-slate-500 hover:bg-slate-50"
-									}`}
+									className={`rounded-full border-[1.5px] px-4 py-[7px] text-[12.5px] font-semibold transition-colors ${activeCashierTab === area ? "border-[#071E38] bg-[#071E38] text-white" : "border-[#E7E3D8] bg-white text-[#5B6470] hover:border-[#071E38]"}`}
 								>
 									{area}
 								</button>
@@ -416,77 +418,33 @@ const Dashboard = () => {
 						</div>
 
 						<div className="overflow-x-auto">
-							<table className="min-w-full text-xs">
+							<table className="w-full border-collapse">
 								<thead>
-									<tr className="text-slate-400 text-[11px] text-left border-b">
-										<th className="py-2">#</th>
-										<th className="py-2">{t("branch_admin.name_upper", "NAME")}</th>
-										<th className="py-2">{t("branch_admin.area_upper", "AREA")}</th>
-										<th className="py-2">{t("branch_admin.sales_percent", "SALES (%)")}</th>
+									<tr>
+										{["#", t("branch_admin.name", "Name"), t("branch_admin.area", "Area"), t("branch_admin.sales_percent_title", "Sales (%)")].map((col) => (
+											<th key={col} className="border-b border-[#E7E3D8] px-1 py-2.5 text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-[#5B6470]">{col}</th>
+										))}
 									</tr>
 								</thead>
 								<tbody>
-									{(() => {
-										if (cashierStats.length === 0 && !isLoading) {
-											return (
-												<tr>
-													<td colSpan="4" className="py-4 text-slate-500">
-														No cashier data available.
-													</td>
-												</tr>
-											);
-										}
-
-										const processed = (isLoading ? Array.from({ length: 4 }) : cashierStats)
-											.map((cashier, index) => {
-												if (!cashier) return { cashier: null, area: "", percent: 0, index };
-												
-												const percent = totalRevenue > 0
-													? Math.round((cashier.revenue / totalRevenue) * 100)
-													: 0;
-												const areas = ["Bar", "Restaurant", "Spa", "Reception"];
-												const area = areas[index % areas.length];
-												return { cashier, area, percent, index };
-											})
-											.filter(({ area, cashier }) => !cashier || activeCashierTab === "All" || activeCashierTab === area);
-
-										if (processed.length === 0 && !isLoading) {
-											return (
-												<tr>
-													<td colSpan="4" className="py-4 text-slate-500">
-														No cashiers found for this area.
-													</td>
-												</tr>
-											);
-										}
-
-										return processed.map(({ cashier, area, percent, index }) => {
-											if (!cashier) {
-												return (
-													<tr key={`cashier-skeleton-${index}`} className="border-b">
-														<td colSpan="4" className="py-4">
-															<div className="h-4 bg-slate-100 rounded animate-pulse" />
-														</td>
-													</tr>
-												);
-											}
-
-											const percentClass = percent >= 70
-												? "text-emerald-500"
-												: percent >= 40
-													? "text-amber-500"
-													: "text-red-500";
-
-											return (
-												<tr key={cashier.id} className="border-b last:border-b-0">
-													<td className="py-3 text-slate-600">#{String(cashier.id).padStart(2, "0")}</td>
-													<td className="py-3 text-slate-700 font-semibold">{cashier.name}</td>
-													<td className="py-3 text-slate-500">{area}</td>
-													<td className={`py-3 font-semibold ${percentClass}`}>{percent}%</td>
-												</tr>
-											);
-										});
-									})()}
+									{isLoading ? [0, 1, 2].map((n) => (
+										<tr key={n} className="border-b border-[#E7E3D8] last:border-b-0">
+											<td colSpan={4} className="px-1 py-4"><div className="h-4 animate-pulse rounded bg-[#FBFAF7]" /></td>
+										</tr>
+									)) : cashierRows.length === 0 ? (
+										<tr>
+											<td colSpan={4}>
+												<BdEmptyState icon={<BdTableIcon />} title={t("branch_admin.no_cashier_activity", "No cashier activity for this area yet")} sub={t("branch_admin.no_cashier_activity_sub", "Try another tab, or check back once shifts begin")} />
+											</td>
+										</tr>
+									) : cashierRows.map(({ cashier, area, percent }) => (
+										<tr key={cashier.id} className="border-b border-[#E7E3D8] last:border-b-0">
+											<td className="px-1 py-3 text-[13px] text-[#5B6470]">#{String(cashier.id).padStart(2, "0")}</td>
+											<td className="px-1 py-3 text-[13px] font-semibold text-[#071E38]">{cashier.name}</td>
+											<td className="px-1 py-3 text-[13px] text-[#5B6470]">{area}</td>
+											<td className={`px-1 py-3 text-[13px] font-bold ${percent >= 70 ? "text-[#3CAE49]" : percent >= 40 ? "text-[#D9A15C]" : "text-[#E0654F]"}`}>{percent}%</td>
+										</tr>
+									))}
 								</tbody>
 							</table>
 						</div>
@@ -496,5 +454,4 @@ const Dashboard = () => {
 		</>
 	);
 };
-
 export default Dashboard;

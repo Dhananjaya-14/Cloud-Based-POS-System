@@ -1,6 +1,13 @@
                                                     @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap");
 @import "tailwindcss";
 
+   /* Design fonts (Tailwind v4 reads them from here, not from tailwind.config.js) */
+   @theme {
+     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+     --font-inter: "Inter", sans-serif;
+     --font-space: "Space Grotesk", "Inter", sans-serif;
+   }
+
 
 html, body, #root {
   height: 100%;
