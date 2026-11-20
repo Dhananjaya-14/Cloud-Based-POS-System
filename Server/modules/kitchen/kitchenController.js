@@ -46,6 +46,16 @@ export const updateKitchenOrderStatus = async (req, res, next) => {
     }
     const currentStatus = orderRes.rows[0].or_status;
 
+    // Held orders are parked by the cashier — the kitchen can't act on them
+    if (currentStatus === "hold") {
+      await client.query("ROLLBACK");
+      client.release();
+      return res.status(400).json({
+        success: false,
+        error: 'Order is on hold — the cashier must resume it before the kitchen can update it',
+      });
+    }
+
     const { rows } = await client.query(
       `UPDATE "ORDER" SET or_status = $1 WHERE or_id = $2 RETURNING *`,
       [status, id]

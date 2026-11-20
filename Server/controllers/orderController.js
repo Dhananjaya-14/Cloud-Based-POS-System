@@ -6,7 +6,13 @@ import {
   KITCHEN_SOCKET_ROOM,
   SOCKET_EVENTS
 } from "../utils/socket.js";
-import { adjustStockForOrderItem, fetchBranchProduct } from "./orderItemController.js";
+import { adjustStockForOrderItem, fetchBranchProduct, checkProductForOrder } from "./orderItemController.js";
+import {
+  validateOrderCharges,
+  getBranchTaxRate,
+  recalculateOrderTotals,
+  round2,
+} from "../utils/orderTotals.js";
 
 
 // Unit conversion for recipe ingredients
@@ -36,13 +42,16 @@ function convertRecipeQty(recipeQty, recipeUnit, stockUnit) {
 // ─────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────
-const VALID_STATUSES = ["pending", "preparing", "completed", "cancelled"];
+// "hold" = order parked by the cashier: saved, but not sent to the kitchen
+// and not payable until it is resumed (hold → pending).
+const VALID_STATUSES = ["pending", "hold", "preparing", "completed", "cancelled"];
 const VALID_TYPES = ["dine-in", "takeaway", "delivery"];
 
 // Legal status transitions for a POS system
 // Key = current status, Value = allowed next statuses
 const STATUS_TRANSITIONS = {
-  pending:   ["preparing", "completed", "cancelled"],
+  pending:   ["preparing", "completed", "cancelled", "hold"],
+  hold:      ["pending", "cancelled"],
   preparing: ["completed", "cancelled"],
   completed: [],
   cancelled: [], 
@@ -51,41 +60,6 @@ const STATUS_TRANSITIONS = {
 // ─────────────────────────────────────────────
 // SHARED VALIDATORS
 // ─────────────────────────────────────────────
-
-/**
- * Validates cost fields and business logic relationships.
- * Returns an error string or null if valid.
- */
-function validateCosts(or_tax, or_totalcost, or_totalCostWtax) {
-  const tax = parseFloat(or_tax);
-  const cost = parseFloat(or_totalcost);
-  const costWtx = parseFloat(or_totalCostWtax);
-
-  if (isNaN(cost) || cost < 0) {
-    return "or_totalcost must be a non-negative number";
-  }
-  if (isNaN(costWtx) || costWtx < 0) {
-    return "or_totalCostWtax must be a non-negative number";
-  }
-  if (or_tax !== undefined && or_tax !== null) {
-    if (isNaN(tax) || tax < 0) {
-      return "or_tax must be a number greater than or equal to 0";
-    }
-  }
-  if (costWtx < cost) {
-    return "or_totalCostWtax cannot be less than or_totalcost";
-  }
-  // Sanity check: cost with tax should roughly match (within 1% tolerance for rounding)
-  if (or_tax !== undefined && or_tax !== null && !isNaN(tax)) {
-    const taxAmount = (cost * tax) / 100;
-    const expected = parseFloat((cost + taxAmount).toFixed(2));
-    const diff = Math.abs(expected - costWtx);
-    if (diff > 1.0) {
-      return `or_totalCostWtax (${costWtx}) does not match expected cost with ${tax}% tax (${expected})`;
-    }
-  }
-  return null;
-}
 
 /**
  * Validates order type business rules.
@@ -304,8 +278,8 @@ export const getAllOrders = async (req, res) => {
     const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
 
     const { rows } = await pool.query(
-      `SELECT o.*, p.pay_status 
-       FROM "ORDER" o 
+      `SELECT o.*, p.pay_status
+       FROM "ORDER" o
        LEFT JOIN "Payment" p ON p.or_id = o.or_id 
        ${where} 
        ORDER BY o.or_date DESC, o.or_time DESC`,
@@ -313,6 +287,194 @@ export const getAllOrders = async (req, res) => {
     );
 
     res.status(200).json({ success: true, count: rows.length, data: rows });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// Shared filter parser for the branch/company order list endpoints.
+// Returns { error } on invalid input, otherwise { conditions, values }.
+function buildOrderFilters(query, startIndex = 1) {
+  const { status, type, b_id, u_id, date, start_date, end_date, hours } = query;
+
+  if (status && !VALID_STATUSES.includes(status)) {
+    return { error: `Invalid status filter. Use: ${VALID_STATUSES.join(" | ")}` };
+  }
+  if (type && !VALID_TYPES.includes(type)) {
+    return { error: `Invalid type filter. Use: ${VALID_TYPES.join(" | ")}` };
+  }
+  if (b_id && isNaN(Number(b_id))) return { error: "Invalid b_id format" };
+  if (u_id && isNaN(Number(u_id))) return { error: "Invalid u_id format" };
+  if (date && isNaN(Date.parse(date))) return { error: "Invalid date format" };
+  if (start_date && isNaN(Date.parse(start_date))) return { error: "Invalid start_date format" };
+  if (end_date && isNaN(Date.parse(end_date))) return { error: "Invalid end_date format" };
+  if (hours && isNaN(Number(hours))) return { error: "Invalid hours format" };
+
+  const conditions = [];
+  const values = [];
+  let i = startIndex;
+
+  if (status) {
+    conditions.push(`o.or_status = $${i++}`);
+    values.push(status);
+  }
+  if (type) {
+    conditions.push(`o.or_type = $${i++}`);
+    values.push(type);
+  }
+  if (b_id) {
+    conditions.push(`o.b_id = $${i++}`);
+    values.push(Number(b_id));
+  }
+  if (u_id) {
+    conditions.push(`o.u_id = $${i++}`);
+    values.push(Number(u_id));
+  }
+  if (date) {
+    conditions.push(`o.or_date = $${i++}`);
+    values.push(date);
+  }
+  if (hours) {
+    conditions.push(`((o.or_date + o.or_time) >= (NOW() - ($${i++} || ' hours')::INTERVAL) OR o.or_date >= CURRENT_DATE)`);
+    values.push(Number(hours));
+  } else {
+    if (start_date) {
+      conditions.push(`o.or_date >= $${i++}`);
+      values.push(start_date);
+    }
+    if (end_date) {
+      conditions.push(`o.or_date <= $${i++}`);
+      values.push(end_date);
+    }
+  }
+
+  return { conditions, values };
+}
+
+// ─────────────────────────────────────────────
+// GET /orders/branch/:branchId — all orders of one branch
+// Super Admin: any branch | Admin: branches of own company
+// Branch Admin / Cashier / Waiter / Kitchen: own branch only
+// Query filters: status, type, u_id, date, start_date, end_date, hours
+// ─────────────────────────────────────────────
+export const getOrdersByBranch = async (req, res) => {
+  try {
+    const branchId = parseInt(req.params.branchId, 10);
+    if (isNaN(branchId) || branchId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid branch ID" });
+    }
+
+    const roleId = Number(req.user?.role_id);
+    const userBranchId = req.user?.b_id ?? req.user?.B_id;
+    const userComId = req.user?.com_id;
+
+    const branchRes = await pool.query(
+      `SELECT "B_id", "B_name", "com_id" FROM "Branch" WHERE "B_id" = $1`,
+      [branchId],
+    );
+    if (!branchRes.rows.length) {
+      return res.status(404).json({ success: false, error: "Branch not found" });
+    }
+    const branch = branchRes.rows[0];
+
+    if (roleId === ROLES.ADMIN) {
+      if (userComId == null || Number(userComId) !== Number(branch.com_id)) {
+        return res.status(403).json({
+          success: false,
+          error: "You can only view orders of branches in your company.",
+        });
+      }
+    } else if (roleId !== ROLES.SUPER_ADMIN) {
+      if (userBranchId == null || Number(userBranchId) !== branchId) {
+        return res.status(403).json({
+          success: false,
+          error: "You can only view orders of your assigned branch.",
+        });
+      }
+    }
+
+    // Branch comes from the URL, so ignore any b_id query param
+    const { b_id: _ignored, ...query } = req.query;
+    const filters = buildOrderFilters(query, 2);
+    if (filters.error) {
+      return res.status(400).json({ success: false, error: filters.error });
+    }
+    const conditions = ["o.b_id = $1", ...filters.conditions];
+    const values = [branchId, ...filters.values];
+
+    const { rows } = await pool.query(
+      `SELECT o.*, p.pay_status
+       FROM "ORDER" o
+       LEFT JOIN "Payment" p ON p.or_id = o.or_id
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY o.or_date DESC, o.or_time DESC`,
+      values,
+    );
+
+    res.status(200).json({
+      success: true,
+      branch: { b_id: branch.B_id, b_name: branch.B_name, com_id: branch.com_id },
+      count: rows.length,
+      data: rows,
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// ─────────────────────────────────────────────
+// GET /orders/company/:companyId — all orders across a company's branches
+// Super Admin: any company | Admin: own company only
+// Query filters: status, type, b_id, u_id, date, start_date, end_date, hours
+// ─────────────────────────────────────────────
+export const getOrdersByCompany = async (req, res) => {
+  try {
+    const companyId = parseInt(req.params.companyId, 10);
+    if (isNaN(companyId) || companyId <= 0) {
+      return res.status(400).json({ success: false, error: "Invalid company ID" });
+    }
+
+    const roleId = Number(req.user?.role_id);
+    if (roleId === ROLES.ADMIN) {
+      if (req.user?.com_id == null || Number(req.user.com_id) !== companyId) {
+        return res.status(403).json({
+          success: false,
+          error: "You can only view orders of your own company.",
+        });
+      }
+    }
+
+    const companyRes = await pool.query(
+      `SELECT "com_id", "com_name" FROM "Company" WHERE "com_id" = $1`,
+      [companyId],
+    );
+    if (!companyRes.rows.length) {
+      return res.status(404).json({ success: false, error: "Company not found" });
+    }
+
+    const filters = buildOrderFilters(req.query, 2);
+    if (filters.error) {
+      return res.status(400).json({ success: false, error: filters.error });
+    }
+    const conditions = [`b."com_id" = $1`, ...filters.conditions];
+    const values = [companyId, ...filters.values];
+
+    const { rows } = await pool.query(
+      `SELECT o.*, p.pay_status, b."B_name" AS b_name
+       FROM "ORDER" o
+       JOIN "Branch" b ON b."B_id" = o.b_id
+       LEFT JOIN "Payment" p ON p.or_id = o.or_id
+       WHERE ${conditions.join(" AND ")}
+       ORDER BY o.or_date DESC, o.or_time DESC`,
+      values,
+    );
+
+    res.status(200).json({
+      success: true,
+      company: companyRes.rows[0],
+      count: rows.length,
+      data: rows,
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -351,10 +513,9 @@ export const getOrderById = async (req, res) => {
 // ─────────────────────────────────────────────
 export const createOrder = async (req, res) => {
   try {
+    // or_tax / or_totalcost / or_totalCostWtax from the client are ignored:
+    // the tax rate comes from the company and totals are calculated from the items.
     const {
-      or_tax = 0,
-      or_totalcost,
-      or_totalCostWtax,
       or_status = "pending",
       or_type,
       u_id,
@@ -364,12 +525,12 @@ export const createOrder = async (req, res) => {
       or_addons = null,
       or_addons_price = 0,
       or_allergies = null,
+      or_discount_pct = 0,
+      or_service_fee = 0,
     } = req.body;
 
     // ── Required fields ──
     const missing = [];
-    if (or_totalcost === undefined) missing.push("or_totalcost");
-    if (or_totalCostWtax === undefined) missing.push("or_totalCostWtax");
     if (!or_type) missing.push("or_type");
     if (!u_id) missing.push("u_id");
     if (!b_id) missing.push("b_id");
@@ -394,18 +555,18 @@ export const createOrder = async (req, res) => {
         error: `Invalid or_status. Use: ${VALID_STATUSES.join(" | ")}`,
       });
     }
-    // New orders can only start as pending (Cashier restriction)
-    if (or_status !== "pending") {
+    // New orders start as pending, or as hold when the cashier parks the order
+    if (or_status !== "pending" && or_status !== "hold") {
       return res.status(400).json({
         success: false,
-        error: 'New orders must start with status "pending"',
+        error: 'New orders must start with status "pending" or "hold"',
       });
     }
 
-    // ── Cost validation ──
-    const costError = validateCosts(or_tax, or_totalcost, or_totalCostWtax);
-    if (costError) {
-      return res.status(400).json({ success: false, error: costError });
+    // ── Charge validation (discount %, service fee, add-ons) ──
+    const chargeError = validateOrderCharges({ or_discount_pct, or_service_fee, or_addons_price });
+    if (chargeError) {
+      return res.status(400).json({ success: false, error: chargeError });
     }
 
     const typeError = validateTypeConstraints(or_type, table_id, req.user?.features);
@@ -413,30 +574,50 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ success: false, error: typeError });
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO "ORDER"
-         (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type,u_id, b_id, table_id, or_notes, or_addons, or_addons_price, or_allergies)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-       RETURNING *`,
-      [
-        parseFloat(or_tax),
-        parseFloat(or_totalcost),
-        parseFloat(or_totalCostWtax),
-        or_status,
-        or_type,
-        u_id,
-        b_id,
-        table_id ?? null,
-        or_notes || null,
-        or_addons || null,
-        parseFloat(or_addons_price),
-        or_allergies || null,
-      ],
-    );
+    const client = await pool.connect();
+    let createdOrder;
+    try {
+      await client.query("BEGIN");
 
-    emitSocketEvent("order:created", rows[0]);
+      // Tax rate is fixed on the order when it is created
+      const taxRate = await getBranchTaxRate(client, b_id);
 
-    res.status(201).json({ success: true, data: rows[0] });
+      const { rows } = await client.query(
+        `INSERT INTO "ORDER"
+           (or_tax, or_totalcost, "or_totalCostWtax", or_status, or_type, u_id, b_id, table_id,
+            or_notes, or_addons, or_addons_price, or_allergies, or_discount_pct, or_service_fee)
+         VALUES ($1, 0, 0, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+         RETURNING or_id`,
+        [
+          taxRate,
+          or_status,
+          or_type,
+          u_id,
+          b_id,
+          table_id ?? null,
+          or_notes || null,
+          or_addons || null,
+          Number(or_addons_price) || 0,
+          or_allergies || null,
+          Number(or_discount_pct) || 0,
+          Number(or_service_fee) || 0,
+        ],
+      );
+
+      // No items yet — totals start from service fee + add-ons; every item
+      // added through /order-items recalculates them.
+      createdOrder = await recalculateOrderTotals(client, rows[0].or_id);
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+
+    emitSocketEvent("order:created", createdOrder);
+
+    res.status(201).json({ success: true, data: createdOrder });
   } catch (err) {
     if (err.code === "23514") {
       return res
@@ -482,10 +663,9 @@ export const updateOrder = async (req, res) => {
     }
     const existing = existingResult.rows[0];
 
-    // Merge incoming data with existing
-    const or_tax = req.body.or_tax !== undefined ? req.body.or_tax : existing.or_tax;
-    const or_totalcost = req.body.or_totalcost !== undefined ? req.body.or_totalcost : existing.or_totalcost;
-    const or_totalCostWtax = req.body.or_totalCostWtax !== undefined ? req.body.or_totalCostWtax : existing["or_totalCostWtax"];
+    // Merge incoming data with existing.
+    // or_tax / or_totalcost / or_totalCostWtax from the client are ignored —
+    // the tax rate stays as fixed at creation and totals are recalculated.
     const or_status = req.body.or_status !== undefined ? req.body.or_status : existing.or_status;
     const or_type = req.body.or_type !== undefined ? req.body.or_type : existing.or_type;
     const u_id = req.body.u_id !== undefined ? req.body.u_id : existing.u_id;
@@ -495,7 +675,9 @@ export const updateOrder = async (req, res) => {
     const or_addons = req.body.or_addons !== undefined ? req.body.or_addons : existing.or_addons;
     const or_addons_price = req.body.or_addons_price !== undefined ? req.body.or_addons_price : existing.or_addons_price;
     const or_allergies = req.body.or_allergies !== undefined ? req.body.or_allergies : existing.or_allergies;
-    
+    const or_discount_pct = req.body.or_discount_pct !== undefined ? req.body.or_discount_pct : existing.or_discount_pct;
+    const or_service_fee = req.body.or_service_fee !== undefined ? req.body.or_service_fee : existing.or_service_fee;
+
     const items = req.body.items; // array or undefined
 
     // Validation
@@ -522,10 +704,10 @@ export const updateOrder = async (req, res) => {
       return res.status(400).json({ success: false, error: `Cannot edit a "${existing.or_status}" order` });
     }
 
-    const costError = validateCosts(or_tax, or_totalcost, or_totalCostWtax);
-    if (costError) {
+    const chargeError = validateOrderCharges({ or_discount_pct, or_service_fee, or_addons_price });
+    if (chargeError) {
       await client.query("ROLLBACK");
-      return res.status(400).json({ success: false, error: costError });
+      return res.status(400).json({ success: false, error: chargeError });
     }
 
     const typeError = validateTypeConstraints(or_type, table_id, req.user?.features);
@@ -534,19 +716,18 @@ export const updateOrder = async (req, res) => {
       return res.status(400).json({ success: false, error: typeError });
     }
 
-    // UPDATE ORDER
-    const orderUpdate = await client.query(
+    // UPDATE ORDER (totals are recalculated below)
+    await client.query(
       `UPDATE "ORDER" SET
-         or_tax = $1, or_totalcost = $2, "or_totalCostWtax" = $3,
-         or_status = $4, or_type = $5, u_id = $6, b_id = $7,
-         table_id = $8, or_notes = $9, or_addons = $10,
-         or_addons_price = $11, or_allergies = $12
-       WHERE or_id = $13
-       RETURNING *`,
+         or_status = $1, or_type = $2, u_id = $3, b_id = $4,
+         table_id = $5, or_notes = $6, or_addons = $7,
+         or_addons_price = $8, or_allergies = $9,
+         or_discount_pct = $10, or_service_fee = $11
+       WHERE or_id = $12`,
       [
-        parseFloat(or_tax), parseFloat(or_totalcost), parseFloat(or_totalCostWtax),
         or_status, or_type, u_id, b_id, table_id || null, or_notes || null, or_addons || null,
-        parseFloat(or_addons_price), or_allergies || null, id
+        Number(or_addons_price) || 0, or_allergies || null,
+        Number(or_discount_pct) || 0, Number(or_service_fee) || 0, id
       ]
     );
 
@@ -573,10 +754,19 @@ export const updateOrder = async (req, res) => {
       }
       for (const item of items) {
         const bProduct = await fetchBranchProduct(item.Bpro_id);
-        if (!bProduct) throw new Error(`Branch product ${item.Bpro_id} not found`);
+        const productError = checkProductForOrder(bProduct, { b_id });
+        if (productError) {
+          await client.query("ROLLBACK");
+          return res.status(productError.status).json({ success: false, error: productError.error });
+        }
         const qty = parseInt(item.qty || item.pro_quantity || 1, 10);
-        const price = parseFloat(item.unit_price || item.branch_price || 0);
-        const total_price = parseFloat((price * qty).toFixed(2));
+        if (!Number.isInteger(qty) || qty <= 0 || qty > 999) {
+          await client.query("ROLLBACK");
+          return res.status(400).json({ success: false, error: "Item quantity must be an integer between 1 and 999" });
+        }
+        // Server-side price — any unit_price sent by the client is ignored
+        const price = Number(bProduct.Pro_Price);
+        const total_price = round2(price * qty);
         await adjustStockForOrderItem(client, bProduct, qty, "subtract");
         await client.query(
           `INSERT INTO "ORDER_ITEM" ("Bpro_id", pro_quantity, unit_price, total_price, order_id) VALUES ($1, $2, $3, $4, $5)`,
@@ -584,6 +774,8 @@ export const updateOrder = async (req, res) => {
         );
       }
     }
+
+    const orderUpdate = { rows: [await recalculateOrderTotals(client, id)] };
 
     await client.query("COMMIT");
 
@@ -619,10 +811,8 @@ export const patchOrder = async (req, res) => {
         .json({ success: false, error: "Invalid order ID" });
     }
 
+    // or_tax / or_totalcost / or_totalCostWtax are calculated by the server and can't be patched
     const allowed = [
-      "or_tax",
-      "or_totalcost",
-      "or_totalCostWtax",
       "or_status",
       "or_type",
       "u_id",
@@ -632,6 +822,8 @@ export const patchOrder = async (req, res) => {
       "or_addons",
       "or_addons_price",
       "or_allergies",
+      "or_discount_pct",
+      "or_service_fee",
     ];
 
     // Filter to only fields present in the request body
@@ -698,29 +890,18 @@ export const patchOrder = async (req, res) => {
       }
     }
 
-    // ── Validate costs if any cost field is being changed ──
-    const hasCostField = ["or_tax", "or_totalcost", "or_totalCostWtax"].some(
+    // ── Validate charges if any is being changed ──
+    const chargeError = validateOrderCharges(incoming);
+    if (chargeError) {
+      return res.status(400).json({ success: false, error: chargeError });
+    }
+    const chargesChanged = ["or_discount_pct", "or_service_fee", "or_addons_price"].some(
       (k) => k in incoming,
     );
-    if (hasCostField) {
-      const merged = {
-        or_tax: incoming.or_tax ?? current.or_tax,
-        or_totalcost: incoming.or_totalcost ?? current.or_totalcost,
-        or_totalCostWtax: incoming.or_totalCostWtax ?? current.or_totalCostWtax,
-      };
-      const costError = validateCosts(
-        merged.or_tax,
-        merged.or_totalcost,
-        merged.or_totalCostWtax,
-      );
-      if (costError) {
-        return res.status(400).json({ success: false, error: costError });
-      }
-    }
 
     // ── Type-specific business rules using merged state ──
     const newTableId = incoming.table_id ?? current.table_id;
-    const typeError = validateTypeConstraints(newType, newCustId, newTableId, req.user?.features);
+    const typeError = validateTypeConstraints(newType, newTableId, req.user?.features);
     if (typeError) {
       return res.status(400).json({ success: false, error: typeError });
     }
@@ -733,7 +914,7 @@ export const patchOrder = async (req, res) => {
     for (const key of Object.keys(incoming)) {
       const col = key === "or_totalCostWtax" ? `"or_totalCostWtax"` : key;
       updates.push(`${col} = $${i++}`);
-      const numericFields = ["or_tax", "or_totalcost", "or_totalCostWtax", "or_addons_price"];
+      const numericFields = ["or_addons_price", "or_discount_pct", "or_service_fee"];
       values.push(
         numericFields.includes(key) ? parseFloat(incoming[key]) : incoming[key],
       );
@@ -741,10 +922,23 @@ export const patchOrder = async (req, res) => {
 
     values.push(id);
 
-    const { rows } = await pool.query(
-      `UPDATE "ORDER" SET ${updates.join(", ")} WHERE or_id = $${i} RETURNING *`,
-      values,
-    );
+    let rows;
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      ({ rows } = await client.query(
+        `UPDATE "ORDER" SET ${updates.join(", ")} WHERE or_id = $${i} RETURNING *`,
+        values,
+      ));
+      // Totals follow the new discount / service fee / add-ons
+      if (chargesChanged) rows = [await recalculateOrderTotals(client, id)];
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
 
     // Emit real-time update event for order changes
     emitSocketEvent("order:updated", rows[0]);
@@ -854,6 +1048,11 @@ export const updateOrderStatus = async (req, res) => {
       updatedOrder,
       { room: KITCHEN_SOCKET_ROOM },
     );
+
+    // Resumed from hold → kitchen sees it as a new order
+    if (currentStatus === "hold" && status === "pending") {
+      emitSocketEvent("order:created", updatedOrder);
+    }
 
     if (status === "completed") {
       emitSocketEvent("order:ready", updatedOrder, {

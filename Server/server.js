@@ -5,6 +5,7 @@ import { createServer } from "http";
 import { initializeSocket } from "./utils/socket.js";
 import { activityLogger } from "./middleware/activityLogger.js";
 import returnRoutes from "./routes/returnRoutes.js";
+import { checkDatabaseConnection } from "./config/database.js";
 
 
 
@@ -183,6 +184,7 @@ const PORT = process.env.PORT || 5000;
 const httpServer = createServer(app);
 initializeSocket(httpServer);
 
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, async () => {
   console.log(`Server running on port ${PORT}`);
+  await checkDatabaseConnection();
 });

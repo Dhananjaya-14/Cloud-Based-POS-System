@@ -22,7 +22,7 @@ export const getSalesSummaryReport = async (req, res) => {
       pay_time: 'o."or_time"',
       pay_method: "p.pay_method",
       total_cost: "o.or_totalcost",
-      tax: "o.or_tax",
+      tax: "o.or_tax_amount",
       totalCostWtax: 'o."or_totalCostWtax"',
     };
      const selectedColumns =
@@ -39,7 +39,7 @@ export const getSalesSummaryReport = async (req, res) => {
           o."or_time" AS pay_time,
           p."pay_method" AS pay_method,
           o."or_totalcost" AS total_cost,
-          o."or_tax" AS tax,
+          o."or_tax_amount" AS tax,
           o."or_totalCostWtax" AS "totalCostWtax"
         `;
 

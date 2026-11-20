@@ -36,12 +36,29 @@ const getToken = (token) => {
 // and returns a QR-friendly URL that auto-submits the form when visited.
 export async function initiatePayHerePayment(req, res, next) {
   try {
-    const { order_id, amount, order_description, cashier_uid } = req.body;
+    // `amount` from the client is ignored — PayHere is charged the order's
+    // server-calculated total (or_totalCostWtax).
+    const { order_id, order_description, cashier_uid } = req.body;
 
-    if (!order_id || !amount || !cashier_uid) {
+    if (!order_id || !cashier_uid) {
       return res.status(422).json({
         success: false,
-        message: "order_id, amount and cashier_uid are required",
+        message: "order_id and cashier_uid are required",
+      });
+    }
+
+    const orderRes = await pool.query(
+      `SELECT "or_totalCostWtax" FROM "ORDER" WHERE or_id = $1`,
+      [order_id],
+    );
+    if (!orderRes.rows.length) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+    const amount = Number(orderRes.rows[0].or_totalCostWtax);
+    if (!(amount > 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Order total must be greater than 0 — add items before starting a payment",
       });
     }
 
