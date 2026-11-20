@@ -3,15 +3,13 @@ import React, { useState, useEffect } from "react";
 import RawIngredient from "../../components/branch-admin/RawIngredient";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
+import { FiArrowRight, FiPackage, FiPlus, FiUsers } from "react-icons/fi";
 import ToastMessage from "../../components/branch-admin/ToastMessage";
 import { useAuth } from "../../context/AuthContext";
 import { getSocket, joinBranchInventoryRoom, SOCKET_EVENTS } from '../../services/socket';
 const AddRawMaterials = () => {
   const { t } = useTranslation();
 const VALID_UNITS = ["kg", "g", "l", "ml", "pcs", "units", "box", "pack"];
-  const primaryTeal = "#3A4DBF";
-  const primaryBlue = "#001F3F";
-  const bgGrey = "#F9FAFB";
   const {
     user,
     features
@@ -472,149 +470,61 @@ const updated = [...materials];
     }
   };
 
-  // --- STYLES ---
-  const containerStyle = {
-    padding: "30px",
-    maxWidth: "1100px",
-    margin: "0 auto",
-    fontFamily: "'Inter', sans-serif"
-  };
-  const sectionStyle = {
-    marginBottom: "30px",
-    padding: "28px",
-    background: "#fff",
-    border: "1px solid #E4E7EC",
-    borderRadius: "16px",
-    boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
-  };
-  const inputStyle = {
-    width: "100%",
-    padding: "12px 16px",
-    marginTop: "8px",
-    borderRadius: "8px",
-    border: "1px solid #D0D5DD",
-    fontSize: "14px",
-    boxSizing: "border-box"
-  };
-  const labelStyle = {
-    display: "block",
-    fontSize: "14px",
-    fontWeight: "500",
-    color: "#344054"
-  };
-  const primaryBtnStyle = {
-    background: primaryTeal,
-    color: "white",
-    padding: "12px 28px",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-    fontWeight: "600"
-  };
-  return <div style={{
-    display: "flex",
-    background: bgGrey,
-    minHeight: "100vh"
-  }}>
+  const stripPlus = text => String(text).replace(/^\s*\+\s*/, "");
+  const stripArrow = text => String(text).replace(/\s*→\s*$/, "");
+  const labelClass = "mb-[7px] block text-[11px] font-bold uppercase tracking-[0.04em] text-[#5B6470]";
+  const fieldClass = "w-full rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-[13px] py-2.5 text-[13.5px] text-[#1A1A1A] outline-none focus:border-[#0F9B8E]";
+  return <div className="flex min-h-screen bg-[#F7F5F0]">
       <Sidebar />
       {toast.show && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast({
       ...toast,
       show: false
     })} />}
-      <div style={{
-      flex: 1,
-      marginLeft: "240px"
-    }}>
+      <div className="ml-[240px] min-w-0 flex-1">
         <Header title={t("branch_admin.inventory_items", "Inventory Items")} role="Branch Admin" email={user?.email || "branchadmin@gmail.com"} />
-        <div style={containerStyle}>
-          <h2 style={{
-          color: "#101828",
-          fontWeight: '700',
-          fontSize: '24px',
-          marginBottom: '20px'
-        }}>{t("branch_admin.add_inventory_items", "Add Inventory Items")}</h2>
+        <div className="max-w-[1120px] px-9 py-8">
+          {/* Page heading */}
+          <div className="mb-6">
+            <h2 className="m-0 mb-1 font-space text-xl font-bold text-[#071E38]">{t("branch_admin.add_inventory_items", "Add Inventory Items")}</h2>
+            <p className="m-0 text-[13px] text-[#5B6470]">{t("branch_admin.add_inventory_items_subtitle", "Log new stock coming in and attach it to a supplier")}</p>
+          </div>
 
           {/* Section 1: Inventory Items */}
-          <div style={sectionStyle}>
-            <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 20
-          }}>
-              <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10
-            }}>
-                <span style={{
-                fontSize: 20,
-                color: primaryTeal
-              }}>📦</span>
-                <h3 style={{
-                margin: 0,
-                color: primaryBlue,
-                fontSize: 18,
-                fontWeight: 600
-              }}>
+          <div className="mb-5 rounded-[14px] border border-[#E7E3D8] bg-white px-[26px] py-6">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-[10px] bg-[rgba(217,161,92,0.16)] text-[#D9A15C]"><FiPackage size={17} /></div>
+                <h3 className="m-0 font-space text-[15.5px] font-bold text-[#071E38]">
                   {suppliersEnabled ? "1. " : ""}{t("branch_admin.incoming_inventory_items", "Incoming Inventory Items")}</h3>
               </div>
-              <button onClick={addMaterialRow} style={{
-              background: 'none',
-              border: `1px solid ${primaryTeal}`,
-              padding: '8px 16px',
-              borderRadius: '8px',
-              color: primaryTeal,
-              cursor: 'pointer',
-              fontWeight: '600'
-            }}>{t("branch_admin.add_another_item", "+ Add Another Item")}</button>
+              <button type="button" onClick={addMaterialRow} className="inline-flex cursor-pointer items-center gap-[7px] rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-4 py-2.5 text-[13px] font-semibold text-[#071E38] transition-colors hover:border-[#0F9B8E] hover:text-[#0F9B8E]">
+                <FiPlus size={14} strokeWidth={2} />{stripPlus(t("branch_admin.add_another_item", "Add Another Item"))}</button>
             </div>
-            {materials.map((m, idx) => <RawIngredient key={idx} index={idx} data={m} validUnits={VALID_UNITS} onChange={handleMaterialChange} onRemove={removeMaterialRow} />)}
+            <div>
+              {materials.map((m, idx) => <RawIngredient key={idx} index={idx} data={m} validUnits={VALID_UNITS} onChange={handleMaterialChange} onRemove={removeMaterialRow} />)}
+            </div>
           </div>
 
           {/* Section 2: Supplier — only shown when has_inventory is enabled */}
-          {suppliersEnabled && <div style={sectionStyle}>
-              <div style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: 12
-          }}>
-                <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10
-            }}>
-                  <span style={{
-                fontSize: 20,
-                color: primaryTeal
-              }}>👤</span>
-                  <h3 style={{
-                margin: 0,
-                color: primaryBlue,
-                fontSize: 18,
-                fontWeight: 600
-              }}>{t("branch_admin.2_supplier", "2. Supplier")}</h3>
-                </div>
+          {suppliersEnabled && <div className="mb-5 rounded-[14px] border border-[#E7E3D8] bg-white px-[26px] py-6">
+              <div className="mb-5 flex items-center gap-2.5">
+                <div className="flex h-[34px] w-[34px] flex-shrink-0 items-center justify-center rounded-[10px] bg-[rgba(15,155,142,0.1)] text-[#0F9B8E]"><FiUsers size={17} /></div>
+                <h3 className="m-0 font-space text-[15.5px] font-bold text-[#071E38]">{t("branch_admin.2_supplier", "2. Supplier")}</h3>
               </div>
 
-              <div>
-                <label style={labelStyle}>{t("branch_admin.select_existing_supplier", "Select Existing Supplier")}</label>
-                <select style={inputStyle} onChange={e => {
-              const selected = existingSuppliers.find(s => s.sup_id === parseInt(e.target.value));
-              if (selected) setSupplier(selected);
-            }} value={supplier.sup_id || ""}>
-                  <option value="">{t("branch_admin.choose_a_supplier", "-- Choose a Supplier --")}</option>
-                  {existingSuppliers.map(sup => <option key={sup.sup_id} value={sup.sup_id}>{sup.sup_name} ({sup.sup_email})</option>)}
-                </select>
-              </div>
+              <label className={labelClass}>{t("branch_admin.select_existing_supplier", "Select Existing Supplier")}</label>
+              <select className={`${fieldClass} max-w-[460px]`} onChange={e => {
+            const selected = existingSuppliers.find(s => s.sup_id === parseInt(e.target.value));
+            if (selected) setSupplier(selected);
+          }} value={supplier.sup_id || ""}>
+                <option value="">{t("branch_admin.choose_a_supplier", "-- Choose a Supplier --")}</option>
+                {existingSuppliers.map(sup => <option key={sup.sup_id} value={sup.sup_id}>{sup.sup_name} ({sup.sup_email})</option>)}
+              </select>
             </div>}
 
-          <div style={{
-          textAlign: "right",
-          marginTop: 20
-        }}>
-            <button style={primaryBtnStyle} onClick={handleSubmit}>{t("branch_admin.save_all_records", "Save All Records →")}</button>
+          <div className="mt-2 flex justify-end">
+            <button type="button" onClick={handleSubmit} className="inline-flex cursor-pointer items-center gap-[7px] rounded-lg border-0 bg-[#071E38] px-4 py-2.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#0F9B8E]">
+              {stripArrow(t("branch_admin.save_all_records", "Save All Records"))}<FiArrowRight size={14} strokeWidth={2.4} /></button>
           </div>
         </div>
       </div>
