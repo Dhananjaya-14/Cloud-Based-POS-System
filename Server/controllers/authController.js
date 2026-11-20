@@ -22,7 +22,7 @@ export async function login(req, res, next) {
     }
     //search user from db
     const result = await pool.query(
-      'SELECT u_id, u_fname, u_lname, u_email, u_pw, u_connumber, role_id, "B_id", "com_id" FROM "User" WHERE u_email = $1',
+      'SELECT * FROM "User" WHERE u_email = $1',
       [u_email]
     );
 
@@ -77,13 +77,17 @@ export async function login(req, res, next) {
 
     // Fetch package features if company is linked to a package
     if (com_id) {
-      const featRes = await pool.query(`
-        SELECT p.features, c.language_code FROM "Company" c
-        JOIN "Package" p ON c.package_id = p.package_id
-        WHERE c.com_id = $1
-      `, [com_id]);
-      features = featRes.rows[0]?.features ?? null;
-      companyLanguage = featRes.rows[0]?.language_code ?? 'en';
+      try {
+        const featRes = await pool.query(`
+          SELECT p.features, c.language_code FROM "Company" c
+          LEFT JOIN "Package" p ON c.package_id = p.package_id
+          WHERE c.com_id = $1
+        `, [com_id]);
+        features = featRes.rows[0]?.features ?? null;
+        companyLanguage = featRes.rows[0]?.language_code ?? 'en';
+      } catch {
+        // Optional SaaS package/language columns may not exist in older schemas
+      }
     }
 
     //token creation

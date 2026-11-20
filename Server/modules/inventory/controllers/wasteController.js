@@ -21,13 +21,9 @@ function roundQty(value) {
 }
 
 function isValidReason(value) {
-  // Optional field but if provided must be a non-empty string under 255 chars
-  if (value === undefined || value === null) return true;
-  return (
-    typeof value === "string" &&
-    value.trim().length > 0 &&
-    value.trim().length <= 255
-  );
+  // Optional field: allow undefined, null, or empty string; if provided, must be a string <= 255 chars
+  if (value === undefined || value === null || value === "") return true;
+  return typeof value === "string" && value.trim().length <= 255;
 }
 
 function toResponseRow(row) {
@@ -80,7 +76,7 @@ export const createWaste = async (req, res, next) => {
     if (!isValidReason(reason)) {
       res.status(400);
       throw new Error(
-        "reason must be a non-empty string under 255 characters.",
+        "reason must be a string under 255 characters.",
       );
     }
 
@@ -155,7 +151,7 @@ export const createWaste = async (req, res, next) => {
       `INSERT INTO "public"."Waste" ("rm_id", "pro_id", "waste_qty", "reason", "recorded_at", "b_id")
        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, $5)
        RETURNING "waste_id", "rm_id", "pro_id", "waste_qty", "reason", "recorded_at"`,
-      [rm_id || null, pro_id || null, safeQty, reason?.trim() ?? null, userBranchId],
+      [rm_id || null, pro_id || null, safeQty, reason?.trim() || null, userBranchId],
     );
 
     // ── Reduce stock ─────────────────────────
@@ -357,14 +353,14 @@ export const updateWaste = async (req, res, next) => {
     }
     if (!isValidReason(reason)) {
       res.status(400);
-      throw new Error("reason must be a non-empty string under 255 characters.");
+      throw new Error("reason must be a string under 255 characters.");
     }
 
     await client.query("BEGIN");
 
     // Fetch existing record
     const oldWaste = await client.query(
-      `SELECT w."waste_id", w."rm_id", w."pro_id", w."waste_qty", 
+      `SELECT w."waste_id", w."rm_id", w."pro_id", w."waste_qty", w."reason",
               rm."stock_qty" as rm_stock, rm."rm_name",
               bp."pro_quantity" as pro_stock, bp."pro_name", bp."B_id"
        FROM "public"."Waste" w
@@ -393,12 +389,14 @@ export const updateWaste = async (req, res, next) => {
       throw new Error(`Insufficient stock to increase waste by ${diff}. Current stock is ${currentStock}.`);
     }
 
+    const updatedReason = reason !== undefined ? (reason?.trim() || null) : old.reason;
+
     const result = await client.query(
       `UPDATE "public"."Waste"
-       SET "waste_qty" = $1, "reason" = COALESCE($2, "reason")
+       SET "waste_qty" = $1, "reason" = $2
        WHERE "waste_id" = $3
        RETURNING "waste_id", "rm_id", "pro_id", "waste_qty", "reason", "recorded_at"`,
-      [safeNewQty, reason?.trim() ?? null, id],
+      [safeNewQty, updatedReason, id],
     );
 
     if (diff !== 0) {

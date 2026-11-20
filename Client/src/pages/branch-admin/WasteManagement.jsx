@@ -168,9 +168,10 @@ const WasteManagement = () => {
     }
     const finalQty = calculateFinalQty(wasteQty, selectedUnit, baseUnit);
     try {
+      const trimmedReason = reason.trim();
       const payload = {
         waste_qty: finalQty,
-        reason,
+        reason: trimmedReason || null,
         unit: selectedUnit
       };
       if (isRawMaterial) {
@@ -226,7 +227,7 @@ const WasteManagement = () => {
     try {
       await api.put(`/waste/${editTarget.waste_id}`, {
         waste_qty: qty,
-        reason: editReason
+        reason: editReason.trim() || null
       });
       setEditTarget(null);
       showToast("Waste record updated successfully");

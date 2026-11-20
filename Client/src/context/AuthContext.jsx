@@ -69,6 +69,7 @@ export function AuthProvider({ children }) {
       disconnectSocket();
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      localStorage.removeItem("remember_me");
       navigate("/login");
     }
   };
