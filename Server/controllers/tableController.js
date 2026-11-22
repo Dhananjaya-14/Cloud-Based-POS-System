@@ -1,4 +1,5 @@
 import pool from "../config/database.js";
+import { emitSocketEvent, SOCKET_EVENTS } from "../utils/socket.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -364,6 +365,67 @@ export async function updateTableStatus(req, res, next) {
   }
 }
 
+// ─── PATCH /api/tables/:id/release ──────────────────────────────────────────
+// Waiter (or above) releases a table back to "available" once guests leave.
+export async function releaseTable(req, res, next) {
+  try {
+    const id = parsePositiveInt(req.params.id, "table_id");
+
+    const tableRes = await pool.query(
+      `SELECT table_id, table_status, branch_id FROM "TABLES" WHERE table_id = $1`,
+      [id],
+    );
+    if (tableRes.rows.length === 0) {
+      res.status(404);
+      return next(new Error("Table not found"));
+    }
+    const table = tableRes.rows[0];
+
+    // Branch-scoped users can only release tables in their own branch
+    if (req.user?.b_id != null && Number(req.user.b_id) !== Number(table.branch_id)) {
+      res.status(403);
+      return next(new Error("You can only release tables in your own branch"));
+    }
+
+    if (table.table_status === "available") {
+      res.status(409);
+      return next(new Error("Table is already available"));
+    }
+
+    // Block release while the table still has an open order
+    const openOrder = await pool.query(
+      `SELECT or_id FROM "ORDER"
+       WHERE table_id = $1 AND or_status IN ('pending', 'hold', 'preparing')
+       LIMIT 1`,
+      [id],
+    );
+    if (openOrder.rows.length > 0) {
+      res.status(409);
+      return next(
+        new Error(
+          `Cannot release table: order #${openOrder.rows[0].or_id} is still open`,
+        ),
+      );
+    }
+
+    const result = await pool.query(
+      `UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1
+       RETURNING table_id, table_number, table_capacity, table_status, branch_id`,
+      [id],
+    );
+
+    emitSocketEvent(
+      SOCKET_EVENTS.TABLE_UPDATED,
+      { table_id: id, table_status: "available", branch_id: table.branch_id },
+      { room: "branch-updates" },
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    next(err);
+  }
+}
+
 // ─── DELETE /api/tables/:id ─────────────────────────────────────────────────
 export async function deleteTable(req, res, next) {
   try {
@@ -414,5 +476,6 @@ export default {
   createTable,
   updateTable,
   updateTableStatus,
+  releaseTable,
   deleteTable,
 };

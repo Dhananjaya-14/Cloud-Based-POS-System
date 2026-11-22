@@ -6,6 +6,7 @@ import {
   createTable,
   updateTable,
   updateTableStatus,
+  releaseTable,
   deleteTable,
 } from "../controllers/tableController.js";
 import { requireAuth, requireBranchAdminOrAdmin, requireWaiterOrAbove } from "../middleware/authMiddleware.js";
@@ -20,6 +21,7 @@ router.get("/:id", requireWaiterOrAbove, getTableById);
 router.post("/", requireBranchAdminOrAdmin, createTable);
 router.put("/:id", requireBranchAdminOrAdmin, updateTable);
 router.patch("/:id/status", requireBranchAdminOrAdmin, updateTableStatus);
+router.patch("/:id/release", requireWaiterOrAbove, releaseTable);
 router.delete("/:id", requireBranchAdminOrAdmin, deleteTable);
 
 export default router;

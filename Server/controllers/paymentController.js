@@ -33,6 +33,54 @@ const v_pId = param("id")
   .withMessage("Payment ID must be a positive integer")
   .toInt();
 
+// pay_amount_received — cash handed over by the customer (cash payments only).
+// Must cover the total bill (pay_amount). Shared by POST and PUT.
+const v_amountReceived = body("pay_amount_received")
+  .optional({ values: "null" })
+  .isFloat({ min: 0, max: 99999999.99 })
+  .withMessage("pay_amount_received must be between 0 and 99,999,999.99")
+  .toFloat()
+  .custom((val, { req }) => {
+    if (Math.round(val * 100) / 100 !== val) {
+      throw new Error("pay_amount_received must have at most 2 decimal places");
+    }
+    if (req.body.pay_method !== "cash") {
+      throw new Error("pay_amount_received is only allowed for cash payments");
+    }
+    if (val < Number(req.body.pay_amount)) {
+      throw new Error("pay_amount_received cannot be less than pay_amount (total bill)");
+    }
+    return true;
+  });
+
+// ─── Cash tender helpers ─────────────────────────────────────────────────────
+// Change to return, worked out in cents to avoid floating-point drift.
+function calcBalance(amountReceived, payAmount) {
+  if (amountReceived == null) return null;
+  return Math.round(Number(amountReceived) * 100 - Number(payAmount) * 100) / 100;
+}
+
+// pg returns NUMERIC as strings — convert, and add a summary the cashier screen
+// can show directly: total bill, amount paid by the customer, change to return.
+// Non-cash (or cash with no tender recorded): amount paid = bill, change = 0.
+function formatPayment(row) {
+  if (!row) return row;
+  const pay_amount = Number(row.pay_amount);
+  const pay_amount_received = row.pay_amount_received != null ? Number(row.pay_amount_received) : null;
+  const pay_balance = row.pay_balance != null ? Number(row.pay_balance) : null;
+  return {
+    ...row,
+    pay_amount,
+    pay_amount_received,
+    pay_balance,
+    summary: {
+      total_bill: pay_amount,
+      amount_paid: pay_amount_received ?? pay_amount,
+      balance: pay_balance ?? 0,
+    },
+  };
+}
+
 // ─── DB error handler ─────────────────────────────────────────────────────────
 const handleDbError = (err, res, next) => {
   if (err.code === "23503") {
@@ -45,6 +93,12 @@ const handleDbError = (err, res, next) => {
   }
   if (err.code === "23514") {
     // CHECK constraint violation
+    if (err.constraint === "payment_cash_tender_chk") {
+      return res.status(422).json({
+        success: false,
+        message: "pay_amount_received must cover pay_amount (total bill).",
+      });
+    }
     return res.status(422).json({
       success: false,
       message:
@@ -196,7 +250,8 @@ export async function getPayments(req, res, next) {
     ] = await Promise.all([
       pool.query(`SELECT COUNT(*) FROM "Payment" ${where}`, values),
       pool.query(
-        `SELECT p_id, pay_method, pay_status, pay_date, pay_amount, or_id
+        `SELECT p_id, pay_method, pay_status, pay_date, pay_amount,
+                pay_amount_received, pay_balance, or_id
          FROM "Payment" ${where}
          ORDER BY pay_date DESC, p_id DESC
          LIMIT $${idx++} OFFSET $${idx++}`,
@@ -206,7 +261,7 @@ export async function getPayments(req, res, next) {
 
     res.json({
       success: true,
-      data,
+      data: data.map(formatPayment),
       meta: {
         total: +count,
         page: +page,
@@ -238,7 +293,7 @@ export async function getPaymentById(req, res, next) {
         .json({ success: false, message: "Payment not found" });
     }
 
-    res.json({ success: true, data: rows[0] });
+    res.json({ success: true, data: formatPayment(rows[0]) });
   } catch (err) {
     next(err);
   }
@@ -284,6 +339,8 @@ export const createPaymentValidation = [
       }
       return true;
     }),
+
+  v_amountReceived,
 
   // or_id — FK → public.ORDER(or_id), NOT NULL
   body("or_id")
@@ -332,16 +389,20 @@ export async function createPayment(req, res, next) {
       pay_status = "paid", // Defaults to 'paid' if not provided
       pay_date,
       pay_amount,
+      pay_amount_received = null,
       or_id,
     } = req.body;
+
+    // Balance (change) to return to the customer — always computed server-side
+    const pay_balance = calcBalance(pay_amount_received, pay_amount);
 
     await client.query('BEGIN');
 
     const paymentResult = await client.query(
-      `INSERT INTO "Payment" (pay_method, pay_status, pay_date, pay_amount, or_id)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO "Payment" (pay_method, pay_status, pay_date, pay_amount, pay_amount_received, pay_balance, or_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [pay_method, pay_status, pay_date, pay_amount, or_id],
+      [pay_method, pay_status, pay_date, pay_amount, pay_amount_received, pay_balance, or_id],
     );
 
     let updatedTableId = null;
@@ -362,7 +423,7 @@ export async function createPayment(req, res, next) {
       emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: updatedTableId, table_status: 'available', branch_id: branchId }, { room: `branch-updates` });
     }
 
-    res.status(201).json({ success: true, data: paymentResult.rows[0] });
+    res.status(201).json({ success: true, data: formatPayment(paymentResult.rows[0]) });
   } catch (err) {
     await client.query('ROLLBACK');
     handleDbError(err, res, next);
@@ -444,6 +505,8 @@ export const updatePaymentValidation = [
       return true;
     }),
 
+  v_amountReceived,
+
   body("or_id")
     .notEmpty()
     .withMessage("or_id is required")
@@ -479,21 +542,41 @@ export async function updatePayment(req, res, next) {
 
     // Retrieve current status to detect transition
     const { rows: prevRows } = await pool.query(
-      'SELECT pay_status FROM "Payment" WHERE p_id = $1',
+      'SELECT pay_status, pay_amount_received FROM "Payment" WHERE p_id = $1',
       [id]
     );
     const prevStatus = prevRows[0]?.pay_status;
 
+    // Cash tender: use the new value if sent, otherwise keep the stored one.
+    // Non-cash payments never carry a tender or change.
+    let pay_amount_received = null;
+    if (pay_method === "cash") {
+      pay_amount_received =
+        req.body.pay_amount_received !== undefined
+          ? req.body.pay_amount_received
+          : prevRows[0]?.pay_amount_received ?? null;
+      if (pay_amount_received != null && Number(pay_amount_received) < pay_amount) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "The stored pay_amount_received no longer covers the new pay_amount — send a new pay_amount_received.",
+        });
+      }
+    }
+    const pay_balance = calcBalance(pay_amount_received, pay_amount);
+
     const { rows } = await pool.query(
       `UPDATE "Payment"
-       SET pay_method = $1,
-           pay_status = $2,
-           pay_date   = $3,
-           pay_amount = $4,
-           or_id      = $5
-       WHERE p_id = $6
+       SET pay_method          = $1,
+           pay_status          = $2,
+           pay_date            = $3,
+           pay_amount          = $4,
+           or_id               = $5,
+           pay_amount_received = $6,
+           pay_balance         = $7
+       WHERE p_id = $8
        RETURNING *`,
-      [pay_method, pay_status, pay_date, pay_amount, or_id, id],
+      [pay_method, pay_status, pay_date, pay_amount, or_id, pay_amount_received, pay_balance, id],
     );
 
     let updatedTableId = null;
@@ -517,12 +600,14 @@ export async function updatePayment(req, res, next) {
         .json({ success: false, message: "Payment not found" });
     }
 
-      // Emit socket event to all clients for real-time updates across roles
-      emitSocketEvent("payment:completed", rows[0]);
-      // Also emit to admin payment room for admin-specific listeners
-      emitSocketEvent("payment:completed", rows[0], { room: ADMIN_PAYMENT_ROOM });
+    const payment = formatPayment(rows[0]);
 
-    res.json({ success: true, data: rows[0] });
+      // Emit socket event to all clients for real-time updates across roles
+      emitSocketEvent("payment:completed", payment);
+      // Also emit to admin payment room for admin-specific listeners
+      emitSocketEvent("payment:completed", payment, { room: ADMIN_PAYMENT_ROOM });
+
+    res.json({ success: true, data: payment });
   } catch (err) {
     handleDbError(err, res, next);
   }
