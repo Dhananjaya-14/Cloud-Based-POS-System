@@ -238,6 +238,15 @@ const WasteManagement = () => {
     }
   };
 
+  const user = useMemo(() => {
+    try {
+      return JSON.parse(localStorage.getItem("user") || "{}");
+    } catch {
+      return {};
+    }
+  }, []);
+  const branchSubtitle = user?.B_name ? `${user.B_name} branch` : "Kadawatha branch";
+
   // Determine the base unit of the currently selected item
   const selectedBaseUnit = selectedItem.startsWith('rm_') ? rawMaterials.find(m => String(m.rm_id) === String(selectedItem.replace('rm_', '')))?.unit || 'pcs' : 'pcs';
   const filteredRecords = useMemo(() => {
@@ -256,125 +265,206 @@ const WasteManagement = () => {
   }, [wasteRecords, searchTerm, typeFilter]);
   const rmCount = wasteRecords.filter(r => r.rm_id).length;
   const proCount = wasteRecords.filter(r => r.pro_id).length;
-  return <div className="font-sans bg-gray-50">
-    <Sidebar />
-    {toast.show && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast({
-      ...toast,
-      show: false
-    })} />}
-    <div className="flex flex-col h-screen overflow-hidden" style={{
-      marginLeft: 240
-    }}>
-      <Header title={t("branch_admin.waste_management", "Waste Management")} />
-      <main className="flex-1 overflow-y-auto p-4 lg:p-8">
-        <div className="max-w-7xl mx-auto space-y-6">
 
-          {/* Header Section */}
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{t("branch_admin.waste_management", "Waste Management")}</h1>
-              <p className="text-sm text-gray-500 mt-1">{t("branch_admin.track_and_manage_inventory_wastage", "Track and manage inventory wastage")}</p>
+  return (
+    <div className="font-sans bg-[#FAF8F5] min-h-screen">
+      <Sidebar />
+      {toast.show && <ToastMessage message={toast.message} type={toast.type} onClose={() => setToast({
+        ...toast,
+        show: false
+      })} />}
+      <div className="flex flex-col h-screen overflow-hidden" style={{
+        marginLeft: 240
+      }}>
+        <Header title={t("branch_admin.inventory_management", "Inventory Management")} subtitle={branchSubtitle} />
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-[#FAF8F5]">
+          <div className="w-full space-y-6">
+
+            {/* Header Section */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h1 className="text-2xl font-bold text-[#0B192C] tracking-tight">{t("branch_admin.waste_management", "Waste Management")}</h1>
+                <p className="text-sm text-gray-500 mt-1">{t("branch_admin.track_and_manage_inventory_wastage", "Track and manage inventory wastage")}</p>
+              </div>
+              <button onClick={() => setShowAddModal(true)} className="bg-[#0B192C] hover:bg-[#14263f] text-white px-4 py-2 rounded-lg font-medium text-sm transition-all shadow-sm flex items-center gap-1.5 cursor-pointer">
+                <span className="text-base font-bold leading-none">+</span>
+                <span>{t("branch_admin.record_waste", "Record Waste")}</span>
+              </button>
             </div>
-            <button onClick={() => setShowAddModal(true)} className="bg-[#0E6DCF] hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-medium transition-all shadow-sm flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
-              </svg>{t("branch_admin.record_waste", "Record Waste")}</button>
-          </div>
 
-          {error && <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
-            <p className="text-red-700 text-sm font-medium">{error}</p>
-          </div>}
+            {error && <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+              <p className="text-red-700 text-sm font-medium">{error}</p>
+            </div>}
 
-          {/* Filter tabs */}
-          <div className="flex gap-3">
-            <button onClick={() => setTypeFilter("all")} className={`px-4 py-2 rounded-full text-sm font-semibold transition ${typeFilter === "all" ? "bg-[#0E6DCF] text-white" : "bg-white text-gray-600 border border-gray-200"}`}>{t("branch_admin.all", "All (")}{wasteRecords.length})
-            </button>
-            <button onClick={() => setTypeFilter("rm")} className={`px-4 py-2 rounded-full text-sm font-semibold transition ${typeFilter === "rm" ? "bg-amber-500 text-white" : "bg-white text-gray-600 border border-gray-200"}`}>{t("branch_admin.ingredients", "Ingredients (")}{rmCount})
-            </button>
-            <button onClick={() => setTypeFilter("pro")} className={`px-4 py-2 rounded-full text-sm font-semibold transition ${typeFilter === "pro" ? "bg-emerald-500 text-white" : "bg-white text-gray-600 border border-gray-200"}`}>{t("branch_admin.finished_products", "Finished Products (")}{proCount})
-            </button>
-          </div>
-
-          {/* Search bar */}
-          <div className="flex items-center gap-2 bg-white rounded-xl shadow-sm border border-gray-200 px-4 py-2.5 max-w-md">
-            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
-            </svg>
-            <input type="text" placeholder={t("branch_admin.search_by_item_name_or_reason", "Search by item name or reason...")} value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full text-sm outline-none text-gray-700 placeholder-gray-400" />
-            {searchTerm && <button onClick={() => setSearchTerm("")} className="text-gray-400 hover:text-gray-600 text-sm">✕</button>}
-          </div>
-
-          {/* Waste Records Table */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-50/50 border-b border-gray-100">
-                    <th className="py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider">{t("branch_admin.item_name", "Item Name")}</th>
-                    <th className="py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider">{t("branch_admin.type", "Type")}</th>
-                    <th className="py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider">{t("branch_admin.quantity_wasted", "Quantity Wasted")}</th>
-                    <th className="py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider">{t("branch_admin.reason", "Reason")}</th>
-                    <th className="py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider">{t("branch_admin.date", "Date")}</th>
-                    <th className="py-4 px-6 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-right">{t("branch_admin.actions", "Actions")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {isLoading ? <tr>
-                    <td colSpan="6" className="py-8 text-center text-gray-400 text-sm">{t("branch_admin.loading_records", "Loading records...")}</td>
-                  </tr> : filteredRecords.length === 0 ? <tr>
-                    <td colSpan="6" className="py-8 text-center text-gray-400 text-sm">
-                      {wasteRecords.length === 0 ? "No waste records found" : "No records match your search/filter"}
-                    </td>
-                  </tr> : filteredRecords.map(record => <tr key={record.waste_id} className="hover:bg-gray-50/50 transition-colors">
-                    <td className="py-4 px-6">
-                      <span className="text-sm font-semibold text-gray-900">
-                        {record.rm_name || record.pro_name || "Unknown Item"}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-sm text-gray-700">
-                      {record.rm_id ? 'Ingredient' : 'Finished Product'}
-                    </td>
-                    <td className="py-4 px-6 text-sm text-gray-700">
-                      {Number(record.waste_qty).toFixed(3)} {record.unit || (record.rm_id ? 'unit' : 'pcs')}
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="text-sm text-gray-600 truncate max-w-[200px] block" title={record.reason}>
-                        {record.reason || <span className="text-gray-400 italic">{t("branch_admin.no_reason_provided", "No reason provided")}</span>}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6">
-                      <span className="text-sm text-gray-500 whitespace-nowrap">
-                        {new Date(record.recorded_at).toLocaleDateString('en-GB')}
-                      </span>
-                    </td>
-                    <td className="py-4 px-6 text-right">
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => openEditModal(record)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="Edit Record">
-                          ✏️
-                        </button>
-                        <button onClick={() => setDeleteTarget(record)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Delete Record">
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>)}
-                </tbody>
-              </table>
+            {/* Filter tabs */}
+            <div className="flex gap-2.5">
+              <button
+                onClick={() => setTypeFilter("all")}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                  typeFilter === "all"
+                    ? "bg-[#0B192C] text-white shadow-sm"
+                    : "bg-white text-gray-600 border border-[#E2DDD3] hover:bg-gray-50"
+                }`}
+              >
+                {t("branch_admin.all", "All")} ({wasteRecords.length})
+              </button>
+              <button
+                onClick={() => setTypeFilter("rm")}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                  typeFilter === "rm"
+                    ? "bg-[#0B192C] text-white shadow-sm"
+                    : "bg-white text-gray-600 border border-[#E2DDD3] hover:bg-gray-50"
+                }`}
+              >
+                {t("branch_admin.ingredients", "Ingredients")} ({rmCount})
+              </button>
+              <button
+                onClick={() => setTypeFilter("pro")}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition cursor-pointer ${
+                  typeFilter === "pro"
+                    ? "bg-[#0B192C] text-white shadow-sm"
+                    : "bg-white text-gray-600 border border-[#E2DDD3] hover:bg-gray-50"
+                }`}
+              >
+                {t("branch_admin.finished_products", "Finished Products")} ({proCount})
+              </button>
             </div>
-          </div>
 
-        </div>
-      </main>
-    </div>
+            {/* Combined Search Toolbar & Waste Records Table Card */}
+            <div className="bg-white rounded-2xl shadow-sm border border-[#E7E2D9] overflow-hidden">
+              {/* Toolbar containing search field */}
+              <div className="p-4 sm:p-5">
+                <div className="relative max-w-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                    </svg>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder={t("branch_admin.search_by_item_name_or_reason", "Search by item name or reason...")}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 text-xs sm:text-sm bg-white border border-[#E2DDD3] rounded-lg outline-none text-gray-700 placeholder-gray-400 focus:border-[#0B192C] transition-colors"
+                  />
+                  {searchTerm && (
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600 text-xs cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Subtle divider above table headers */}
+              <div className="border-b border-[#EAE5DC]" />
+
+              {/* Table or Empty State */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-[#FAF8F5] border-b border-[#EAE5DC]">
+                    <tr>
+                      <th className="py-3.5 px-6 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("branch_admin.item_name", "ITEM NAME")}</th>
+                      <th className="py-3.5 px-6 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("branch_admin.type", "TYPE")}</th>
+                      <th className="py-3.5 px-6 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("branch_admin.quantity_wasted", "QUANTITY WASTED")}</th>
+                      <th className="py-3.5 px-6 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("branch_admin.reason", "REASON")}</th>
+                      <th className="py-3.5 px-6 text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{t("branch_admin.date", "DATE")}</th>
+                      <th className="py-3.5 px-6 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">{t("branch_admin.actions", "ACTIONS")}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0ECE4]">
+                    {isLoading ? (
+                      <tr>
+                        <td colSpan="6" className="py-16 text-center text-gray-400 text-sm">
+                          {t("branch_admin.loading_records", "Loading records...")}
+                        </td>
+                      </tr>
+                    ) : filteredRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan="6" className="py-20">
+                          <div className="flex flex-col items-center justify-center text-center px-4">
+                            <div className="w-12 h-12 rounded-xl bg-[#FAF8F5] border border-[#E7E2D9] flex items-center justify-center text-gray-400 mb-3 shadow-2xs">
+                              <svg className="w-6 h-6 stroke-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </div>
+                            <h3 className="text-sm font-bold text-[#0B192C]">
+                              {wasteRecords.length === 0 ? "No waste records found" : "No matching waste records"}
+                            </h3>
+                            <p className="text-xs text-gray-400 mt-1 max-w-sm">
+                              {wasteRecords.length === 0
+                                ? "Records will appear here once you log wasted ingredients or finished products."
+                                : "Try adjusting your search or filter to find what you're looking for."}
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRecords.map((record) => (
+                        <tr key={record.waste_id} className="hover:bg-[#FAF8F5]/60 transition-colors">
+                          <td className="py-4 px-6">
+                            <span className="text-sm font-semibold text-[#0B192C]">
+                              {record.rm_name || record.pro_name || "Unknown Item"}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-sm text-gray-600">
+                            {record.rm_id ? "Ingredient" : "Finished Product"}
+                          </td>
+                          <td className="py-4 px-6 text-sm text-gray-700">
+                            {Number(record.waste_qty).toFixed(3)} {record.unit || (record.rm_id ? "unit" : "pcs")}
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className="text-sm text-gray-500 truncate max-w-[220px] block" title={record.reason}>
+                              {record.reason || <span className="text-gray-400 italic text-xs">{t("branch_admin.no_reason_provided", "No reason provided")}</span>}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className="text-sm text-gray-500 whitespace-nowrap">
+                              {new Date(record.recorded_at).toLocaleDateString("en-GB")}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <div className="flex justify-end items-center gap-2">
+                              <button
+                                onClick={() => openEditModal(record)}
+                                className="p-1.5 text-[#F97316] hover:text-[#EA580C] hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                                title="Edit Record"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setDeleteTarget(record)}
+                                className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Record"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </main>
+      </div>
 
     {/* Add Waste Modal */}
     {showAddModal && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden border border-[#E7E2D9]">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h2 className="text-lg font-bold text-gray-900">{t("branch_admin.record_wastage", "Record Wastage")}</h2>
-          <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors">
+          <h2 className="text-lg font-bold text-[#0B192C]">{t("branch_admin.record_wastage", "Record Wastage")}</h2>
+          <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors cursor-pointer">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -392,7 +482,7 @@ const WasteManagement = () => {
           <div className="space-y-4">
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t("branch_admin.select_item", "Select Item")}</label>
-              <select className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] focus:border-transparent transition-shadow outline-none" value={selectedItem} onChange={e => setSelectedItem(e.target.value)} required>
+              <select className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0B192C] focus:border-[#0B192C] transition-shadow outline-none" value={selectedItem} onChange={e => setSelectedItem(e.target.value)} required>
                 <option value="" disabled>{t("branch_admin.choose_an_item", "Choose an item...")}</option>
                 <optgroup label="Ingredients (Raw Materials)">
                   {rawMaterials.map(m => <option key={`rm_${m.rm_id || m.id}`} value={`rm_${m.rm_id || m.id}`}>
@@ -409,12 +499,12 @@ const WasteManagement = () => {
             <div className="flex gap-4">
               <div className="flex-1">
                 <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t("branch_admin.quantity", "Quantity")}</label>
-                <input type="number" step="0.001" min="0.001" className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] focus:border-transparent transition-shadow outline-none" value={wasteQty} onChange={e => setWasteQty(e.target.value)} placeholder={t("branch_admin.e_g_2_5", "e.g. 2.5")} required />
+                <input type="number" step="0.001" min="0.001" className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0B192C] focus:border-[#0B192C] transition-shadow outline-none" value={wasteQty} onChange={e => setWasteQty(e.target.value)} placeholder={t("branch_admin.e_g_2_5", "e.g. 2.5")} required />
               </div>
 
               <div className="w-[120px]">
                 <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t("branch_admin.unit", "Unit")}</label>
-                <select className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] focus:border-transparent transition-shadow outline-none bg-gray-50" value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)} required disabled={!selectedItem}>
+                <select className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0B192C] focus:border-[#0B192C] transition-shadow outline-none bg-gray-50" value={selectedUnit} onChange={e => setSelectedUnit(e.target.value)} required disabled={!selectedItem}>
                   <option value="" disabled>{t("branch_admin.unit", "Unit")}</option>
                   {selectedItem && getAvailableUnits(selectedBaseUnit).map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -423,13 +513,13 @@ const WasteManagement = () => {
 
             <div>
               <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t("branch_admin.reason_optional", "Reason (Optional)")}</label>
-              <textarea className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] focus:border-transparent transition-shadow outline-none resize-none" rows="3" value={reason} onChange={e => setReason(e.target.value)} placeholder={t("branch_admin.why_is_this_being_recorded_as_waste", "Why is this being recorded as waste?")} />
+              <textarea className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0B192C] focus:border-[#0B192C] transition-shadow outline-none resize-none" rows="3" value={reason} onChange={e => setReason(e.target.value)} placeholder={t("branch_admin.why_is_this_being_recorded_as_waste", "Why is this being recorded as waste?")} />
             </div>
           </div>
 
           <div className="pt-4 flex gap-3">
-            <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
-            <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2.5 bg-[#0E6DCF] hover:bg-blue-700 text-white rounded-xl font-medium transition-colors disabled:opacity-70 flex justify-center items-center gap-2">
+            <button type="button" onClick={() => setShowAddModal(false)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 transition-colors cursor-pointer">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+            <button type="submit" disabled={isSubmitting} className="flex-1 px-4 py-2.5 bg-[#0B192C] hover:bg-[#14263f] text-white rounded-xl font-medium transition-colors disabled:opacity-70 flex justify-center items-center gap-2 cursor-pointer">
               {isSubmitting ? <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>{t("branch_admin.saving", t("buttons.saving", "Saving..."))}</> : t("branch_admin.confirm_waste", "Confirm Waste")}
             </button>
@@ -440,14 +530,14 @@ const WasteManagement = () => {
 
     {/* Delete Confirmation */}
     {deleteTarget && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl p-6 text-center border border-[#E7E2D9]">
         <div className="w-14 h-14 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4 text-xl">🗑️</div>
-        <h3 className="text-lg font-bold text-gray-900 mb-2">{t("branch_admin.delete_waste_record", "Delete Waste Record?")}</h3>
+        <h3 className="text-lg font-bold text-[#0B192C] mb-2">{t("branch_admin.delete_waste_record", "Delete Waste Record?")}</h3>
         <p className="text-sm text-gray-500 mb-6">{t("branch_admin.this_will_remove_the_waste_record_for", "This will remove the waste record for")}{" "}
-          <span className="font-semibold">{deleteTarget.rm_name || deleteTarget.pro_name}</span>{t("branch_admin.and_restore", "and restore")}{" "}{Number(deleteTarget.waste_qty).toFixed(3)} {deleteTarget.unit || 'unit'}{t("branch_admin.back_to_stock", "back to stock.")}</p>
+          <span className="font-semibold text-gray-800">{deleteTarget.rm_name || deleteTarget.pro_name}</span>{t("branch_admin.and_restore", "and restore")}{" "}{Number(deleteTarget.waste_qty).toFixed(3)} {deleteTarget.unit || 'unit'}{t("branch_admin.back_to_stock", "back to stock.")}</p>
         <div className="flex gap-3">
-          <button onClick={() => setDeleteTarget(null)} disabled={isDeleting} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 font-semibold rounded-xl">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
-          <button onClick={confirmDelete} disabled={isDeleting} className="flex-1 px-4 py-2.5 bg-red-600 text-white font-semibold rounded-xl disabled:opacity-70">
+          <button onClick={() => setDeleteTarget(null)} disabled={isDeleting} className="flex-1 px-4 py-2.5 bg-gray-100 text-gray-600 font-semibold rounded-xl hover:bg-gray-200 cursor-pointer">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+          <button onClick={confirmDelete} disabled={isDeleting} className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl disabled:opacity-70 cursor-pointer">
             {isDeleting ? t("buttons.deleting", "Deleting...") : t("buttons.delete", "Delete")}
           </button>
         </div>
@@ -456,10 +546,10 @@ const WasteManagement = () => {
 
     {/* Edit Waste Modal */}
     {editTarget && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden border border-[#E7E2D9]">
         <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <h2 className="text-lg font-bold text-gray-900">{t("branch_admin.edit_waste_record", "Edit Waste Record")}</h2>
-          <button onClick={() => setEditTarget(null)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors">
+          <h2 className="text-lg font-bold text-[#0B192C]">{t("branch_admin.edit_waste_record", "Edit Waste Record")}</h2>
+          <button onClick={() => setEditTarget(null)} className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 p-1.5 rounded-lg transition-colors cursor-pointer">
             ✕
           </button>
         </div>
@@ -473,24 +563,25 @@ const WasteManagement = () => {
             </p>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t("branch_admin.quantity_wasted", "Quantity Wasted (")}{editTarget.unit || (editTarget.rm_id ? 'unit' : 'pcs')})
             </label>
-            <input type="number" step="0.001" min="0.001" className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] outline-none" value={editQty} onChange={e => setEditQty(e.target.value)} required />
+            <input type="number" step="0.001" min="0.001" className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0B192C] focus:border-[#0B192C] outline-none" value={editQty} onChange={e => setEditQty(e.target.value)} required />
             <p className="mt-2 text-xs text-gray-400">{t("branch_admin.increasing_this_removes_more_from_stock_", "Increasing this removes more from stock; decreasing it adds the difference back.")}</p>
           </div>
 
           <div>
             <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-2">{t("branch_admin.reason", "Reason")}</label>
-            <textarea className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0E6DCF] outline-none resize-none" rows="3" value={editReason} onChange={e => setEditReason(e.target.value)} />
+            <textarea className="w-full border-gray-200 border rounded-xl p-3 text-sm focus:ring-2 focus:ring-[#0B192C] focus:border-[#0B192C] outline-none resize-none" rows="3" value={editReason} onChange={e => setEditReason(e.target.value)} />
           </div>
 
           <div className="pt-2 flex gap-3">
-            <button type="button" onClick={() => setEditTarget(null)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
-            <button type="submit" disabled={isEditing} className="flex-1 px-4 py-2.5 bg-[#0E6DCF] hover:bg-blue-700 text-white rounded-xl font-medium disabled:opacity-70">
+            <button type="button" onClick={() => setEditTarget(null)} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-medium hover:bg-gray-50 cursor-pointer">{t("branch_admin.cancel", t("buttons.cancel", "Cancel"))}</button>
+            <button type="submit" disabled={isEditing} className="flex-1 px-4 py-2.5 bg-[#0B192C] hover:bg-[#14263f] text-white rounded-xl font-medium disabled:opacity-70 cursor-pointer">
               {isEditing ? t("buttons.saving", "Saving...") : t("buttons.save_changes", "Save Changes")}
             </button>
           </div>
         </form>
       </div>
     </div>}
-  </div>;
+  </div>
+  );
 };
 export default WasteManagement;
