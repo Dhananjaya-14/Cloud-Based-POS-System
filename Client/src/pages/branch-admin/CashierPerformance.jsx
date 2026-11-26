@@ -13,16 +13,14 @@ import {
 	Legend,
 	Filler,
 } from "chart.js";
-import { FaDownload, FaChevronDown, FaCheck } from "react-icons/fa";
+import { FaChevronDown, FaCheck } from "react-icons/fa";
+import { Banknote, Calendar, Clock, Download, Star } from "lucide-react";
 import * as XLSX from "xlsx";
 import Sidebar from "../../layout/slidebar";
 import Header from "../../layout/header";
 import { useAuth } from "../../context/AuthContext";
 import { getOrders, getUsers, getCashierPerformanceReport } from "../../services/api";
 import { connectSocket, subscribeToBranchAdminDashboardUpdates } from "../../services/socket";
-import topPerformerIcon from "../../assets/images/top performer.png";
-import timeIcon from "../../assets/images/time.png";
-import salesIcon from "../../assets/images/sales.png";
 
 ChartJS.register(
 	CategoryScale,
@@ -164,6 +162,16 @@ const TIME_RANGE_OPTIONS = [
 	{ key: "monthly", label: "This Month", translationKey: "branch_admin.this_month" },
 	{ key: "90days", label: "Last 90 Days", translationKey: "branch_admin.last_90_days" },
 ];
+
+const KpiCard = ({ icon, tone, label, value }) => (
+	<div className="flex items-center gap-3.5 rounded-[14px] border border-[#E7E3D8] bg-white p-5">
+		<div className={`flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-[11px] ${tone}`}>{icon}</div>
+		<div className="min-w-0">
+			<div className="mb-[3px] text-[12.5px] text-[#5B6470]">{label}</div>
+			<div className="truncate font-space text-[17px] font-bold text-[#071E38]">{value}</div>
+		</div>
+	</div>
+);
 
 const CashierPerformance = () => {
 	const { t } = useTranslation();
@@ -475,9 +483,11 @@ const CashierPerformance = () => {
 				{
 					label: "Primary Revenue",
 					data: topEntries.map((entry) => entry.revenue),
-					backgroundColor: "#0D5EA8",
-					borderRadius: 12,
-					barThickness: 26,
+					backgroundColor: "#0F9B8E",
+					hoverBackgroundColor: "#0C8579",
+					borderRadius: { topLeft: 6, topRight: 6, bottomLeft: 0, bottomRight: 0 },
+					borderSkipped: false,
+					maxBarThickness: 44,
 				},
 			],
 		};
@@ -488,20 +498,29 @@ const CashierPerformance = () => {
 		maintainAspectRatio: false,
 		plugins: { legend: { display: false }, tooltip: { enabled: true } },
 		scales: {
-			x: { grid: { display: false }, ticks: { color: "#94A3B8", font: { size: 10 } } },
-			y: { display: false, grid: { display: false } },
+			x: {
+				grid: { display: false },
+				border: { color: "#E7E3D8" },
+				ticks: { color: "#5B6470", font: { size: 12 } },
+			},
+			y: {
+				beginAtZero: true,
+				grid: { display: false },
+				border: { color: "#E7E3D8" },
+				ticks: { display: false },
+			},
 		},
 	};
 
 	const statusForCashier = (cashier, index) => {
-		if (index === 0 && cashier.revenue > 0) return { label: "Top Performer", color: "bg-green-100 text-green-700" };
+		if (index === 0 && cashier.revenue > 0) return { label: "Top Performer", color: "bg-[rgba(60,174,73,0.12)] text-[#3CAE49]" };
 		if (cashier.revenue >= avgOrderValue * cashier.orders && cashier.orders > 0) {
-			return { label: "High Efficiency", color: "bg-emerald-100 text-emerald-700" };
+			return { label: "High Efficiency", color: "bg-[rgba(15,155,142,0.1)] text-[#0F9B8E]" };
 		}
 		if (cashier.revenue >= totalRevenue * 0.2 && cashier.revenue > 0) {
-			return { label: "Steady", color: "bg-sky-100 text-sky-700" };
+			return { label: "Steady", color: "bg-[rgba(11,46,79,0.07)] text-[#0B2E4F]" };
 		}
-		return { label: "Needs Attention", color: "bg-rose-100 text-rose-700" };
+		return { label: "Needs Attention", color: "bg-[rgba(224,101,79,0.12)] text-[#E0654F]" };
 	};
 
 	const exportReport = async () => {
@@ -586,31 +605,38 @@ const CashierPerformance = () => {
 		}
 	};
 
+	const thClass = "whitespace-nowrap border-b border-[#E7E3D8] py-3 pr-4 text-left text-[10.5px] font-bold uppercase tracking-[0.05em] text-[#5B6470]";
+	const tdClass = "border-b border-[#E7E3D8] py-3.5 pr-4 text-[13.5px] text-[#1A1A1A]";
+	const pagerBtnClass = "whitespace-nowrap rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-3.5 py-1.5 text-[12.5px] font-semibold text-[#071E38] transition-colors hover:border-[#0F9B8E] hover:text-[#0F9B8E] disabled:cursor-not-allowed disabled:text-[#9CA3AF] disabled:opacity-60 disabled:hover:border-[#E7E3D8]";
+
 	return (
-		<>
+		<div className="flex min-h-screen bg-[#F7F5F0]">
 			<Sidebar />
-			<div style={{ marginLeft: 240, background: "#F4F6FB", minHeight: "100vh" }}>
+			<div className="ml-[240px] min-w-0 flex-1">
 				<Header title={t("branch_admin.cashier_performance", "Cashier Performance")} showAddUserIcon={false} />
 
-				<div className="p-8">
-					<div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-						<h2 className="text-[22px] font-bold text-slate-900">{t("branch_admin.cashier_performance", "Cashier Performance")}</h2>
-						<div className="flex items-center gap-3">
+				<div className="px-9 py-8">
+					<div className="mb-[22px] flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+						<div>
+							<h2 className="m-0 mb-1 font-space text-xl font-bold text-[#071E38]">{t("branch_admin.cashier_performance", "Cashier Performance")}</h2>
+							<p className="m-0 text-[13px] text-[#5B6470]">{t("branch_admin.how_each_cashier_is_performing_this_period", "How each cashier is performing this period")}</p>
+						</div>
+						<div className="flex shrink-0 items-center gap-2.5">
 							<div className="relative" ref={dropdownRef}>
 								<button
 									type="button"
 									onClick={() => setIsDropdownOpen((prev) => !prev)}
 									aria-expanded={isDropdownOpen}
 									aria-haspopup="true"
-									className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+									className="inline-flex h-[38px] cursor-pointer items-center gap-[7px] rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-4 text-[13px] font-semibold text-[#071E38] transition-colors hover:border-[#0F9B8E] hover:text-[#0F9B8E]"
 								>
-									<span className="text-slate-400">📅</span>
+									<Calendar size={14} strokeWidth={1.8} />
 									<span>{currentRangeLabel}</span>
-									<FaChevronDown className={`text-slate-400 text-[10px] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+									<FaChevronDown className={`text-[10px] text-[#9CA3AF] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
 								</button>
 
 								{isDropdownOpen && (
-									<div className="absolute right-0 mt-2 w-48 rounded-2xl bg-white p-1.5 shadow-xl border border-slate-100 z-50">
+									<div className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-[#E7E3D8] bg-white p-1.5 shadow-xl">
 										{TIME_RANGE_OPTIONS.map((opt) => {
 											const isSelected = timeRange === opt.key;
 											return (
@@ -621,14 +647,14 @@ const CashierPerformance = () => {
 														setTimeRange(opt.key);
 														setIsDropdownOpen(false);
 													}}
-													className={`w-full text-left px-3 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
+													className={`flex w-full cursor-pointer items-center justify-between rounded-lg border-0 px-3 py-2 text-left text-[12.5px] transition-colors ${
 														isSelected
-															? "bg-sky-50 text-[#0D5EA8] font-semibold"
-															: "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+															? "bg-[rgba(15,155,142,0.1)] font-semibold text-[#0F9B8E]"
+															: "bg-transparent font-medium text-[#5B6470] hover:bg-[#FBFAF7] hover:text-[#071E38]"
 													}`}
 												>
 													<span>{t(opt.translationKey, opt.label)}</span>
-													{isSelected && <FaCheck className="text-xs text-[#0D5EA8]" />}
+													{isSelected && <FaCheck className="text-xs text-[#0F9B8E]" />}
 												</button>
 											);
 										})}
@@ -639,120 +665,65 @@ const CashierPerformance = () => {
 								type="button"
 								onClick={exportReport}
 								disabled={isExporting}
-								className="flex items-center gap-2 rounded-full bg-[#0D5EA8] px-4 py-2 text-xs font-semibold text-white shadow disabled:opacity-50"
+								className="inline-flex h-[38px] cursor-pointer items-center gap-[7px] rounded-lg border-0 bg-[#071E38] px-4 text-[13px] font-semibold text-white transition-colors hover:bg-[#0F9B8E] disabled:cursor-not-allowed disabled:opacity-50"
 							>
-								<FaDownload />
+								<Download size={14} strokeWidth={2} />
 								{isExporting ? t("branch_admin.exporting", "Exporting...") : t("branch_admin.export_report", "Export Report")}
 							</button>
 						</div>
 					</div>
 
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-						<div
-							className="rounded-2xl px-5 py-4 flex items-center gap-4"
-							style={{ backgroundColor: "#B7F5BC" }}
-						>
-							<div className="w-10 h-10 rounded-full  flex items-center justify-center">
-								<img
-									src={topPerformerIcon}
-									alt="Top performer"
-									className="h-10 w-10 object-contain"
-								/>
-							</div>
-							<div>
-								<div className="text-xs font-semibold text-gray-700">{t("branch_admin.top_performer", "Top Performer")}</div>
-								<div className="text-sm font-semibold text-slate-900">
-									{isLoading ? "..." : topCashier?.name || "-"}
-								</div>
-							</div>
-						</div>
-
-						<div
-							className="rounded-2xl px-5 py-4 flex items-center gap-4"
-							style={{ backgroundColor: "#FFC0D4" }}
-						>
-							<div className="w-10 h-10 rounded-full flex items-center justify-center">
-								<img
-									src={timeIcon}
-									alt="Average processing time"
-									className="h-10 w-10 object-contain"
-								/>
-							</div>
-							<div>
-								<div className="text-xs font-semibold text-gray-700">{t("branch_admin.avg_processing_time", "AVG Processing Time")}</div>
-								<div className="text-sm font-semibold text-slate-900">
-									{isLoading ? "..." : avgProcessingTime}
-								</div>
-							</div>
-						</div>
-
-						<div
-							className="rounded-2xl px-5 py-4 flex items-center gap-4"
-							style={{ backgroundColor: "#A8E6FF" }}
-						>
-							<div className="w-10 h-10 rounded-full  flex items-center justify-center">
-								<img
-									src={salesIcon}
-									alt="Total branch sales"
-									className="h-10 w-10 object-contain"
-								/>
-							</div>
-							<div>
-								<div className="text-xs font-semibold text-gray-700">{t("branch_admin.total_branch_sales", "Total Branch Sales")}</div>
-								<div className="text-sm font-semibold text-slate-900">
-									{isLoading ? "..." : formatCurrency(totalRevenue)}
-								</div>
-							</div>
-						</div>
+					<div className="mb-5 grid grid-cols-1 gap-[18px] md:grid-cols-3">
+						<KpiCard icon={<Star size={20} strokeWidth={1.8} />} tone="bg-[rgba(217,161,92,0.15)] text-[#D9A15C]" label={t("branch_admin.top_performer", "Top Performer")} value={isLoading ? "..." : topCashier?.name || "-"} />
+						<KpiCard icon={<Clock size={20} strokeWidth={1.8} />} tone="bg-[rgba(15,155,142,0.1)] text-[#0F9B8E]" label={t("branch_admin.avg_processing_time", "AVG Processing Time")} value={isLoading ? "..." : avgProcessingTime} />
+						<KpiCard icon={<Banknote size={20} strokeWidth={1.8} />} tone="bg-[rgba(11,46,79,0.08)] text-[#0B2E4F]" label={t("branch_admin.total_branch_sales", "Total Branch Sales")} value={isLoading ? "..." : formatCurrency(totalRevenue)} />
 					</div>
 
 					{error && (
-						<div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+						<div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
 							{error}
 						</div>
 					)}
 
-					<div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm mb-6">
-						<div className="flex items-center justify-between">
+					<div className="mb-5 rounded-[14px] border border-[#E7E3D8] bg-white p-6">
+						<div className="mb-[18px] flex items-start justify-between gap-4">
 							<div>
-								<h3 className="text-sm font-semibold text-slate-900">{t("branch_admin.revenue_distribution_by_cashier", "Revenue Distribution by Cashier")}</h3>
-								<p className="text-xs text-slate-400">
+								<h3 className="m-0 font-space text-[15px] font-bold text-[#071E38]">{t("branch_admin.revenue_distribution_by_cashier", "Revenue Distribution by Cashier")}</h3>
+								<p className="m-0 mt-0.5 text-[12px] text-[#5B6470]">
 									{t("branch_admin.comparison_of_total_sales_generated_per_", "Comparison of total sales generated per staff member")}
 								</p>
 							</div>
-							<div className="flex items-center gap-2 text-xs text-slate-500">
-								<span className="h-2 w-2 rounded-full bg-[#0D5EA8]" />
+							<div className="flex shrink-0 items-center gap-1.5 text-[12px] text-[#5B6470]">
+								<span className="h-2 w-2 rounded-full bg-[#0F9B8E]" />
 								{t("branch_admin.primary_revenue", "Primary Revenue")}
 							</div>
 						</div>
-						<div className="h-56 mt-4">
+						<div className="h-56">
 							{isLoading ? (
-								<div className="h-full rounded-xl bg-slate-50 animate-pulse" />
+								<div className="h-full animate-pulse rounded-xl bg-[#FBFAF7]" />
 							) : (
 								<Bar data={revenueChartData} options={barOptions} />
 							)}
 						</div>
 					</div>
 
-					<div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm">
-						<div className="mb-4">
-							<h4 className="text-sm font-semibold text-slate-900">{t("branch_admin.detailed_performance_metrics", "Detailed Performance Metrics")}</h4>
-						</div>
+					<div className="rounded-[14px] border border-[#E7E3D8] bg-white p-6">
+						<h3 className="m-0 mb-2 font-space text-[15px] font-bold text-[#071E38]">{t("branch_admin.detailed_performance_metrics", "Detailed Performance Metrics")}</h3>
 
 						<div className="overflow-x-auto">
-							<table className="min-w-full text-xs">
+							<table className="min-w-full border-collapse">
 								<thead>
-									<tr className="text-slate-400 text-[11px] text-left border-b">
-										<th className="py-3">{t("branch_admin.cashier_name", "Cashier Name")}</th>
-										<th className="py-3">{t("branch_admin.total_orders", "Total Orders")}</th>
-										<th className="py-3">{t("branch_admin.revenue", "Revenue")}</th>
-										<th className="py-3">{t("branch_admin.performance_status", "Performance Status")}</th>
+									<tr>
+										<th className={thClass}>{t("branch_admin.cashier_name", "Cashier Name")}</th>
+										<th className={thClass}>{t("branch_admin.total_orders", "Total Orders")}</th>
+										<th className={thClass}>{t("branch_admin.revenue", "Revenue")}</th>
+										<th className={thClass}>{t("branch_admin.performance_status", "Performance Status")}</th>
 									</tr>
 								</thead>
 								<tbody>
 									{sortedCashiers.length === 0 && !isLoading && (
 										<tr>
-											<td colSpan="4" className="py-4 text-slate-500">
+											<td colSpan="4" className="py-6 text-center text-[13px] text-[#5B6470]">
 												{t("branch_admin.no_cashier_data_available", "No cashier data available.")}
 											</td>
 										</tr>
@@ -763,9 +734,9 @@ const CashierPerformance = () => {
 									).map((cashier, index) => {
 										if (!cashier) {
 											return (
-												<tr key={`cashier-skeleton-${index}`} className="border-b">
-													<td colSpan="4" className="py-4">
-														<div className="h-4 bg-slate-100 rounded animate-pulse" />
+												<tr key={`cashier-skeleton-${index}`}>
+													<td colSpan="4" className="border-b border-[#E7E3D8] py-4">
+														<div className="h-4 animate-pulse rounded bg-[#F0EEE7]" />
 													</td>
 												</tr>
 											);
@@ -780,19 +751,19 @@ const CashierPerformance = () => {
 											.slice(0, 2)
 											.toUpperCase() || "CP";
 										return (
-											<tr key={`cashier-row-${cashier.id ?? index}-${overallIndex}`} className="border-b last:border-b-0 hover:bg-slate-50/50 transition-colors">
-												<td className="py-3">
-													<div className="flex items-center gap-3">
-														<div className="w-9 h-9 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-[11px] font-semibold">
+											<tr key={`cashier-row-${cashier.id ?? index}-${overallIndex}`} className="transition-colors hover:bg-[#FBFAF7] [&:last-child>td]:border-b-0">
+												<td className={tdClass}>
+													<div className="flex items-center gap-2.5">
+														<div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full bg-[#0F9B8E] text-[11px] font-bold text-white">
 															{initials}
 														</div>
-														<div className="text-slate-700 font-semibold">{cashier.name}</div>
+														<span>{cashier.name}</span>
 													</div>
 												</td>
-												<td className="py-3 text-slate-500">{cashier.orders}</td>
-												<td className="py-3 text-slate-500">{formatCurrency(cashier.revenue)}</td>
-												<td className="py-3">
-													<span className={`px-3 py-1 rounded-full text-[11px] font-semibold ${status.color}`}>
+												<td className={tdClass}>{cashier.orders}</td>
+												<td className={tdClass}>{formatCurrency(cashier.revenue)}</td>
+												<td className={tdClass}>
+													<span className={`inline-flex whitespace-nowrap rounded-full px-[11px] py-1 text-[11px] font-bold ${status.color}`}>
 														{status.label}
 													</span>
 												</td>
@@ -803,35 +774,35 @@ const CashierPerformance = () => {
 							</table>
 						</div>
 
-						<div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-[11px] text-slate-400">
+						<div className="mt-4 flex flex-col gap-3 text-[12.5px] text-[#5B6470] sm:flex-row sm:items-center sm:justify-between">
 							<div>
 								{t("branch_admin.showing", "Showing")}{" "}
-								<span className="font-semibold text-slate-600">
+								<span className="font-semibold text-[#1A1A1A]">
 									{sortedCashiers.length === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1}
 								</span>{" "}
 								-{" "}
-								<span className="font-semibold text-slate-600">
+								<span className="font-semibold text-[#1A1A1A]">
 									{Math.min(sortedCashiers.length, currentPage * itemsPerPage)}
 								</span>{" "}
 								of{" "}
-								<span className="font-semibold text-slate-600">
+								<span className="font-semibold text-[#1A1A1A]">
 									{sortedCashiers.length}
 								</span>{" "}
 								{t("branch_admin.cashiers_registered", "cashiers registered")}
 							</div>
-							<div className="flex items-center gap-2">
+							<div className="flex items-center gap-1.5">
 								<button
 									type="button"
 									onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
 									disabled={currentPage <= 1 || isLoading}
-									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+									className={pagerBtnClass}
 								>
 									{t("branch_admin.previous", "Previous")}
 								</button>
 								{getPageNumbers().map((item, idx) => {
 									if (item === "...") {
 										return (
-											<span key={`dots-${idx}`} className="px-1 text-slate-400 text-xs select-none">
+											<span key={`dots-${idx}`} className="select-none px-1 text-xs text-[#9CA3AF]">
 												...
 											</span>
 										);
@@ -841,10 +812,10 @@ const CashierPerformance = () => {
 											key={`page-btn-${item}`}
 											type="button"
 											onClick={() => setCurrentPage(item)}
-											className={`h-7 w-7 rounded-lg text-xs font-semibold transition-colors flex items-center justify-center ${
+											className={`flex h-7 w-7 cursor-pointer items-center justify-center rounded-[7px] text-[12px] font-semibold transition-colors ${
 												item === currentPage
-													? "bg-[#0D5EA8] text-white"
-													: "border border-slate-200 text-slate-500 hover:bg-slate-50"
+													? "border border-[#071E38] bg-[#071E38] text-white"
+													: "border border-[#E7E3D8] bg-white text-[#5B6470] hover:border-[#0F9B8E] hover:text-[#0F9B8E]"
 											}`}
 										>
 											{item}
@@ -855,7 +826,7 @@ const CashierPerformance = () => {
 									type="button"
 									onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
 									disabled={currentPage >= totalPages || totalPages <= 1 || isLoading}
-									className="px-3 py-1 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+									className={pagerBtnClass}
 								>
 									{t("branch_admin.next", "Next")}
 								</button>
@@ -864,7 +835,7 @@ const CashierPerformance = () => {
 					</div>
 				</div>
 			</div>
-		</>
+		</div>
 	);
 };
 
