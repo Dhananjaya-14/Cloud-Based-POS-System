@@ -8,6 +8,8 @@ import { useAuth } from "../../context/AuthContext";
 import { getSuppliers, createSupplier, updateSupplier } from "../../services/api";
 import SupplierDetailView from "../../components/branch-admin/SupplierDetailView";
 import { FaExclamationTriangle } from "react-icons/fa";
+import { FiPlus, FiSearch } from "react-icons/fi";
+import { Mail, MapPin, Phone, Store } from "lucide-react";
 import { validateSupplierContact } from "../../utils/supplierValidation";
 
 // ─── Modal & Field Components ────────────────────────────────────────────────
@@ -59,6 +61,13 @@ const btnClass = "px-5 py-2.5 rounded-lg border-none cursor-pointer font-semibol
 const btnPrimary = `${btnClass} bg-[#2E3E8F] text-white`;
 const btnSecondary = `${btnClass} bg-gray-100 text-gray-700`;
 
+const ContactRow = ({ icon, value }) => (
+  <div className="flex min-w-0 items-center gap-2.5">
+    <span className="flex w-4 shrink-0 justify-center text-[#9CA3AF]">{icon}</span>
+    <span className="min-w-0 truncate" title={value || ""}>{value || "-"}</span>
+  </div>
+);
+
 // ─── Main Branch Admin Supplier Page ──────────────────────────────────────────
 const SupplierManagement = () => {
   const { t } = useTranslation();
@@ -70,7 +79,7 @@ const SupplierManagement = () => {
     message: "",
     type: "success"
   });
-  const [socketConnected, setSocketConnected] = useState(false);
+  const [, setSocketConnected] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
 
@@ -303,11 +312,13 @@ const SupplierManagement = () => {
     );
   });
 
+  const addSupplierLabel = t("company_admin.add_supplier", "Add Supplier").replace(/^\+\s*/, "");
+
   return (
-    <div className="flex bg-gray-50 min-h-screen">
+    <div className="flex min-h-screen bg-[#F7F5F0]">
       <Sidebar />
-      <div className="flex-1 ml-[240px]">
-        <Header title={t("branch_admin.suppliers", "Suppliers")} role="Branch Admin" />
+      <div className="ml-[240px] min-w-0 flex-1">
+        <Header title={t("company_admin.supplier_management", "Supplier Management")} />
         {toast.show && (
           <ToastMessage
             message={toast.message}
@@ -316,14 +327,7 @@ const SupplierManagement = () => {
           />
         )}
 
-        {/* Socket connection indicator */}
-        {socketConnected && (
-          <div className="fixed bottom-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs shadow-lg z-50">
-            {t("branch_admin.live_updates_active", "Live Updates Active")}
-          </div>
-        )}
-
-        <div className="p-8 max-w-[1200px] mx-auto">
+        <div className="px-9 py-8">
           {selectedSupplier ? (
             <SupplierDetailView
               supplier={selectedSupplier}
@@ -333,81 +337,90 @@ const SupplierManagement = () => {
             />
           ) : (
             <>
-              {/* Header + Add Supplier Button */}
-              <div className="flex justify-between items-start mb-6">
+              <div className="mb-[22px] flex items-start justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900 m-0">
-                    {t("branch_admin.supplier_directory", "Supplier Directory")}
-                  </h1>
-                  <p className="text-gray-500 mt-1.5 text-sm">
-                    {t("branch_admin.suppliers_assigned_to_your_branch_contac", "Suppliers assigned to your branch.")}
+                  <h2 className="m-0 mb-1 font-space text-xl font-bold text-[#071E38]">
+                    {t("branch_admin.suppliers", "Suppliers")}
+                  </h2>
+                  <p className="m-0 text-[13px] text-[#5B6470]">
+                    {t("branch_admin.suppliers_assigned_to_your_branch", "Suppliers assigned to your branch.")}
                   </p>
                 </div>
-                <button onClick={openCreate} className={btnPrimary}>
-                  {t("company_admin.add_supplier", "+ Add Supplier")}
+                <button
+                  type="button"
+                  onClick={openCreate}
+                  className="inline-flex shrink-0 cursor-pointer items-center gap-[7px] whitespace-nowrap rounded-lg border-0 bg-[#071E38] px-4 py-[9px] text-[13px] font-semibold text-white transition-colors hover:bg-[#0F9B8E]"
+                >
+                  <FiPlus size={14} strokeWidth={2.3} />
+                  {addSupplierLabel}
                 </button>
               </div>
 
-              {/* Search Filter */}
-              <div className="mb-6">
+              <div className="relative mb-[22px]">
+                <FiSearch className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF]" size={15} />
                 <input
+                  type="text"
                   placeholder={t("company_admin.search_by_name_email_or_contact", "Search by name, email or contact...")}
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className={`${inputClass} max-w-[340px]`}
+                  className="w-full rounded-[10px] border-[1.5px] border-[#E7E3D8] bg-white py-2.5 pl-10 pr-4 text-[13px] text-[#1A1A1A] outline-none placeholder:text-[#9CA3AF] focus:border-[#0F9B8E]"
                 />
               </div>
 
               {error && (
-                <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-red-600 mb-5 font-medium">
+                <div className="mb-5 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-[13px] font-medium text-red-600">
                   {error}
                 </div>
               )}
 
               {isLoading ? (
-                <p className="text-gray-500">{t("branch_admin.loading_suppliers", "Loading suppliers...")}</p>
+                <p className="text-[13px] text-[#5B6470]">{t("branch_admin.loading_suppliers", "Loading suppliers...")}</p>
               ) : filtered.length === 0 ? (
-                <div className="text-center py-20 text-gray-400">
-                  <div className="text-5xl mb-3">🏢</div>
-                  <p className="font-semibold text-base mb-1">
+                <div className="flex flex-col items-center rounded-[14px] border border-[#E7E3D8] bg-white px-6 py-16 text-center">
+                  <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-[#EAF6FD] text-[#0E6FA8]">
+                    <Store size={26} strokeWidth={1.8} />
+                  </div>
+                  <p className="m-0 mb-1 text-[15px] font-bold text-[#071E38]">
                     {search ? "No suppliers match your search" : t("branch_admin.no_suppliers_assigned_to_this_branch", "No suppliers assigned to this branch")}
                   </p>
-                  <p className="text-sm">
-                    {search ? "Try a different search term." : "Click '+ Add Supplier' above to create a new supplier."}
+                  <p className="m-0 text-[13px] text-[#5B6470]">
+                    {search ? "Try a different search term." : `Click "${addSupplierLabel}" above to create a new supplier.`}
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
                   {filtered.map(sup => (
                     <div
                       key={sup.sup_id}
-                      className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-all duration-200 transform hover:-translate-y-1 flex flex-col justify-between"
+                      className="flex min-w-0 flex-col rounded-[14px] border border-[#E7E3D8] bg-white p-5 shadow-[0_2px_10px_rgba(7,30,56,0.04)] transition-shadow hover:shadow-[0_6px_18px_rgba(7,30,56,0.08)]"
                     >
-                      <div>
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-200 flex items-center justify-center text-xl shrink-0">
-                            🏢
-                          </div>
-                          <h3 className="m-0 text-base font-bold text-gray-900 truncate">{sup.sup_name}</h3>
+                      <div className="mb-3.5 flex min-w-0 items-center gap-3">
+                        <div className="flex h-[38px] w-[38px] shrink-0 items-center justify-center rounded-[10px] bg-[#EAF6FD] text-[#0E6FA8]">
+                          <Store size={18} strokeWidth={1.9} />
                         </div>
-
-                        <div className="text-sm text-gray-600 flex flex-col gap-2">
-                          <div className="flex gap-2">📧 <span className="truncate">{sup.sup_email}</span></div>
-                          <div className="flex gap-2">📞 <span>{sup.sup_contact}</span></div>
-                          <div className="flex gap-2">📍 <span className="text-xs mt-0.5 truncate">{sup.sup_address || "No address provided"}</span></div>
-                        </div>
+                        <h3 className="m-0 truncate text-[15px] font-bold text-[#071E38]" title={sup.sup_name}>
+                          {sup.sup_name}
+                        </h3>
                       </div>
 
-                      <div className="mt-5 pt-4 border-t border-gray-100 flex gap-2">
+                      <div className="flex flex-1 flex-col gap-2 text-[12.5px] text-[#5B6470]">
+                        <ContactRow icon={<Mail size={14} strokeWidth={1.9} />} value={sup.sup_email} />
+                        <ContactRow icon={<Phone size={14} strokeWidth={1.9} />} value={sup.sup_contact} />
+                        <ContactRow icon={<MapPin size={14} strokeWidth={1.9} />} value={sup.sup_address || "No address provided"} />
+                      </div>
+
+                      <div className="mt-4 flex gap-2.5 border-t border-[#E7E3D8] pt-4">
                         <button
+                          type="button"
                           onClick={(e) => openEdit(sup, e)}
-                          className="flex-1 py-1.5 rounded-lg border-2 border-gray-300 bg-white text-gray-700 font-semibold text-xs cursor-pointer hover:bg-gray-50 transition-colors"
+                          className="flex-1 cursor-pointer rounded-lg border-[1.5px] border-[#E7E3D8] bg-white py-2 text-[12.5px] font-semibold text-[#071E38] transition-colors hover:border-[#0F9B8E] hover:text-[#0F9B8E]"
                         >
                           {t("buttons.edit", "Edit")}
                         </button>
                         <button
+                          type="button"
                           onClick={() => setSelectedSupplier(sup)}
-                          className="flex-1 py-1.5 rounded-lg border-2 border-indigo-200 bg-indigo-50 text-indigo-600 font-semibold text-xs cursor-pointer hover:bg-indigo-100 transition-colors"
+                          className="flex-1 cursor-pointer rounded-lg border-[1.5px] border-transparent bg-[#EDE9FE] py-2 text-[12.5px] font-semibold text-[#6D28D9] transition-colors hover:bg-[#DDD6FE]"
                         >
                           {t("branch_admin.view_orders", "View Orders")}
                         </button>
