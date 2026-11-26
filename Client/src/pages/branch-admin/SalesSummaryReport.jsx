@@ -1,6 +1,21 @@
 import { useTranslation } from "react-i18next";
-import React, { useEffect, useState } from "react";
-import { FaFileExcel, FaFilePdf, FaArrowLeft } from "react-icons/fa";
+import React, { useEffect, useState, useMemo } from "react";
+import {
+  FaFileExcel,
+  FaFilePdf,
+  FaArrowLeft,
+  FaFileAlt,
+  FaTruck,
+  FaChartBar,
+  FaTag,
+  FaCheckCircle,
+  FaRegClock,
+  FaSyncAlt,
+  FaRegCheckSquare,
+  FaMoneyBillWave,
+  FaCreditCard,
+  FaGlobe,
+} from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getSalesSummaryReport, getBranchById } from "../../services/api";
@@ -13,28 +28,16 @@ import Sidebar from "../../layout/slidebar";
 export default function SalesSummaryReport() {
   const { t, i18n } = useTranslation();
 
-  const availableColumns = [{
-    key: "pay_date",
-    label: t("reports.pay_date", "Pay Date")
-  }, {
-    key: "pay_time",
-    label: t("reports.time", "Time")
-  }, {
-    key: "pay_method",
-    label: t("reports.payment_method", "Payment Method")
-  }, {
-    key: "total_cost",
-    label: t("reports.subtotal", "Subtotal")
-  }, {
-    key: "tax",
-    label: t("reports.tax", "Tax")
-  }, {
-    key: "totalCostWtax",
-    label: t("reports.grand_total", "Grand Total")
-  }];
-const {
-    user
-  } = useAuth();
+  const availableColumns = [
+    { key: "pay_date", label: t("reports.pay_date", "Pay Date"), header: "PAY DATE" },
+    { key: "pay_time", label: t("reports.time", "Time"), header: "TIME" },
+    { key: "pay_method", label: t("reports.payment_method", "Payment Method"), header: "PAYMENT METHOD" },
+    { key: "total_cost", label: t("reports.subtotal", "Subtotal"), header: "SUBTOTAL" },
+    { key: "tax", label: t("reports.tax", "Tax"), header: "TAX" },
+    { key: "totalCostWtax", label: t("reports.grand_total", "Grand Total"), header: "GRAND TOTAL" },
+  ];
+
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [grandTotal, setGrandTotal] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -53,6 +56,15 @@ const {
     selectedWeek: "1"
   });
   const [selectedColumns, setSelectedColumns] = useState(availableColumns.map(col => col.key));
+
+  const totalSubtotal = useMemo(() => {
+    return rows.reduce((acc, row) => acc + (parseFloat(row.total_cost) || 0), 0);
+  }, [rows]);
+
+  const totalTax = useMemo(() => {
+    return rows.reduce((acc, row) => acc + (parseFloat(row.tax) || 0), 0);
+  }, [rows]);
+
   const generateReport = async () => {
     try {
       setLoading(true);
@@ -69,11 +81,7 @@ const {
         const startDay = (week - 1) * 7 + 1;
         let endDay = startDay + 6;
 
-        // Check if this is the last week (week 5) or if endDay exceeds month days
         if (week === 5 || endDay > daysInMonth) {
-          endDay = daysInMonth;
-        }
-        if (endDay > daysInMonth) {
           endDay = daysInMonth;
         }
         finalFromDate = `${year}-${String(month).padStart(2, "0")}-${String(startDay).padStart(2, "0")}`;
@@ -100,11 +108,17 @@ const {
       setGrandTotal(response.grandTotal || 0);
     } catch (error) {
       console.error(error);
-      alert("Failed to load report");
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.b_id) {
+      generateReport();
+    }
+  }, [user?.b_id]);
+
   useEffect(() => {
     let mounted = true;
     const loadBranch = async () => {
@@ -130,6 +144,78 @@ const {
       mounted = false;
     };
   }, [user]);
+
+  const formatDate = (val) => {
+    if (!val) return "";
+    try {
+      const d = new Date(val);
+      if (!isNaN(d.getTime())) {
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const dd = String(d.getDate()).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        return `${mm}/${dd}/${yyyy}`;
+      }
+      return String(val).split("T")[0];
+    } catch {
+      return String(val);
+    }
+  };
+
+  const formatTime = (val) => {
+    if (!val) return "";
+    try {
+      if (typeof val === "string" && val.includes("T")) {
+        const d = new Date(val);
+        if (!isNaN(d.getTime())) {
+          return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true });
+        }
+      }
+      const parts = String(val).split(":");
+      if (parts.length >= 2) {
+        const hour = parseInt(parts[0], 10);
+        const minute = parts[1];
+        const ampm = hour >= 12 ? "PM" : "AM";
+        const h12 = hour % 12 || 12;
+        return `${String(h12).padStart(2, "0")}:${minute} ${ampm}`;
+      }
+      return String(val);
+    } catch {
+      return String(val);
+    }
+  };
+
+  const renderPaymentMethod = (method) => {
+    const m = String(method || "").toLowerCase().trim();
+    if (m === "cash") {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80">
+          <FaMoneyBillWave size={10} className="text-emerald-600" />
+          <span>Cash</span>
+        </span>
+      );
+    }
+    if (m === "card" || m === "credit card" || m === "debit card") {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-sky-50 text-sky-700 border border-sky-200/80">
+          <FaCreditCard size={10} className="text-sky-600" />
+          <span>Card</span>
+        </span>
+      );
+    }
+    if (m === "online" || m === "digital" || m === "bank") {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200/80">
+          <FaGlobe size={10} className="text-purple-600" />
+          <span>Online</span>
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+        <span>{method || "Other"}</span>
+      </span>
+    );
+  };
 
   // Excel export logic
   const exportExcel = () => {
@@ -374,178 +460,391 @@ const formattedRows = rows.map(row => {
       '</html>');
     printWindow.document.close();
   };;
-  return <div className="w-full min-h-screen flex bg-slate-50 text-slate-800 antialiased overflow-visible">
+  return (
+    <div className="font-sans bg-[#FAF8F5] min-h-screen">
       <Sidebar />
-      <div className="flex flex-1 flex-col" style={{
-      marginLeft: 240
-    }}>
-        <Header title={t("branch_admin.analytical_report", "Analytical Report")} />
-        <h1 className="text-2xl px-5 py-2 font-bold tracking-tight text-gray-600 ">{t("branch_admin.sales_summary_report", "Sales Summary Report")}</h1>
-        {/* Export Buttons */}
-        <div className="absolute top-18 right-6 flex gap-2.5 ">
-          <button onClick={exportExcel} className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150">
-            <FaFileExcel className="text-base" />{t("branch_admin.export_excel", "Export Excel")}</button>
-          <button onClick={exportPDF} className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-sm hover:shadow-md active:scale-95 transition-all duration-150">
-            <FaFilePdf className="text-base" />{t("branch_admin.export_pdf", "Export PDF")}</button>
-        </div>
+      <div className="flex flex-col h-screen overflow-hidden" style={{ marginLeft: 240 }}>
+        <Header
+          title={t("branch_admin.analytical_report", "Analytical Report")}
+          subtitle={branchName ? `${branchName} branch` : "Kandy branch"}
+        />
 
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
-          <h3 className="font-bold text-gray-800 text-base mb-3">{t("branch_admin.interval_configuration", "Interval Configuration")}</h3>
-          <div className="flex flex-wrap gap-6 items-center border-b border-gray-100 pb-4 mb-4">
-            <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input type="radio" className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked={filters.filterType === "daily"} onChange={() => setFilters({
-              ...filters,
-              filterType: "daily"
-            })} />{t("branch_admin.daily_processing", "Daily Processing")}</label>
-            <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input type="radio" checked={filters.filterType === "weekly"} onChange={() => setFilters({
-              ...filters,
-              filterType: "weekly"
-            })} />{t("branch_admin.weekly_statement", "Weekly Statement")}</label>
-            <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input type="radio" className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked={filters.filterType === "monthly"} onChange={() => setFilters({
-              ...filters,
-              filterType: "monthly"
-            })} />{t("branch_admin.monthly_statement", "Monthly Statement")}</label>
-            <label className="flex items-center gap-2.5 font-medium text-sm text-gray-700 cursor-pointer">
-              <input type="radio" className="w-4 h-4 text-blue-600 focus:ring-blue-500 border-gray-300" checked={filters.filterType === "custom"} onChange={() => setFilters({
-              ...filters,
-              filterType: "custom"
-            })} />{t("branch_admin.custom_date_range", "Custom Date Range")}</label>
-          </div>
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 bg-[#FAF8F5]">
+          <div className="w-full space-y-5 max-w-[1600px] mx-auto">
+            {/* Header: Title and Export Controls Card */}
+            <div className="bg-white rounded-2xl border border-[#E7E2D9] p-4 sm:p-5 shadow-2xs">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+                    <FaFileAlt size={16} />
+                  </div>
+                  <div>
+                    <h1 className="text-lg font-bold text-[#0B192C] tracking-tight leading-snug">
+                      {t("branch_admin.sales_summary_report", "Sales Summary Report")}
+                    </h1>
+                    <p className="text-xs text-slate-400">
+                      Every transaction, broken down by payment method
+                    </p>
+                  </div>
+                </div>
 
-          {filters.filterType === "weekly" && <div className="flex gap-4 items-end mt-2 animate-fadeIn">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.month", "Month")}</label>
-                <input type="month" value={filters.selectedMonth} onChange={e => setFilters({
-              ...filters,
-              selectedMonth: e.target.value
-            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm" />
+                <div className="flex items-center gap-2.5">
+                  <button
+                    onClick={exportExcel}
+                    className="inline-flex items-center gap-1.5 bg-[#2E7D32] hover:bg-[#1B5E20] text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-2xs hover:shadow-sm transition-all cursor-pointer"
+                  >
+                    <FaFileExcel size={13} />
+                    <span>{t("branch_admin.export_excel", "Export Excel")}</span>
+                  </button>
+                  <button
+                    onClick={exportPDF}
+                    className="inline-flex items-center gap-1.5 bg-[#D32F2F] hover:bg-[#C62828] text-white text-xs font-semibold px-3.5 py-2 rounded-lg shadow-2xs hover:shadow-sm transition-all cursor-pointer"
+                  >
+                    <FaFilePdf size={13} />
+                    <span>{t("branch_admin.export_pdf", "Export PDF")}</span>
+                  </button>
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.week", "Week")}</label>
-                <select value={filters.selectedWeek} onChange={e => setFilters({
-              ...filters,
-              selectedWeek: e.target.value
-            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm">
-                  <option value="1">{t("branch_admin.week_1", "Week 1")}</option>
-                  <option value="2">{t("branch_admin.week_2", "Week 2")}</option>
-                  <option value="3">{t("branch_admin.week_3", "Week 3")}</option>
-                  <option value="4">{t("branch_admin.week_4", "Week 4")}</option>
-                  <option value="5">{t("branch_admin.week_5", "Week 5")}</option>
-                </select>
-              </div>
-            </div>}
-
-          {filters.filterType === "monthly" && <div className="flex flex-col gap-1.5 max-w-xs animate-fadeIn">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.select_operational_month", "Select Operational Month")}</label>
-              <input type="month" value={filters.selectedMonth} onChange={e => setFilters({
-            ...filters,
-            selectedMonth: e.target.value
-          })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
-            </div>}
-
-          {filters.filterType === "custom" && <div className="flex gap-4 items-center mt-2 animate-fadeIn">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.from_date", "From Date")}</label>
-                <input type="date" value={filters.fromDate} onChange={e => setFilters({
-              ...filters,
-              fromDate: e.target.value
-            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">{t("branch_admin.to_date", "To Date")}</label>
-                <input type="date" value={filters.toDate} onChange={e => setFilters({
-              ...filters,
-              toDate: e.target.value
-            })} className="border border-gray-200 bg-gray-50 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
-              </div>
-            </div>}
-
-          <button onClick={generateReport} disabled={loading} className={`mt-4 inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-lg shadow-sm transition-all duration-150
-              ${loading ? "bg-blue-400 text-blue-100 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700 text-white active:scale-[0.98] cursor-pointer"}`}>
-            {loading ? <>
-                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>{t("branch_admin.processing", t("buttons.processing", "Processing..."))}</> : t("buttons.generate_report", "Generate Report")}
-          </button>
-        </div>
-
-        {/* Columns Grid */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-          <h3 className="font-bold text-gray-800 text-base mb-3">{t("branch_admin.visible_data_fields", "Visible Data Fields")}</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {availableColumns.map(col => <label key={col.key} className="flex items-center gap-2.5 p-2 rounded-lg border border-gray-50 hover:bg-gray-50 transition-colors text-sm text-gray-600 font-medium cursor-pointer">
-                <input type="checkbox" className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4" checked={selectedColumns.includes(col.key)} onChange={() => {
-              if (selectedColumns.includes(col.key)) {
-                setSelectedColumns(selectedColumns.filter(c => c !== col.key));
-              } else {
-                setSelectedColumns([...selectedColumns, col.key]);
-              }
-            }} />
-                {col.label}
-              </label>)}
-          </div>
-        </div>
-
-        {/* Table & Data Handling */}
-        {loading ? <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <div className="flex items-center gap-1.5 h-6">
-              <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce [animation-delay:-0.3s]" />
-              <div className="w-3 h-3 bg-blue-500 rounded-full animate-bounce [animation-delay:-0.15s]" />
-              <div className="w-3 h-3 bg-blue-400 rounded-full animate-bounce" />
             </div>
-            <span className="text-[14px] font-semibold text-blue-600/70 tracking-wide">{t("branch_admin.please_wait", "Please wait...")}</span>
-          </div> : <div className="w-full overflow-x-auto bg-white rounded-lg shadow mb-6">
-            <table className="w-full min-w-max">
-              <thead className="bg-gray-100">
-                <tr>
-                  {/* Filter headers properly */}
-                  {availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => <th key={col.key} className="p-3 text-left font-semibold text-sm text-gray-700">
-                        {col.label}
-                      </th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.length === 0 ? <tr>
-                    <td colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length} className="text-center py-12 text-gray-400 font-medium">{t("branch_admin.no_matching_sales_data_captured_adjust_y", "No matching sales data captured. Adjust your filters and reload.")}</td>
-                  </tr> : rows.map((row, rowIndex) => <tr key={rowIndex} className="hover:bg-gray-50/50 transition-colors border-b border-gray-100 last:border-0">
-                      {availableColumns.filter(col => selectedColumns.includes(col.key)).map(col => {
-                const cellValue = row[col.key];
-                if (col.key === "total_cost" || col.key === "tax" || col.key === "total_cost_with_tax" || col.key === "totalCostWtax") {
-                  return <td key={col.key} className="p-4 text-sm text-gray-600">{t("branch_admin.rs", "Rs.")}{Number(cellValue || 0).toFixed(2)}
-                              </td>;
-                }
-                if (col.key === "pay_date" && cellValue) {
-                  return <td key={col.key} className="p-4 text-sm text-gray-600">
-                                {new Date(cellValue).toLocaleDateString("en-CA")}
-                              </td>;
-                }
-                if (col.key === "pay_time" && cellValue) {
-                  return <td key={col.key} className="p-4 text-sm text-gray-600">
-                                {cellValue.split(".")[0]}
-                              </td>;
-                }
-                return <td key={col.key} className="p-4 text-sm text-gray-600">
-                              {String(cellValue ?? "")}
-                            </td>;
-              })}
-                    </tr>)}
-              </tbody>
-              <tfoot>
-                <tr className="bg-gray-50 font-bold text-sm text-gray-700">
-                  <td colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length - 1} className="p-4 text-right">{t("branch_admin.grand_total", "Grand Total")}</td>
-                  <td className="p-4 text-green-600 text-base">{t("branch_admin.rs", "Rs.")}{Number(grandTotal).toFixed(2)}
-                  </td>
-                </tr>
-              </tfoot>
-            </table>
-          </div>}
 
-        <button onClick={() => window.history.back()} className="fixed bottom-6 right-6 inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold px-4 py-2.5 rounded-lg shadow-lg hover:shadow-xl active:scale-95 transition-all duration-150 z-50 group border border-slate-700 cursor-pointer">
-          <FaArrowLeft className="text-xs group-hover:-translate-x-1 transition-transform" />{t("branch_admin.back", "Back")}</button>
+            {/* Stat Cards Grid (4 cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Card 1: Transactions */}
+              <div className="bg-white rounded-2xl border border-[#E7E2D9] p-4 flex items-center gap-4 shadow-2xs">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 flex-shrink-0">
+                  <FaTruck size={17} />
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-[#0B192C] leading-snug">{rows.length}</div>
+                  <div className="text-[11px] text-slate-400 font-medium">Transactions</div>
+                </div>
+              </div>
+
+              {/* Card 2: Total Subtotal */}
+              <div className="bg-white rounded-2xl border border-[#E7E2D9] p-4 flex items-center gap-4 shadow-2xs">
+                <div className="w-10 h-10 rounded-xl bg-cyan-50 flex items-center justify-center text-cyan-600 flex-shrink-0">
+                  <FaChartBar size={17} />
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-[#0B192C] leading-snug">
+                    Rs {totalSubtotal.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-medium">Total Subtotal</div>
+                </div>
+              </div>
+
+              {/* Card 3: Total Tax */}
+              <div className="bg-white rounded-2xl border border-[#E7E2D9] p-4 flex items-center gap-4 shadow-2xs">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500 flex-shrink-0">
+                  <FaTag size={17} />
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-[#0B192C] leading-snug">
+                    Rs {totalTax.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-medium">Total Tax</div>
+                </div>
+              </div>
+
+              {/* Card 4: Grand Total */}
+              <div className="bg-white rounded-2xl border border-[#E7E2D9] p-4 flex items-center gap-4 shadow-2xs">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600 flex-shrink-0">
+                  <FaCheckCircle size={17} />
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-[#0B192C] leading-snug">
+                    Rs {Number(grandTotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
+                  <div className="text-[11px] text-slate-400 font-medium">Grand Total</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Interval Configuration Card */}
+            <div className="bg-white rounded-2xl border border-[#E7E2D9] p-5 shadow-2xs space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#0B192C]">
+                <FaRegClock className="text-slate-400" />
+                <span>{t("branch_admin.interval_configuration", "Interval Configuration")}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFilters({ ...filters, filterType: "daily" })}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
+                    filters.filterType === "daily"
+                      ? "border-sky-400 bg-sky-50/50 text-sky-900 font-semibold"
+                      : "border-[#E2DDD3] bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    filters.filterType === "daily" ? "border-sky-500" : "border-slate-300"
+                  }`}>
+                    {filters.filterType === "daily" && <span className="w-2 h-2 rounded-full bg-sky-500" />}
+                  </span>
+                  {t("branch_admin.daily_processing", "Daily Processing")}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFilters({ ...filters, filterType: "weekly" })}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
+                    filters.filterType === "weekly"
+                      ? "border-sky-400 bg-sky-50/50 text-sky-900 font-semibold"
+                      : "border-[#E2DDD3] bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    filters.filterType === "weekly" ? "border-sky-500" : "border-slate-300"
+                  }`}>
+                    {filters.filterType === "weekly" && <span className="w-2 h-2 rounded-full bg-sky-500" />}
+                  </span>
+                  {t("branch_admin.weekly_statement", "Weekly Statement")}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFilters({ ...filters, filterType: "monthly" })}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
+                    filters.filterType === "monthly"
+                      ? "border-sky-400 bg-sky-50/50 text-sky-900 font-semibold"
+                      : "border-[#E2DDD3] bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    filters.filterType === "monthly" ? "border-sky-500" : "border-slate-300"
+                  }`}>
+                    {filters.filterType === "monthly" && <span className="w-2 h-2 rounded-full bg-sky-500" />}
+                  </span>
+                  {t("branch_admin.monthly_statement", "Monthly Statement")}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setFilters({ ...filters, filterType: "custom" })}
+                  className={`px-3.5 py-1.5 rounded-lg text-xs font-medium border flex items-center gap-2 transition-all cursor-pointer ${
+                    filters.filterType === "custom"
+                      ? "border-sky-400 bg-sky-50/50 text-sky-900 font-semibold"
+                      : "border-[#E2DDD3] bg-white text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${
+                    filters.filterType === "custom" ? "border-sky-500" : "border-slate-300"
+                  }`}>
+                    {filters.filterType === "custom" && <span className="w-2 h-2 rounded-full bg-sky-500" />}
+                  </span>
+                  {t("branch_admin.custom_date_range", "Custom Date Range")}
+                </button>
+
+                <button
+                  onClick={generateReport}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-[#0B192C] via-[#0D2B4D] to-[#0284C7] hover:opacity-95 text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-2xs transition-all cursor-pointer disabled:opacity-70 ml-1"
+                >
+                  {loading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <FaSyncAlt size={10} className="text-cyan-300" />
+                  )}
+                  <span>{loading ? t("branch_admin.processing", "Processing...") : t("buttons.generate_report", "Generate Report")}</span>
+                </button>
+              </div>
+
+              {filters.filterType === "weekly" && (
+                <div className="flex flex-wrap gap-4 items-center pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase">{t("branch_admin.month", "Month")}:</label>
+                    <input type="month" value={filters.selectedMonth} onChange={e => setFilters({ ...filters, selectedMonth: e.target.value })} className="border border-[#E2DDD3] rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 outline-none" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase">{t("branch_admin.week", "Week")}:</label>
+                    <select value={filters.selectedWeek} onChange={e => setFilters({ ...filters, selectedWeek: e.target.value })} className="border border-[#E2DDD3] rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 outline-none">
+                      <option value="1">Week 1</option>
+                      <option value="2">Week 2</option>
+                      <option value="3">Week 3</option>
+                      <option value="4">Week 4</option>
+                      <option value="5">Week 5</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {filters.filterType === "monthly" && (
+                <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                  <label className="text-xs font-semibold text-slate-500 uppercase">{t("branch_admin.select_operational_month", "Select Month")}:</label>
+                  <input type="month" value={filters.selectedMonth} onChange={e => setFilters({ ...filters, selectedMonth: e.target.value })} className="border border-[#E2DDD3] rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 outline-none" />
+                </div>
+              )}
+
+              {filters.filterType === "custom" && (
+                <div className="flex flex-wrap gap-4 items-center pt-2 border-t border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase">{t("branch_admin.from_date", "From")}:</label>
+                    <input type="date" value={filters.fromDate} onChange={e => setFilters({ ...filters, fromDate: e.target.value })} className="border border-[#E2DDD3] rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 outline-none" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-xs font-semibold text-slate-500 uppercase">{t("branch_admin.to_date", "To")}:</label>
+                    <input type="date" value={filters.toDate} onChange={e => setFilters({ ...filters, toDate: e.target.value })} className="border border-[#E2DDD3] rounded-lg px-2.5 py-1.5 text-xs bg-slate-50 outline-none" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Visible Data Fields Card */}
+            <div className="bg-white rounded-2xl border border-[#E7E2D9] p-5 shadow-2xs space-y-3">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#0B192C]">
+                <FaRegCheckSquare className="text-slate-400" />
+                <span>{t("branch_admin.visible_data_fields", "Visible Data Fields")}</span>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                {availableColumns.map(col => {
+                  const isChecked = selectedColumns.includes(col.key);
+                  return (
+                    <label
+                      key={col.key}
+                      className={`px-3 py-1.5 rounded-lg border text-xs font-medium flex items-center gap-2 cursor-pointer transition-colors ${
+                        isChecked
+                          ? "bg-sky-50/70 border-sky-300 text-sky-900 font-semibold"
+                          : "bg-white border-[#E2DDD3] text-slate-500 hover:bg-slate-50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        className="w-3.5 h-3.5 rounded text-sky-600 focus:ring-0 border-slate-300 cursor-pointer"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setSelectedColumns(selectedColumns.filter(c => c !== col.key));
+                          } else {
+                            setSelectedColumns([...selectedColumns, col.key]);
+                          }
+                        }}
+                      />
+                      <span>{col.label}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Report Table Card */}
+            <div className="bg-white rounded-2xl border border-[#E7E2D9] overflow-hidden shadow-2xs">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-[#FAF8F5] border-b border-[#EAE5DC]">
+                    <tr>
+                      {availableColumns
+                        .filter(col => selectedColumns.includes(col.key))
+                        .map(col => (
+                          <th
+                            key={col.key}
+                            className="py-3.5 px-6 text-[11px] font-semibold text-slate-400 uppercase tracking-wider"
+                          >
+                            {col.header || col.label}
+                          </th>
+                        ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F0ECE4]">
+                    {loading ? (
+                      <tr>
+                        <td
+                          colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length}
+                          className="py-16 text-center text-slate-400 text-sm font-medium"
+                        >
+                          <div className="flex flex-col items-center justify-center gap-2">
+                            <div className="w-5 h-5 border-2 border-slate-300 border-t-[#0B192C] rounded-full animate-spin" />
+                            <span>{t("branch_admin.please_wait", "Loading sales data...")}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : rows.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={availableColumns.filter(col => selectedColumns.includes(col.key)).length}
+                          className="text-center py-20 text-slate-400 font-medium text-xs"
+                        >
+                          {t("branch_admin.no_matching_sales_data_captured_adjust_y", "No matching sales data captured. Adjust your filters and reload.")}
+                        </td>
+                      </tr>
+                    ) : (
+                      rows.map((row, rowIndex) => (
+                        <tr key={rowIndex} className="hover:bg-[#FAF8F5]/60 transition-colors">
+                          {availableColumns
+                            .filter(col => selectedColumns.includes(col.key))
+                            .map(col => {
+                              const cellValue = row[col.key];
+
+                              if (col.key === "total_cost" || col.key === "tax" || col.key === "totalCostWtax") {
+                                return (
+                                  <td key={col.key} className="py-3.5 px-6 text-xs font-semibold text-slate-800 whitespace-nowrap">
+                                    Rs {Number(cellValue || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === "pay_date") {
+                                return (
+                                  <td key={col.key} className="py-3.5 px-6 text-xs text-slate-600 whitespace-nowrap">
+                                    {formatDate(cellValue)}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === "pay_time") {
+                                return (
+                                  <td key={col.key} className="py-3.5 px-6 text-xs text-slate-600 whitespace-nowrap">
+                                    {formatTime(cellValue)}
+                                  </td>
+                                );
+                              }
+
+                              if (col.key === "pay_method") {
+                                return (
+                                  <td key={col.key} className="py-3.5 px-6 text-xs whitespace-nowrap">
+                                    {renderPaymentMethod(cellValue)}
+                                  </td>
+                                );
+                              }
+
+                              return (
+                                <td key={col.key} className="py-3.5 px-6 text-xs text-slate-600">
+                                  {String(cellValue ?? "")}
+                                </td>
+                              );
+                            })}
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Grand Total Footer */}
+              <div className="bg-[#FAF8F5] border-t border-[#EAE5DC] px-6 py-4 flex justify-end items-center gap-6">
+                <span className="text-sm font-bold text-[#0B192C]">
+                  {t("branch_admin.grand_total", "Grand Total")}
+                </span>
+                <span className="text-base font-bold text-emerald-600">
+                  Rs {Number(grandTotal || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            </div>
+
+            {/* Back Button positioned below report on the lower right */}
+            <div className="flex justify-end pt-2 pb-6">
+              <button
+                onClick={() => window.history.back()}
+                className="inline-flex items-center gap-1.5 bg-[#0B192C] hover:bg-[#14263f] text-white text-xs font-semibold px-4 py-2 rounded-lg shadow-sm transition-all cursor-pointer"
+              >
+                <FaArrowLeft size={10} />
+                <span>{t("branch_admin.back", "Back")}</span>
+              </button>
+            </div>
+          </div>
+        </main>
       </div>
-    </div>;
+    </div>
+  );
 }

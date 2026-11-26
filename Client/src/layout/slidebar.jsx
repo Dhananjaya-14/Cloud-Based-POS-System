@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { FaBox, FaBoxOpen, FaChartBar, FaChartLine, FaClipboardList, FaCodeBranch, FaExchangeAlt, FaFileAlt, FaLock, FaMoneyBill, FaSignOutAlt, FaStore, FaTable, FaTag, FaTachometerAlt, FaTrashAlt, FaTruck, FaUndo, FaUsers, FaWifi } from "react-icons/fa";
+import { FaBox, FaBoxOpen, FaChartBar, FaChartLine, FaClipboardList, FaCodeBranch, FaExchangeAlt, FaFileAlt, FaLock, FaMoneyBill, FaSignOutAlt, FaStore, FaTable, FaTag, FaTachometerAlt, FaTrashAlt, FaTruck, FaUndo, FaUsers, FaWifi, FaChevronDown, FaChevronUp, FaCog, FaSignInAlt } from "react-icons/fa";
 import { PiInvoiceBold } from "react-icons/pi";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
@@ -40,26 +40,121 @@ const Slidebar = ({ isOpen = true, setIsOpen, isSuperAdmin, superAdmin: superAdm
     return false;
   };
   const item = (icon, label, target, disabled = false, onClick) => {
-    const content = <><span className="text-base">{icon}</span><span className="flex-1 text-sm">{label}</span>{disabled && <FaLock size={12} />}</>;
-    if (disabled) return <button type="button" key={label} className="mb-1 flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-[#4B5A6E] opacity-60" onClick={() => toast.info("Upgrade Required", `Your current package doesn't include ${label}.`)}>{content}</button>;
-    return <Link key={label} to={target} onClick={(event) => { if (window.innerWidth < 1024) setIsOpen?.(false); onClick?.(event); }} className={`mb-1 flex items-center gap-3 rounded-md px-3 py-2.5 no-underline transition-colors ${active(target) ? "bg-[#112A3C] text-white" : "text-[#8B9BB4] hover:bg-[#112A3C] hover:text-white"}`}>{content}</Link>;
+    const isCurrent = active(target);
+    const content = (
+      <>
+        <span className="text-base flex-shrink-0">{icon}</span>
+        <span className="flex-1 text-sm font-medium">{label}</span>
+        {disabled && <FaLock size={12} />}
+      </>
+    );
+    if (disabled) {
+      return (
+        <button
+          type="button"
+          key={label}
+          className="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[#4B5A6E] opacity-60"
+          onClick={() => toast.info("Upgrade Required", `Your current package doesn't include ${label}.`)}
+        >
+          {content}
+        </button>
+      );
+    }
+    return (
+      <Link
+        key={label}
+        to={target}
+        onClick={(event) => {
+          if (window.innerWidth < 1024) setIsOpen?.(false);
+          onClick?.(event);
+        }}
+        className={`mb-1 flex items-center gap-3 rounded-lg px-3 py-2.5 no-underline transition-colors ${
+          isCurrent
+            ? "bg-[#0E3B5C] text-white font-medium"
+            : "text-[#8B9BB4] hover:bg-[#112A3C] hover:text-white"
+        }`}
+      >
+        {content}
+      </Link>
+    );
   };
   const section = (label) => <div className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-[1.5px] text-[#5A6D85]">{label}</div>;
+  const inventoryPaths = [
+    "/branch-admin/inventory",
+    "/branch-admin/raw-ingredient",
+    "/branch-admin/suppliers",
+    "/branch-admin/waste-management",
+    "/branch-admin/return-management",
+    "/branch-admin/recipe-mapper",
+  ];
+  const isInventoryActive = inventoryPaths.some((target) => active(target));
+  const [inventoryOpen, setInventoryOpen] = useState(isInventoryActive);
+
+  const inventorySubItems = [
+    { label: "Inventory", target: "/branch-admin/inventory" },
+    { label: "Add Inventory Item", target: "/branch-admin/raw-ingredient" },
+    { label: "Supplier Directory", target: "/branch-admin/suppliers" },
+    { label: "Waste Management", target: "/branch-admin/waste-management" },
+    { label: "Return Management", target: "/branch-admin/return-management" },
+    { label: "Recipe Mapper", target: "/branch-admin/recipe-mapper" },
+  ];
+
+  const branchInventoryAccordion = !locked("has_inventory") && (
+    <div key="inventory-group" className="mb-1">
+      <button
+        type="button"
+        onClick={() => setInventoryOpen((prev) => !prev)}
+        className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left transition-colors cursor-pointer ${
+          isInventoryActive
+            ? "bg-[#112A3C] text-white font-medium"
+            : "text-[#8B9BB4] hover:bg-[#112A3C] hover:text-white"
+        }`}
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-base"><FaClipboardList /></span>
+          <span className="text-sm font-medium">InventoryManagement</span>
+        </div>
+        <span className="text-xs text-gray-400">
+          {inventoryOpen ? <FaChevronUp size={11} /> : <FaChevronDown size={11} />}
+        </span>
+      </button>
+      {inventoryOpen && (
+        <div className="mt-1 flex flex-col space-y-1 pl-9 pr-2">
+          {inventorySubItems.map((sub) => {
+            const isSubActive = active(sub.target);
+            return (
+              <Link
+                key={sub.target}
+                to={sub.target}
+                onClick={(event) => {
+                  if (window.innerWidth < 1024) setIsOpen?.(false);
+                }}
+                className={`rounded-md px-3 py-1.5 text-xs transition-colors no-underline block ${
+                  isSubActive
+                    ? "bg-[#16364f] text-white font-bold"
+                    : "text-[#8B9BB4] hover:bg-white/5 hover:text-white"
+                }`}
+              >
+                {sub.label}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+
   const branchItems = [
     item(<FaTachometerAlt />, t("branch_admin.dashboard_overview", "Dashboard Overview"), "/branch-admin/dashboard"),
     item(<FaBoxOpen />, t("branch_admin.product", "Product"), "/branch-admin/products"),
     item(<FaUsers />, t("branch_admin.user_management", "User Management"), "/branch-admin/users"),
-    !locked("has_inventory") && item(<FaClipboardList />, t("branch_admin.inventory_management", "Inventory Management"), "/branch-admin/inventory"),
-    !locked("has_inventory") && item(<FaTruck />, t("branch_admin.supplier_directory", "Supplier Directory"), "/branch-admin/suppliers"),
-    !locked("has_inventory") && item(<FaBox />, t("branch_admin.add_inventory_item", "Add Inventory Item"), "/branch-admin/raw-ingredient"),
-    !locked("has_inventory") && item(<FaChartLine />, t("branch_admin.recipe_mapper", "Recipe Mapper"), "/branch-admin/recipe-mapper"),
+    branchInventoryAccordion,
+    item(<FaTable />, t("branch_admin.table_management", "Table Management"), "/branch-admin/tables"),
     item(<FaExchangeAlt />, t("branch_admin.transactions", "Transactions"), "/branch-admin/transactions"),
     item(<FaChartLine />, t("branch_admin.sales_revenue", "Sales & Revenue"), "/branch-admin/sales-revenue"),
     item(<FaChartBar />, t("branch_admin.cashier_performance", "Cashier Performance"), "/branch-admin/cashier-performance"),
-    item(<FaTable />, t("branch_admin.table_management", "Table Management"), "/branch-admin/tables"),
-    !locked("has_inventory") && item(<FaTrashAlt />, t("branch_admin.waste_management", "Waste Management"), "/branch-admin/waste-management"),
-    !locked("has_inventory") && item(<FaUndo />, t("branch_admin.return_management", "Return Management"), "/branch-admin/return-management"),
-    !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.sales_summary", "Sales Summary"), "/branch-admin/summary-sales"),
+    !locked("has_inventory") && item(<FaSignInAlt />, t("branch_admin.return_management", "Return Management"), "/branch-admin/return-management"),
+    !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.sales_summary", "Sales summary"), "/branch-admin/summary-sales"),
     !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.product_sales", "Product Sales"), "/branch-admin/summary-productsales"),
     !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.raw_material_stock_report", "Raw Material Stock Report"), "/branch-admin/raw-material-stock"),
     !locked("has_reports") && item(<FaFileAlt />, t("branch_admin.raw_material_consumption_report", "Raw Material Consumption Report"), "/branch-admin/raw-material-consumption"),
@@ -88,7 +183,10 @@ const Slidebar = ({ isOpen = true, setIsOpen, isSuperAdmin, superAdmin: superAdm
   const items = superAdmin ? superItems : branchAdmin ? branchItems : adminItems;
   return <><aside className={`fixed bottom-0 left-0 top-0 z-40 flex w-[250px] flex-col justify-between overflow-y-auto bg-[#081321] p-6 text-white transition-transform lg:translate-x-0 ${isOpen ? "translate-x-0" : "-translate-x-full"}`}>
     <div><div className="mb-4 flex items-center gap-3 pl-1"><div className="flex h-[34px] w-[34px] items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600"><FaWifi size={18} /></div><h2 className="m-0 text-lg font-bold"><span>SLT</span> <span className="text-emerald-500">POS</span></h2></div>{section("MAIN")}{items}</div>
-    <div>{item(<FaSignOutAlt />, t("company_admin.log_out", "Log Out"), "/logout", false, (event) => { event.preventDefault(); logout(); })}</div>
+    <div className="space-y-1">
+      {branchAdmin && item(<FaCog />, t("branch_admin.settings", "Settings"), "/branch-admin/settings")}
+      {item(<FaSignOutAlt />, t("company_admin.log_out", "Log Out"), "/logout", false, (event) => { event.preventDefault(); logout(); })}
+    </div>
   </aside><ToastContainer toasts={toasts} removeToast={removeToast} /></>;
 };
 

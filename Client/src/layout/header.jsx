@@ -40,7 +40,7 @@ const saveNotifications = (items) => NOTIFICATION_KEYS.forEach((key) => {
   else sessionStorage.removeItem(key);
 });
 
-const Header = ({ title = "Dashboard", variant = "app", toggleSidebar }) => {
+const Header = ({ title = "Dashboard", subtitle, variant = "app", toggleSidebar }) => {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [branchName, setBranchName] = useState("");
@@ -148,21 +148,44 @@ const Header = ({ title = "Dashboard", variant = "app", toggleSidebar }) => {
   };
   const displayName = useMemo(() => nameOf(user) || user?.u_email || "User", [user]);
   const email = user?.u_email || user?.email || "";
+  const initials = useMemo(() => {
+    if (user?.u_fname || user?.u_lname) {
+      const f = user?.u_fname?.[0] || "";
+      const l = user?.u_lname?.[0] || "";
+      return (f + l).toUpperCase() || "KS";
+    }
+    const parts = (displayName || "").trim().split(/\s+/);
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return (parts[0]?.[0] || "KS").toUpperCase();
+  }, [user, displayName]);
 
   if (variant === "register") {
     return <div className="w-full bg-gradient-to-r from-[#0056A2] via-[#00B4EB] to-[#50B748] px-5 py-2 text-xs text-white">SLT POS</div>;
   }
 
+  const effectiveSubtitle = subtitle !== undefined ? subtitle : (branchName ? `${branchName} branch` : "");
+
   return (
-<header className="relative flex h-[70px] w-full items-center justify-between bg-gradient-to-r from-[#0B192C] from-25% via-[#00B4EB] via-65% to-[#55D24B] px-5 text-white shadow-sm">      <div className="flex items-center gap-4">
-        {toggleSidebar && <button type="button" className="lg:hidden" onClick={toggleSidebar} aria-label="Toggle sidebar"><FaBars size={22} /></button>}
-        <h2 className="m-0 text-2xl font-medium">{title}</h2>
-      </div>
+    <header className="relative flex h-[70px] w-full items-center justify-between bg-gradient-to-r from-[#0B192C] from-25% via-[#00B4EB] via-65% to-[#55D24B] px-5 text-white shadow-sm">
       <div className="flex items-center gap-4">
+        {toggleSidebar && <button type="button" className="lg:hidden" onClick={toggleSidebar} aria-label="Toggle sidebar"><FaBars size={22} /></button>}
+        <div>
+          <h2 className="m-0 text-xl font-bold tracking-tight text-white leading-tight">{title}</h2>
+          {effectiveSubtitle && (
+            <p className="m-0 text-xs text-white/80 font-normal leading-tight mt-0.5">{effectiveSubtitle}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-3.5">
         <div className="relative">
-          <button type="button" className="rounded-full p-2 hover:bg-white/10" onClick={() => setShowNotifications((value) => !value)} aria-label="Notifications">
-            <FaBell size={22} />
-            {notifications.length > 0 && <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-white bg-red-500 px-1 text-center text-[11px] font-bold">{notifications.length > 99 ? "99+" : notifications.length}</span>}
+          <button
+            type="button"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-white/40 text-white/90 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+            onClick={() => setShowNotifications((value) => !value)}
+            aria-label="Notifications"
+          >
+            <FaBell size={16} />
+            {notifications.length > 0 && <span className="absolute -right-1 -top-1 min-w-[18px] rounded-full border-2 border-white bg-red-500 px-1 text-center text-[10px] font-bold">{notifications.length > 99 ? "99+" : notifications.length}</span>}
           </button>
           {showNotifications && <div className="absolute right-0 top-12 z-[1000] w-[380px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-black/10 bg-white text-gray-800 shadow-2xl">
             <div className="flex items-center justify-between border-b bg-gray-50 px-5 py-4">
@@ -171,7 +194,7 @@ const Header = ({ title = "Dashboard", variant = "app", toggleSidebar }) => {
             </div>
             <div className="max-h-[340px] overflow-y-auto">
               {notifications.length === 0 ? <div className="p-10 text-center text-sm text-gray-400">🔔 {t("company_admin.no_notifications", "No notifications")}</div> : notifications.map((item) => (
-                <div key={item.id} className="flex gap-2 border-b p-3 text-sm hover:bg-gray-50" onClick={() => clearNotification(item.id)}>
+                <div key={item.id} className="flex gap-2 border-b p-3 text-sm hover:bg-gray-50 cursor-pointer" onClick={() => clearNotification(item.id)}>
                   <div className="flex-1"><div className="font-semibold">{item.type === "delete" ? "❌ Deleted" : item.type === "update" ? "📝 Updated" : "✅ Added"}</div><div className="text-gray-600">{item.message}</div><div className="mt-1 text-[11px] text-gray-400">{new Date(item.timestamp).toLocaleTimeString()}</div></div>
                   <button type="button" aria-label="Dismiss notification" className="text-gray-400 hover:text-red-500" onClick={(e) => { e.stopPropagation(); clearNotification(item.id); }}><FaTimes /></button>
                 </div>
@@ -179,9 +202,15 @@ const Header = ({ title = "Dashboard", variant = "app", toggleSidebar }) => {
             </div>
           </div>}
         </div>
-        <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1.5">
-          <FaUserCircle size={30} />
-          <div className="hidden leading-tight sm:block"><div className="text-sm font-semibold">{displayName}</div><div className="text-xs opacity-90">{email || branchName}</div></div>
+        <div className="flex items-center gap-2.5">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xs font-bold text-[#0B192C] shadow-sm flex-shrink-0">
+            {initials}
+          </div>
+          <div className="hidden leading-tight sm:block text-left">
+            <div className="text-xs font-bold text-white leading-tight">{displayName}</div>
+            {email && <div className="text-[11px] text-white/80 leading-tight">{email}</div>}
+            {(branchName || user?.branchName) && <div className="text-[10px] text-white/70 leading-tight capitalize">{branchName || user?.branchName}</div>}
+          </div>
         </div>
       </div>
     </header>
