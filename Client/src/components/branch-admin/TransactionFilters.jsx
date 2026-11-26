@@ -1,46 +1,46 @@
 import { useTranslation } from "react-i18next";
 import React from "react";
+import { FiSearch } from "react-icons/fi";
+
+const controlClass = "w-full rounded-lg border-[1.5px] border-[#E7E3D8] bg-white px-3.5 py-2.5 text-[13px] text-[#1A1A1A] outline-none focus:border-[#0F9B8E]";
+const labelClass = "mb-[7px] block text-[12px] font-semibold text-[#5B6470]";
+
 export default function TransactionFilters({
   filters,
   setFilters
 }) {
   const { t } = useTranslation();
-const update = patch => setFilters(prev => ({
+  const update = patch => setFilters(prev => ({
     ...prev,
     ...patch
   }));
-  return <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-        <div className="relative flex-1">
-          <span className="absolute inset-y-0 left-3 flex items-center text-slate-400">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </span>
+  const tabs = [
+    { value: "all", label: t("branch_admin.all_ledger", "All Ledger") },
+    { value: "income", label: t("branch_admin.income_sales", "Income (Sales)") },
+    { value: "expense", label: t("branch_admin.expenses_purchases", "Expenses (Purchases)") }
+  ];
+  return <div className="border-b border-[#E7E3D8]">
+      <div className="flex flex-col gap-3.5 px-[22px] pb-4 pt-5 lg:flex-row lg:items-center">
+        <div className="relative min-w-0 flex-1">
+          <FiSearch className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#5B6470]" size={15} />
           <input type="text" value={filters.search} onChange={e => update({
           search: e.target.value
-        })} placeholder={t("branch_admin.search_by_transaction_id_invoice_no_or_p", "Search by Transaction ID, Invoice No. or Personnel...")} className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-4 text-sm transition-colors placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+        })} placeholder={t("branch_admin.search_by_transaction_id_invoice_no_or_p", "Search by Transaction ID, Invoice No. or Personnel...")} className="w-full rounded-lg border-[1.5px] border-[#E7E3D8] bg-white py-[11px] pl-[38px] pr-3.5 text-[13.5px] text-[#1A1A1A] outline-none placeholder:text-[#9CA3AF] focus:border-[#0F9B8E]" />
         </div>
 
-        <div className="inline-flex h-11 items-center rounded-lg bg-slate-100 p-1 self-start lg:self-auto">
-          <button onClick={() => update({
-          tab: "all"
-        })} className={`rounded-md px-4 py-1.5 text-xs font-medium transition-all ${filters.tab === "all" ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>{t("branch_admin.all_ledger", "All Ledger")}</button>
-          <button onClick={() => update({
-          tab: "income"
-        })} className={`rounded-md px-4 py-1.5 text-xs font-medium transition-all ${filters.tab === "income" ? "bg-white text-emerald-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>{t("branch_admin.income_sales", "Income (Sales)")}</button>
-          <button onClick={() => update({
-          tab: "expense"
-        })} className={`rounded-md px-4 py-1.5 text-xs font-medium transition-all ${filters.tab === "expense" ? "bg-white text-rose-700 shadow-sm" : "text-slate-600 hover:text-slate-900"}`}>{t("branch_admin.expenses_purchases", "Expenses (Purchases)")}</button>
+        <div className="flex shrink-0 self-start rounded-[9px] border border-[#E7E3D8] bg-[#FBFAF7] p-[3px] lg:self-auto">
+          {tabs.map(tab => <button key={tab.value} type="button" onClick={() => update({
+          tab: tab.value
+        })} className={`cursor-pointer whitespace-nowrap rounded-[7px] border-0 px-[15px] py-2 text-[12.5px] font-semibold transition-colors ${filters.tab === tab.value ? "bg-[#071E38] text-white" : "bg-transparent text-[#5B6470] hover:text-[#071E38]"}`}>{tab.label}</button>)}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 pt-3 border-t border-slate-100">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("branch_admin.payment_channel", "Payment Channel")}</label>
+      <div className="grid grid-cols-1 gap-4 px-[22px] pb-[22px] sm:grid-cols-2 lg:grid-cols-[1.2fr_1fr_1fr]">
+        <div>
+          <label className={labelClass}>{t("branch_admin.payment_channel", "Payment Channel")}</label>
           <select value={filters.method} onChange={e => update({
           method: e.target.value
-        })} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100">
+        })} className={`${controlClass} cursor-pointer`}>
             <option value="all">{t("branch_admin.all_settlement_methods", "All Settlement Methods")}</option>
             <option value="cash">{t("branch_admin.cash_tender", "Cash Tender")}</option>
             <option value="card">{t("branch_admin.card_terminal_pos", "Card Terminal / POS")}</option>
@@ -50,18 +50,18 @@ const update = patch => setFilters(prev => ({
           </select>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("branch_admin.date_from", "Date From")}</label>
+        <div>
+          <label className={labelClass}>{t("branch_admin.date_from", "Date From")}</label>
           <input type="date" value={filters.dateFrom || ""} onChange={e => update({
           dateFrom: e.target.value || null
-        })} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+        })} className={controlClass} />
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">{t("branch_admin.date_to", "Date To")}</label>
+        <div>
+          <label className={labelClass}>{t("branch_admin.date_to", "Date To")}</label>
           <input type="date" value={filters.dateTo || ""} onChange={e => update({
           dateTo: e.target.value || null
-        })} className="w-full rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100" />
+        })} className={controlClass} />
         </div>
       </div>
     </div>;

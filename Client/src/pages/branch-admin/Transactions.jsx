@@ -154,31 +154,27 @@ const [filters, setFilters] = useState({
       return true;
     });
   }, [transactions, filters]);
-  return <div className="flex h-screen overflow-hidden bg-slate-50 text-slate-800 antialiased">
+  return <div className="flex h-screen overflow-hidden bg-[#F7F5F0] text-[#1A1A1A] antialiased">
       <Sidebar />
 
-      <div className="flex flex-1 flex-col overflow-hidden" style={{
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden" style={{
       marginLeft: 240
     }}>
         <Header title={t("branch_admin.transaction_details", "Transaction Details")} />
 
-        <main className="flex-1 overflow-y-auto p-6 lg:p-8">
-          <div className="mx-auto max-w-7xl space-y-6">
-            <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-center">
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-900">{t("branch_admin.financial_ledger", "Financial Ledger")}</h1>
-                <p className="text-sm text-slate-500">{t("branch_admin.audit_inspect_and_trace_branch_transacti", "Audit, inspect, and trace branch transactions.")}</p>
-              </div>
-            </div>
+        <main className="flex-1 overflow-y-auto px-9 py-8">
+          <div className="mb-[22px]">
+            <h2 className="m-0 mb-1 font-space text-xl font-bold text-[#071E38]">{t("branch_admin.financial_ledger", "Financial Ledger")}</h2>
+            <p className="m-0 text-[13px] text-[#5B6470]">{t("branch_admin.audit_inspect_and_trace_branch_transacti", "Audit, inspect, and trace branch transactions.")}</p>
+          </div>
 
+          <div className="overflow-hidden rounded-[14px] border border-[#E7E3D8] bg-white">
             <TransactionFilters filters={filters} setFilters={setFilters} />
 
-            <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-              {!loading && filtered.length === 0 ? <div className="p-20 text-center">
-                  <p className="text-base font-medium text-slate-600">{t("branch_admin.no_transaction_history_for_this_branch", "No transaction history for this branch.")}</p>
-                  <p className="text-xs text-slate-400 mt-1">{t("branch_admin.try_a_different_date_range_or_clearing_f", "Try a different date range or clearing filters.")}</p>
-                </div> : <TransactionTable data={filtered} loading={loading} pageSize={pageSize} onView={item => setSelected(item)} />}
-            </div>
+            {!loading && filtered.length === 0 ? <div className="p-20 text-center">
+                <p className="m-0 text-[15px] font-bold text-[#071E38]">{t("branch_admin.no_transaction_history_for_this_branch", "No transaction history for this branch.")}</p>
+                <p className="m-0 mt-1 text-[13px] text-[#5B6470]">{t("branch_admin.try_a_different_date_range_or_clearing_f", "Try a different date range or clearing filters.")}</p>
+              </div> : <TransactionTable data={filtered} loading={loading} pageSize={pageSize} onView={item => setSelected(item)} />}
           </div>
         </main>
       </div>
