@@ -13,6 +13,7 @@ import {
   recalculateOrderTotals,
   round2,
 } from "../utils/orderTotals.js";
+import { occupyTable, releaseTableIfNoOpenOrders } from "../utils/tableOccupancy.js";
 
 
 // Unit conversion for recipe ingredients
@@ -295,7 +296,7 @@ export const getAllOrders = async (req, res) => {
 // Shared filter parser for the branch/company order list endpoints.
 // Returns { error } on invalid input, otherwise { conditions, values }.
 function buildOrderFilters(query, startIndex = 1) {
-  const { status, type, b_id, u_id, date, start_date, end_date, hours } = query;
+  const { status, type, b_id, u_id, table_id, date, start_date, end_date, hours } = query;
 
   if (status && !VALID_STATUSES.includes(status)) {
     return { error: `Invalid status filter. Use: ${VALID_STATUSES.join(" | ")}` };
@@ -305,6 +306,9 @@ function buildOrderFilters(query, startIndex = 1) {
   }
   if (b_id && isNaN(Number(b_id))) return { error: "Invalid b_id format" };
   if (u_id && isNaN(Number(u_id))) return { error: "Invalid u_id format" };
+  if (table_id && !(Number.isInteger(Number(table_id)) && Number(table_id) > 0)) {
+    return { error: "Invalid table_id format" };
+  }
   if (date && isNaN(Date.parse(date))) return { error: "Invalid date format" };
   if (start_date && isNaN(Date.parse(start_date))) return { error: "Invalid start_date format" };
   if (end_date && isNaN(Date.parse(end_date))) return { error: "Invalid end_date format" };
@@ -329,6 +333,10 @@ function buildOrderFilters(query, startIndex = 1) {
   if (u_id) {
     conditions.push(`o.u_id = $${i++}`);
     values.push(Number(u_id));
+  }
+  if (table_id) {
+    conditions.push(`o.table_id = $${i++}`);
+    values.push(Number(table_id));
   }
   if (date) {
     conditions.push(`o.or_date = $${i++}`);
@@ -576,6 +584,7 @@ export const createOrder = async (req, res) => {
 
     const client = await pool.connect();
     let createdOrder;
+    let tableOccupied = false;
     try {
       await client.query("BEGIN");
 
@@ -607,6 +616,9 @@ export const createOrder = async (req, res) => {
       // No items yet — totals start from service fee + add-ons; every item
       // added through /order-items recalculates them.
       createdOrder = await recalculateOrderTotals(client, rows[0].or_id);
+
+      // Seating a party occupies the table (no-op if another party is already there)
+      tableOccupied = await occupyTable(client, createdOrder.table_id);
       await client.query("COMMIT");
     } catch (err) {
       await client.query("ROLLBACK");
@@ -616,6 +628,9 @@ export const createOrder = async (req, res) => {
     }
 
     emitSocketEvent("order:created", createdOrder);
+    if (tableOccupied) {
+      emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: createdOrder.table_id, table_status: "occupied", branch_id: createdOrder.b_id }, { room: "branch-updates" });
+    }
 
     res.status(201).json({ success: true, data: createdOrder });
   } catch (err) {
@@ -732,8 +747,12 @@ export const updateOrder = async (req, res) => {
     );
 
     // Table transitions
-    if (existing.table_id && existing.table_id !== table_id) {
-      await client.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [existing.table_id]);
+    // Moving this party off a table: free the old table only if no other party is still open there
+    if (
+      existing.table_id &&
+      existing.table_id !== table_id &&
+      (await releaseTableIfNoOpenOrders(client, existing.table_id, existing.or_id))
+    ) {
       emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: existing.table_id, table_status: 'available', branch_id: existing.b_id }, { room: `branch-updates` });
     }
     if (table_id && existing.table_id !== table_id) {
@@ -1023,11 +1042,12 @@ export const updateOrderStatus = async (req, res) => {
       );
       updatedOrder = rows[0];
 
-      if (status === "cancelled" && updatedOrder.table_id) {
-        await client.query(
-          `UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`,
-          [updatedOrder.table_id]
-        );
+      // Other parties may still be seated at this table — only free it when none are open
+      if (
+        status === "cancelled" &&
+        updatedOrder.table_id &&
+        (await releaseTableIfNoOpenOrders(client, updatedOrder.table_id, updatedOrder.or_id))
+      ) {
         emitSocketEvent(SOCKET_EVENTS.TABLE_UPDATED, { table_id: updatedOrder.table_id, table_status: 'available', branch_id: updatedOrder.b_id }, { room: `branch-updates` });
       }
 

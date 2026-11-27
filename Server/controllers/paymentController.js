@@ -2,6 +2,7 @@
 import { body, param, query, validationResult } from "express-validator";
 import pool from "../config/database.js";
 import { emitSocketEvent, ADMIN_PAYMENT_ROOM, SOCKET_EVENTS } from "../utils/socket.js";
+import { releaseTableIfNoOpenOrders } from "../utils/tableOccupancy.js";
 
 // ─── DB-Aligned Constants ─────────────────────────────────────────────────────
 // Adjust these to match your Payment table CHECK constraints if you have them
@@ -410,10 +411,13 @@ export async function createPayment(req, res, next) {
 
     if (pay_status === "paid") {
       const orderRes = await client.query(`SELECT table_id, b_id FROM "ORDER" WHERE or_id = $1`, [or_id]);
-      if (orderRes.rows.length && orderRes.rows[0].table_id) {
+      // Other parties may still be seated at this table — only free it when none are open
+      if (
+        orderRes.rows.length &&
+        (await releaseTableIfNoOpenOrders(client, orderRes.rows[0].table_id, Number(or_id)))
+      ) {
         updatedTableId = orderRes.rows[0].table_id;
         branchId = orderRes.rows[0].b_id;
-        await client.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [updatedTableId]);
       }
     }
 
@@ -583,10 +587,13 @@ export async function updatePayment(req, res, next) {
     let branchId = null;
     if (pay_status === "paid" && prevStatus !== "paid") {
       const orderRes = await pool.query(`SELECT table_id, b_id FROM "ORDER" WHERE or_id = $1`, [or_id]);
-      if (orderRes.rows.length && orderRes.rows[0].table_id) {
+      // Other parties may still be seated at this table — only free it when none are open
+      if (
+        orderRes.rows.length &&
+        (await releaseTableIfNoOpenOrders(pool, orderRes.rows[0].table_id, Number(or_id)))
+      ) {
         updatedTableId = orderRes.rows[0].table_id;
         branchId = orderRes.rows[0].b_id;
-        await pool.query(`UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`, [updatedTableId]);
       }
     }
 

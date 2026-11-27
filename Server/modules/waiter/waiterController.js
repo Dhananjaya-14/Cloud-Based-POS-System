@@ -2,6 +2,7 @@ import pool from "../../config/database.js";
 import { ROLES } from "../../middleware/authMiddleware.js";
 import { emitSocketEvent, SOCKET_EVENTS } from "../../utils/socket.js";
 import { getBranchTaxRate, recalculateOrderTotals } from "../../utils/orderTotals.js";
+import { releaseTableIfNoOpenOrders } from "../../utils/tableOccupancy.js";
 
 const VALID_STATUSES = ["pending", "hold", "preparing", "completed", "cancelled"];
 
@@ -483,20 +484,7 @@ export async function deleteWaiterOrder(req, res, next) {
       );
 
       if (order.table_id) {
-        const activeOrders = await client.query(
-          `SELECT or_id
-           FROM "ORDER"
-           WHERE table_id = $1 AND or_status IN ('pending', 'hold', 'preparing')
-           LIMIT 1`,
-          [order.table_id],
-        );
-
-        if (!activeOrders.rows.length) {
-          await client.query(
-            `UPDATE "TABLES" SET table_status = 'available' WHERE table_id = $1`,
-            [order.table_id],
-          );
-        }
+        await releaseTableIfNoOpenOrders(client, order.table_id, order.or_id);
       }
 
       await client.query("COMMIT");
