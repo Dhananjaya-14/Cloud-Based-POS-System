@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { emitSocketEvent, SOCKET_EVENTS } from "../utils/socket.js";
+import { findOpenOrderOnTable } from "../utils/tableOccupancy.js";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -393,18 +394,11 @@ export async function releaseTable(req, res, next) {
     }
 
     // Block release while the table still has an open order
-    const openOrder = await pool.query(
-      `SELECT or_id FROM "ORDER"
-       WHERE table_id = $1 AND or_status IN ('pending', 'hold', 'preparing')
-       LIMIT 1`,
-      [id],
-    );
-    if (openOrder.rows.length > 0) {
+    const openOrder = await findOpenOrderOnTable(pool, id);
+    if (openOrder) {
       res.status(409);
       return next(
-        new Error(
-          `Cannot release table: order #${openOrder.rows[0].or_id} is still open`,
-        ),
+        new Error(`Cannot release table: order #${openOrder.or_id} is still open`),
       );
     }
 
